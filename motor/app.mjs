@@ -8,6 +8,7 @@ import './blocos-acao.mjs';
 import './terminal.mjs';
 import './console-api.mjs';
 import './blocos-avaliacao.mjs';
+import './linha-do-tempo.mjs';
 
 export function iniciar(doc, win) {
   const dados = JSON.parse(doc.getElementById('oda-dados').textContent);

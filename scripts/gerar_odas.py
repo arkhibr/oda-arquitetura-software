@@ -26,7 +26,7 @@ OBRIGATORIOS = {
     "arvores": ("esquerda", "direita"), "comparativo": ("colunas", "linhas"), "diagrama": ("id", "tipo_diagrama", "titulo", "mermaid"),
     "fluxo": ("titulo", "etapas"), "console-api": ("cenarios",), "classificador": ("categorias", "itens"),
     "terminal": ("comandos",), "incidente": ("titulo", "saida", "origem", "pergunta", "alternativas", "correcao"),
-    "quiz": ("perguntas",), "resumo": (),
+    "quiz": ("perguntas",), "resumo": (), "linha-do-tempo": ("atores", "eventos"),
 }
 ESTILOS = {"dica", "erro", "quebra", "sucesso"}
 ROTULOS = {"terminal", "arquivo", "saida", "log"}
@@ -113,6 +113,19 @@ def _bloco(bloco, commit: str, rotulo: str, flags: set[str] = frozenset()) -> li
                 erros.append(f"{rotulo}: cenário {i} exige rotulo, requisicao.metodo e resposta.status.")
             if c.get("origem") not in ORIGENS:
                 erros.append(f"{rotulo}: cenário {i} com origem inválida: {c.get('origem')}.")
+    if tipo == "linha-do-tempo":
+        atores = {a.get("id") for a in bloco["atores"]}
+        anteriores = set()
+        for e in bloco["eventos"]:
+            for ator in (e.get("de"), e.get("para")):
+                if ator not in atores:
+                    erros.append(f"{rotulo}: evento {e.get('id')} usa ator inexistente: {ator}.")
+            if "depende" in e and e["depende"] not in anteriores:
+                erros.append(f"{rotulo}: evento {e.get('id')} depende de {e['depende']}, que não é evento anterior.")
+            anteriores.add(e.get("id"))
+        for f in bloco.get("falhas", []):
+            if f.get("ator") not in atores:
+                erros.append(f"{rotulo}: falha {f.get('id')} usa ator inexistente: {f.get('ator')}.")
     if tipo == "classificador":
         ids = {c.get("id") for c in bloco["categorias"]}
         for i, item in enumerate(bloco["itens"], 1):

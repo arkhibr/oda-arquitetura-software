@@ -129,6 +129,17 @@ class TestValidacao(unittest.TestCase):
         d["abas"][6]["blocos"].append({"tipo": "resumo"})
         self.assertEqual(validar_oda(d, CATALOGO), [])
 
+    def test_linha_do_tempo_valida_referencias(self):
+        bloco = {"tipo": "linha-do-tempo", "atores": [{"id": "p", "rotulo": "P"}, {"id": "f", "rotulo": "F"}],
+                 "eventos": [{"id": "e1", "de": "p", "para": "f", "mensagem": "m"}, {"id": "e2", "de": "f", "para": "x", "mensagem": "m", "depende": "e9"}],
+                 "falhas": [{"id": "a", "rotulo": "A", "ator": "y"}]}
+        d = minima()
+        d["abas"][3]["blocos"].append(bloco)
+        erros = validar_oda(d, CATALOGO)
+        self.assertIn("simulacao[1]: evento e2 usa ator inexistente: x.", erros)
+        self.assertIn("simulacao[1]: evento e2 depende de e9, que não é evento anterior.", erros)
+        self.assertIn("simulacao[1]: falha a usa ator inexistente: y.", erros)
+
 
 class TestGeracao(unittest.TestCase):
     def test_preparar_atribui_ids_e_renomeia(self):
