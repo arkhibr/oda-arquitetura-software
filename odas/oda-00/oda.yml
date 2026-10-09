@@ -16,14 +16,14 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: São necessários Node 20 ou superior, versão usada na esteira de CI do repositório, npm, Git e Docker com o comando `docker compose`. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
+    texto: São necessários Node 22.12 ou superior, com recomendação do Node 24, npm, Git e Docker com o comando `docker compose`. Os scripts de deploy, do Gateway e dos BFFs rodam com `node --experimental-strip-types`, opção que o Node 20 não reconhece. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
     - entrada: node --version
       saida: v24.16.0
       origem: exemplo
-      dica: Qualquer versão 20 ou superior atende.
+      dica: 'Qualquer versão a partir da 22.12 atende. No Node 22 aparece o aviso `ExperimentalWarning: Type Stripping is an experimental feature`, que não impede a execução.'
     - entrada: docker compose version
       saida: Docker Compose version 5.1.4
       origem: exemplo
@@ -101,13 +101,13 @@ abas:
     - dimensao: Gateway
       valores:
       - '4000'
-      - '`npm run dev` em `gateway/`'
+      - '`npm run dev` em `gateway/`, com as variáveis de ambiente indicadas na ODA 01'
       - Autentica o JWT e encaminha ao BFF
     - dimensao: BFFs
       valores:
       - 4001 e 4002
       - '`npm run dev` em cada pasta de `bffs/`'
-      - Adaptam o back-end para cada microfrontend
+      - Adaptam o back-end para cada domínio de negócio
   - tipo: conceito
     titulo: Shell nuclear e microfrontends
     texto: O shell é um núcleo estável que cuida de login, layout e roteamento, e os microfrontends entram e saem sem recompilar o shell. Em desenvolvimento, as chamadas de API do shell caem no back-end simulado do MSW, e os microfrontends são baixados do S3 local.
@@ -123,8 +123,8 @@ abas:
     status: Proposed
     contexto: Cada microfrontend é um bundle ESM carregado em tempo de execução, e faltava definir como ele é construído, onde fica hospedado e como é publicado.
     decisao: Build em Vite lib mode e hospedagem num bucket S3 por microfrontend, com LocalStack em desenvolvimento, num repositório único com uma pasta por microfrontend para fins didáticos.
-    alternativas: Um repositório isolado por microfrontend, recomendado pela ADR para produção.
-    consequencias: O deploy da raiz calcula o SHA-256 do bundle, confirma HTTP 200 no bucket e atualiza o campo `integrity` do manifesto, e bundle e manifesto precisam ser promovidos juntos.
+    alternativas: Servir os bundles pelo próprio shell, descartado porque reacopla o deploy do microfrontend ao do shell, e um repositório isolado por microfrontend, recomendado pela ADR para produção.
+    consequencias: Cada microfrontend compila e publica sozinho, e o bucket por microfrontend permite política de acesso por módulo. Em troca, cada bucket exige configuração própria de policy e CORS, e o repositório único não demonstra o isolamento de repositório. A Atualização 1.1 acrescenta o cálculo do SHA-256 no deploy da raiz, que grava o campo `integrity` do manifesto.
 - id: codigo
   titulo: No código
   blocos:
@@ -233,7 +233,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra o que o `npm run deploy` faz, etapa por etapa, e depois localize cada peça do repositório. As saídas abaixo seguem a execução real do laboratório.
+    texto: Percorra o que o `npm run deploy` faz, etapa por etapa, e depois localize cada peça do repositório.
   - tipo: fluxo
     titulo: O que o npm run deploy faz
     etapas:
@@ -327,7 +327,7 @@ abas:
         - git checkout 2179313
         - npm ci
     - titulo: Publicar os microfrontends no LocalStack
-      texto: Com o Docker em execução, rode o deploy da raiz. Na primeira vez, ele sobe o compose e constrói as imagens do Gateway e dos BFFs.
+      texto: Com o Docker em execução, rode o deploy da raiz. Na primeira vez, ele sobe o compose, constrói as imagens do Gateway e dos BFFs e instala as dependências de cada microfrontend, com a linha `node_modules ausente — npm ci…` seguida da saída do npm antes de cada build.
       editor:
         rotulo: terminal
         linhas:

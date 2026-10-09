@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: A documentação de arquitetura do `frontend-react` reúne diagramas C4 e 17 ADRs. Nesta ODA, o aluno aprende a ler esses artefatos e confere no código e no terminal o caminho de uma requisição entre os containers.
+    texto: A documentação de arquitetura do `frontend-react` reúne diagramas C4 e 17 ADRs. Esta ODA ensina a ler esses artefatos e a conferir, no código e no terminal, o caminho de uma requisição entre os containers.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -16,7 +16,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 00, com o repositório clonado no commit `2179313` e as dependências instaladas. O laboratório também usa `curl`, disponível no terminal do macOS e do Linux e no Windows 10 ou superior.
+    texto: A ODA 00, com o repositório clonado no commit `2179313` e as dependências instaladas. O laboratório também usa `curl` e `grep`, com comandos na sintaxe do bash. No Windows, os passos devem ser executados no Git Bash ou no WSL, porque o PowerShell trata `curl` como outro comando e não tem `grep`.
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
@@ -55,7 +55,7 @@ abas:
       - O próprio código-fonte
     - dimensao: ADR
       valores:
-      - Contexto, opções avaliadas, decisão e consequências
+      - Contexto, opções avaliadas, decisão e consequências, em ordem que varia entre as ADRs
       - '`docs/architecture/adrs/`, com o status no índice do README'
   - tipo: diagrama
     id: D-01
@@ -64,7 +64,7 @@ abas:
     mermaid: "graph LR\n    user([\"\U0001F464 Usuário\"])\n\n    subgraph infra[\"Infraestrutura de produção\"]\n        nginx[\"Nginx\\nservidor HTTP estático\"]\n        shell[\"Shell nuclear\\nReact 19 + TypeScript\\nexecutado no navegador\"]\n        mfe[\"MFE autônomo\\nbundle ESM (ex: endereço)\"]\n    end\n\n    subgraph storage[\"Object storage (S3 / LocalStack)\"]\n        manifest[\"mfe-manifest.json\"]\n        bundle[\"bundles dos MFEs\\n(um bucket por MFE)\"]\n    end\n\n    gateway[\"Gateway\\nJWT · auditoria · rate limit\"]\n    bff[\"BFFs internos\\ncontrato + autorização\"]\n\n    user -->|\"HTTPS\"| nginx\n    nginx -->|\"HTML + JS + CSS\"| shell\n    shell -->|\"fetch manifesto\"| manifest\n    shell -->|\"fetch + SHA-256 + import Blob\"| bundle\n    bundle -->|\"monta na rota\"| mfe\n    shell -->|\"HTTPS + Bearer JWT\"| gateway\n    mfe -->|\"HTTPS + Bearer JWT\"| gateway\n    gateway -->|\"identidade interna\"| bff"
   - tipo: conceito
     titulo: Como ler uma ADR
-    texto: 'Toda ADR do repositório segue a mesma ordem: contexto e problema, opções consideradas, decisão e consequências. O índice em `docs/architecture/README.md` mostra o status de cada uma, e no commit de referência todas estão como Proposed.'
+    texto: 'Toda ADR do repositório tem contexto, opções avaliadas, decisão e consequências, e a ordem das seções varia: a ADR-001, mostrada abaixo, apresenta a decisão antes das opções, e a ADR-015 começa por contexto, drivers e opções. O índice em `docs/architecture/README.md` mostra o status de cada uma, e no commit de referência todas estão como Proposed.'
     analogia: O diagrama funciona como a planta de uma casa, e a ADR funciona como o memorial que explica por que a escada ficou naquela parede.
   - tipo: adr
     id: ADR-001
@@ -172,7 +172,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra o caminho de uma requisição autenticada pelo Gateway e depois envie requisições pelo console. As respostas foram obtidas com o Gateway e o BFF de endereço rodando localmente.
+    texto: Percorra o caminho de uma requisição autenticada pelo Gateway e depois envie pelo console três requisições ao Gateway e ao BFF de endereço, cada uma com a resposta que eles devolvem.
   - tipo: fluxo
     titulo: Caminho de uma requisição até o BFF de endereço
     etapas:
@@ -306,7 +306,7 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - ls docs/architecture/adrs
+        - ls -1 docs/architecture/adrs
       sucesso: 17 arquivos, de `ADR-001-plataforma-tecnologica.md` a `ADR-017-contrato-de-tipos-mfe-bff-hono-rpc.md`.
     - titulo: Consultar o status no índice
       editor:
@@ -315,7 +315,7 @@ abas:
         - grep -E '^\| \[ADR-0(01|07|11|15)\]' docs/architecture/README.md
       sucesso: Quatro linhas do índice, todas com o status `Proposed`.
     - titulo: Subir o BFF de endereço
-      texto: Num terminal separado, instale as dependências e suba o BFF com a chave interna usada no compose.
+      texto: Num terminal separado, aberto na raiz do repositório, instale as dependências e suba o BFF com a chave interna usada no compose.
       editor:
         rotulo: terminal
         linhas:
@@ -324,7 +324,7 @@ abas:
         - INTERNAL_GATEWAY_KEY=local-development-gateway-key npm run dev
       sucesso: '`BFF-endereco ouvindo em http://localhost:4002`.'
     - titulo: Subir o Gateway
-      texto: Em outro terminal, suba o Gateway com o segredo de desenvolvimento do JWT e a mesma chave interna. No PowerShell, defina as variáveis com `$env:NOME="valor"` antes de `npm run dev`.
+      texto: Em outro terminal, também aberto na raiz do repositório, suba o Gateway com o segredo de desenvolvimento do JWT e a mesma chave interna.
       editor:
         rotulo: terminal
         linhas:
@@ -348,7 +348,7 @@ abas:
   - tipo: terminal
     titulo: terminal · frontend-react
     comandos:
-    - entrada: ls docs/architecture/adrs
+    - entrada: ls -1 docs/architecture/adrs
       saida: 'ADR-001-plataforma-tecnologica.md
 
         ADR-002-modularizacao.md
@@ -435,7 +435,7 @@ abas:
 
       {"error":"unauthorized","message":"Token Bearer ausente ou inválido."}'
     pergunta: Qual container produziu esta resposta?
-    correcao: 'Enviar o JWT no cabeçalho `Authorization: Bearer <token>`.'
+    correcao: 'O 401 veio da borda, antes de qualquer BFF, e a investigação segue no cliente que montou a requisição sem o cabeçalho `Authorization: Bearer`.'
     alternativas:
     - texto: O shell.
       correta: false
@@ -455,7 +455,7 @@ abas:
 
       {"error":"unauthorized","message":"Requisição interna não autenticada."}'
     pergunta: Por que o BFF recusou a chamada?
-    correcao: Chamar o back-end sempre pelo Gateway, que acrescenta a chave interna e a identidade do usuário.
+    correcao: O BFF não é ponto de entrada de clientes externos, e a chamada válida chega pelo Gateway, que acrescenta a chave interna e a identidade do usuário depois de validar o JWT.
     alternativas:
     - texto: O JWT expirou.
       correta: false
@@ -487,16 +487,19 @@ abas:
     titulo: Contagem de ADRs desatualizada
     origem: codigo
     rotulo_saida: log
-    saida: "README.md:5  ... mapa de módulos e as 15 ADRs (Architecture Decision Record ...)\n\n$ ls docs/architecture/adrs | wc -l\n      17"
+    saida: 'README.md:5  ... mapa de módulos e as 15 ADRs (Architecture Decision Record ...)
+
+
+      docs/architecture/adrs/  17 arquivos, de ADR-001 a ADR-017'
     pergunta: O README raiz cita 15 ADRs, e a pasta tem 17. Qual é a leitura correta?
     correcao: Consultar o índice de `docs/architecture/README.md`, que lista as 17 ADRs com status.
     alternativas:
     - texto: A pasta tem arquivos duplicados.
       correta: false
       explicacao: Os 17 arquivos têm números e títulos diferentes.
-    - texto: As ADR-016 e ADR-017 foram acrescentadas depois, e o texto do README raiz não acompanhou.
+    - texto: O texto do README raiz está desatualizado em relação à pasta, que tem também as ADR-016 e ADR-017.
       correta: true
-      explicacao: O índice em `docs/architecture/README.md` já lista as 17 ADRs.
+      explicacao: O índice em `docs/architecture/README.md` lista as 17 ADRs, inclusive a ADR-016 e a ADR-017.
     - texto: Duas ADRs foram revogadas e continuam na pasta.
       correta: false
       explicacao: O índice mostra as 17 com status `Proposed`, sem revogação.
@@ -509,7 +512,7 @@ abas:
       alternativas:
       - texto: Contexto.
         correta: false
-        explicacao: O nível 1 mostra o sistema como uma caixa só, com usuários e sistemas externos.
+        explicacao: O nível 1 mostra os usuários, os sistemas externos e as fronteiras do sistema. No README deste repositório, o diagrama de contexto já separa Portal, Gateway e BFFs, mas sem o armazenamento e sem detalhar as comunicações entre as peças, que ficam para o nível 2.
       - texto: Código.
         correta: false
         explicacao: O nível 4 mostra classes e arquivos.
