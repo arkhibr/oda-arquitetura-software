@@ -202,7 +202,8 @@ odas:
     minutos: 75
     pre_requisitos: ["19"]
     objetivo: "Comparar a organização por camada e por caso de uso e implementar um novo caso de uso como fatia."
-    situacao: planejada
+    situacao: disponivel
+    pagina: oda-20-vertical-slice.md
   - id: "21"
     titulo: "DDD tático: domínio rico seletivo, value objects e agregado"
     trilha: 6

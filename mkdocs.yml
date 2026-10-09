@@ -60,4 +60,5 @@ nav:
   - Catálogo de ODAs: odas/index.md
   - ODAs:
       - "02 — FSD e fronteiras": odas/oda-02-fsd-fronteiras.md
+      - "20 — Vertical Slice": odas/oda-20-vertical-slice.md
   - Como escrever uma ODA: referencia/modelo-de-oda.md
