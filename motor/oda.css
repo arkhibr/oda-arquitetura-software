@@ -116,7 +116,7 @@ input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucess
 .passo__feito { color: var(--texto-suave); font-size: .9em; }
 .passo .bloco { margin: 10px 0 0; }
 .passo__menu, .passo__teclas, .passo__texto { margin: 8px 0 0; }
-.arvores { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.arvores { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .arvore { background: var(--interno); border: 1px solid var(--borda); border-radius: 10px; padding: 12px; }
 .arvore__titulo { color: var(--destaque); }
 .arvore__lista { display: grid; margin: 8px 0; font-family: var(--mono); font-size: .85rem; }
@@ -129,7 +129,7 @@ input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucess
 .comparativo thead th { background: var(--interno); color: var(--destaque); }
 .comparativo__dimensao { background: none; border: 0; padding: 0; font-weight: 700; text-align: left; color: var(--texto); }
 .comparativo__linha--ativa td, .comparativo__linha--ativa th { background: var(--dica-fundo); }
-@media (max-width: 760px) { .arvores { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .arvores { grid-template-columns: minmax(0, 1fr); } }
 .terminal { background: var(--terminal); border: 1px solid var(--borda); border-radius: 10px; overflow: hidden; font-family: var(--mono); font-size: .86rem; }
 .terminal__barra { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--borda); }
 .terminal__pontos { display: flex; gap: 6px; }
@@ -152,7 +152,7 @@ input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucess
 .api { background: var(--interno); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; }
 .api__cenarios { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .api__cenario[aria-pressed="true"] { border-color: var(--destaque); color: var(--destaque); }
-.api__paineis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.api__paineis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .api__painel { background: var(--terminal); border: 1px solid var(--borda); border-radius: 10px; padding: 10px; min-width: 0; }
 .api__painel pre { margin: 8px 0 0; color: var(--terminal-texto); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .84rem; }
 .api__cabeca { display: flex; gap: 8px; align-items: center; }
@@ -161,7 +161,7 @@ input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucess
 .api__status--erro-cliente { background: var(--alerta-fundo); color: var(--alerta); }
 .api__status--erro-servidor { background: var(--perigo-fundo); color: var(--perigo); }
 .api__nota { margin: 10px 0 0; color: var(--texto-suave); }
-@media (max-width: 760px) { .api__paineis { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .api__paineis { grid-template-columns: minmax(0, 1fr); } }
 .fluxo, .classificador, .quiz, .incidente { background: var(--interno); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; }
 .fluxo__nome, .incidente__titulo { font-weight: 700; color: var(--destaque); margin: 0 0 10px; }
 .incidente__titulo { color: var(--perigo); }
@@ -171,7 +171,7 @@ input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucess
 .fluxo__titulo { font-weight: 700; margin: 0 0 6px; }
 .fluxo__nav { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 .classificador ul { list-style: none; padding: 0; display: grid; gap: 10px; }
-.classificador__item { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; border-bottom: 1px solid var(--borda); padding-bottom: 8px; }
+.classificador__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; border-bottom: 1px solid var(--borda); padding-bottom: 8px; }
 .classificador__item > div { grid-column: 1 / -1; }
 select { background: var(--terminal); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 8px; }
 .quiz__pergunta { border: 0; padding: 0; margin: 0 0 14px; }
@@ -184,4 +184,8 @@ select { background: var(--terminal); border: 1px solid var(--borda); border-rad
 .resultado { font-weight: 700; }
 .incidente .bloco { margin: 0 0 12px; }
 .incidente__correcao { border-left: 4px solid var(--sucesso); background: var(--sucesso-fundo); padding: 8px 12px; border-radius: 8px; margin-top: 8px; }
-@media (max-width: 600px) { .classificador__item { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .classificador__item { grid-template-columns: minmax(0, 1fr); } }
+.painel, .bloco, .passo, .passo > *, .arvore, .fluxo, .incidente, .api, .quiz, .classificador { min-width: 0; }
+.passo__titulo, .arvore__no, .fluxo__etapa, .quiz__alternativa { overflow-wrap: anywhere; }
+fieldset { min-width: 0; }
+.legenda code, .faixa code, .passo code, .classificador code, .quiz code, .incidente code, .comparativo code, .arvore__descricao code, .api__nota code, legend code { overflow-wrap: anywhere; }
