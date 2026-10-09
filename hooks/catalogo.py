@@ -72,7 +72,7 @@ def formatar_horas(minutos: int) -> str:
 
 
 def _href(oda: dict) -> str:
-    return f"novo/{oda['app']}/"
+    return f"{oda['app']}/"
 
 
 def _titulo_trilha(catalogo: dict, numero: int) -> str:

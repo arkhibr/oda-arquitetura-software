@@ -13,7 +13,7 @@ function vigiarErros(page) {
 for (const oda of ODAS) {
   test(`${oda}: sete abas, sem bloco com erro e com pelo menos 60 interações`, async ({ page }) => {
     const erros = vigiarErros(page);
-    await page.goto(`/novo/${oda}/`);
+    await page.goto(`/${oda}/`);
     const abas = page.getByRole('tab');
     await expect(abas).toHaveCount(7);
     for (let i = 0; i < 7; i += 1) await abas.nth(i).click();
@@ -25,7 +25,7 @@ for (const oda of ODAS) {
   test(`${oda}: sem rolagem horizontal em 360 px`, async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
     for (const aba of ABAS) {
-      await page.goto(`/novo/${oda}/#${aba}`);
+      await page.goto(`/${oda}/#${aba}`);
       await expect(page.getByRole('tab')).toHaveCount(7);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     }
@@ -33,7 +33,7 @@ for (const oda of ODAS) {
 }
 
 test('oda-02: lint acusa a violação depois do passo 3 e volta a passar no passo 6', async ({ page }) => {
-  await page.goto('/novo/oda-02/#laboratorio');
+  await page.goto('/oda-02/#laboratorio');
   const painel = page.locator('#painel-laboratorio');
   const campo = painel.getByLabel('Digite um comando');
   const tela = painel.locator('.terminal__tela');
@@ -52,7 +52,7 @@ test('oda-02: lint acusa a violação depois do passo 3 e volta a passar no pass
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {
-  await page.goto('/novo/oda-30/#simulacao');
+  await page.goto('/oda-30/#simulacao');
   const tempo = page.locator('#painel-simulacao .tempo').first();
   await tempo.getByLabel('A leitura da fila 2 não é executada').check();
   for (let i = 0; i < 5; i += 1) await tempo.getByRole('button', { name: 'Próximo evento' }).click();
@@ -60,7 +60,7 @@ test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não �
 });
 
 test('oda-30: terminal acompanha a extensão do cenário 09', async ({ page }) => {
-  await page.goto('/novo/oda-30/#laboratorio');
+  await page.goto('/oda-30/#laboratorio');
   const painel = page.locator('#painel-laboratorio');
   const campo = painel.getByLabel('Digite um comando');
   const tela = painel.locator('.terminal__tela');
@@ -79,7 +79,7 @@ test('oda-30: terminal acompanha a extensão do cenário 09', async ({ page }) =
 });
 
 test('oda-30: comando curto falha sem a assinatura e passo 7 isolado não simula a fila 3', async ({ page }) => {
-  await page.goto('/novo/oda-30/#laboratorio');
+  await page.goto('/oda-30/#laboratorio');
   const painel = page.locator('#painel-laboratorio');
   const campo = painel.getByLabel('Digite um comando');
   const tela = painel.locator('.terminal__tela');
@@ -96,7 +96,7 @@ test('oda-30: comando curto falha sem a assinatura e passo 7 isolado não simula
 });
 
 test('oda-30: desmarcar o passo de desfazer não liga estados e o checkout do terminal desmarca os passos', async ({ page }) => {
-  await page.goto('/novo/oda-30/#laboratorio');
+  await page.goto('/oda-30/#laboratorio');
   const painel = page.locator('#painel-laboratorio');
   const campo = painel.getByLabel('Digite um comando');
   const tela = painel.locator('.terminal__tela');
@@ -112,7 +112,7 @@ test('oda-30: desmarcar o passo de desfazer não liga estados e o checkout do te
 });
 
 test('oda-02: desmarcar o passo 6 não liga a violação', async ({ page }) => {
-  await page.goto('/novo/oda-02/#laboratorio');
+  await page.goto('/oda-02/#laboratorio');
   const painel = page.locator('#painel-laboratorio');
   const campo = painel.getByLabel('Digite um comando');
   await painel.getByLabel('Passo 6 concluído').check();
@@ -125,7 +125,7 @@ test('oda-02: desmarcar o passo 6 não liga a violação', async ({ page }) => {
 test('página mestre leva a cada ODA disponível e cada ODA volta ao catálogo', async ({ page }) => {
   for (const oda of ODAS) {
     await page.goto('/');
-    await page.locator(`a[href="novo/${oda}/"]`).click();
+    await page.locator(`a[href="${oda}/"]`).click();
     await expect(page.getByRole('tab')).toHaveCount(7);
     await page.getByRole('link', { name: 'Catálogo' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Catálogo de ODAs' })).toBeVisible();

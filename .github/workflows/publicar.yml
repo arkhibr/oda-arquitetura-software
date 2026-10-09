@@ -46,7 +46,7 @@ jobs:
         run: mkdocs build --strict
 
       - name: Gerar as ODAs no formato de aplicação
-        run: python scripts/gerar_odas.py --destino site/novo
+        run: python scripts/gerar_odas.py --destino site
 
       - name: Instalar dependências de teste do navegador
         run: npm ci && npx playwright install --with-deps chromium

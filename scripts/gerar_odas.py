@@ -250,7 +250,7 @@ def gerar(raiz: Path, destino: Path) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--destino", default="site/novo")
+    parser.add_argument("--destino", default="site")
     destino = ROOT / parser.parse_args().destino
     erros = gerar(ROOT, destino)
     for erro in erros:

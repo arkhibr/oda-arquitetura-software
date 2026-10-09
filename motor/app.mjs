@@ -29,7 +29,7 @@ export function iniciar(doc, win) {
   const cabecalho = h(doc, 'header', { class: 'cabecalho' }, [
     h(doc, 'div', { class: 'cabecalho__linha' }, [
       h(doc, 'h1', { class: 'cabecalho__titulo', texto: `ODA ${dados.id} · ${dados.titulo}` }),
-      h(doc, 'div', { class: 'cabecalho__acoes' }, [h(doc, 'a', { class: 'botao', href: '../../', texto: 'Catálogo' }), busca, botaoFoco, botaoTema]),
+      h(doc, 'div', { class: 'cabecalho__acoes' }, [h(doc, 'a', { class: 'botao', href: '../', texto: 'Catálogo' }), busca, botaoFoco, botaoTema]),
     ]),
     h(doc, 'p', { class: 'cabecalho__meta' }, [
       h(doc, 'span', { class: 'etiqueta', texto: dados.repositorio }),

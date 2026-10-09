@@ -11,7 +11,7 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
 | `odas/<oda>/oda.yml` | Conteúdo de cada ODA, organizado em sete abas de blocos |
 | `odas/<oda>/evidencias.md` | Saídas executadas que sustentam as saídas marcadas como `executado` |
 | `motor/` | Aplicação em JavaScript, sem dependências, que monta a ODA a partir dos dados |
-| `scripts/gerar_odas.py` | Valida cada `oda.yml` e gera `site/novo/<oda>/index.html` |
+| `scripts/gerar_odas.py` | Valida cada `oda.yml` e gera `site/<oda>/index.html` |
 
 ## Trabalhar localmente
 
@@ -19,7 +19,7 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
     .venv/bin/pip install -r requirements.txt
     npm ci
     .venv/bin/mkdocs build --strict
-    .venv/bin/python scripts/gerar_odas.py --destino site/novo
+    .venv/bin/python scripts/gerar_odas.py --destino site
     python3 scripts/servidor_estatico.py 8000 site
 
 ## Portões de qualidade
@@ -27,7 +27,7 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
     .venv/bin/python -m unittest discover -s tests -v
     node --test "tests/js/*.test.mjs"
     .venv/bin/mkdocs build --strict
-    .venv/bin/python scripts/gerar_odas.py --destino site/novo
+    .venv/bin/python scripts/gerar_odas.py --destino site
     npx playwright test
 
 ## Estado da construção
@@ -38,4 +38,4 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
 | 2 | ODAs restantes das trilhas 1 a 6 | Pendente |
 | 3 | ODAs da trilha 7, sobre nuvem local | Pendente |
 
-As ODAs disponíveis são a 02 (Feature-Sliced Design e fronteiras impostas pelo ESLint), a 20 (Vertical Slice e comparativo com Clean Architecture) e a 30 (Mensageria com SQS e SNS), publicadas em `/novo/oda-02/`, `/novo/oda-20/` e `/novo/oda-30/`.
+As ODAs disponíveis são a 02 (Feature-Sliced Design e fronteiras impostas pelo ESLint), a 20 (Vertical Slice e comparativo com Clean Architecture) e a 30 (Mensageria com SQS e SNS), publicadas em `/oda-02/`, `/oda-20/` e `/oda-30/`.
