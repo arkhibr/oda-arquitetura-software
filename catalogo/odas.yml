@@ -293,7 +293,8 @@ odas:
     minutos: 75
     pre_requisitos: ["28"]
     objetivo: "Diferenciar fila e tópico e estender um fan-out de SNS para SQS com uma nova fila assinante."
-    situacao: planejada
+    situacao: disponivel
+    pagina: oda-30-mensageria.md
   - id: "31"
     titulo: "Dados gerenciados: DynamoDB e RDS"
     trilha: 7
