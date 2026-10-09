@@ -25,4 +25,4 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
 
 As ODAs disponíveis são a 02 (Feature-Sliced Design e fronteiras impostas pelo ESLint), a 20 (Vertical Slice e comparativo com Clean Architecture) e a 30 (Mensageria com SQS e SNS). O catálogo completo fica em `catalogo/odas.yml`, e o guia de autoria em `docs/referencia/modelo-de-oda.md`.
 
-A prévia da ODA 20 no formato de aplicação fica em `/novo/oda-20/` e é gerada por `scripts/gerar_odas.py` a partir de `odas/oda-20/oda.yml`, com o motor em `motor/`.
+As ODAs 02, 20 e 30 no formato de aplicação ficam em `/novo/oda-02/`, `/novo/oda-20/` e `/novo/oda-30/` e são geradas por `scripts/gerar_odas.py` a partir de `odas/<oda>/oda.yml`, com o motor em `motor/`. As saídas executadas de cada ODA estão registradas em `odas/<oda>/evidencias.md`.
