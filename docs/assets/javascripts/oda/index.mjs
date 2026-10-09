@@ -1,4 +1,6 @@
 import { montarTodos } from './nucleo.mjs';
+import './componentes/quiz.mjs';
+import './componentes/classificador.mjs';
 import { ativarObjetivos, criarArmazenamento } from './progresso.mjs';
 
 const armazenamento = criarArmazenamento(() => window.localStorage);

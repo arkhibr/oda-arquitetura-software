@@ -9,3 +9,7 @@
 .oda-cabecalho dd { margin: 0; }
 .oda-catalogo__tabela { font-size: 0.85em; }
 @media (prefers-reduced-motion: reduce) { .oda * { transition: none !important; animation: none !important; } }
+.oda-quiz__pergunta { border: none; margin: 0 0 1em; padding: 0; }
+.oda-quiz__pergunta legend { font-weight: 700; margin-bottom: 0.4em; }
+.oda-quiz__alternativa { display: block; margin: 0.2em 0; cursor: pointer; }
+.oda-classificador__tabela td { vertical-align: middle; }
