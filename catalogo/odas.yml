@@ -91,7 +91,8 @@ odas:
     minutos: 75
     pre_requisitos: ["06"]
     objetivo: "Diagnosticar falhas de integridade, de origem e de montagem na carga de um microfrontend."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-07
   - id: "08"
     titulo: "Build independente e deploy em S3"
     trilha: 3

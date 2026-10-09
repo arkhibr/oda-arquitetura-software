@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -148,6 +148,21 @@ test('oda-06: o teste do manifesto falha antes da entrada e passa depois', async
   await painel.getByRole('button', { name: 'Limpar' }).click();
   await rodar();
   await expect(tela).toContainText('Tests  2 passed (2)');
+});
+
+test('oda-07: o teste da falha interna falha antes do boundary e passa depois', async ({ page }) => {
+  await page.goto('/oda-07/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async () => { await campo.fill('cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx'); await campo.press('Enter'); };
+  await painel.getByLabel('Passo 5 concluído').check();
+  await rodar();
+  await expect(tela).toContainText('Errors  1 error');
+  await painel.getByLabel('Passo 7 concluído').check();
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar();
+  await expect(tela).toContainText('Tests  1 passed (1)');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {
