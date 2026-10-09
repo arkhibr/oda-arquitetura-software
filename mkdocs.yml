@@ -58,4 +58,6 @@ markdown_extensions:
 nav:
   - Início: index.md
   - Catálogo de ODAs: odas/index.md
+  - ODAs:
+      - "02 — FSD e fronteiras": odas/oda-02-fsd-fronteiras.md
   - Como escrever uma ODA: referencia/modelo-de-oda.md

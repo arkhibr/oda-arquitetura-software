@@ -39,7 +39,8 @@ odas:
     minutos: 60
     pre_requisitos: ["00"]
     objetivo: "Aplicar as regras de dependência entre camadas do FSD e interpretar as violações apontadas pelo lint."
-    situacao: planejada
+    situacao: disponivel
+    pagina: oda-02-fsd-fronteiras.md
   - id: "03"
     titulo: "Estado global e estado de servidor"
     trilha: 2
