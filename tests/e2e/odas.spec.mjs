@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -133,6 +133,21 @@ test('oda-05: o teste do mínimo falha sem módulo, sem hash e com o contrato qu
   await painel.getByLabel('Passo 8 concluído').uncheck();
   await limpar(); await rodar();
   await expect(tela).toContainText('Tests  4 passed (4)');
+});
+
+test('oda-06: o teste do manifesto falha antes da entrada e passa depois', async ({ page }) => {
+  await page.goto('/oda-06/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async () => { await campo.fill('npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts'); await campo.press('Enter'); };
+  await painel.getByLabel('Passo 2 concluído').check();
+  await rodar();
+  await expect(tela).toContainText('Tests  2 failed (2)');
+  await painel.getByLabel('Passo 4 concluído').check();
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar();
+  await expect(tela).toContainText('Tests  2 passed (2)');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

@@ -1,0 +1,635 @@
+id: '06'
+titulo: Manifesto e resolução de dependências
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O shell descobre os microfrontends em tempo de execução lendo `public/mfe-manifest.json`, que declara para cada um a URL do bundle, o hash, a rota, o estado e as dependências. Esta ODA mostra como o manifesto é validado no boot, como a ordenação topológica define a ordem das rotas e do menu, e registra o microfrontend mínimo da ODA 05 em manutenção, com o teste escrito antes.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar por que a ADR-010 separa o manifesto do `config.json`.
+    - Listar as validações que fazem o boot falhar antes de montar qualquer microfrontend.
+    - Prever a ordem calculada pelo algoritmo de Kahn para um conjunto de `dependsOn`.
+    - Registrar um microfrontend no manifesto com o teste escrito e rodado antes.
+    - Distinguir a ordem do menu e das rotas do momento em que cada bundle é baixado.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 05, com o repositório clonado no commit `2179313`. O laboratório usa o navegador com `npm run dev` e não depende do Docker, porque o microfrontend mínimo é registrado em manutenção e o shell não baixa o bundle dele.
+  - tipo: terminal
+    titulo: terminal · testes do carregamento de microfrontends
+    comandos:
+    - entrada: npx vitest run src/app/mfe
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
+      origem: executado
+      dica: Os testes de `manifest.ts` e de `dependencyResolver.ts` estão entre os 8 arquivos.
+    cenarios:
+    - rotulo: Rodar os testes de src/app/mfe
+      comando: npx vitest run src/app/mfe
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-010 trata o manifesto como catálogo de produto, que muda quando um microfrontend entra ou sai, e o `config.json` como configuração de ambiente, que muda a cada deploy. As duas fontes evoluem em ritmos diferentes, e por isso ficam em arquivos separados.
+  - tipo: comparativo
+    colunas:
+    - Aparece no menu
+    - Monta
+    - Comportamento
+    linhas:
+    - dimensao: '`active`'
+      valores:
+      - Sim
+      - Sim
+      - Baixa o bundle quando a rota é aberta
+    - dimensao: '`maintenance`'
+      valores:
+      - Sim
+      - Não
+      - Mostra o aviso de manutenção sem baixar o bundle
+    - dimensao: '`disabled`'
+      valores:
+      - Não
+      - Não
+      - Fica fora do menu e das rotas
+  - tipo: conceito
+    titulo: Validação que falha cedo
+    texto: No boot, `validateManifest` confere a versão do esquema, os campos obrigatórios, o formato do `integrity`, o protocolo e a origem da URL, a rota, o estado, o tipo de `dependsOn`, a unicidade dos `id` e a existência de cada dependência. Qualquer erro interrompe o boot com a mensagem `Falha ao iniciar o portal`, o que evita um portal que funciona pela metade.
+  - tipo: conceito
+    titulo: Ordenação topológica de Kahn
+    texto: O `resolveLoadOrder` coloca na fila os microfrontends sem dependências, na ordem do arquivo, e a cada saída da fila reduz o grau de entrada dos dependentes, que entram na fila quando chegam a zero. Se sobrar algum microfrontend fora da ordem, há um ciclo, e o erro lista os que sobraram.
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Dependências
+    titulo: Dependências declaradas no manifesto depois do laboratório
+    mermaid: "graph LR\n    endereco[\"endereco\\nAlteração de Endereço\"]\n    minimo[\"minimo\\nMicrofrontend Mínimo\\n(maintenance)\"]\n    emprestimo[\"emprestimo\\nSimulação de Empréstimo\"]\n    endereco --> minimo\n    endereco --> emprestimo"
+  - tipo: adr
+    id: ADR-010
+    titulo: Manifesto de MFEs e resolução de dependências
+    status: Proposed
+    contexto: O shell precisa de uma fonte declarativa sobre quais microfrontends existem, onde estão os bundles, em que rota montam, em que estado se encontram e de que dependem, detectando ciclos antes de montar qualquer um.
+    decisao: Manifesto dedicado em `mfe-manifest.json`, validado no boot e ordenado topologicamente pelo algoritmo de Kahn, com detecção de ciclo.
+    alternativas: Embutir a lista no `config.json`, descartado por misturar configuração de ambiente com catálogo de módulos, e manter a lista no código do shell, descartado porque cada mudança recompilaria o shell.
+    consequencias: Acrescentar ou desativar um microfrontend não toca o código do shell, e erros de configuração aparecem no boot com mensagem clara, ao custo de mais um artefato para versionar e revisar.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, o manifesto, a validação, a ordenação e o uso da ordem nas rotas e no menu. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: public/mfe-manifest.json
+    commit: '2179313'
+    linhas:
+    - '{'
+    - '  "schemaVersion": 1,'
+    - '  "mfes": ['
+    - '    {'
+    - '      "id": "endereco",'
+    - '      "name": "Alteração de Endereço",'
+    - '      "state": "active",'
+    - '      "url": "http://localhost:4566/mfe-endereco/endereco.js",'
+    - '      "integrity": "sha256-SygiadgW+MYQQUTdBHhLPTyZy9/RpfDmESrQSdyr6Qo=",'
+    - '      "route": "/endereco",'
+    - '      "dependsOn": []'
+    - '    },'
+    - '    {'
+    - '      "id": "emprestimo",'
+    - '      "name": "Simulação de Empréstimo",'
+    - '      "state": "active",'
+    - '      "url": "http://localhost:4566/mfe-emprestimo/emprestimo.js",'
+    - '      "integrity": "sha256-riuE71dIgkSNVQ8xufyyCjctyNU9G7DJ6oYHb22eL0c=",'
+    - '      "route": "/emprestimos",'
+    - '      "dependsOn": ["endereco"]'
+    - '    }'
+    - '  ]'
+    - '}'
+    anotacoes:
+    - linha: 10
+      texto: Rota interna onde o shell monta o microfrontend, conferida pela validação.
+    - linha: 9
+      texto: Hash que o deploy grava e o carregador confere.
+    - linha: 20
+      texto: O empréstimo declara dependência do endereço.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/manifest.ts
+    commit: '2179313'
+    linhas:
+    - 'function validateEntry(raw: unknown, index: number, allowedOrigins: Set<string>, allowInsecureLocalhost: boolean): MfeEntry {'
+    - '  if (typeof raw !== ''object'' || raw === null) fail(`mfes[${index}] não é um objeto`)'
+    - '  const e = raw as Record<string, unknown>'
+    - '  for (const field of [''id'', ''name'', ''url'', ''integrity'', ''route''] as const) {'
+    - '    if (typeof e[field] !== ''string'' || e[field] === '''') fail(`mfes[${index}].${field} ausente ou vazio`)'
+    - '  }'
+    - '  if (!INTEGRITY.test(e.integrity as string)) fail(`mfes[${index}].integrity inválido`)'
+    - '  let url: URL'
+    - '  try {'
+    - '    url = new URL(e.url as string)'
+    - '  } catch {'
+    - '    fail(`mfes[${index}].url inválida`)'
+    - '  }'
+    - '  const localHttp = allowInsecureLocalhost && url.protocol === ''http:'' && (url.hostname === ''localhost'' || url.hostname === ''127.0.0.1'')'
+    - '  if (url.protocol !== ''https:'' && !localHttp) fail(`mfes[${index}].url deve usar HTTPS`)'
+    - '  if (!allowedOrigins.has(url.origin)) fail(`mfes[${index}].url usa origem não permitida`)'
+    - '  if (!/^\/[A-Za-z0-9/_-]*$/.test(e.route as string)) fail(`mfes[${index}].route inválida`)'
+    - '  if (!STATES.includes(e.state as MfeState)) fail(`mfes[${index}].state inválido: ${String(e.state)}`)'
+    - '  if (!Array.isArray(e.dependsOn) || e.dependsOn.some((d) => typeof d !== ''string'')) {'
+    - '    fail(`mfes[${index}].dependsOn deve ser um array de strings`)'
+    - '  }'
+    - '  return {'
+    - '    id: e.id as string,'
+    - '    name: e.name as string,'
+    - '    state: e.state as MfeState,'
+    - '    url: url.toString(),'
+    - '    integrity: e.integrity as string,'
+    - '    route: e.route as string,'
+    - '    dependsOn: e.dependsOn as string[],'
+    - '  }'
+    - '}'
+    anotacoes:
+    - linha: 17
+      texto: O `integrity` precisa ter o formato `sha256-` seguido de 44 caracteres em Base64.
+    - linha: 25
+      texto: HTTP só é aceito para `localhost` em desenvolvimento.
+    - linha: 26
+      texto: A origem do bundle precisa estar em `mfeAllowedOrigins` do `config.json`.
+    inicio: 11
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/manifest.ts
+    commit: '2179313'
+    linhas:
+    - export function validateManifest(
+    - '  raw: unknown,'
+    - '  options: { allowedOrigins: string[]; allowInsecureLocalhost?: boolean },'
+    - '): MfeManifest {'
+    - '  if (typeof raw !== ''object'' || raw === null) fail(''manifesto não é um objeto'')'
+    - '  const m = raw as Record<string, unknown>'
+    - '  if (m.schemaVersion !== SUPPORTED_SCHEMA) fail(`schemaVersion não suportada: ${String(m.schemaVersion)} (esperado ${SUPPORTED_SCHEMA})`)'
+    - '  if (!Array.isArray(m.mfes)) fail(''mfes deve ser um array'')'
+    - ''
+    - '  const allowedOrigins = new Set(options.allowedOrigins)'
+    - '  const mfes = m.mfes.map((entry, index) => validateEntry(entry, index, allowedOrigins, options.allowInsecureLocalhost ?? false))'
+    - ''
+    - '  const ids = new Set<string>()'
+    - '  for (const e of mfes) {'
+    - '    if (ids.has(e.id)) fail(`id duplicado: ${e.id}`)'
+    - '    ids.add(e.id)'
+    - '  }'
+    - '  for (const e of mfes) {'
+    - '    for (const dep of e.dependsOn) {'
+    - '      if (!ids.has(dep)) fail(`mfes[${e.id}].dependsOn referencia id inexistente: ${dep}`)'
+    - '    }'
+    - '  }'
+    - ''
+    - '  return { schemaVersion: SUPPORTED_SCHEMA, mfes }'
+    - '}'
+    anotacoes:
+    - linha: 57
+      texto: Dois microfrontends não podem ter o mesmo `id`.
+    - linha: 62
+      texto: Toda dependência precisa apontar para um `id` declarado.
+    inicio: 43
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/dependencyResolver.ts
+    commit: '2179313'
+    linhas:
+    - 'export function resolveLoadOrder(mfes: MfeEntry[]): MfeEntry[] {'
+    - '  const byId = new Map(mfes.map((m) => [m.id, m]))'
+    - '  const indegree = new Map(mfes.map((m) => [m.id, m.dependsOn.length]))'
+    - '  const dependents = new Map<string, string[]>()'
+    - ''
+    - '  for (const m of mfes) {'
+    - '    for (const dep of m.dependsOn) {'
+    - '      dependents.set(dep, [...(dependents.get(dep) ?? []), m.id])'
+    - '    }'
+    - '  }'
+    - ''
+    - '  const queue = mfes.filter((m) => indegree.get(m.id) === 0).map((m) => m.id)'
+    - '  const ordered: MfeEntry[] = []'
+    - ''
+    - '  while (queue.length > 0) {'
+    - '    const id = queue.shift() as string'
+    - '    ordered.push(byId.get(id) as MfeEntry)'
+    - '    for (const dependent of dependents.get(id) ?? []) {'
+    - '      const next = (indegree.get(dependent) as number) - 1'
+    - '      indegree.set(dependent, next)'
+    - '      if (next === 0) queue.push(dependent)'
+    - '    }'
+    - '  }'
+    - ''
+    - '  if (ordered.length !== mfes.length) {'
+    - '    const remaining = mfes.filter((m) => !ordered.includes(m)).map((m) => m.id)'
+    - '    throw new Error(`[mfe-manifest] ciclo de dependência detectado entre: ${remaining.join('', '')}`)'
+    - '  }'
+    - ''
+    - '  return ordered'
+    - '}'
+    anotacoes:
+    - linha: 18
+      texto: A fila começa com os microfrontends sem dependências, na ordem do arquivo.
+    - linha: 27
+      texto: Um dependente entra na fila quando todas as suas dependências já saíram.
+    - linha: 33
+      texto: Quem sobra fora da ordem participa de um ciclo ou depende de quem participa.
+    inicio: 7
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/main.tsx
+    commit: '2179313'
+    linhas:
+    - prepare()
+    - '  .then(async () => {'
+    - '    const manifest = await loadManifest()'
+    - '    const ordered = resolveLoadOrder(manifest.mfes)'
+    - '    const router = createAppRouter(ordered)'
+    - '    createRoot(document.getElementById(''root'')!).render('
+    anotacoes:
+    - linha: 28
+      texto: A ordenação acontece no boot, antes de criar o roteador.
+    - linha: 29
+      texto: A lista ordenada define as rotas e o menu.
+    inicio: 25
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/layout/ShellLayout.tsx
+    commit: '2179313'
+    linhas:
+    - '          {visible.map((m) => ('
+    - '            <NavLink'
+    - '              key={m.id}'
+    - '              to={m.route}'
+    - '              className="rounded px-3 py-2 text-secondary hover:bg-primary/10"'
+    - '            >'
+    - '              {m.name}'
+    - '            </NavLink>'
+    - '          ))}'
+    anotacoes:
+    - linha: 19
+      texto: O menu segue a ordem calculada, sem os microfrontends `disabled`.
+    inicio: 19
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/MfeHost.tsx
+    commit: '2179313'
+    linhas:
+    - 'export function MfeHost({ entry }: { entry: MfeEntry }) {'
+    - '  if (entry.state === ''maintenance'') {'
+    - '    return ('
+    - '      <div role="status" className="rounded border border-secondary/30 bg-surface p-6 text-secondary">'
+    - '        O módulo <strong>{entry.name}</strong> está em manutenção.'
+    - '      </div>'
+    - '    )'
+    - '  }'
+    - ''
+    - '  if (entry.state === ''disabled'') return null'
+    anotacoes:
+    - linha: 64
+      texto: Em manutenção, o shell mostra o aviso e não chega a chamar `loadMfeModule`.
+    inicio: 63
+  - tipo: faixa
+    estilo: dica
+    texto: A ADR-010 fala em ordem de carga, e no commit `2179313` essa ordem define as rotas e o menu. Cada bundle continua sendo baixado só quando a rota dele é aberta, e o `dependsOn` não faz o shell baixar a dependência antes.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Acompanhe a ordenação de Kahn para o manifesto do laboratório e classifique as alterações de manifesto pelo efeito que causam no boot.
+  - tipo: fluxo
+    titulo: Kahn sobre o manifesto com minimo, endereco e emprestimo, nessa ordem no arquivo
+    etapas:
+    - titulo: Graus de entrada
+      descricao: Os graus de entrada são 1 para `minimo`, que depende de `endereco`, 0 para `endereco`, que não tem dependências, e 1 para `emprestimo`, que também depende de `endereco`.
+    - titulo: Fila inicial
+      descricao: Só `endereco` tem grau 0, e a fila começa com ele, mesmo estando em segundo lugar no arquivo.
+    - titulo: Saída de endereco
+      descricao: '`endereco` vai para a ordem, e os dependentes `minimo` e `emprestimo` chegam a grau 0 e entram na fila, na ordem em que aparecem no arquivo.'
+    - titulo: Ordem final
+      descricao: '`endereco`, `minimo` e `emprestimo`, que é a ordem do menu depois de Início, conferida pelo teste do laboratório e pelo navegador.'
+    - titulo: Ciclo
+      descricao: Se `endereco` passar a depender de `minimo`, nenhum dos três começa com grau 0, a fila nasce vazia e o erro lista os três.
+  - tipo: classificador
+    enunciado: Qual é o efeito de cada alteração no manifesto do laboratório?
+    categorias:
+    - id: boot
+      rotulo: O boot falha
+    - id: menu
+      rotulo: O menu muda
+    - id: nada
+      rotulo: Nada muda no boot
+    itens:
+    - texto: '`endereco` passa a depender de `minimo`'
+      categoria: boot
+      explicacao: Forma um ciclo, e o `resolveLoadOrder` interrompe o boot.
+    - texto: A URL do `minimo` passa para a porta 9999
+      categoria: boot
+      explicacao: A origem `http://localhost:9999` não está em `mfeAllowedOrigins`.
+    - texto: O estado do `minimo` passa a `disabled`
+      categoria: menu
+      explicacao: Microfrontends `disabled` saem do menu e das rotas.
+    - texto: '`minimo` deixa de depender de `endereco`'
+      categoria: menu
+      explicacao: Com grau 0, `minimo` entra primeiro na fila, por estar antes no arquivo, e passa à frente de `endereco` no menu.
+    - texto: O `integrity` do `minimo` recebe outro hash com formato válido
+      categoria: nada
+      explicacao: O formato é conferido no boot, e o hash só é comparado quando o bundle é baixado, o que não acontece em manutenção.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 6 registram o microfrontend mínimo com o teste escrito antes, e os passos 7 a 9 conferem no navegador o menu, o aviso de manutenção e as falhas de boot.
+  - tipo: passos
+    itens:
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/mfe
+      sucesso: '`Test Files 8 passed (8)` e `Tests 31 passed (31)`.'
+    - titulo: Escrever o teste do manifesto publicado
+      texto: Crie o arquivo abaixo. Ele valida o `public/mfe-manifest.json` com as origens do `public/config.json`, como o shell faz no boot, e confere o estado e a ordem do microfrontend mínimo.
+      editor:
+        rotulo: arquivo
+        caminho: src/app/mfe/__tests__/manifestoPublicado.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, it, expect } from 'vitest'
+        - import manifestoPublicado from '../../../../public/mfe-manifest.json'
+        - import config from '../../../../public/config.json'
+        - import { validateManifest } from '../manifest'
+        - import { resolveLoadOrder } from '../dependencyResolver'
+        - ''
+        - describe('manifesto publicado em public/', () => {
+        - '  const manifesto = validateManifest(manifestoPublicado, { allowedOrigins: config.mfeAllowedOrigins, allowInsecureLocalhost: true })'
+        - ''
+        - '  it(''registra o microfrontend mínimo em manutenção'', () => {'
+        - '    expect(manifesto.mfes.find((m) => m.id === ''minimo'')?.state).toBe(''maintenance'')'
+        - '  })'
+        - ''
+        - '  it(''ordena o mínimo depois do endereço, do qual ele depende'', () => {'
+        - '    expect(resolveLoadOrder(manifesto.mfes).map((m) => m.id)).toEqual([''endereco'', ''minimo'', ''emprestimo''])'
+        - '  })'
+        - '})'
+      efeito: teste_manifesto
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts
+      sucesso: '`Tests 2 failed (2)`, com `expected undefined to be ''maintenance''` e a ordem sem `minimo`.'
+    - titulo: Registrar o microfrontend mínimo
+      texto: Em `public/mfe-manifest.json`, acrescente a entrada abaixo no início da lista `mfes`. O hash é o gerado na ODA 05, e a URL usa a origem permitida do LocalStack.
+      editor:
+        rotulo: arquivo
+        caminho: public/mfe-manifest.json (alteração)
+        commit: '2179313'
+        linhas:
+        - '    {'
+        - '      "id": "minimo",'
+        - '      "name": "Microfrontend Mínimo",'
+        - '      "state": "maintenance",'
+        - '      "url": "http://localhost:4566/mfe-minimo/index.js",'
+        - '      "integrity": "sha256-0gkcEL1G2JvJqf1d5Eiu017gUNftn9rgI9A35CytriM=",'
+        - '      "route": "/minimo",'
+        - '      "dependsOn": ["endereco"]'
+        - '    },'
+      efeito: entrada_minimo
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts
+      sucesso: '`Tests 2 passed (2)`.'
+    - titulo: Conferir tipos, fronteiras e a suíte
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx tsc --noEmit -p tsconfig.app.json && npm run lint
+        - npx vitest run
+      sucesso: Tipos e lint sem erros, e `Test Files 24 passed (24)` com `Tests 101 passed (101)`.
+    - titulo: Conferir o menu e o aviso de manutenção
+      texto: Rode `npm run dev`, entre com `usuario@teste.com` e `senha123` e clique em Microfrontend Mínimo.
+      sucesso: O menu Início, Alteração de Endereço, Microfrontend Mínimo, Simulação de Empréstimo, nessa ordem, e a mensagem `O módulo Microfrontend Mínimo está em manutenção.`.
+    - titulo: Provocar um ciclo
+      texto: Mude o `dependsOn` de `endereco` para `["minimo"]` e recarregue a página. Depois de ver o erro, restaure `[]`.
+      sucesso: 'A página mostra `Falha ao iniciar o portal: Error: [mfe-manifest] ciclo de dependência detectado entre: minimo, endereco, emprestimo`.'
+    - titulo: Usar uma origem não permitida
+      texto: Troque a porta da URL do `minimo` de 4566 para 9999 e recarregue a página. Depois de ver o erro, restaure a porta 4566.
+      sucesso: 'A página mostra `Falha ao iniciar o portal: Error: [mfe-manifest] mfes[0].url usa origem não permitida`.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: npx vitest run src/app/mfe
+      condicao:
+      - teste_manifesto
+      - entrada_minimo
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  9 passed (9)\n      Tests  33 passed (33)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      condicao: teste_manifesto
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts (2 tests | 2 failed) 6ms\n     × registra o microfrontend mínimo em manutenção 2ms\n     × ordena o mínimo depois do endereço, do qual ele depende 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/manifestoPublicado.test.ts > manifesto publicado em public/ > registra o microfrontend mínimo em manutenção\nAssertionError: expected undefined to be 'maintenance' // Object.is equality\n\n- Expected:\n\"maintenance\"\n\n+ Received:\nundefined\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts:11:66\n      9|\n     10|   it('registra o microfrontend mínimo em manutenção', () => {\n     11|     expect(manifesto.mfes.find((m) => m.id === 'minimo')?.state).toBe(…\n       |                                                                  ^\n     12|   })\n     13|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/app/mfe/__tests__/manifestoPublicado.test.ts > manifesto publicado em public/ > ordena o mínimo depois do endereço, do qual ele depende\nAssertionError: expected [ 'endereco', 'emprestimo' ] to deeply equal [ 'endereco', 'minimo', 'emprestimo' ]\n\n- Expected\n+ Received\n\n  [\n    \"endereco\",\n-   \"minimo\",\n    \"emprestimo\",\n  ]\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts:15:63\n     13|\n     14|   it('ordena o mínimo depois do endereço, do qual ele depende', () => {\n     15|     expect(resolveLoadOrder(manifesto.mfes).map((m) => m.id)).toEqual(…\n       |                                                               ^\n     16|   })\n     17| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed | 8 passed (9)\n      Tests  2 failed | 31 passed (33)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts
+      condicao:
+      - teste_manifesto
+      - entrada_minimo
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts
+      condicao: teste_manifesto
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts (2 tests | 2 failed) 4ms\n     × registra o microfrontend mínimo em manutenção 2ms\n     × ordena o mínimo depois do endereço, do qual ele depende 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/manifestoPublicado.test.ts > manifesto publicado em public/ > registra o microfrontend mínimo em manutenção\nAssertionError: expected undefined to be 'maintenance' // Object.is equality\n\n- Expected:\n\"maintenance\"\n\n+ Received:\nundefined\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts:11:66\n      9|\n     10|   it('registra o microfrontend mínimo em manutenção', () => {\n     11|     expect(manifesto.mfes.find((m) => m.id === 'minimo')?.state).toBe(…\n       |                                                                  ^\n     12|   })\n     13|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/app/mfe/__tests__/manifestoPublicado.test.ts > manifesto publicado em public/ > ordena o mínimo depois do endereço, do qual ele depende\nAssertionError: expected [ 'endereco', 'emprestimo' ] to deeply equal [ 'endereco', 'minimo', 'emprestimo' ]\n\n- Expected\n+ Received\n\n  [\n    \"endereco\",\n-   \"minimo\",\n    \"emprestimo\",\n  ]\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts:15:63\n     13|\n     14|   it('ordena o mínimo depois do endereço, do qual ele depende', () => {\n     15|     expect(resolveLoadOrder(manifesto.mfes).map((m) => m.id)).toEqual(…\n       |                                                               ^\n     16|   })\n     17| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed (1)\n      Tests  2 failed (2)"
+      origem: executado
+      dica: 'As duas falhas são as esperadas: o manifesto ainda não tem a entrada `minimo`. Acrescente-a no passo 4.'
+    - entrada: npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts
+      saida: ' RUN  v4.1.7 .
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/app/mfe/__tests__/manifestoPublicado.test.ts
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 2.
+    - entrada: npx vitest run
+      condicao:
+      - teste_manifesto
+      - entrada_minimo
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  101 passed (101)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao: teste_manifesto
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts (2 tests | 2 failed) 7ms\n     × registra o microfrontend mínimo em manutenção 2ms\n     × ordena o mínimo depois do endereço, do qual ele depende 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/manifestoPublicado.test.ts > manifesto publicado em public/ > registra o microfrontend mínimo em manutenção\nAssertionError: expected undefined to be 'maintenance' // Object.is equality\n\n- Expected:\n\"maintenance\"\n\n+ Received:\nundefined\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts:11:66\n      9|\n     10|   it('registra o microfrontend mínimo em manutenção', () => {\n     11|     expect(manifesto.mfes.find((m) => m.id === 'minimo')?.state).toBe(…\n       |                                                                  ^\n     12|   })\n     13|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/app/mfe/__tests__/manifestoPublicado.test.ts > manifesto publicado em public/ > ordena o mínimo depois do endereço, do qual ele depende\nAssertionError: expected [ 'endereco', 'emprestimo' ] to deeply equal [ 'endereco', 'minimo', 'emprestimo' ]\n\n- Expected\n+ Received\n\n  [\n    \"endereco\",\n-   \"minimo\",\n    \"emprestimo\",\n  ]\n\n ❯ src/app/mfe/__tests__/manifestoPublicado.test.ts:15:63\n     13|\n     14|   it('ordena o mínimo depois do endereço, do qual ele depende', () => {\n     15|     expect(resolveLoadOrder(manifesto.mfes).map((m) => m.id)).toEqual(…\n       |                                                               ^\n     16|   })\n     17| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  2 failed | 99 passed (101)"
+      origem: executado
+    - entrada: npx vitest run
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
+      origem: executado
+      dica: Esta é a suíte do commit de referência, com 99 testes.
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    cenarios:
+    - rotulo: Teste do manifesto
+      comando: npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts
+    - rotulo: Tipos e lint
+      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+    - rotulo: Suíte completa
+      comando: npx vitest run
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os dois primeiros incidentes mostram mensagens reais de boot, exibidas pelo navegador com o manifesto alterado. Os dois últimos tratam do que o manifesto controla e do que ele não controla.
+  - tipo: incidente
+    titulo: Portal que não inicia depois de uma dependência nova
+    origem: executado
+    rotulo_saida: log
+    saida: 'Falha ao iniciar o portal:
+
+      Error: [mfe-manifest] ciclo de dependência detectado entre: minimo, endereco, emprestimo'
+    pergunta: 'A equipe do endereço declarou `dependsOn: ["minimo"]`. Por que o erro lista também `emprestimo`?'
+    correcao: Remover a dependência que fecha o ciclo e revisar mudanças de `dependsOn` na esteira, antes de publicar o manifesto.
+    alternativas:
+    - texto: O algoritmo lista todos os microfrontends quando encontra qualquer erro.
+      correta: false
+      explicacao: A lista é calculada pelos que não entraram na ordem, e um microfrontend sem relação com o ciclo entraria.
+    - texto: O `emprestimo` depende de `endereco`, que está no ciclo, e por isso também nunca chega a grau 0.
+      correta: true
+      explicacao: O erro lista todos os que sobraram fora da ordem, e não só os que formam o ciclo.
+    - texto: O `emprestimo` também depende de `minimo`.
+      correta: false
+      explicacao: O `emprestimo` só declara `endereco` no `dependsOn`.
+  - tipo: incidente
+    titulo: Bundle numa origem fora da lista
+    origem: executado
+    rotulo_saida: log
+    saida: 'Falha ao iniciar o portal:
+
+      Error: [mfe-manifest] mfes[0].url usa origem não permitida'
+    pergunta: O boot falha sem que o navegador faça qualquer requisição à URL do bundle. Por quê?
+    correcao: Publicar o bundle numa origem listada em `mfeAllowedOrigins`, ou incluir a origem nova no `config.json` do ambiente depois de avaliá-la.
+    alternativas:
+    - texto: O bundle respondeu com erro HTTP.
+      correta: false
+      explicacao: A validação do manifesto não faz requisição ao bundle.
+    - texto: O hash do bundle não confere.
+      correta: false
+      explicacao: O hash só é conferido ao baixar o bundle, depois do boot.
+    - texto: A origem `http://localhost:9999` não está em `mfeAllowedOrigins`, e a validação recusa a entrada sem fazer requisição.
+      correta: true
+      explicacao: A conferência de origem fica em `manifest.ts:26`, e o shell nem chega a contatar a URL.
+  - tipo: incidente
+    titulo: Microfrontend em manutenção com hash errado
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/app/mfe/MfeHost.tsx:63-70\nexport function MfeHost({ entry }: { entry: MfeEntry }) {\n  if (entry.state === 'maintenance') {\n    return (\n      <div role=\"status\" className=\"rounded border border-secondary/30 bg-surface p-6 text-secondary\">\n        O módulo <strong>{entry.name}</strong> está em manutenção.\n      </div>\n    )\n  }"
+    pergunta: O `minimo` está em `maintenance` e tem um hash que não corresponde a nenhum arquivo. Algum erro aparece?
+    correcao: Conferir o hash no deploy, antes de mudar o estado para `active`, porque só a carga do bundle compara os bytes.
+    alternativas:
+    - texto: Não, porque em manutenção o `MfeHost` mostra o aviso e não chama o carregador que compara o hash.
+      correta: true
+      explicacao: O boot só confere o formato do `integrity`, e a comparação dos bytes acontece em `loadMfeModule`.
+    - texto: Sim, o boot falha com `integrity inválido`.
+      correta: false
+      explicacao: Essa mensagem só aparece quando o formato do campo está errado.
+    - texto: Sim, o menu esconde o microfrontend.
+      correta: false
+      explicacao: Microfrontends em manutenção aparecem no menu.
+  - tipo: incidente
+    titulo: Dependência declarada e não carregada
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/app/router/index.tsx:22-24\n  const mfeRoutes = mfes\n    .filter((m) => m.state !== 'disabled')\n    .map((m) => ({ path: m.route, element: <MfeHost entry={m} /> }))\n\nsrc/app/mfe/MfeHost.tsx:25\n    loadMfeModule(entry.url, entry.integrity, entry.id)"
+    pergunta: O `emprestimo` declara dependência de `endereco`. Ao abrir `/emprestimos` direto, o shell baixa o bundle do endereço?
+    correcao: Tratar o `dependsOn` como ordem de registro e validação de referências, e não como pré-carga, ou implementar a pré-carga e registrar a mudança na ADR-010.
+    alternativas:
+    - texto: Sim, porque os dois compartilham o mesmo React.
+      correta: false
+      explicacao: Cada microfrontend embute o próprio React, conforme a ADR-009.
+    - texto: Não, cada rota tem um `MfeHost` que baixa apenas o bundle da própria entrada.
+      correta: true
+      explicacao: O `dependsOn` define a ordem das rotas e do menu e é validado no boot, sem disparar downloads.
+    - texto: Sim, o shell carrega as dependências antes, na ordem de Kahn.
+      correta: false
+      explicacao: O único chamador de `loadMfeModule` é o `MfeHost` da rota aberta.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que a ADR-010 não embutiu a lista de microfrontends no `config.json`?
+      alternativas:
+      - texto: Porque o `config.json` não aceita listas.
+        correta: false
+        explicacao: O `config.json` já tem a lista `mfeAllowedOrigins`.
+      - texto: Porque o manifesto precisa ficar no S3.
+        correta: false
+        explicacao: No commit, o manifesto é servido de `public/` pelo próprio shell.
+      - texto: Porque configuração de ambiente e catálogo de microfrontends mudam por motivos e em ritmos diferentes.
+        correta: true
+        explicacao: O `config.json` muda por deploy, e o catálogo muda com a evolução do produto.
+    - enunciado: Qual é a ordem calculada para `a` sem dependências, `b` dependente de `a` e `c` dependente de `b`, declarados como `c`, `b`, `a`?
+      alternativas:
+      - texto: '`a`, `b`, `c`.'
+        correta: true
+        explicacao: Só `a` começa com grau 0, e cada saída libera o próximo da cadeia, como no teste `resolve cadeia transitiva`.
+      - texto: '`c`, `b`, `a`.'
+        correta: false
+        explicacao: Essa é a ordem do arquivo, que só desempata quem tem grau 0 ao mesmo tempo.
+      - texto: O algoritmo lança erro de ciclo.
+        correta: false
+        explicacao: Uma cadeia sem retorno não forma ciclo.
+    - enunciado: O que acontece com um microfrontend em `disabled`?
+      alternativas:
+      - texto: Faz o boot falhar.
+        correta: false
+        explicacao: '`disabled` é um estado válido.'
+      - texto: Fica fora do menu e das rotas.
+        correta: true
+        explicacao: O roteador e o `ShellLayout` filtram as entradas `disabled`.
+      - texto: Aparece no menu com aviso.
+        correta: false
+        explicacao: Esse é o comportamento de `maintenance`.
+    - enunciado: Quando o shell confere a origem da URL de um bundle?
+      alternativas:
+      - texto: Só quando a rota é aberta.
+        correta: false
+        explicacao: Na rota, o shell confere o hash dos bytes.
+      - texto: No deploy.
+        correta: false
+        explicacao: O deploy grava o manifesto, e quem valida a origem é o shell.
+      - texto: No boot, ao validar o manifesto, para todas as entradas.
+        correta: true
+        explicacao: A validação percorre todas as entradas antes de criar o roteador.
+    - enunciado: No laboratório, por que foi possível testar o registro sem publicar o bundle?
+      alternativas:
+      - texto: Porque em `maintenance` o shell não baixa o bundle e só valida o formato da entrada.
+        correta: true
+        explicacao: O aviso de manutenção aparece sem chamar o carregador.
+      - texto: Porque o MSW simula o bucket.
+        correta: false
+        explicacao: O MSW intercepta chamadas de API, e não há handler para bundles.
+      - texto: Porque o Vite serve a pasta `mfes/`.
+        correta: false
+        explicacao: A URL do manifesto aponta para a porta 4566 do LocalStack.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A separação entre manifesto e `config.json` está clara.
+    - As validações de boot e a mensagem de erro de cada uma estão claras.
+    - O teste do manifesto falhou antes da entrada e passou depois.
+    - O menu mostrou o microfrontend mínimo depois do endereço, com o aviso de manutenção.
+    - O ciclo e a origem não permitida impediram o boot, e o manifesto foi restaurado.

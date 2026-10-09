@@ -81,7 +81,8 @@ odas:
     minutos: 60
     pre_requisitos: ["05"]
     objetivo: "Registrar um microfrontend no manifesto e prever a ordem de carga calculada pela ordenação topológica."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-06
   - id: "07"
     titulo: "Carga segura e isolamento de falhas"
     trilha: 3
