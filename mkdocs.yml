@@ -58,3 +58,4 @@ markdown_extensions:
 nav:
   - Início: index.md
   - Catálogo de ODAs: odas/index.md
+  - Como escrever uma ODA: referencia/modelo-de-oda.md
