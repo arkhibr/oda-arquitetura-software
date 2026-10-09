@@ -61,7 +61,7 @@ abas:
     mermaid: "sequenceDiagram\n    actor U as Usuário\n    participant SPA as Portal Web\n    participant TS as tokenStorage\n    participant SM as sessionMonitor\n    participant API as API de Clientes\n\n    U->>SPA: login(usuário, senha)\n    SPA->>API: POST /auth/token\n    API-->>SPA: { access_token }\n    SPA->>TS: set(token)\n    SPA->>SM: start()\n\n    loop a cada 60s\n        SM->>TS: get()\n        SM->>SM: isTokenExpired?\n        alt token expirado\n            SM->>SPA: dispatch(logout())\n            SPA->>TS: clear()\n        end\n    end\n\n    SPA->>API: GET /recurso (Bearer token)\n    alt 401 Unauthorized\n        API-->>SPA: 401\n        SPA-->>SPA: event(auth:unauthorized)\n        SPA->>SPA: dispatch(logout())\n        SPA->>TS: clear()\n    end"
   - tipo: conceito
     titulo: Dois mecanismos de encerramento
-    texto: O `sessionMonitor` combina uma verificação pelo relógio do navegador a cada 60 segundos com a escuta do evento `auth:unauthorized`, que o `httpClient` do shell emite ao receber 401. Os dois só funcionam depois de `sessionMonitor.start()`, e o diagrama da ADR mostra essa chamada logo após o login.
+    texto: O `sessionMonitor` combina uma verificação pelo relógio do navegador a cada 60 segundos com a escuta do evento `auth:unauthorized`, que o `httpClient` do shell emite ao receber 401. Os dois só funcionam depois de `sessionMonitor.start()`, e o diagrama da ADR mostra essa chamada logo após o login. Como o `httpClient` do shell ainda não tem chamadores, o efeito prático do monitor está na verificação de 60 segundos, que encerra a sessão quando o token expira com o portal aberto.
   - tipo: adr
     id: ADR-004
     titulo: Tática de autenticação
@@ -199,6 +199,9 @@ abas:
       texto: 'Segundo mecanismo: reação ao 401 sinalizado pelo `httpClient`.'
     - linha: 26
       texto: Desliga os dois mecanismos, o que um componente deve chamar ao desmontar.
+  - tipo: faixa
+    estilo: dica
+    texto: Nenhum código de produção do shell importa `src/shared/api/httpClient.ts` no commit `2179313`. Os `fetch` do shell estão em `loadManifest.ts`, `loadMfeModule.ts`, `loginRequest.ts` e `shared/config/index.ts`, e as chamadas de negócio saem dos microfrontends, cujo 401 encerra a sessão pelo callback `onUnauthorized`.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/api/httpClient.ts
@@ -236,11 +239,11 @@ abas:
     - '}'
     anotacoes:
     - linha: 16
-      texto: O token segue no cabeçalho `Authorization` de toda chamada feita pelo shell.
+      texto: O token seguiria no cabeçalho `Authorization` das chamadas feitas por este cliente, que no commit `2179313` não tem chamadores fora dos testes.
     - linha: 22
       texto: No 401, o `httpClient` apaga o token da aba antes de avisar o restante do shell.
     - linha: 23
-      texto: O aviso é um evento DOM, ouvido apenas pelo `sessionMonitor` iniciado.
+      texto: O aviso é um evento DOM, ouvido apenas por um `sessionMonitor` iniciado.
     inicio: 5
   - tipo: editor
     rotulo: arquivo
@@ -324,13 +327,13 @@ abas:
   - tipo: faixa
     estilo: erro
     sintoma: O `src/shared/auth/README.md` diz que o `authSlice` chama `sessionMonitor.start()`, e o diagrama da ADR-004 mostra essa chamada logo após o login.
-    causa: No commit `2179313`, nenhum arquivo de `src/` chama `sessionMonitor.start()`, nem o `authSlice`, nem o `main.tsx`, nem os `Providers`, e os dois mecanismos de encerramento ficam desligados.
+    causa: No commit `2179313`, nenhum arquivo de `src/` chama `sessionMonitor.start()`, nem o `authSlice`, nem o `main.tsx`, nem os `Providers`, e os dois mecanismos de encerramento ficam desligados. O `vitest.config.ts` exclui o `sessionMonitor` e os `Providers` da cobertura com a justificativa de que são cobertos por E2E, e nenhum teste de `tests/e2e/` exercita o monitor.
     correcao: O laboratório inicia o monitor nos `Providers` com o teste escrito antes, e o README de `shared/auth` precisa registrar o novo ponto de chamada.
 - id: simulacao
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Envie pelo console as requisições de login e de endereço ao back-end simulado pelo MSW e ao Gateway, e compare as respostas para o mesmo token. Depois, acompanhe na linha do tempo o caminho de um 401 com e sem o `sessionMonitor` iniciado.
+    texto: Envie pelo console as requisições de login e de endereço ao back-end simulado pelo MSW e ao Gateway, e compare as respostas para o mesmo token. Depois, acompanhe na linha do tempo o caminho que um 401 recebido pelo `httpClient` do shell percorreria, com e sem o `sessionMonitor` iniciado.
   - tipo: console-api
     cenarios:
     - rotulo: MSW · login com a senha correta
@@ -391,9 +394,9 @@ abas:
           error: unauthorized
           message: Token Bearer ausente ou inválido.
       origem: executado
-      nota: O shell aceita esse token porque só lê o payload, e o Gateway o recusa porque a assinatura não confere.
+      nota: 'O shell aceita esse token porque só lê o payload. O Gateway, configurado com segredo compartilhado, aceita apenas HS256 e recusa o cabeçalho `alg: RS256` antes de verificar a assinatura, que também falharia, assim como a ausência de `iss` e `aud`.'
   - tipo: linha-do-tempo
-    titulo: Um 401 recebido pelo httpClient do shell
+    titulo: Um 401 recebido pelo httpClient do shell, se ele tivesse chamadores
     atores:
     - id: gateway
       rotulo: Gateway
@@ -461,7 +464,7 @@ abas:
       explicacao: O Gateway passa `issuer` e `audience` ao `jwtVerify`.
     - texto: A expiração, para levar o usuário de volta ao login
       categoria: shell
-      explicacao: O `tokenParser` e o `sessionMonitor` usam o relógio do navegador para melhorar a experiência, sem valor de autorização.
+      explicacao: O `isTokenExpired` usa o relógio do navegador no reducer `login` e em `hydrateInitialState`, para melhorar a experiência, sem valor de autorização. A verificação periódica do `sessionMonitor` só passa a rodar depois da correção do laboratório.
     - texto: Se o token foi revogado antes de expirar
       categoria: ninguem
       explicacao: Nenhum dos trechos lidos consulta lista de revogação, e a ADR-004 não trata esse caso.
@@ -544,22 +547,31 @@ abas:
       efeito: sem_ouvinte
       sucesso: '`expected true to be false` no teste do evento `auth:unauthorized`.'
     - titulo: Escrever o teste do shell
-      texto: Crie a pasta `src/app/providers/__tests__/` e o arquivo abaixo. O teste monta os `Providers` do shell, faz login e emite o evento que o `httpClient` emite no 401.
+      texto: Crie a pasta `src/app/providers/__tests__/` e o arquivo abaixo. O primeiro teste monta os `Providers` do shell, faz login e emite o evento que o `httpClient` do shell emitiria num 401, e o segundo avança o relógio simulado até a verificação de 60 segundos com um token que expira em 30 segundos.
       editor:
         rotulo: arquivo
         caminho: src/app/providers/__tests__/Providers.test.tsx (novo)
         commit: '2179313'
         linhas:
-        - import { describe, it, expect, afterEach } from 'vitest'
+        - import { describe, it, expect, vi, afterEach } from 'vitest'
         - import { render, cleanup } from '@testing-library/react'
         - import { Providers } from '..'
         - import { store } from '@/shared/lib/store'
         - import { login } from '@/shared/lib/store/authSlice'
         - import { TEST_TOKEN } from '@/shared/auth/testToken'
         - ''
+        - const INICIO = new Date('2026-10-09T12:00:00Z')
+        - ''
+        - 'function tokenQueExpiraEm(segundos: number) {'
+        - '  const agora = Math.floor(INICIO.getTime() / 1000)'
+        - '  const payload = btoa(JSON.stringify({ sub: ''user1'', iat: agora, exp: agora + segundos })).replace(/=+$/, '''')'
+        - '  return `eyJhbGciOiJIUzI1NiJ9.${payload}.assinatura`'
+        - '}'
+        - ''
         - describe('Providers', () => {
         - '  afterEach(() => {'
         - '    cleanup()'
+        - '    vi.useRealTimers()'
         - '    sessionStorage.clear()'
         - '  })'
         - ''
@@ -569,6 +581,15 @@ abas:
         - '    window.dispatchEvent(new CustomEvent(''auth:unauthorized''))'
         - '    expect(store.getState().auth.isAuthenticated).toBe(false)'
         - '  })'
+        - ''
+        - '  it(''encerra a sessão na primeira verificação depois que o token expira'', () => {'
+        - '    vi.useFakeTimers()'
+        - '    vi.setSystemTime(INICIO)'
+        - '    render(<Providers><p>portal</p></Providers>)'
+        - '    store.dispatch(login({ token: tokenQueExpiraEm(30) }))'
+        - '    vi.advanceTimersByTime(60_000)'
+        - '    expect(store.getState().auth.isAuthenticated).toBe(false)'
+        - '  })'
         - '})'
       efeito: teste_providers
     - titulo: Ver o teste falhar
@@ -576,7 +597,7 @@ abas:
         rotulo: terminal
         linhas:
         - npx vitest run src/app/providers
-      sucesso: '`AssertionError: expected true to be false`, porque nenhum código do shell iniciou o monitor.'
+      sucesso: '`Tests 2 failed (2)`, com `AssertionError: expected true to be false` nos dois testes, porque nenhum código do shell iniciou o monitor.'
     - titulo: Iniciar o monitor nos Providers
       texto: Em `src/app/providers/index.tsx`, importe `useEffect` de `react` e `sessionMonitor` de `@/shared/auth/sessionMonitor`, e acrescente o efeito abaixo no início da função `Providers`. A função de limpeza desliga o monitor quando o componente desmonta.
       editor:
@@ -594,14 +615,14 @@ abas:
         rotulo: terminal
         linhas:
         - npx vitest run src/app/providers
-      sucesso: '`Tests 1 passed (1)`.'
+      sucesso: '`Tests 2 passed (2)`.'
     - titulo: Conferir tipos, fronteiras e a suíte
       editor:
         rotulo: terminal
         linhas:
-        - npx tsc --noEmit -p . && npm run lint
+        - npx tsc --noEmit -p tsconfig.app.json && npm run lint
         - npx vitest run
-      sucesso: Tipos e lint sem erros, e `Test Files 25 passed (25)` com `Tests 102 passed (102)`.
+      sucesso: Tipos e lint sem erros, e `Test Files 25 passed (25)` com `Tests 103 passed (103)`.
     - titulo: Conferir no navegador
       texto: Rode `npm run dev`, abra `http://localhost:5173/login` e entre com `usuario@teste.com` e `senha123`. No console do DevTools, na página `/dashboard`, execute a linha abaixo.
       editor:
@@ -614,20 +635,28 @@ abas:
     comandos:
     - entrada: npx vitest run src/shared/auth src/shared/api src/app/router
       condicao:
-      - '!teste_monitor'
-      - '!teste_providers'
+      - teste_monitor
+      - sem_ouvinte
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts (2 tests | 1 failed) 6ms\n     × faz logout ao receber o evento auth:unauthorized 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout ao receber o evento auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts:39:51\n     37|     sessionMonitor.start()\n     38|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     39|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     40|   })\n     41| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 6 passed (7)\n      Tests  1 failed | 24 passed (25)"
+      origem: executado
+      dica: A falha vem da linha comentada no passo 4. Restaure a linha e desmarque o passo.
+    - entrada: npx vitest run src/shared/auth src/shared/api src/app/router
+      condicao: teste_monitor
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  7 passed (7)\n      Tests  25 passed (25)"
+      origem: executado
+    - entrada: npx vitest run src/shared/auth src/shared/api src/app/router
       saida: " RUN  v4.1.7 .\n\n\n Test Files  6 passed (6)\n      Tests  23 passed (23)"
       origem: executado
     - entrada: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
       condicao:
       - teste_monitor
       - sem_ouvinte
-      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts (2 tests | 1 failed) 5ms\n     × faz logout ao receber o evento auth:unauthorized 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout ao receber o evento auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts:39:51\n     37|     sessionMonitor.start()\n     38|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     39|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     40|   })\n     41| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 passed (2)"
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts (2 tests | 1 failed) 6ms\n     × faz logout ao receber o evento auth:unauthorized 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout ao receber o evento auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts:39:51\n     37|     sessionMonitor.start()\n     38|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     39|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     40|   })\n     41| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 passed (2)"
       origem: executado
       dica: Sem o ouvinte, o evento não chega ao monitor. Restaure a linha e desmarque o passo 4.
     - entrada: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
       condicao: teste_monitor
-      saida: " RUN  v4.1.7 .\n\n ✓ src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout na primeira verificação depois que o token expira 2ms\n ✓ src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout ao receber o evento auth:unauthorized 1ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
       origem: executado
     - entrada: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
       saida: ' RUN  v4.1.7 .
@@ -647,13 +676,13 @@ abas:
       condicao:
       - teste_providers
       - monitor_ligado
-      saida: " RUN  v4.1.7 .\n\n ✓ src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized 7ms\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)"
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
       origem: executado
     - entrada: npx vitest run src/app/providers
       condicao: teste_providers
-      saida: " RUN  v4.1.7 .\n\n ❯ src/app/providers/__tests__/Providers.test.tsx (1 test | 1 failed) 10ms\n     × encerra a sessão quando o shell recebe auth:unauthorized 8ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:18:51\n     16|     store.dispatch(login({ token: TEST_TOKEN }))\n     17|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     18|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     19|   })\n     20| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed (1)"
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/providers/__tests__/Providers.test.tsx (2 tests | 2 failed) 12ms\n     × encerra a sessão quando o shell recebe auth:unauthorized 9ms\n     × encerra a sessão na primeira verificação depois que o token expira 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:27:51\n     25|     store.dispatch(login({ token: TEST_TOKEN }))\n     26|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     27|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     28|   })\n     29|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão na primeira verificação depois que o token expira\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:36:51\n     34|     store.dispatch(login({ token: tokenQueExpiraEm(30) }))\n     35|     vi.advanceTimersByTime(60_000)\n     36|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     37|   })\n     38| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed (1)\n      Tests  2 failed (2)"
       origem: executado
-      dica: 'A falha é a esperada: o teste existe e o shell ainda não inicia o monitor. Faça a correção no passo 7.'
+      dica: 'As duas falhas são as esperadas: o shell ainda não inicia o monitor. Faça a correção no passo 7.'
     - entrada: npx vitest run src/app/providers
       saida: ' RUN  v4.1.7 .
 
@@ -668,7 +697,7 @@ abas:
         exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
       origem: executado
       dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
-    - entrada: npx tsc --noEmit -p . && npm run lint
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
       saida: '> frontend-react@0.0.0 lint
 
         > eslint src/'
@@ -679,39 +708,38 @@ abas:
       - teste_providers
       - monitor_ligado
       - '!sem_ouvinte'
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  25 passed (25)\n      Tests  102 passed (102)"
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  25 passed (25)\n      Tests  103 passed (103)"
       origem: executado
     - entrada: npx vitest run
       condicao:
       - teste_monitor
       - teste_providers
-      - '!monitor_ligado'
       - '!sem_ouvinte'
-      saida: " RUN  v4.1.7 .\n\n ❯ src/app/providers/__tests__/Providers.test.tsx (1 test | 1 failed) 38ms\n     × encerra a sessão quando o shell recebe auth:unauthorized 34ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:18:51\n     16|     store.dispatch(login({ token: TEST_TOKEN }))\n     17|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     18|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     19|   })\n     20| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 24 passed (25)\n      Tests  1 failed | 101 passed (102)"
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/providers/__tests__/Providers.test.tsx (2 tests | 2 failed) 20ms\n     × encerra a sessão quando o shell recebe auth:unauthorized 14ms\n     × encerra a sessão na primeira verificação depois que o token expira 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:27:51\n     25|     store.dispatch(login({ token: TEST_TOKEN }))\n     26|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     27|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     28|   })\n     29|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão na primeira verificação depois que o token expira\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:36:51\n     34|     store.dispatch(login({ token: tokenQueExpiraEm(30) }))\n     35|     vi.advanceTimersByTime(60_000)\n     36|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     37|   })\n     38| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed | 24 passed (25)\n      Tests  2 failed | 101 passed (103)"
       origem: executado
     - entrada: npx vitest run
       condicao:
       - teste_monitor
-      - '!teste_providers'
-      - '!monitor_ligado'
-      - '!sem_ouvinte'
+      - sem_ouvinte
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts (2 tests | 1 failed) 11ms\n     × faz logout ao receber o evento auth:unauthorized 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout ao receber o evento auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts:39:51\n     37|     sessionMonitor.start()\n     38|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     39|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     40|   })\n     41| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  1 failed | 100 passed (101)"
+      origem: executado
+      dica: A falha vem da linha comentada no passo 4. Restaure a linha e desmarque o passo.
+    - entrada: npx vitest run
+      condicao: teste_monitor
       saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  101 passed (101)"
       origem: executado
       dica: 'São 101 testes: os 99 do commit de referência e os 2 do monitor.'
     - entrada: npx vitest run
-      condicao:
-      - '!teste_monitor'
-      - '!teste_providers'
-      - '!monitor_ligado'
       saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
       origem: executado
+      dica: Esta é a suíte do commit de referência, com 99 testes, antes das mudanças do laboratório.
     cenarios:
     - rotulo: Testes do monitor
       comando: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
     - rotulo: Teste do shell
       comando: npx vitest run src/app/providers
     - rotulo: Tipos e lint
-      comando: npx tsc --noEmit -p . && npm run lint
+      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
     - rotulo: Suíte completa
       comando: npx vitest run
 - id: diagnostico
@@ -720,16 +748,11 @@ abas:
   - tipo: legenda
     texto: Os incidentes abaixo partem do navegador, do Gateway, do MSW e do código no commit `2179313`. Em cada um, identifique a causa antes de ler a correção.
   - tipo: incidente
-    titulo: Sessão que continua depois do 401
+    titulo: Evento auth:unauthorized sem efeito
     origem: executado
     rotulo_saida: log
-    saida: '> window.dispatchEvent(new CustomEvent(''auth:unauthorized''))
-
-
-      location.pathname        /dashboard
-
-      Object.keys(sessionStorage)  ["portal_access_token"]'
-    pergunta: O evento de sessão expirada foi emitido, e a pessoa continua no painel. Por quê?
+    saida: "{\n  \"antes\": \"/dashboard\",\n  \"tokenAntes\": [\n    \"portal_access_token\"\n  ],\n  \"depois\": \"/dashboard\",\n  \"tokenDepois\": [\n    \"portal_access_token\"\n  ]\n}"
+    pergunta: Depois do login, o evento `auth:unauthorized` foi emitido na janela, e o resultado mostra a rota e o `sessionStorage` antes e depois dele. Por que a pessoa continua no painel?
     correcao: Iniciar o `sessionMonitor` no ciclo de vida do shell, como no laboratório, e corrigir o README de `shared/auth`, que atribui a chamada ao `authSlice`.
     alternativas:
     - texto: O evento precisa ser emitido no `document`, e não na `window`.
@@ -774,9 +797,9 @@ abas:
     - texto: O Gateway exige o token num cabeçalho chamado `X-Token`.
       correta: false
       explicacao: O `gateway/src/auth.ts` lê o cabeçalho `Authorization` no formato `Bearer <token>`.
-    - texto: O shell só decodifica o payload e confere `exp`, e o Gateway verifica a assinatura, que no token do MSW é o texto `signature`.
+    - texto: O shell só decodifica o payload e confere `exp`, e o Gateway confere algoritmo, assinatura, emissor e audiência, e o token do MSW falha nesses pontos.
       correta: true
-      explicacao: O `tokenParser` não verifica assinatura, e o Gateway exige HS256 assinado com `JWT_SHARED_SECRET`.
+      explicacao: 'O `tokenParser` não verifica assinatura. O Gateway exige HS256 assinado com `JWT_SHARED_SECRET`, e o token do MSW tem `alg: RS256`, a assinatura literal `signature` e nenhum `iss` ou `aud`.'
   - tipo: incidente
     titulo: Endereço devolvido sem token
     origem: executado
@@ -878,5 +901,5 @@ abas:
     - O caminho do token do login aos guards e aos microfrontends está claro.
     - A diferença entre a verificação no shell e a validação no Gateway está clara.
     - Os testes do `sessionMonitor` passaram e falharam sem o ouvinte.
-    - O teste do `Providers` falhou antes da correção e passou depois, com a suíte em 102 testes.
+    - Os dois testes do `Providers` falharam antes da correção e passaram depois, com a suíte em 103 testes.
     - O navegador foi para `/login` depois do evento `auth:unauthorized`.

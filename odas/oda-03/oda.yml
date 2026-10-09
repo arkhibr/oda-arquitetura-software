@@ -270,7 +270,7 @@ abas:
     inicio: 3
   - tipo: faixa
     estilo: dica
-    texto: 'No commit `2179313`, nenhum componente do shell chama `useQuery`: o `QueryClientProvider` está montado e aguarda a primeira consulta. Os dados remotos chegam pelos microfrontends, que usam `useEffect` e `useState`.'
+    texto: 'No commit `2179313`, nenhum componente do shell chama `useQuery`: o `QueryClientProvider` está montado e aguarda a primeira consulta. Os dados de negócio chegam pelos microfrontends, que usam `useEffect` e `useState`, e o shell busca apenas `config.json` e `mfe-manifest.json`, com `fetch` direto e fora do React.'
 - id: simulacao
   titulo: Simulação
   blocos:
@@ -493,8 +493,8 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - npx tsc --noEmit -p . && npm run lint
-      sucesso: O `tsc` termina sem mensagens, e o ESLint termina sem erros depois de `> eslint src/`.
+        - npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      sucesso: O `tsc` termina sem mensagens, e o ESLint termina sem erros depois de `> eslint src/`. Se o `tsc` for rodado logo após o passo 2, ele acusa `setDensidade` e `densidade` como inexistentes.
     - titulo: Escrever os testes de caracterização do queryClient
       texto: Crie a pasta `src/shared/lib/__tests__/` e o arquivo abaixo. Os dois testes descrevem o comportamento atual, por isso passam desde a primeira execução.
       editor:
@@ -553,7 +553,7 @@ abas:
     comandos:
     - entrada: npx vitest run src/shared/lib/store
       condicao: densidade_implementada
-      saida: " RUN  v4.1.7 .\n\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > toggleSidebar inverte sidebarOpen 1ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > openModal e closeModal gerenciam activeModal 0ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > addToast adiciona toast com id único 1ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > removeToast remove pelo id 0ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > setDensidade troca a densidade da interface 0ms\n ✓ src/shared/lib/store/__tests__/authSlice.test.ts > authSlice > estado inicial não autenticado 1ms\n ✓ src/shared/lib/store/__tests__/authSlice.test.ts > authSlice > login: seta token, user e isAuthenticated=true 0ms\n ✓ src/shared/lib/store/__tests__/authSlice.test.ts > authSlice > logout: limpa estado completamente 0ms\n\n Test Files  2 passed (2)\n      Tests  8 passed (8)"
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  2 passed (2)\n      Tests  8 passed (8)"
       origem: executado
     - entrada: npx vitest run src/shared/lib/store
       condicao: teste_densidade
@@ -563,7 +563,22 @@ abas:
     - entrada: npx vitest run src/shared/lib/store
       saida: " RUN  v4.1.7 .\n\n\n Test Files  2 passed (2)\n      Tests  7 passed (7)"
       origem: executado
-    - entrada: npx tsc --noEmit -p . && npm run lint
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      condicao: densidade_implementada
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      condicao: teste_densidade
+      saida: 'src/shared/lib/store/__tests__/uiSlice.test.ts(2,80): error TS2305: Module ''"../uiSlice"'' has no exported member ''setDensidade''.
+
+        src/shared/lib/store/__tests__/uiSlice.test.ts(37,20): error TS2339: Property ''densidade'' does not exist on type ''UiState''.
+
+        src/shared/lib/store/__tests__/uiSlice.test.ts(39,18): error TS2339: Property ''densidade'' does not exist on type ''UiState''.'
+      origem: executado
+      dica: 'O TypeScript acusa o mesmo que o teste: `setDensidade` e `densidade` ainda não existem na fatia.'
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
       saida: '> frontend-react@0.0.0 lint
 
         > eslint src/'
@@ -572,12 +587,12 @@ abas:
       condicao:
       - teste_query
       - stale_zero
-      saida: " RUN  v4.1.7 .\n\n × src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime 2ms\n   → expected \"vi.fn()\" to be called 1 times, but got 2 times\n ✓ src/shared/lib/__tests__/queryClient.test.ts > queryClient > busca de novo depois de invalidar a chave 0ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times\n ❯ src/shared/lib/__tests__/queryClient.test.ts:13:20\n     11|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     12|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     13|     expect(buscar).toHaveBeenCalledTimes(1)\n       |                    ^\n     14|   })\n     15|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 passed (2)"
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/lib/__tests__/queryClient.test.ts (2 tests | 1 failed) 4ms\n     × reaproveita o cache dentro do staleTime 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times\n ❯ src/shared/lib/__tests__/queryClient.test.ts:13:20\n     11|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     12|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     13|     expect(buscar).toHaveBeenCalledTimes(1)\n       |                    ^\n     14|   })\n     15|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 passed (2)"
       origem: executado
       dica: 'Com `staleTime: 0`, a segunda consulta chama a API de novo. Restaure o valor original e desmarque o passo 9.'
     - entrada: npx vitest run src/shared/lib/__tests__/queryClient.test.ts
       condicao: teste_query
-      saida: " RUN  v4.1.7 .\n\n ✓ src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime 1ms\n ✓ src/shared/lib/__tests__/queryClient.test.ts > queryClient > busca de novo depois de invalidar a chave 0ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
       origem: executado
     - entrada: npx vitest run src/shared/lib/__tests__/queryClient.test.ts
       saida: ' RUN  v4.1.7 .
@@ -597,26 +612,27 @@ abas:
       condicao:
       - densidade_implementada
       - teste_query
-      - '!stale_zero'
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  102 passed (102)"
+      - stale_zero
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/lib/__tests__/queryClient.test.ts (2 tests | 1 failed) 11ms\n     × reaproveita o cache dentro do staleTime 5ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times\n ❯ src/shared/lib/__tests__/queryClient.test.ts:13:20\n     11|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     12|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     13|     expect(buscar).toHaveBeenCalledTimes(1)\n       |                    ^\n     14|   })\n     15|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  1 failed | 101 passed (102)"
       origem: executado
-    - entrada: npx vitest run
-      condicao:
-      - densidade_implementada
-      - '!teste_query'
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  100 passed (100)"
-      origem: executado
-      dica: 'São 100 testes: os 99 do commit de referência e o teste da densidade. Os testes do `queryClient` entram no passo 7.'
+      dica: O `staleTime` ainda está em 0. Restaure o valor original e desmarque o passo 9.
     - entrada: npx vitest run
       condicao:
       - densidade_implementada
       - teste_query
-      - stale_zero
-      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/lib/__tests__/queryClient.test.ts (2 tests | 1 failed) 10ms\n     × reaproveita o cache dentro do staleTime 5ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times\n ❯ src/shared/lib/__tests__/queryClient.test.ts:13:20\n     11|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     12|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     13|     expect(buscar).toHaveBeenCalledTimes(1)\n       |                    ^\n     14|   })\n     15|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  1 failed | 101 passed (102)"
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  102 passed (102)"
       origem: executado
-      dica: O `staleTime` ainda está em 0, e a saída mostra a falha do teste do `queryClient`. Restaure o valor original e desmarque o passo 9.
     - entrada: npx vitest run
-      condicao: '!densidade_implementada'
+      condicao: densidade_implementada
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  100 passed (100)"
+      origem: executado
+      dica: 'São 100 testes: os 99 do commit de referência e o teste da densidade. Os testes do `queryClient` entram no passo 7.'
+    - entrada: npx vitest run
+      condicao: teste_densidade
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/lib/store/__tests__/uiSlice.test.ts (5 tests | 1 failed) 5ms\n     × setDensidade troca a densidade da interface 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > setDensidade troca a densidade da interface\nAssertionError: expected undefined to be 'confortavel' // Object.is equality\n\n- Expected:\n\"confortavel\"\n\n+ Received:\nundefined\n\n ❯ src/shared/lib/store/__tests__/uiSlice.test.ts:37:31\n     35|   it('setDensidade troca a densidade da interface', () => {\n     36|     const inicial = reducer(undefined, { type: 'inicio' })\n     37|     expect(inicial.densidade).toBe('confortavel')\n       |                               ^\n     38|     const state = reducer(inicial, setDensidade('compacta'))\n     39|     expect(state.densidade).toBe('compacta')\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 22 passed (23)\n      Tests  1 failed | 99 passed (100)"
+      origem: executado
+      dica: A única falha é o teste novo da densidade, que passa depois do passo 4.
+    - entrada: npx vitest run
       saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
       origem: executado
       dica: Esta é a suíte do commit de referência, com 99 testes, antes das mudanças do laboratório.
@@ -624,7 +640,7 @@ abas:
     - rotulo: Testes das fatias
       comando: npx vitest run src/shared/lib/store
     - rotulo: Tipos e lint
-      comando: npx tsc --noEmit -p . && npm run lint
+      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
     - rotulo: Testes do queryClient
       comando: npx vitest run src/shared/lib/__tests__/queryClient.test.ts
     - rotulo: Suíte completa

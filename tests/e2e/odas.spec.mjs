@@ -96,11 +96,11 @@ test('oda-04: o teste do shell falha depois do passo 5 e passa depois do passo 7
   await painel.getByLabel('Passo 5 concluído').check();
   await painel.getByRole('button', { name: 'Limpar' }).click();
   await rodar();
-  await expect(tela).toContainText('Tests  1 failed (1)');
+  await expect(tela).toContainText('Tests  2 failed (2)');
   await painel.getByLabel('Passo 7 concluído').check();
   await painel.getByRole('button', { name: 'Limpar' }).click();
   await rodar();
-  await expect(tela).toContainText('Tests  1 passed (1)');
+  await expect(tela).toContainText('Tests  2 passed (2)');
 });
 
 test('oda-04: sem o sessionMonitor, o evento do 401 fica sem consumo', async ({ page }) => {
