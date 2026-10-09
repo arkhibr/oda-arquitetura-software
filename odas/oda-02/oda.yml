@@ -1,0 +1,548 @@
+id: '02'
+titulo: Feature-Sliced Design e fronteiras impostas pelo ESLint
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O shell do `frontend-react` separa o código em camadas, e o ESLint recusa importações que desrespeitam a hierarquia. Nesta ODA, uma violação real é introduzida, acusada pelo lint e corrigida.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar a hierarquia de camadas do Feature-Sliced Design adotada pelo shell.
+    - Classificar uma importação entre camadas como permitida ou proibida segundo `eslint.config.ts`.
+    - Executar o lint e interpretar o erro `boundaries/dependencies`.
+    - Justificar a imposição automática das fronteiras em relação à revisão manual, com base na ADR-007.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: São necessários Node 24, npm e Git. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
+  - tipo: terminal
+    titulo: terminal · verificação do ambiente
+    comandos:
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão 24.x atende. A versão exibida é a da máquina em que a ODA foi produzida.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
+    cenarios:
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: O Feature-Sliced Design organiza o shell em camadas com responsabilidade definida e dependência em uma só direção. Clique nas pastas para ver o papel de cada camada no commit de referência.
+  - tipo: arvores
+    esquerda:
+      titulo: Camadas declaradas em eslint.config.ts
+      nos:
+      - caminho: src/
+        descricao: Raiz do shell. Cada subpasta corresponde a um elemento do plugin `eslint-plugin-boundaries`.
+      - caminho: src/app/
+        descricao: Inicialização, providers, roteamento e runtime de microfrontends. Pode importar de todas as camadas abaixo.
+      - caminho: src/pages/
+        descricao: Telas completas, como login e dashboard. Importa de widgets, features, entities e shared.
+      - caminho: src/widgets/
+        descricao: Blocos de interface reutilizáveis. Declarada na configuração, sem código no commit de referência.
+      - caminho: src/features/
+        descricao: Ações do usuário, como a chamada de login. Importa de entities e shared.
+      - caminho: src/entities/
+        descricao: Conceitos de negócio. Declarada na configuração, sem código no commit de referência.
+      - caminho: src/shared/
+        descricao: Infraestrutura reutilizável, como cliente HTTP e configuração. Não importa de nenhuma outra camada.
+      - caminho: src/mocks/
+        descricao: Simuladores MSW. Exceção declarada, que importa de shared, entities e features.
+    direita:
+      titulo: Arquivos citados nesta ODA
+      nos:
+      - caminho: src/pages/login/index.tsx
+        descricao: Página de login, que importa de `shared` e de `features`.
+      - caminho: src/features/auth/loginRequest.ts
+        descricao: Chamada de login, que importa a configuração de `shared`.
+      - caminho: src/shared/api/httpClient.ts
+        descricao: Cliente HTTP, onde o laboratório introduz a violação.
+      - caminho: src/shared/config/index.ts
+        descricao: Configuração de ambiente, importada por várias camadas.
+      - caminho: src/app/router/index.tsx
+        descricao: Roteador, que importa as páginas.
+      - caminho: src/mocks/handlers.ts
+        descricao: Agregador dos handlers do MSW.
+  - tipo: comparativo
+    colunas:
+    - Pode importar de
+    - Não pode importar de
+    linhas:
+    - dimensao: app
+      valores:
+      - pages, widgets, features, entities, shared
+      - mocks
+    - dimensao: pages
+      valores:
+      - widgets, features, entities, shared
+      - app, mocks
+    - dimensao: widgets
+      valores:
+      - features, entities, shared
+      - app, pages, mocks
+    - dimensao: features
+      valores:
+      - entities, shared
+      - app, pages, widgets, mocks
+    - dimensao: entities
+      valores:
+      - shared
+      - app, pages, widgets, features, mocks
+    - dimensao: shared
+      valores:
+      - nenhuma outra camada
+      - todas as camadas
+    - dimensao: mocks
+      valores:
+      - shared, entities, features
+      - app, pages, widgets
+  - tipo: conceito
+    titulo: Dependência em uma só direção
+    texto: Cada camada importa somente das camadas abaixo dela, e importações dentro da mesma camada não são verificadas. A regra fica escrita em `eslint.config.ts` e é conferida a cada execução de `npm run lint`, inclusive na esteira de CI.
+    analogia: 'As camadas funcionam como os andares de um prédio: cada andar se apoia na estrutura dos andares de baixo, e nenhum andar de baixo depende de um andar de cima.'
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Fluxo
+    titulo: Dependências permitidas entre as camadas
+    mermaid: "graph TD\n    app --> pages\n    app --> widgets\n    pages --> widgets\n    pages --> features\n    widgets --> features\n    features --> entities\n    entities --> shared\n    features --> shared\n    pages --> shared\n    mocks -.-> features\n    mocks -.-> entities\n    mocks -.-> shared"
+  - tipo: adr
+    id: ADR-007
+    titulo: Tática de imposição de fronteiras arquiteturais
+    status: Proposed
+    contexto: O FSD define regras explícitas de dependência entre camadas, e sem verificação automatizada essas regras se degradam sob pressão de entrega.
+    decisao: Adotar o `eslint-plugin-boundaries` para impor as regras de dependência como erros de lint executados na esteira de CI, com cada camada mapeada como um elemento do plugin.
+    alternativas: A revisão de código manual, que não escala com o crescimento do time, e a ausência de mecanismo, que leva ao acúmulo de importações cruzadas.
+    consequencias: Os erros de fronteira aparecem no editor e na esteira de CI, e todo novo módulo precisa ser registrado em `boundaries/elements`.
+  - tipo: adr
+    id: ADR-002
+    titulo: Tática de modularização
+    status: Proposed
+    contexto: A organização por tipo técnico espalha uma funcionalidade por várias pastas e aumenta o risco de dependências circulares à medida que o projeto cresce.
+    decisao: Adotar o Feature-Sliced Design com imposição via ESLint, para obter coesão por domínio e dependências unidirecionais verificadas automaticamente.
+    alternativas: A organização por tipo técnico, adequada só a projetos pequenos, e a ausência de estrutura imposta.
+    consequencias: O onboarding passa a ser guiado pela estrutura de pastas, e cada funcionalidade nova exige decidir a camada a que pertence.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo são do commit `2179313`. Clique nos marcadores numerados para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: eslint.config.ts
+    commit: '2179313'
+    linhas:
+    - '      ''boundaries/elements'': ['
+    - '        { type: ''shared'',   pattern: ''src/shared/**'' },'
+    - '        { type: ''entities'', pattern: ''src/entities/**'' },'
+    - '        { type: ''features'', pattern: ''src/features/**'' },'
+    - '        { type: ''widgets'',  pattern: ''src/widgets/**'' },'
+    - '        { type: ''pages'',    pattern: ''src/pages/**'' },'
+    - '        { type: ''app'',      pattern: ''src/app/**'' },'
+    - '        { type: ''mocks'',    pattern: ''src/mocks/**'' },'
+    - '      ],'
+    - '      ''boundaries/ignore'': [''src/main.tsx'', ''src/test-setup.ts''],'
+    - '    },'
+    - '    rules: {'
+    - '      ...reactHooks.configs.recommended.rules,'
+    - '      ''@typescript-eslint/no-unused-vars'': [''error'', { argsIgnorePattern: ''^_'' }],'
+    - '      ''boundaries/dependencies'': [''error'', {'
+    - '        default: ''disallow'','
+    - '        rules: ['
+    - '          { from: { type: ''shared'' },   disallow: { to: { type: ''*'' } } },'
+    - '          { from: { type: ''entities'' }, allow: { to: { type: [''shared''] } } },'
+    - '          { from: { type: ''features'' }, allow: { to: { type: [''entities'', ''shared''] } } },'
+    - '          { from: { type: ''widgets'' },  allow: { to: { type: [''features'', ''entities'', ''shared''] } } },'
+    - '          { from: { type: ''pages'' },    allow: { to: { type: [''widgets'', ''features'', ''entities'', ''shared''] } } },'
+    - '          { from: { type: ''app'' },      allow: { to: { type: [''pages'', ''widgets'', ''features'', ''entities'', ''shared''] } } },'
+    - '          { from: { type: ''mocks'' },    allow: { to: { type: [''shared'', ''entities'', ''features''] } } },'
+    - '        ],'
+    - '      }],'
+    anotacoes:
+    - linha: 32
+      texto: Cada camada vira um elemento do plugin, identificado pelo padrão de caminho.
+    - linha: 49
+      texto: A camada `shared` não pode importar de nenhuma outra. Esta é a regra de índice 0, citada na mensagem de erro.
+    - linha: 47
+      texto: Tudo o que não estiver listado nas regras é proibido.
+    - linha: 55
+      texto: Exceção declarada para os simuladores do MSW.
+    inicio: 32
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/pages/login/index.tsx
+    commit: '2179313'
+    linhas:
+    - import { login } from '@/shared/lib/store/authSlice'
+    - import { loginRequest } from '@/features/auth/loginRequest'
+    - import { Button } from '@/shared/ui/Button/Button'
+    anotacoes:
+    - linha: 6
+      texto: A página importa de `features`, camada abaixo dela, o que é permitido.
+    inicio: 5
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/api/httpClient.ts
+    commit: '2179313'
+    linhas:
+    - import { tokenStorage } from '@/shared/auth/tokenStorage'
+    - import { getApiUrl } from '@/shared/config'
+    - import { ApiError } from './types'
+    anotacoes:
+    - linha: 1
+      texto: Importação dentro da própria camada `shared`, que o plugin não verifica.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: tsconfig.app.json
+    commit: '2179313'
+    linhas:
+    - '    "paths": { "@/*": ["./src/*"] }'
+    anotacoes:
+    - linha: 24
+      texto: O alias `@/` aponta para `src/`, e o plugin resolve o caminho real antes de identificar a camada.
+    inicio: 24
+  - tipo: faixa
+    estilo: dica
+    texto: O plugin identifica a camada pelo caminho resolvido do arquivo importado. Por isso, trocar o alias por um caminho relativo não contorna a regra.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Percorra a decisão do plugin para uma importação proibida e depois classifique importações entre camadas. As respostas seguem as regras de `eslint.config.ts`.
+  - tipo: fluxo
+    titulo: Como o lint decide uma importação de shared para features
+    etapas:
+    - titulo: Arquivo de origem
+      descricao: O plugin associa `src/shared/api/httpClient.ts` ao elemento `shared` pelo padrão `src/shared/**`.
+      codigo:
+        arquivo: eslint.config.ts
+        commit: '2179313'
+        linhas:
+        - '{ type: ''shared'',   pattern: ''src/shared/**'' },'
+        destaque:
+        - 1
+    - titulo: Caminho importado
+      descricao: O caminho `@/features/auth/loginRequest` é resolvido pelo alias do `tsconfig.app.json` para `src/features/auth/loginRequest.ts`.
+      codigo:
+        arquivo: tsconfig.app.json
+        commit: '2179313'
+        linhas:
+        - '"paths": { "@/*": ["./src/*"] }'
+        destaque:
+        - 1
+    - titulo: Camada de destino
+      descricao: O arquivo importado pertence ao elemento `features`, pelo padrão `src/features/**`.
+      codigo:
+        arquivo: eslint.config.ts
+        commit: '2179313'
+        linhas:
+        - '{ type: ''features'', pattern: ''src/features/**'' },'
+        destaque:
+        - 1
+    - titulo: Regra aplicada
+      descricao: A regra de índice 0 proíbe qualquer destino para a origem `shared`, e o lint registra o erro `boundaries/dependencies`.
+      codigo:
+        arquivo: eslint.config.ts
+        commit: '2179313'
+        linhas:
+        - '{ from: { type: ''shared'' },   disallow: { to: { type: ''*'' } } },'
+        destaque:
+        - 1
+    - titulo: Mensagem exibida
+      descricao: A mensagem nomeia primeiro o tipo de destino e depois o tipo de origem, com a posição da regra em `rules`.
+  - tipo: classificador
+    enunciado: Classifique cada importação segundo as regras de `eslint.config.ts`.
+    categorias:
+    - id: permitida
+      rotulo: Permitida
+    - id: proibida
+      rotulo: Proibida
+    itens:
+    - texto: '`src/pages/login/index.tsx` importa `@/features/auth/loginRequest`'
+      categoria: permitida
+      explicacao: '`pages` pode importar de `widgets`, `features`, `entities` e `shared`.'
+    - texto: '`src/features/auth/loginRequest.ts` importa `@/shared/config`'
+      categoria: permitida
+      explicacao: '`features` pode importar de `entities` e `shared`.'
+    - texto: '`src/shared/api/httpClient.ts` importa `@/features/auth/loginRequest`'
+      categoria: proibida
+      explicacao: A regra de `shared` proíbe importar de qualquer outra camada.
+    - texto: '`src/features/auth/loginRequest.ts` importa `@/pages/login`'
+      categoria: proibida
+      explicacao: '`features` não importa camadas superiores, como `pages`.'
+    - texto: '`src/app/router/index.tsx` importa `@/pages/dashboard`'
+      categoria: permitida
+      explicacao: '`app` é a camada superior e pode importar de todas as demais.'
+    - texto: '`src/mocks/handlers.ts` importa `@/features/auth/loginRequest`'
+      categoria: permitida
+      explicacao: A camada `mocks` tem permissão explícita para `shared`, `entities` e `features`.
+    - texto: '`src/mocks/handlers.ts` importa `@/pages/login`'
+      categoria: proibida
+      explicacao: A permissão de `mocks` não inclui `pages`.
+    - texto: '`src/pages/dashboard/index.tsx` importa `@/app/router/routes`'
+      categoria: proibida
+      explicacao: '`pages` não importa de `app`, que fica acima dela.'
+  - tipo: terminal
+    titulo: terminal · simulador de lint
+    comandos:
+    - entrada: npm run lint
+      condicao: simulacao_violacao
+      saida: "> frontend-react@0.0.0 lint\n> eslint src/\n\n\n.../frontend-react/src/shared/api/httpClient.ts\n  4:30  error  Dependencies to elements of type \"features\" are not allowed in elements of type \"shared\". Denied by rule at index 0  boundaries/dependencies\n\n✖ 1 problem (1 error, 0 warnings)"
+      origem: executado
+    - entrada: npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    cenarios:
+    - rotulo: Rodar o lint
+      comando: npm run lint
+  - tipo: passos
+    itens:
+    - titulo: Simular a violação em httpClient.ts
+      texto: Marque este passo para que o simulador de lint acima passe a considerar a importação proibida.
+      efeito: simulacao_violacao
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no seu computador ou no terminal simulado abaixo. Os passos 3 e 6 alteram o resultado do lint no terminal simulado, como acontece no projeto real.
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório e instalar as dependências
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+        - git checkout 2179313
+        - npm ci
+    - titulo: Rodar o lint no estado original
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run lint
+      sucesso: Apenas as linhas `> frontend-react@0.0.0 lint` e `> eslint src/`, sem nenhum erro.
+    - titulo: Introduzir a violação
+      texto: Em `src/shared/api/httpClient.ts`, acrescente as duas linhas abaixo logo após a última importação. A segunda linha usa o valor importado, para que o erro de variável não utilizada não se misture ao erro de fronteira.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/api/httpClient.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - import { loginRequest } from '@/features/auth/loginRequest'
+        - export const violacaoDeFronteira = loginRequest
+      efeito: violacao
+    - titulo: Rodar o lint com a violação
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run lint
+      sucesso: Um único erro na linha 4, coluna 30, com a mensagem `Dependencies to elements of type "features" are not allowed in elements of type "shared". Denied by rule at index 0`.
+    - titulo: Trocar o alias por caminho relativo
+      texto: Substitua `'@/features/auth/loginRequest'` por `'../../features/auth/loginRequest'` e rode o lint de novo. O erro permanece, na mesma linha e coluna.
+    - titulo: Desfazer a alteração
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout -- src/shared/api/httpClient.ts
+        - npm run lint
+      sucesso: O lint volta a terminar sem erros.
+      efeito: '!violacao'
+    - titulo: Testar uma pasta fora dos elementos (opcional)
+      texto: Crie o arquivo `src/processes/fluxo.ts` com importações de `@/features/auth/loginRequest` e de `@/pages/login` e rode o lint, que termina sem erros porque a pasta não está declarada em `boundaries/elements`. Ao terminar, apague a pasta `src/processes/` para devolver o repositório ao estado original.
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git clone https://github.com/arkhibr/frontend-react
+      saida: Cloning into 'frontend-react'...
+      origem: exemplo
+    - entrada: cd frontend-react
+      saida: ''
+      origem: exemplo
+    - entrada: git checkout 2179313
+      saida: HEAD is now at 2179313
+      origem: exemplo
+    - entrada: npm ci
+      saida: (instalação das dependências registradas em package-lock.json)
+      origem: exemplo
+    - entrada: npm run lint
+      condicao: violacao
+      saida: "> frontend-react@0.0.0 lint\n> eslint src/\n\n\n.../frontend-react/src/shared/api/httpClient.ts\n  4:30  error  Dependencies to elements of type \"features\" are not allowed in elements of type \"shared\". Denied by rule at index 0  boundaries/dependencies\n\n✖ 1 problem (1 error, 0 warnings)"
+      origem: executado
+      dica: 'Leia a mensagem na ordem: o arquivo de origem, a linha e a coluna, o tipo de destino, o tipo de origem e a regra.'
+    - entrada: npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    - entrada: git checkout -- src/shared/api/httpClient.ts
+      saida: ''
+      origem: exemplo
+      efeito: '!violacao'
+    cenarios:
+    - rotulo: Rodar o lint
+      comando: npm run lint
+    - rotulo: Desfazer a alteração
+      comando: git checkout -- src/shared/api/httpClient.ts
+  - tipo: faixa
+    estilo: erro
+    sintoma: Uma pasta nova em `src/` importa de `features` e de `pages`, e o lint termina sem erros.
+    causa: A pasta não corresponde a nenhum padrão de `boundaries/elements`, e o plugin não verifica arquivos fora dos elementos declarados.
+    correcao: Registrar a pasta em `boundaries/elements` e acrescentar a regra correspondente, como determina a ADR-007.
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Cada incidente mostra uma saída real do lint no commit `2179313`. Escolha a causa para ver a explicação e a correção.
+  - tipo: incidente
+    titulo: Erro de fronteira no cliente HTTP
+    origem: executado
+    saida: "> frontend-react@0.0.0 lint\n> eslint src/\n\n\n.../frontend-react/src/shared/api/httpClient.ts\n  4:30  error  Dependencies to elements of type \"features\" are not allowed in elements of type \"shared\". Denied by rule at index 0  boundaries/dependencies\n\n✖ 1 problem (1 error, 0 warnings)"
+    pergunta: O que a mensagem informa?
+    correcao: Mover o código compartilhado para `shared` ou fazer a chamada a partir de uma camada superior, como `pages`.
+    alternativas:
+    - texto: O arquivo importado não existe.
+      correta: false
+      explicacao: Arquivo inexistente gera erro de resolução, e não erro de fronteira.
+    - texto: Um arquivo da camada `shared` importou um arquivo da camada `features`.
+      correta: true
+      explicacao: A mensagem nomeia primeiro o tipo de destino (`features`) e depois o tipo de origem (`shared`).
+    - texto: Um arquivo da camada `features` importou um arquivo da camada `shared`.
+      correta: false
+      explicacao: 'Essa direção é permitida: `features` pode importar de `shared`.'
+  - tipo: incidente
+    titulo: Pasta nova importando páginas sem erro
+    origem: executado
+    rotulo_saida: log
+    saida: 'src/processes/fluxo.ts
+
+      import { loginRequest } from ''@/features/auth/loginRequest''
+
+      import LoginPage from ''@/pages/login''
+
+      export const fluxo = [loginRequest, LoginPage]
+
+
+      $ npm run lint
+
+      > frontend-react@0.0.0 lint
+
+      > eslint src/'
+    pergunta: '`src/processes/fluxo.ts` importa de `@/features/auth/loginRequest` e de `@/pages/login`, e o lint terminou sem erros. Por quê?'
+    correcao: Registrar `src/processes/**` em `boundaries/elements` e definir as dependências permitidas da nova camada.
+    alternativas:
+    - texto: Importações com alias `@/` não são verificadas.
+      correta: false
+      explicacao: O erro do cliente HTTP mostra que o alias é resolvido e verificado.
+    - texto: A camada `processes` tem permissão para importar de qualquer camada.
+      correta: false
+      explicacao: Não existe regra para `processes` na configuração.
+    - texto: A pasta não está declarada em `boundaries/elements`, e o plugin não verifica arquivos fora dos elementos.
+      correta: true
+      explicacao: A seção de consequências da ADR-007 exige registrar cada novo módulo em `eslint.config.ts`.
+  - tipo: incidente
+    titulo: Importações dentro de shared sem erro
+    origem: executado
+    rotulo_saida: log
+    saida: 'src/shared/api/httpClient.ts
+
+      import { tokenStorage } from ''@/shared/auth/tokenStorage''
+
+      import { getApiUrl } from ''@/shared/config''
+
+
+      $ npm run lint
+
+      > frontend-react@0.0.0 lint
+
+      > eslint src/'
+    pergunta: A regra de `shared` proíbe qualquer destino, mas o arquivo importa de `@/shared/...` e o lint passa. Por quê?
+    correcao: 'Nenhuma correção é necessária: importações dentro da mesma camada são permitidas no FSD.'
+    alternativas:
+    - texto: O plugin não verifica importações dentro do mesmo elemento.
+      correta: true
+      explicacao: O lint do commit de referência termina sem erros com essas importações.
+    - texto: O lint ignora o arquivo `httpClient.ts`.
+      correta: false
+      explicacao: O mesmo arquivo gerou erro quando importou de `features`.
+    - texto: A regra de índice 0 só vale para caminhos relativos.
+      correta: false
+      explicacao: A regra vale para qualquer forma de caminho, porque o plugin resolve o caminho antes de verificar.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Qual afirmação descreve a hierarquia de camadas do FSD adotada pelo shell?
+      alternativas:
+      - texto: A camada `app` só pode importar de `shared`.
+        correta: false
+        explicacao: '`app` pode importar de `pages`, `widgets`, `features`, `entities` e `shared`.'
+      - texto: Cada camada importa somente das camadas abaixo dela, e `shared` não importa de nenhuma outra.
+        correta: true
+        explicacao: É a regra declarada em `boundaries/dependencies`, com `shared` na base da hierarquia.
+      - texto: Qualquer camada pode importar de qualquer outra, desde que use o alias `@/`.
+        correta: false
+        explicacao: 'O alias não altera a regra: o plugin identifica a camada pelo caminho resolvido.'
+    - enunciado: Como o lint classifica a importação de `@/pages/login` em `src/mocks/handlers.ts`?
+      alternativas:
+      - texto: Permitida, porque `mocks` é exceção e pode importar de qualquer camada.
+        correta: false
+        explicacao: A exceção de `mocks` é limitada a três camadas.
+      - texto: Ignorada, porque `mocks` está em `boundaries/ignore`.
+        correta: false
+        explicacao: '`boundaries/ignore` contém apenas `src/main.tsx` e `src/test-setup.ts`.'
+      - texto: Proibida, porque a permissão de `mocks` cobre apenas `shared`, `entities` e `features`.
+        correta: true
+        explicacao: 'A regra de `mocks` lista explicitamente as três camadas, e `default: ''disallow''` recusa as demais.'
+    - enunciado: O lint informa `Dependencies to elements of type "features" are not allowed in elements of type "shared"`. O que essa mensagem indica?
+      alternativas:
+      - texto: Um arquivo da camada `shared` importou um arquivo da camada `features`.
+        correta: true
+        explicacao: A mensagem nomeia primeiro o destino (`features`) e depois a origem (`shared`).
+      - texto: Um arquivo da camada `features` importou um arquivo da camada `shared`.
+        correta: false
+        explicacao: 'Essa direção é permitida: `features` pode importar de `shared`.'
+      - texto: O arquivo importado não existe.
+        correta: false
+        explicacao: Arquivo inexistente gera erro de resolução, e não erro de fronteira.
+    - enunciado: Por que a ADR-007 prefere o plugin à revisão de código manual?
+      alternativas:
+      - texto: Porque o plugin também verifica pastas não registradas em `boundaries/elements`.
+        correta: false
+        explicacao: Pastas fora dos elementos declarados não são verificadas, como mostra a seção de erros comuns.
+      - texto: Porque a verificação automática detecta a violação antes do merge e não depende da disciplina de cada revisor.
+        correta: true
+        explicacao: A ADR-007 registra que a revisão manual não escala com o crescimento do time e deixa violações passarem.
+      - texto: Porque o plugin dispensa qualquer configuração.
+        correta: false
+        explicacao: A ADR-007 registra como desvantagem a necessidade de mapear todos os elementos.
+    - enunciado: Uma pasta nova `src/processes/` importa de `pages` e o lint passa. O que isso indica?
+      alternativas:
+      - texto: A importação é permitida pela hierarquia do FSD.
+        correta: false
+        explicacao: O lint não avaliou a importação, então ele não confirma nem nega a hierarquia.
+      - texto: O lint falhou ao executar.
+        correta: false
+        explicacao: O lint terminou normalmente, sem nenhum erro.
+      - texto: A pasta ainda não foi registrada em `boundaries/elements`.
+        correta: true
+        explicacao: Arquivos fora dos elementos declarados não são verificados pelo plugin.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O lint terminou sem erros no estado original.
+    - A violação em `httpClient.ts` foi acusada na linha 4, coluna 30.
+    - O caminho relativo também foi acusado.
+    - A alteração foi desfeita e o lint voltou a passar.
+    - A regra para pastas novas está clara.

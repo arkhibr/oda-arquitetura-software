@@ -1,0 +1,682 @@
+id: '30'
+titulo: Mensageria com SQS e SNS
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O cenário 09 do `aspire-aws` publica uma mensagem num tópico SNS e confere que duas filas SQS recebem uma cópia cada. Nesta ODA, o cenário ganha uma terceira fila assinante, e a falta de assinatura é provocada de propósito.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Diferenciar fila (SQS), que entrega cada mensagem a um consumidor, de tópico (SNS), que distribui cópias a todos os assinantes.
+    - Explicar o fan-out de SNS para SQS e o papel da política de acesso da fila.
+    - Executar os cenários de mensageria contra o LocalStack orquestrado pelo Aspire.
+    - Estender o cenário de fan-out com uma nova fila assinante e verificar a entrega.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: São necessários o .NET SDK 10.0.103 ou superior, exigido pelo `global.json` do repositório, Git e um Docker em execução que exponha o socket em `/var/run/docker.sock`, como o Docker Desktop.
+  - tipo: faixa
+    estilo: quebra
+    titulo: ⛔ Verificação do laboratório
+    texto: Os resultados desta ODA foram obtidos com Colima, que não expõe `/var/run/docker.sock`, numa cópia do repositório com a linha `.WithBindMount("/var/run/docker.sock", ...)` retirada de `src/AppHost/Program.cs`. A alteração não afeta os cenários de mensageria, que não usam Lambda, e o incidente 1 da aba Diagnóstico mostra o erro original.
+  - tipo: terminal
+    titulo: terminal · verificação do ambiente
+    comandos:
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
+    cenarios:
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
+      comando: docker info --format '{{.ServerVersion}}'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Fila e tópico resolvem problemas diferentes, e o fan-out combina os dois. Clique nas pastas para ver onde cada peça está no repositório.
+  - tipo: comparativo
+    colunas:
+    - Fila (Amazon SQS)
+    - Tópico (Amazon SNS)
+    linhas:
+    - dimensao: Destino de cada mensagem
+      valores:
+      - Um único consumidor processa a mensagem
+      - Cada assinante recebe a própria cópia
+    - dimensao: Armazenamento
+      valores:
+      - A mensagem fica na fila até ser recebida e apagada
+      - O tópico entrega no momento da publicação e não guarda a mensagem
+    - dimensao: Forma de consumo
+      valores:
+      - O consumidor busca a mensagem com `ReceiveMessageAsync`
+      - O SNS envia a mensagem às assinaturas
+    - dimensao: Cenário do repositório
+      valores:
+      - '`02-SQS.Basic`'
+      - '`04-SNS.Basic`'
+    - dimensao: Papel no fan-out (cenário 09)
+      valores:
+      - Cada fila recebe e guarda a cópia
+      - O tópico distribui a publicação
+  - tipo: arvores
+    esquerda:
+      titulo: Cenários de mensageria
+      nos:
+      - caminho: scenarios/
+        descricao: Um projeto xUnit independente por cenário de integração.
+      - caminho: scenarios/02-SQS.Basic/
+        descricao: 'Operações básicas de fila: criar, enviar, receber, apagar e fila de mensagens mortas.'
+      - caminho: scenarios/04-SNS.Basic/
+        descricao: Operações básicas de tópico.
+      - caminho: scenarios/09-SNS.SQS.Fanout/
+        descricao: Fan-out de um tópico para duas filas.
+      - caminho: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+        descricao: Cria tópico e filas, grava a política de acesso e faz as assinaturas.
+      - caminho: scenarios/09-SNS.SQS.Fanout/SnsSqsFanoutTests.cs
+        descricao: Publica uma mensagem e confere uma cópia em cada fila.
+      - caminho: scenarios/10-S3.SQS.Notification/
+        descricao: Notificação de objeto criado no S3 entregue numa fila.
+    direita:
+      titulo: Infraestrutura de teste
+      nos:
+      - caminho: src/
+        descricao: Código compartilhado pelos cenários.
+      - caminho: src/AppHost/Program.cs
+        descricao: Declara os contêineres do LocalStack e do PostgreSQL para o Aspire.
+      - caminho: src/Shared/LocalStackFixture.cs
+        descricao: Sobe o ambiente, espera o LocalStack ficar saudável e adquire o bloqueio da porta 4566.
+      - caminho: src/Shared/AwsClientFactory.cs
+        descricao: Cria os clientes do SDK apontando para o LocalStack.
+  - tipo: conceito
+    titulo: Fan-out de SNS para SQS
+    texto: O produtor publica uma vez no tópico, e cada fila assinante recebe a própria cópia, consumida no ritmo de cada consumidor. Para que o SNS consiga gravar na fila, a fila precisa de uma política que autorize `sqs:SendMessage` para o serviço SNS, restrita ao ARN do tópico.
+    analogia: O tópico funciona como um aviso enviado a todos os inscritos de uma lista, e a fila funciona como uma caixa postal que guarda a carta até alguém retirá-la.
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Fluxo
+    titulo: Fan-out do cenário 09
+    mermaid: "flowchart LR\n    T[Teste xUnit] -->|PublishAsync| S((fanout-topic))\n    S -->|cópia| Q1[fanout-queue-1]\n    S -->|cópia| Q2[fanout-queue-2]\n    Q1 -->|ReceiveMessageAsync| R1[Leitura da fila 1]\n    Q2 -->|ReceiveMessageAsync| R2[Leitura da fila 2]"
+  - tipo: adr
+    id: ADR-003
+    titulo: Tática de simulação de serviços AWS
+    status: Proposed
+    contexto: Os testes precisam de vários serviços AWS, e usar a AWS real em testes automatizados implica custo, credenciais e estado persistente.
+    decisao: Usar o LocalStack Community 3.8 com modo duplo, em que `AWS_TARGET=aws` desvia os mesmos testes para a AWS real.
+    alternativas: LocalStack Pro, com custo e licença, AWS real em todas as execuções e substitutos em memória do SDK, que não exercitam assinaturas e políticas.
+    consequencias: Os cenários rodam sem custo e sem credenciais, e as limitações de Lambda em macOS ARM64 e de Step Functions ficam documentadas.
+  - tipo: adr
+    id: ADR-004
+    titulo: Tática de isolamento entre cenários de teste
+    status: Proposed
+    contexto: Os projetos de teste compartilham a porta 4566, e dois cenários em paralelo tentariam subir dois contêineres na mesma porta.
+    decisao: Porta fixa 4566 com execução sequencial, combinando `MaxCpuCount=1` no `test.runsettings` com um bloqueio de arquivo na `LocalStackFixture`.
+    alternativas: Porta aleatória por cenário, rede Docker isolada por cenário e a ausência de mecanismo.
+    consequencias: O comportamento fica determinístico, ao custo de uma suíte completa sequencial de cerca de três minutos.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo são do commit `50a5344`. Clique nos marcadores numerados para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '    protected override async Task InitializeScenarioAsync()'
+    - '    {'
+    - '        SNS = AwsClientFactory.SNS();'
+    - '        SQS = AwsClientFactory.SQS();'
+    - ''
+    - '        TopicArn = (await SNS.CreateTopicAsync("fanout-topic")).TopicArn;'
+    - '        Queue1Url = (await SQS.CreateQueueAsync("fanout-queue-1")).QueueUrl;'
+    - '        Queue2Url = (await SQS.CreateQueueAsync("fanout-queue-2")).QueueUrl;'
+    - ''
+    - '        foreach (var queueUrl in new[] { Queue1Url, Queue2Url })'
+    - '        {'
+    - '            var queueArn = (await SQS.GetQueueAttributesAsync(queueUrl, ["QueueArn"])).Attributes["QueueArn"];'
+    - ''
+    - '            await SQS.SetQueueAttributesAsync(new SetQueueAttributesRequest'
+    - '            {'
+    - '                QueueUrl = queueUrl,'
+    - '                Attributes = new Dictionary<string, string>'
+    - '                {'
+    - '                    ["Policy"] = BuildQueuePolicy(queueArn, TopicArn)'
+    - '                }'
+    - '            });'
+    - ''
+    - '            await SNS.SubscribeAsync(new SubscribeRequest'
+    - '            {'
+    - '                TopicArn = TopicArn,'
+    - '                Protocol = "sqs",'
+    - '                Endpoint = queueArn'
+    - '            });'
+    - '        }'
+    - '    }'
+    anotacoes:
+    - linha: 22
+      texto: Cria o tópico e guarda o ARN, usado na política e na assinatura.
+    - linha: 26
+      texto: O mesmo laço grava a política e faz a assinatura de cada fila. Uma fila fora deste laço não recebe cópias.
+    - linha: 35
+      texto: Sem a política, o SNS não tem permissão para gravar na fila.
+    - linha: 42
+      texto: A assinatura liga o tópico à fila pelo ARN da fila.
+    inicio: 17
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '    private static string BuildQueuePolicy(string queueArn, string topicArn)'
+    - '    {'
+    - '        return $$"""'
+    - '        {'
+    - '          "Version": "2012-10-17",'
+    - '          "Statement": ['
+    - '            {'
+    - '              "Sid": "AllowSnsFanout",'
+    - '              "Effect": "Allow",'
+    - '              "Principal": { "Service": "sns.amazonaws.com" },'
+    - '              "Action": "sqs:SendMessage",'
+    - '              "Resource": "{{queueArn}}",'
+    - '              "Condition": {'
+    - '                "ArnEquals": { "aws:SourceArn": "{{topicArn}}" }'
+    - '              }'
+    - '            }'
+    - '          ]'
+    - '        }'
+    - '        """;'
+    - '    }'
+    anotacoes:
+    - linha: 65
+      texto: A única ação concedida é o envio de mensagens para a fila.
+    - linha: 68
+      texto: A condição restringe a permissão ao tópico do cenário.
+    inicio: 55
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/09-SNS.SQS.Fanout/SnsSqsFanoutTests.cs
+    commit: 50a5344
+    linhas:
+    - using Amazon.SQS.Model;
+    - using Xunit.Abstractions;
+    - ''
+    - namespace Scenarios.SNS.SQS.Fanout;
+    - ''
+    - 'public class SnsSqsFanoutTests(Fixture fixture, ITestOutputHelper output) : IClassFixture<Fixture>'
+    - '{'
+    - '    [Fact]'
+    - '    public async Task Publish_ShouldDeliverMessageToBothQueues()'
+    - '    {'
+    - '        output.WriteLine($">>> SNS.Publish: publicando ''broadcast event'' no tópico ''{fixture.TopicArn}''");'
+    - '        output.WriteLine("    O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)");'
+    - '        await fixture.SNS.PublishAsync(fixture.TopicArn, "broadcast event");'
+    - ''
+    - '        foreach (var queueUrl in new[] { fixture.Queue1Url, fixture.Queue2Url })'
+    - '        {'
+    - '            output.WriteLine($">>> SQS.ReceiveMessage: verificando entrega na fila ''{queueUrl}''");'
+    - '            var messages = await fixture.SQS.ReceiveMessageAsync(new ReceiveMessageRequest'
+    - '            {'
+    - '                QueueUrl = queueUrl,'
+    - '                MaxNumberOfMessages = 1,'
+    - '                WaitTimeSeconds = 5'
+    - '            });'
+    - '            output.WriteLine($"    Mensagens recebidas: {messages.Messages.Count}");'
+    - ''
+    - '            Assert.Single(messages.Messages);'
+    - '            Assert.Contains("broadcast event", messages.Messages[0].Body);'
+    - '        }'
+    - '    }'
+    - '}'
+    anotacoes:
+    - linha: 13
+      texto: Uma única publicação no tópico.
+    - linha: 22
+      texto: Cada leitura espera até 5 segundos por uma mensagem.
+    - linha: 26
+      texto: Cada fila precisa ter exatamente uma mensagem.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/AppHost/Program.cs
+    commit: 50a5344
+    linhas:
+    - '    builder'
+    - '        .AddContainer("localstack", "localstack/localstack", "3.8")'
+    - '        .WithEnvironment("AWS_ACCESS_KEY_ID", "test")'
+    - '        .WithEnvironment("AWS_DEFAULT_REGION", "us-east-1")'
+    - '        .WithEnvironment("AWS_SECRET_ACCESS_KEY", "test")'
+    - '        .WithEnvironment("SERVICES", "s3,sqs,sns,dynamodb,lambda,ssm,secretsmanager,events,scheduler,stepfunctions,rds,ecs")'
+    - '        .WithEnvironment("LAMBDA_REMOVE_CONTAINERS", "true")'
+    - '        .WithEnvironment("LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT", "120")'
+    - '        .WithEnvironment("DOCKER_HOST", "unix:///var/run/docker.sock")'
+    - '        .WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")'
+    - '        .WithHttpEndpoint(port: 4566, targetPort: 4566, name: "gateway", isProxied: false);'
+    anotacoes:
+    - linha: 11
+      texto: Versão fixa do LocalStack declarada para o Aspire.
+    - linha: 19
+      texto: Montagem usada pelo LocalStack para criar contêineres de Lambda. Ela exige que o caminho exista na máquina.
+    - linha: 20
+      texto: Porta fixa 4566, compartilhada por todos os cenários.
+    inicio: 10
+  - tipo: faixa
+    estilo: dica
+    texto: A política de acesso e a assinatura são duas operações separadas. As duas precisam existir para que a fila receba as cópias publicadas no tópico.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Reproduza o fan-out evento por evento e ative as falhas para ver o que acontece com cada mensagem. Depois percorra a preparação feita pela Fixture.
+  - tipo: linha-do-tempo
+    titulo: Fan-out do cenário 09
+    atores:
+    - id: teste
+      rotulo: Teste (produtor)
+    - id: topico
+      rotulo: Tópico fanout-topic
+    - id: fila1
+      rotulo: Fila fanout-queue-1
+    - id: fila2
+      rotulo: Fila fanout-queue-2
+    - id: leitor1
+      rotulo: Leitura da fila 1
+    - id: leitor2
+      rotulo: Leitura da fila 2
+    eventos:
+    - id: e1
+      de: teste
+      para: topico
+      mensagem: '`PublishAsync` com "broadcast event"'
+    - id: e2
+      de: topico
+      para: fila1
+      mensagem: cópia da mensagem para a assinatura da fila 1
+      depende: e1
+    - id: e3
+      de: topico
+      para: fila2
+      mensagem: cópia da mensagem para a assinatura da fila 2
+      depende: e1
+    - id: e4
+      de: fila1
+      para: leitor1
+      mensagem: '`ReceiveMessageAsync` recebe a mensagem'
+      depende: e2
+    - id: e5
+      de: fila2
+      para: leitor2
+      mensagem: '`ReceiveMessageAsync` recebe a mensagem'
+      depende: e3
+    falhas:
+    - id: leitor2-parado
+      rotulo: A leitura da fila 2 não é executada
+      ator: leitor2
+    - id: produtor-parado
+      rotulo: O teste não publica a mensagem
+      ator: teste
+  - tipo: fluxo
+    titulo: Preparação do fan-out na Fixture
+    etapas:
+    - titulo: Criar o tópico
+      descricao: A Fixture cria `fanout-topic` e guarda o ARN do tópico.
+      codigo:
+        arquivo: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+        commit: 50a5344
+        linhas:
+        - TopicArn = (await SNS.CreateTopicAsync("fanout-topic")).TopicArn;
+        destaque:
+        - 1
+    - titulo: Criar as filas
+      descricao: Cada fila é criada e tem a URL guardada para a leitura no teste.
+      codigo:
+        arquivo: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+        commit: 50a5344
+        linhas:
+        - Queue1Url = (await SQS.CreateQueueAsync("fanout-queue-1")).QueueUrl;
+        - Queue2Url = (await SQS.CreateQueueAsync("fanout-queue-2")).QueueUrl;
+        destaque:
+        - 1
+        - 2
+    - titulo: Obter o ARN da fila
+      descricao: A política e a assinatura identificam a fila pelo ARN, e não pela URL.
+      codigo:
+        arquivo: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+        commit: 50a5344
+        linhas:
+        - var queueArn = (await SQS.GetQueueAttributesAsync(queueUrl, ["QueueArn"])).Attributes["QueueArn"];
+        destaque:
+        - 1
+    - titulo: Gravar a política de acesso
+      descricao: A fila passa a aceitar mensagens enviadas pelo SNS a partir deste tópico.
+      codigo:
+        arquivo: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+        commit: 50a5344
+        linhas:
+        - '["Policy"] = BuildQueuePolicy(queueArn, TopicArn)'
+        destaque:
+        - 1
+    - titulo: Assinar a fila no tópico
+      descricao: A partir daqui, cada publicação no tópico gera uma cópia nesta fila.
+      codigo:
+        arquivo: scenarios/09-SNS.SQS.Fanout/Fixture.cs
+        commit: 50a5344
+        linhas:
+        - await SNS.SubscribeAsync(new SubscribeRequest
+        - '{'
+        - '    TopicArn = TopicArn,'
+        - '    Protocol = "sqs",'
+        - '    Endpoint = queueArn'
+        - '});'
+        destaque:
+        - 1
+        - 4
+        - 5
+  - tipo: classificador
+    enunciado: Associe cada característica ao serviço que a tem.
+    categorias:
+    - id: fila
+      rotulo: Fila (SQS)
+    - id: topico
+      rotulo: Tópico (SNS)
+    itens:
+    - texto: Guarda a mensagem até que um consumidor a receba e apague
+      categoria: fila
+      explicacao: A retenção é o que permite ao consumidor processar no próprio ritmo.
+    - texto: Entrega uma cópia para cada assinante
+      categoria: topico
+      explicacao: É o comportamento que o cenário 09 confere com duas filas.
+    - texto: É lida com `ReceiveMessageAsync`
+      categoria: fila
+      explicacao: O teste busca as mensagens na fila com essa chamada.
+    - texto: Recebe a publicação com `PublishAsync`
+      categoria: topico
+      explicacao: O teste publica uma única vez no tópico.
+    - texto: Precisa de política que autorize `sqs:SendMessage` para o SNS
+      categoria: fila
+      explicacao: A política é gravada na fila, que é o recurso que recebe as mensagens.
+    - texto: Não entrega a mensagem para quem assinar depois da publicação
+      categoria: topico
+      explicacao: O tópico entrega no momento da publicação e não guarda a mensagem.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no seu computador ou no terminal simulado abaixo. Os passos 5, 7 e 9 alteram a saída do cenário 09 no terminal simulado.
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório no commit de referência
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/aspire-aws
+        - cd aspire-aws
+        - git checkout 50a5344
+    - titulo: Executar os quatro cenários de mensageria
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test scenarios/02-SQS.Basic/
+        - dotnet test scenarios/04-SNS.Basic/
+        - dotnet test scenarios/09-SNS.SQS.Fanout/
+        - dotnet test scenarios/10-S3.SQS.Notification/
+      sucesso: 4 testes aprovados no cenário 02, 3 no cenário 04, 1 no cenário 09 e 1 no cenário 10.
+    - titulo: Ver o fan-out com saída detalhada
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
+      sucesso: 'Duas linhas `Mensagens recebidas: 1`, uma para cada fila.'
+    - titulo: Criar a terceira fila na Fixture
+      texto: Em `scenarios/09-SNS.SQS.Fanout/Fixture.cs`, acrescente a propriedade, crie a fila e inclua-a no laço que grava a política e faz a assinatura.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/09-SNS.SQS.Fanout/Fixture.cs (alteração)
+        commit: 50a5344
+        linhas:
+        - public string Queue3Url { get; private set; } = null!;
+        - ''
+        - Queue3Url = (await SQS.CreateQueueAsync("fanout-queue-3")).QueueUrl;
+        - ''
+        - foreach (var queueUrl in new[] { Queue1Url, Queue2Url, Queue3Url })
+    - titulo: Incluir a terceira fila na verificação
+      texto: Em `SnsSqsFanoutTests.cs`, troque o laço de verificação.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/09-SNS.SQS.Fanout/SnsSqsFanoutTests.cs (alteração)
+        commit: 50a5344
+        linhas:
+        - foreach (var queueUrl in new[] { fixture.Queue1Url, fixture.Queue2Url, fixture.Queue3Url })
+      efeito: tres_filas
+    - titulo: Rodar o cenário com três filas
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
+      sucesso: 'Três linhas `Mensagens recebidas: 1` e o teste aprovado.'
+    - titulo: Retirar a terceira fila do laço de assinatura
+      texto: Na Fixture, volte o laço para `new[] { Queue1Url, Queue2Url }`, mantendo a fila criada e a verificação no teste.
+      efeito: sem_assinatura
+    - titulo: Rodar o cenário sem a assinatura
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
+      sucesso: 'A falha `Assert.Single() Failure: The collection was empty`, com `Mensagens recebidas: 0` para `fanout-queue-3`.'
+    - titulo: Desfazer as alterações
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout -- scenarios
+      efeito: &id001
+      - '!tres_filas'
+      - '!sem_assinatura'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git clone https://github.com/arkhibr/aspire-aws
+      saida: Cloning into 'aspire-aws'...
+      origem: exemplo
+    - entrada: cd aspire-aws
+      saida: ''
+      origem: exemplo
+    - entrada: git checkout 50a5344
+      saida: HEAD is now at 50a5344
+      origem: exemplo
+    - entrada: dotnet test scenarios/02-SQS.Basic/
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     4, Ignorado:     0, Total:     4, Duração: 1 s - 02-SQS.Basic.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test scenarios/04-SNS.Basic/
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 414 ms - 04-SNS.Basic.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1, Duração: 43 ms - 09-SNS.SQS.Fanout.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test scenarios/10-S3.SQS.Notification/
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1, Duração: 523 ms - 10-S3.SQS.Notification.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
+      condicao: sem_assinatura
+      saida: "Assert.Single() Failure: The collection was empty\n >>> SNS.Publish: publicando 'broadcast event' no tópico 'arn:aws:sns:us-east-1:000000000000:fanout-topic'\n     O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-1'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-2'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-3'\n     Mensagens recebidas: 0\n     Com falha: 1"
+      origem: executado
+      dica: A fila `fanout-queue-3` existe, mas ficou fora do laço que grava a política e faz a assinatura.
+    - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
+      condicao: tres_filas
+      saida: " >>> SNS.Publish: publicando 'broadcast event' no tópico 'arn:aws:sns:us-east-1:000000000000:fanout-topic'\n     O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-1'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-2'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-3'\n     Mensagens recebidas: 1\n     Aprovados: 1"
+      origem: executado
+    - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
+      saida: "  Aprovado Scenarios.SNS.SQS.Fanout.SnsSqsFanoutTests.Publish_ShouldDeliverMessageToBothQueues [40 ms]\n >>> SNS.Publish: publicando 'broadcast event' no tópico 'arn:aws:sns:us-east-1:000000000000:fanout-topic'\n     O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-1'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-2'\n     Mensagens recebidas: 1\n     Aprovados: 1"
+      origem: executado
+    - entrada: git checkout -- scenarios
+      saida: ''
+      origem: exemplo
+      efeito: *id001
+    cenarios:
+    - rotulo: Rodar o cenário 09 detalhado
+      comando: dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
+    - rotulo: Desfazer as alterações
+      comando: git checkout -- scenarios
+  - tipo: faixa
+    estilo: erro
+    sintoma: A nova fila é criada, mas não recebe mensagens, e o teste falha em `Assert.Single`.
+    causa: A fila não foi inscrita no tópico, e o SNS só copia mensagens para assinaturas existentes no momento da publicação.
+    correcao: Incluir a fila no laço que grava a política e chama `SubscribeAsync`.
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os dois primeiros incidentes mostram saídas reais obtidas na produção desta ODA. Os dois últimos reproduzem limitações registradas no próprio repositório.
+  - tipo: incidente
+    titulo: LocalStack não fica saudável
+    origem: executado
+    rotulo_saida: log
+    saida: '2: [sys] Could not create bind mount source path: ContainerName = localstack-tccabmam, Error = mkdir /var/run/docker.sock: permission denied
+
+      [xUnit.net 00:02:06.93]       System.TimeoutException : LocalStack did not become healthy within 120s.
+
+      [xUnit.net 00:02:06.94]       System.TimeoutException : LocalStack did not become healthy within 120s.
+
+      System.TimeoutException : LocalStack did not become healthy within 120s.'
+    pergunta: Todos os cenários falham em poucos milissegundos com essa mensagem. Qual é a causa?
+    correcao: Usar um Docker que exponha `/var/run/docker.sock` ou, só para cenários sem Lambda, retirar a montagem numa cópia local do AppHost.
+    alternativas:
+    - texto: A fila não tem política de acesso.
+      correta: false
+      explicacao: A política só importa depois que o LocalStack está saudável e o cenário cria os recursos.
+    - texto: O Docker em uso não expõe o socket no caminho que o AppHost monta no contêiner.
+      correta: true
+      explicacao: O Aspire precisa que `/var/run/docker.sock` exista na máquina para montar o caminho no contêiner do LocalStack.
+    - texto: A imagem do LocalStack ainda está sendo baixada.
+      correta: false
+      explicacao: O log aponta um erro de montagem, e não de download.
+  - tipo: incidente
+    titulo: Fila nova sem mensagens
+    origem: executado
+    saida: "Assert.Single() Failure: The collection was empty\n >>> SNS.Publish: publicando 'broadcast event' no tópico 'arn:aws:sns:us-east-1:000000000000:fanout-topic'\n     O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-1'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-2'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-3'\n     Mensagens recebidas: 0\n     Com falha: 1"
+    pergunta: A terceira fila foi criada e verificada, mas recebeu 0 mensagens. Por quê?
+    correcao: Incluir `Queue3Url` no laço da Fixture que grava a política e faz a assinatura.
+    alternativas:
+    - texto: A espera de 5 segundos foi curta para a terceira fila.
+      correta: false
+      explicacao: As duas primeiras filas receberam a mensagem no mesmo intervalo.
+    - texto: A fila recebeu a mensagem, mas outro consumidor a apagou.
+      correta: false
+      explicacao: Nenhum outro consumidor lê `fanout-queue-3` no cenário.
+    - texto: A fila não foi inscrita no tópico, então nenhuma cópia foi entregue a ela.
+      correta: true
+      explicacao: Sem assinatura, o SNS não sabe que a fila deve receber a publicação.
+  - tipo: incidente
+    titulo: Cenários com Lambda ignorados no macOS
+    origem: codigo
+    rotulo_saida: log
+    saida: 'README.md · Limitações conhecidas
+
+      | Lambda no LocalStack 3.8 + macOS ARM64 | 07, 08, 11, 12, 13, 14, 16 | Rodar em Linux/CI ou LocalStack Pro |'
+    pergunta: Os cenários 07 e 08 aparecem como ignorados num Mac com processador ARM. Qual é a situação?
+    correcao: Executar esses cenários em Linux ou na esteira de CI, como indica o README.
+    alternativas:
+    - texto: É uma limitação documentada do LocalStack 3.8 em macOS ARM64, e os cenários são marcados como Skip.
+      correta: true
+      explicacao: A ADR-003 registra a limitação e a marcação por `EnvironmentLimitations.cs`, para evitar falso negativo.
+    - texto: Os cenários estão quebrados no commit de referência.
+      correta: false
+      explicacao: O README indica que eles rodam em Linux e na esteira.
+    - texto: Falta instalar o Python na máquina.
+      correta: false
+      explicacao: O Python só é necessário para editar os handlers das Lambdas.
+  - tipo: incidente
+    titulo: Cenários em paralelo disputando a porta
+    origem: codigo
+    rotulo_saida: log
+    saida: 'README.md · Limitações conhecidas
+
+      | Porta fixa 4566 | Todos (execução sequencial) | — |'
+    pergunta: Dois terminais executam cenários ao mesmo tempo. O que acontece com o segundo?
+    correcao: Executar um cenário por vez. Dentro de um mesmo `dotnet test`, o `MaxCpuCount=1` do `test.runsettings` já serializa os cenários.
+    alternativas:
+    - texto: Ele usa a AWS real automaticamente.
+      correta: false
+      explicacao: O desvio para a AWS real só acontece com `AWS_TARGET=aws`.
+    - texto: Ele espera o bloqueio de arquivo da porta 4566, porque os cenários compartilham a mesma porta.
+      correta: true
+      explicacao: A `LocalStackFixture` tenta obter o bloqueio a cada 250 ms por até 15 minutos e, ao fim do prazo, falha com `Timed out waiting for exclusive access to LocalStack port 4566.`
+    - texto: Ele sobe um segundo LocalStack numa porta livre.
+      correta: false
+      explicacao: A porta aleatória foi uma alternativa descartada na ADR-004.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Qual afirmação diferencia corretamente SQS e SNS?
+      alternativas:
+      - texto: O tópico guarda a mensagem até que surja um assinante.
+        correta: false
+        explicacao: A fila 3 sem assinatura não recebeu cópia, e o tópico não reenviou a mensagem depois.
+      - texto: A fila entrega cada mensagem a todos os consumidores conectados.
+        correta: false
+        explicacao: Cada mensagem de uma fila é processada por um único consumidor.
+      - texto: A fila guarda a mensagem até um consumidor recebê-la, e o tópico copia a mensagem para todos os assinantes no momento da publicação.
+        correta: true
+        explicacao: 'É o comportamento observado no cenário 09: a cópia só chega às filas inscritas quando a mensagem é publicada.'
+    - enunciado: Para que serve a política gravada por `BuildQueuePolicy`?
+      alternativas:
+      - texto: Autorizar o serviço SNS a enviar mensagens para a fila, apenas quando a origem é o tópico do cenário.
+        correta: true
+        explicacao: A política concede `sqs:SendMessage` ao principal `sns.amazonaws.com` com a condição `aws:SourceArn` igual ao ARN do tópico.
+      - texto: Inscrever a fila no tópico.
+        correta: false
+        explicacao: A inscrição é feita por `SubscribeAsync`, numa chamada separada.
+      - texto: Permitir que o teste leia a fila sem credenciais.
+        correta: false
+        explicacao: A política trata do envio pelo SNS, e não da leitura pelo teste.
+    - enunciado: 'Todos os cenários falham com `LocalStack did not become healthy within 120s` e o log mostra `mkdir /var/run/docker.sock: permission denied`. Qual é a causa?'
+      alternativas:
+      - texto: A fila não tem política de acesso.
+        correta: false
+        explicacao: A política só importa depois que o LocalStack está saudável e o cenário cria os recursos.
+      - texto: O Docker em uso não expõe o socket no caminho que o AppHost monta no contêiner do LocalStack.
+        correta: true
+        explicacao: O AppHost declara `.WithBindMount("/var/run/docker.sock", ...)`, e o Aspire precisa que esse caminho exista na máquina.
+      - texto: A imagem do LocalStack ainda está sendo baixada.
+        correta: false
+        explicacao: O log aponta um erro de montagem, e não de download.
+    - enunciado: Ao estender o cenário 09, a terceira fila foi criada mas ficou fora do laço da Fixture. O que acontece?
+      alternativas:
+      - texto: A fila recebe a mensagem, porque está na mesma conta do tópico.
+        correta: false
+        explicacao: Estar na mesma conta não cria assinatura, e o SNS só entrega para assinantes.
+      - texto: O teste passa, porque a verificação ignora filas sem assinatura.
+        correta: false
+        explicacao: O laço de verificação inclui a fila 3 e exige exatamente uma mensagem.
+      - texto: A fila não recebe cópia da publicação, e o teste falha em `Assert.Single`.
+        correta: true
+        explicacao: Sem política e sem assinatura, o tópico não entrega a mensagem à fila 3, e a leitura volta vazia após 5 segundos.
+    - enunciado: Uma fila é inscrita no tópico depois que a mensagem foi publicada. O que ela recebe?
+      alternativas:
+      - texto: Nada referente àquela publicação.
+        correta: true
+        explicacao: O tópico entrega no momento da publicação e não guarda a mensagem para assinantes futuros.
+      - texto: Uma cópia da mensagem, entregue na assinatura.
+        correta: false
+        explicacao: O SNS não reenvia publicações anteriores à assinatura.
+      - texto: Todas as mensagens já publicadas no tópico.
+        correta: false
+        explicacao: O tópico não mantém histórico de mensagens.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - Os quatro cenários de mensageria passaram.
+    - O cenário 09 entregou a mensagem às três filas.
+    - A falta de assinatura foi reproduzida e explicada.
+    - As alterações foram desfeitas.
+    - A diferença entre fila e tópico está clara.
