@@ -22,3 +22,14 @@
 .oda-passos__titulo { font-weight: 700; }
 .oda-passos__codigo { background: var(--md-code-bg-color); padding: 0.8em; overflow: auto; }
 .oda-destaque { display: block; background: var(--md-accent-fg-color--transparent); }
+.oda-comparacao__grade { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8em; }
+@media (max-width: 44em) { .oda-comparacao__grade { grid-template-columns: 1fr; } }
+.oda-comparacao__titulo { font-weight: 700; margin: 0 0 0.3em; }
+.oda-comparacao__lado pre { background: var(--md-code-bg-color); padding: 0.6em; overflow: auto; margin: 0; }
+.oda-comparacao__lado span { display: block; }
+.oda-comparacao--destacar .oda-linha--removida { background: rgba(211, 47, 47, 0.18); }
+.oda-comparacao--destacar .oda-linha--adicionada { background: rgba(46, 125, 50, 0.18); }
+.oda-tempo__falha { display: block; }
+.oda-tempo--entregue { border-left: 0.25rem solid #2e7d32; padding-left: 0.5em; }
+.oda-tempo--retido { border-left: 0.25rem solid #ed6c02; padding-left: 0.5em; }
+.oda-tempo--nao-ocorre { border-left: 0.25rem solid var(--md-default-fg-color--lighter); padding-left: 0.5em; opacity: 0.7; }
