@@ -174,7 +174,10 @@ def validar_oda(dados: dict, catalogo: dict) -> list[str]:
         for bloco in aba.get("blocos", []):
             if isinstance(bloco, dict):
                 fontes = bloco.get("itens", []) if bloco.get("tipo") == "passos" else bloco.get("comandos", []) if bloco.get("tipo") == "terminal" else []
-                flags |= {f["efeito"].lstrip("!") for f in fontes if isinstance(f, dict) and f.get("efeito")}
+                for f in fontes:
+                    efeito = f.get("efeito") if isinstance(f, dict) else None
+                    for e in (efeito if isinstance(efeito, list) else [efeito] if efeito else []):
+                        flags.add(e.lstrip("!"))
     for aba in abas:
         if not aba.get("titulo"):
             erros.append(f"{aba.get('id')}: aba sem titulo.")

@@ -140,6 +140,12 @@ class TestValidacao(unittest.TestCase):
         self.assertIn("simulacao[1]: evento e2 depende de e9, que não é evento anterior.", erros)
         self.assertIn("simulacao[1]: falha a usa ator inexistente: y.", erros)
 
+    def test_efeito_em_lista_define_estados_para_condicoes(self):
+        d = minima()
+        d["abas"][4]["blocos"].append({"tipo": "passos", "itens": [{"titulo": "t", "efeito": ["a", "!b"]}]})
+        d["abas"][4]["blocos"].append({"tipo": "terminal", "comandos": [{"entrada": "ls", "saida": "", "origem": "exemplo", "condicao": "b"}]})
+        self.assertEqual(validar_oda(d, CATALOGO), [])
+
 
 class TestGeracao(unittest.TestCase):
     def test_preparar_atribui_ids_e_renomeia(self):

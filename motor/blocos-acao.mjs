@@ -2,12 +2,14 @@ import { registrarBloco, h, textoRico } from './nucleo.mjs';
 
 export function aplicarEfeito(efeito, definirFlag) {
   if (!efeito) return;
+  if (Array.isArray(efeito)) { efeito.forEach((e) => aplicarEfeito(e, definirFlag)); return; }
   if (efeito.startsWith('!')) definirFlag(efeito.slice(1), false);
   else definirFlag(efeito, true);
 }
 
 export function inverterEfeito(efeito) {
   if (!efeito) return null;
+  if (Array.isArray(efeito)) return efeito.map(inverterEfeito);
   return efeito.startsWith('!') ? efeito.slice(1) : `!${efeito}`;
 }
 

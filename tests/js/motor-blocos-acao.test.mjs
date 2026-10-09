@@ -24,3 +24,10 @@ test('profundidade de caminhos de pasta e arquivo', () => {
   assert.equal(profundidade('src/Pedidos/'), 1);
   assert.equal(profundidade('src/Pedidos/CancelPedido/CancelPedidoEndpoint.cs'), 3);
 });
+
+test('aplicarEfeito e inverterEfeito aceitam lista de estados', () => {
+  const flags = { a: true, b: true };
+  aplicarEfeito(['!a', '!b'], (n, v) => { flags[n] = v; });
+  assert.deepEqual(flags, { a: false, b: false });
+  assert.deepEqual(inverterEfeito(['x', '!y']), ['!x', 'y']);
+});
