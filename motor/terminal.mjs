@@ -7,6 +7,7 @@ export function normalizarComando(texto) {
 
 export function condicaoSatisfeita(condicao, flag) {
   if (!condicao) return true;
+  if (Array.isArray(condicao)) return condicao.every((c) => condicaoSatisfeita(c, flag));
   return condicao.startsWith('!') ? !flag(condicao.slice(1)) : flag(condicao);
 }
 

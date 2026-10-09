@@ -30,7 +30,13 @@ A mesma saída, na mesma linha e coluna, foi obtida com o caminho relativo `'../
 
 ## Lint com uma pasta fora dos elementos declarados
 
-Alteração: criação de `src/processes/fluxo.ts` com importações de `@/features/auth/loginRequest` e de `@/pages/login`. Comando: `npm run lint`, com código de saída 0.
+Alteração: criação de `src/processes/fluxo.ts` com o conteúdo abaixo. Comando: `npm run lint`, com código de saída 0.
+
+```ts
+import { loginRequest } from '@/features/auth/loginRequest'
+import LoginPage from '@/pages/login'
+export const fluxo = [loginRequest, LoginPage]
+```
 
 ```text
 > frontend-react@0.0.0 lint

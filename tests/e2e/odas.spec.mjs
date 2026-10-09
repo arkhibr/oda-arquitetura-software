@@ -77,3 +77,47 @@ test('oda-30: terminal acompanha a extensão do cenário 09', async ({ page }) =
   await rodar();
   await expect(tela).toContainText('Assert.Single() Failure: The collection was empty');
 });
+
+test('oda-30: comando curto falha sem a assinatura e passo 7 isolado não simula a fila 3', async ({ page }) => {
+  await page.goto('/novo/oda-30/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const limpar = () => painel.getByRole('button', { name: 'Limpar' }).click();
+  await painel.getByLabel('Passo 7 concluído').check();
+  await campo.fill('dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"');
+  await campo.press('Enter');
+  await expect(tela).not.toContainText('fanout-queue-3');
+  await limpar();
+  await painel.getByLabel('Passo 5 concluído').check();
+  await campo.fill('dotnet test scenarios/09-SNS.SQS.Fanout/');
+  await campo.press('Enter');
+  await expect(tela).toContainText('Com falha:     1');
+});
+
+test('oda-30: desmarcar o passo de desfazer não liga estados e o checkout do terminal desmarca os passos', async ({ page }) => {
+  await page.goto('/novo/oda-30/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  await painel.getByLabel('Passo 9 concluído').check();
+  await painel.getByLabel('Passo 9 concluído').uncheck();
+  await campo.fill('dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"');
+  await campo.press('Enter');
+  await expect(tela).not.toContainText('fanout-queue-3');
+  await painel.getByLabel('Passo 5 concluído').check();
+  await campo.fill('git checkout -- scenarios');
+  await campo.press('Enter');
+  await expect(painel.getByLabel('Passo 5 concluído')).not.toBeChecked();
+});
+
+test('oda-02: desmarcar o passo 6 não liga a violação', async ({ page }) => {
+  await page.goto('/novo/oda-02/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  await painel.getByLabel('Passo 6 concluído').check();
+  await painel.getByLabel('Passo 6 concluído').uncheck();
+  await campo.fill('npm run lint');
+  await campo.press('Enter');
+  await expect(painel.locator('.terminal__tela')).not.toContainText('boundaries/dependencies');
+});

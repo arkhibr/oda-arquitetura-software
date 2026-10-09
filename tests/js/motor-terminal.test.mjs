@@ -53,3 +53,9 @@ test('histórico navega para trás e para frente', () => {
   assert.equal(hst.proximo(), 'b');
   assert.equal(hst.proximo(), '');
 });
+
+test('condição em lista exige todos os estados', () => {
+  const flag = (n) => n === 'a';
+  assert.equal(condicaoSatisfeita(['a', 'b'], flag), false);
+  assert.equal(condicaoSatisfeita(['a', '!b'], flag), true);
+});

@@ -63,6 +63,10 @@ def _uma_correta(alternativas) -> bool:
     return isinstance(alternativas, list) and sum(1 for a in alternativas if a.get("correta") is True) == 1
 
 
+def _efeito_valido(efeito) -> bool:
+    return efeito is None or isinstance(efeito, str) or (isinstance(efeito, list) and all(isinstance(e, str) for e in efeito))
+
+
 def _normalizar(comando: str) -> str:
     return " ".join(str(comando).split())
 
@@ -91,6 +95,8 @@ def _bloco(bloco, commit: str, rotulo: str, flags: set[str] = frozenset()) -> li
         for i, passo in enumerate(bloco["itens"], 1):
             if "titulo" not in passo:
                 erros.append(f"{rotulo}.passo {i}: passo exige titulo.")
+            if not _efeito_valido(passo.get("efeito")):
+                erros.append(f"{rotulo}.passo {i}: efeito deve ser texto ou lista de textos.")
             if "editor" in passo:
                 erros += _editor(passo["editor"], commit, f"{rotulo}.passo {i}")
     if tipo == "terminal":
@@ -99,9 +105,12 @@ def _bloco(bloco, commit: str, rotulo: str, flags: set[str] = frozenset()) -> li
             if _normalizar(c.get("comando", "")) not in entradas:
                 erros.append(f"{rotulo}: cenário {i} do terminal usa comando não declarado: {c.get('comando')}.")
         for c in bloco["comandos"]:
-            condicao = (c.get("condicao") or "").lstrip("!")
-            if condicao and condicao not in flags:
-                erros.append(f"{rotulo}: condição usa estado que nenhum efeito define: {condicao}.")
+            condicoes = c.get("condicao") or []
+            for condicao in (condicoes if isinstance(condicoes, list) else [condicoes]):
+                if condicao.lstrip("!") not in flags:
+                    erros.append(f"{rotulo}: condição usa estado que nenhum efeito define: {condicao.lstrip('!')}.")
+            if not _efeito_valido(c.get("efeito")):
+                erros.append(f"{rotulo}: efeito de comando deve ser texto ou lista de textos.")
         for i, c in enumerate(bloco["comandos"], 1):
             if not c.get("entrada") or not isinstance(c.get("saida"), str):
                 erros.append(f"{rotulo}: comando {i} exige entrada e saida.")
@@ -176,6 +185,8 @@ def validar_oda(dados: dict, catalogo: dict) -> list[str]:
                 fontes = bloco.get("itens", []) if bloco.get("tipo") == "passos" else bloco.get("comandos", []) if bloco.get("tipo") == "terminal" else []
                 for f in fontes:
                     efeito = f.get("efeito") if isinstance(f, dict) else None
+                    if not _efeito_valido(efeito):
+                        continue
                     for e in (efeito if isinstance(efeito, list) else [efeito] if efeito else []):
                         flags.add(e.lstrip("!"))
     for aba in abas:

@@ -13,9 +13,9 @@ test('aplicarEfeito liga e desliga flags', () => {
   assert.deepEqual(Object.keys(flags), ['handler_registrado']);
 });
 
-test('inverterEfeito', () => {
+test('inverterEfeito desliga o que o passo ligou e ignora passos de reversão', () => {
   assert.equal(inverterEfeito('x'), '!x');
-  assert.equal(inverterEfeito('!x'), 'x');
+  assert.equal(inverterEfeito('!x'), null);
   assert.equal(inverterEfeito(null), null);
 });
 
@@ -29,5 +29,5 @@ test('aplicarEfeito e inverterEfeito aceitam lista de estados', () => {
   const flags = { a: true, b: true };
   aplicarEfeito(['!a', '!b'], (n, v) => { flags[n] = v; });
   assert.deepEqual(flags, { a: false, b: false });
-  assert.deepEqual(inverterEfeito(['x', '!y']), ['!x', 'y']);
+  assert.deepEqual(inverterEfeito(['x', '!y']), ['!x']);
 });

@@ -168,7 +168,7 @@ abas:
       texto: O mesmo laço grava a política e faz a assinatura de cada fila. Uma fila fora deste laço não recebe cópias.
     - linha: 35
       texto: Sem a política, o SNS não tem permissão para gravar na fila.
-    - linha: 42
+    - linha: 43
       texto: A assinatura liga o tópico à fila pelo ARN da fila.
     inicio: 17
   - tipo: editor
@@ -476,7 +476,7 @@ abas:
         rotulo: terminal
         linhas:
         - git checkout -- scenarios
-      efeito: &id001
+      efeito:
       - '!tres_filas'
       - '!sem_assinatura'
   - tipo: terminal
@@ -498,13 +498,26 @@ abas:
       saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 414 ms - 04-SNS.Basic.dll (net10.0)'
       origem: executado
     - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/
+      condicao:
+      - tres_filas
+      - sem_assinatura
+      saida: "  Com falha Scenarios.SNS.SQS.Fanout.SnsSqsFanoutTests.Publish_ShouldDeliverMessageToBothQueues [5 s]\n  Mensagem de erro:\n   Assert.Single() Failure: The collection was empty\nCom falha! – Com falha:     1, Aprovado:     0, Ignorado:     0, Total:     1, Duração: 5 s - 09-SNS.SQS.Fanout.dll (net10.0)"
+      origem: executado
+      dica: A fila `fanout-queue-3` existe, mas ficou fora do laço que grava a política e faz a assinatura.
+    - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/
+      condicao: tres_filas
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1, Duração: 48 ms - 09-SNS.SQS.Fanout.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/
       saida: 'Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1, Duração: 43 ms - 09-SNS.SQS.Fanout.dll (net10.0)'
       origem: executado
     - entrada: dotnet test scenarios/10-S3.SQS.Notification/
       saida: 'Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1, Duração: 523 ms - 10-S3.SQS.Notification.dll (net10.0)'
       origem: executado
     - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
-      condicao: sem_assinatura
+      condicao:
+      - tres_filas
+      - sem_assinatura
       saida: "Assert.Single() Failure: The collection was empty\n >>> SNS.Publish: publicando 'broadcast event' no tópico 'arn:aws:sns:us-east-1:000000000000:fanout-topic'\n     O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-1'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-2'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-3'\n     Mensagens recebidas: 0\n     Com falha: 1"
       origem: executado
       dica: A fila `fanout-queue-3` existe, mas ficou fora do laço que grava a política e faz a assinatura.
@@ -512,13 +525,16 @@ abas:
       condicao: tres_filas
       saida: " >>> SNS.Publish: publicando 'broadcast event' no tópico 'arn:aws:sns:us-east-1:000000000000:fanout-topic'\n     O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-1'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-2'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-3'\n     Mensagens recebidas: 1\n     Aprovados: 1"
       origem: executado
+      dica: A linha "O tópico tem duas filas SQS inscritas" é texto fixo do `WriteLine` do teste e não muda com a terceira fila.
     - entrada: dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
       saida: "  Aprovado Scenarios.SNS.SQS.Fanout.SnsSqsFanoutTests.Publish_ShouldDeliverMessageToBothQueues [40 ms]\n >>> SNS.Publish: publicando 'broadcast event' no tópico 'arn:aws:sns:us-east-1:000000000000:fanout-topic'\n     O tópico tem duas filas SQS inscritas — cada publicação entrega uma cópia para cada fila (fanout)\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-1'\n     Mensagens recebidas: 1\n >>> SQS.ReceiveMessage: verificando entrega na fila 'http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/fanout-queue-2'\n     Mensagens recebidas: 1\n     Aprovados: 1"
       origem: executado
     - entrada: git checkout -- scenarios
       saida: ''
       origem: exemplo
-      efeito: *id001
+      efeito:
+      - '!tres_filas'
+      - '!sem_assinatura'
     cenarios:
     - rotulo: Rodar o cenário 09 detalhado
       comando: dotnet test scenarios/09-SNS.SQS.Fanout/ --logger "console;verbosity=detailed"
@@ -545,7 +561,7 @@ abas:
       [xUnit.net 00:02:06.94]       System.TimeoutException : LocalStack did not become healthy within 120s.
 
       System.TimeoutException : LocalStack did not become healthy within 120s.'
-    pergunta: Todos os cenários falham em poucos milissegundos com essa mensagem. Qual é a causa?
+    pergunta: O cenário 02 falha depois de cerca de dois minutos de espera, com essa mensagem no log. Qual é a causa?
     correcao: Usar um Docker que exponha `/var/run/docker.sock` ou, só para cenários sem Lambda, retirar a montagem numa cópia local do AppHost.
     alternativas:
     - texto: A fila não tem política de acesso.
@@ -620,7 +636,7 @@ abas:
       alternativas:
       - texto: O tópico guarda a mensagem até que surja um assinante.
         correta: false
-        explicacao: A fila 3 sem assinatura não recebeu cópia, e o tópico não reenviou a mensagem depois.
+        explicacao: A fila 3 sem assinatura não recebeu cópia, porque o tópico entrega somente às assinaturas existentes no momento da publicação.
       - texto: A fila entrega cada mensagem a todos os consumidores conectados.
         correta: false
         explicacao: Cada mensagem de uma fila é processada por um único consumidor.
@@ -660,7 +676,7 @@ abas:
       - texto: A fila não recebe cópia da publicação, e o teste falha em `Assert.Single`.
         correta: true
         explicacao: Sem política e sem assinatura, o tópico não entrega a mensagem à fila 3, e a leitura volta vazia após 5 segundos.
-    - enunciado: Uma fila é inscrita no tópico depois que a mensagem foi publicada. O que ela recebe?
+    - enunciado: Num tópico padrão do SNS, uma fila é inscrita depois que a mensagem foi publicada. O que ela recebe?
       alternativas:
       - texto: Nada referente àquela publicação.
         correta: true
@@ -670,7 +686,7 @@ abas:
         explicacao: O SNS não reenvia publicações anteriores à assinatura.
       - texto: Todas as mensagens já publicadas no tópico.
         correta: false
-        explicacao: O tópico não mantém histórico de mensagens.
+        explicacao: Um tópico padrão do SNS não mantém histórico de mensagens.
   - tipo: resumo
   - tipo: checklist
     titulo: Checklist final

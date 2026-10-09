@@ -25,3 +25,20 @@ Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1,
 ## Cenário 09 com saída detalhada
 
 Os três estados do cenário estão reproduzidos integralmente no terminal da aba Laboratório. O estado original resultou em `Mensagens recebidas: 1` para `fanout-queue-1` e `fanout-queue-2`, com 1 teste aprovado. Com a terceira fila criada, autorizada e inscrita, as três filas receberam 1 mensagem e o teste foi aprovado. Com `Queue3Url` retirada apenas do laço de assinatura da Fixture, `fanout-queue-3` recebeu 0 mensagens e o teste falhou com `Assert.Single() Failure: The collection was empty`.
+
+## Cenário 09 com saída resumida
+
+Comando: `dotnet test scenarios/09-SNS.SQS.Fanout/`, executado na mesma cópia nos dois estados alterados do laboratório. Com a terceira fila criada e verificada, mas fora do laço de assinatura, o teste falhou com as linhas abaixo.
+
+```text
+  Com falha Scenarios.SNS.SQS.Fanout.SnsSqsFanoutTests.Publish_ShouldDeliverMessageToBothQueues [5 s]
+  Mensagem de erro:
+   Assert.Single() Failure: The collection was empty
+Com falha! – Com falha:     1, Aprovado:     0, Ignorado:     0, Total:     1, Duração: 5 s - 09-SNS.SQS.Fanout.dll (net10.0)
+```
+
+Com a terceira fila incluída também no laço de assinatura, o teste foi aprovado.
+
+```text
+Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     0, Total:     1, Duração: 48 ms - 09-SNS.SQS.Fanout.dll (net10.0)
+```

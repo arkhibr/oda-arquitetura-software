@@ -1,6 +1,6 @@
 import { registrarBloco, h, textoRico } from './nucleo.mjs';
 
-const ROTULO_STATUS = { entregue: 'Entregue', retido: 'Retida na origem', 'nao-ocorre': 'Não ocorre' };
+const ROTULO_STATUS = { entregue: 'Entregue', retido: 'Aguardando consumo', 'nao-ocorre': 'Não ocorre' };
 
 export function simular(config, falhasAtivas) {
   const parados = new Set((config.falhas ?? []).filter((f) => falhasAtivas.has(f.id)).map((f) => f.ator));

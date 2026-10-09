@@ -9,8 +9,16 @@ export function aplicarEfeito(efeito, definirFlag) {
 
 export function inverterEfeito(efeito) {
   if (!efeito) return null;
-  if (Array.isArray(efeito)) return efeito.map(inverterEfeito);
-  return efeito.startsWith('!') ? efeito.slice(1) : `!${efeito}`;
+  if (Array.isArray(efeito)) {
+    const inversos = efeito.map(inverterEfeito).filter(Boolean);
+    return inversos.length ? inversos : null;
+  }
+  return efeito.startsWith('!') ? null : `!${efeito}`;
+}
+
+export function estadosLigados(efeito) {
+  const lista = Array.isArray(efeito) ? efeito : efeito ? [efeito] : [];
+  return lista.some((e) => e.startsWith('!')) ? [] : lista;
 }
 
 export function profundidade(caminho) {
@@ -21,7 +29,7 @@ function caixa(ctx, chave, rotulo, aoMudar) {
   const { doc, estado } = ctx;
   const entrada = h(doc, 'input', { type: 'checkbox', 'aria-label': rotulo });
   entrada.checked = estado.marca(chave);
-  entrada.addEventListener('change', () => { estado.definirMarca(chave, entrada.checked); if (aoMudar) aoMudar(entrada.checked); });
+  entrada.addEventListener('change', () => { const marcado = entrada.checked; if (aoMudar) aoMudar(marcado); estado.definirMarca(chave, marcado); });
   return entrada;
 }
 
@@ -35,15 +43,24 @@ registrarBloco('checklist', (casca, b, ctx) => {
 });
 
 registrarBloco('passos', (casca, b, ctx) => {
-  const { doc } = ctx;
+  const { doc, estado } = ctx;
+  const caixaDoPasso = (p, i) => {
+    const chave = `${b.id}:${i}`;
+    const entrada = caixa(ctx, chave, `Passo ${i + 1} concluído`, (marcado) => aplicarEfeito(marcado ? p.efeito : inverterEfeito(p.efeito), estado.definirFlag));
+    const ligados = estadosLigados(p.efeito);
+    if (ligados.length) {
+      estado.assinar(() => {
+        const devia = ligados.every((n) => estado.flag(n));
+        if (entrada.checked !== devia) { entrada.checked = devia; estado.definirMarca(chave, devia); }
+      });
+    }
+    return entrada;
+  };
   casca.append(h(doc, 'ol', { class: 'passos' }, b.itens.map((p, i) => h(doc, 'li', { class: 'passo' }, [
     h(doc, 'div', { class: 'passo__cabeca' }, [
       h(doc, 'span', { class: 'passo__num', texto: String(i + 1) }),
       h(doc, 'strong', { class: 'passo__titulo' }, [textoRico(doc, p.titulo)]),
-      h(doc, 'label', { class: 'passo__feito' }, [
-        caixa(ctx, `${b.id}:${i}`, `Passo ${i + 1} concluído`, (marcado) => aplicarEfeito(marcado ? p.efeito : inverterEfeito(p.efeito), ctx.estado.definirFlag)),
-        doc.createTextNode(' feito'),
-      ]),
+      h(doc, 'label', { class: 'passo__feito' }, [caixaDoPasso(p, i), doc.createTextNode(' feito')]),
     ]),
     p.texto ? h(doc, 'p', { class: 'passo__texto' }, [textoRico(doc, p.texto)]) : null,
     p.menu ? h(doc, 'p', { class: 'passo__menu' }, [h(doc, 'span', { texto: 'Menu: ' }), h(doc, 'code', { texto: p.menu })]) : null,

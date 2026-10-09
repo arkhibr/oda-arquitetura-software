@@ -16,14 +16,14 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: São necessários Node 24, npm e Git. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
+    texto: São necessários Node 20 ou superior, versão usada na esteira de CI e no `Dockerfile` do repositório, além de npm e Git. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
     - entrada: node --version
       saida: v24.16.0
       origem: exemplo
-      dica: Qualquer versão 24.x atende. A versão exibida é a da máquina em que a ODA foi produzida.
+      dica: Qualquer versão 20 ou superior atende. A ODA foi produzida com Node 24.16.0.
     - entrada: git --version
       saida: git version 2.50.1
       origem: exemplo
@@ -48,11 +48,11 @@ abas:
       - caminho: src/pages/
         descricao: Telas completas, como login e dashboard. Importa de widgets, features, entities e shared.
       - caminho: src/widgets/
-        descricao: Blocos de interface reutilizáveis. Declarada na configuração, sem código no commit de referência.
+        descricao: Blocos de interface reutilizáveis. Declarada na configuração, a pasta não existe no clone do commit de referência.
       - caminho: src/features/
         descricao: Ações do usuário, como a chamada de login. Importa de entities e shared.
       - caminho: src/entities/
-        descricao: Conceitos de negócio. Declarada na configuração, sem código no commit de referência.
+        descricao: Conceitos de negócio. Declarada na configuração, a pasta não existe no clone do commit de referência.
       - caminho: src/shared/
         descricao: Infraestrutura reutilizável, como cliente HTTP e configuração. Não importa de nenhuma outra camada.
       - caminho: src/mocks/
@@ -112,7 +112,7 @@ abas:
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Fluxo
-    titulo: Dependências permitidas entre as camadas
+    titulo: Hierarquia direta entre as camadas (os saltos permitidos estão na tabela acima)
     mermaid: "graph TD\n    app --> pages\n    app --> widgets\n    pages --> widgets\n    pages --> features\n    widgets --> features\n    features --> entities\n    entities --> shared\n    features --> shared\n    pages --> shared\n    mocks -.-> features\n    mocks -.-> entities\n    mocks -.-> shared"
   - tipo: adr
     id: ADR-007
@@ -358,7 +358,16 @@ abas:
       sucesso: O lint volta a terminar sem erros.
       efeito: '!violacao'
     - titulo: Testar uma pasta fora dos elementos (opcional)
-      texto: Crie o arquivo `src/processes/fluxo.ts` com importações de `@/features/auth/loginRequest` e de `@/pages/login` e rode o lint, que termina sem erros porque a pasta não está declarada em `boundaries/elements`. Ao terminar, apague a pasta `src/processes/` para devolver o repositório ao estado original.
+      texto: Crie o arquivo abaixo e rode o lint, que termina sem erros porque a pasta não está declarada em `boundaries/elements`. A terceira linha usa os valores importados, para que o erro de variável não utilizada não apareça, e a pasta `src/processes/` deve ser apagada ao final com `rm -r src/processes`.
+      editor:
+        rotulo: arquivo
+        caminho: src/processes/fluxo.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { loginRequest } from '@/features/auth/loginRequest'
+        - import LoginPage from '@/pages/login'
+        - export const fluxo = [loginRequest, LoginPage]
+      sucesso: Apenas as linhas `> frontend-react@0.0.0 lint` e `> eslint src/`, sem nenhum erro.
   - tipo: terminal
     titulo: terminal · frontend-react
     comandos:
@@ -372,8 +381,9 @@ abas:
       saida: HEAD is now at 2179313
       origem: exemplo
     - entrada: npm ci
-      saida: (instalação das dependências registradas em package-lock.json)
+      saida: ''
       origem: exemplo
+      dica: O comando instala as versões registradas em `package-lock.json`, e a saída varia conforme a máquina.
     - entrada: npm run lint
       condicao: violacao
       saida: "> frontend-react@0.0.0 lint\n> eslint src/\n\n\n.../frontend-react/src/shared/api/httpClient.ts\n  4:30  error  Dependencies to elements of type \"features\" are not allowed in elements of type \"shared\". Denied by rule at index 0  boundaries/dependencies\n\n✖ 1 problem (1 error, 0 warnings)"

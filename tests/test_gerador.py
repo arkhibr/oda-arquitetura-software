@@ -146,6 +146,14 @@ class TestValidacao(unittest.TestCase):
         d["abas"][4]["blocos"].append({"tipo": "terminal", "comandos": [{"entrada": "ls", "saida": "", "origem": "exemplo", "condicao": "b"}]})
         self.assertEqual(validar_oda(d, CATALOGO), [])
 
+    def test_condicao_em_lista_e_efeito_invalido(self):
+        d = minima()
+        d["abas"][4]["blocos"].append({"tipo": "passos", "itens": [{"titulo": "t", "efeito": "a"}, {"titulo": "u", "efeito": 3}]})
+        d["abas"][4]["blocos"].append({"tipo": "terminal", "comandos": [{"entrada": "ls", "saida": "", "origem": "exemplo", "condicao": ["a", "!fantasma"]}]})
+        erros = validar_oda(d, CATALOGO)
+        self.assertIn("laboratorio[1].passo 2: efeito deve ser texto ou lista de textos.", erros)
+        self.assertIn("laboratorio[2]: condição usa estado que nenhum efeito define: fantasma.", erros)
+
 
 class TestGeracao(unittest.TestCase):
     def test_preparar_atribui_ids_e_renomeia(self):
