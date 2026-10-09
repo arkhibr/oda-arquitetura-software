@@ -104,3 +104,29 @@ button { cursor: pointer; }
 .diagrama__area { transform-origin: top left; }
 .diagrama__codigo { margin: 0; padding: 12px; border-top: 1px solid var(--borda); color: var(--terminal-texto); overflow-x: auto; }
 :fullscreen.diagrama { background: var(--fundo); }
+.checklist { border: 1px solid var(--sucesso); border-left-width: 4px; background: var(--sucesso-fundo); border-radius: 10px; padding: 12px 16px; }
+.checklist__titulo { color: var(--sucesso); }
+.checklist ul { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 6px; }
+input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucesso); vertical-align: -2px; }
+.passos { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.passo { background: var(--interno); border: 1px solid var(--borda); border-radius: 12px; padding: 14px 16px; }
+.passo__cabeca { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.passo__num { display: inline-grid; place-items: center; width: 2em; height: 2em; border-radius: 50%; background: var(--destaque); color: var(--fundo); font-weight: 800; flex: 0 0 auto; }
+.passo__titulo { color: var(--destaque); flex: 1 1 200px; }
+.passo__feito { color: var(--texto-suave); font-size: .9em; }
+.passo .bloco { margin: 10px 0 0; }
+.passo__menu, .passo__teclas, .passo__texto { margin: 8px 0 0; }
+.arvores { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.arvore { background: var(--interno); border: 1px solid var(--borda); border-radius: 10px; padding: 12px; }
+.arvore__titulo { color: var(--destaque); }
+.arvore__lista { display: grid; margin: 8px 0; font-family: var(--mono); font-size: .85rem; }
+.arvore__no { text-align: left; background: none; border: 0; border-radius: 6px; padding: 3px 8px; }
+.arvore__no:hover, .arvore__no[aria-pressed="true"] { background: var(--dica-fundo); color: var(--destaque); }
+.arvore__descricao { border-top: 1px solid var(--borda); padding-top: 8px; margin: 0; color: var(--texto-suave); min-height: 3em; }
+.comparativo { overflow-x: auto; }
+.comparativo table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.comparativo th, .comparativo td { border: 1px solid var(--borda); padding: 8px 10px; text-align: left; vertical-align: top; }
+.comparativo thead th { background: var(--interno); color: var(--destaque); }
+.comparativo__dimensao { background: none; border: 0; padding: 0; font-weight: 700; text-align: left; color: var(--texto); }
+.comparativo__linha--ativa td, .comparativo__linha--ativa th { background: var(--dica-fundo); }
+@media (max-width: 760px) { .arvores { grid-template-columns: 1fr; } }

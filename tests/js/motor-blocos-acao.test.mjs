@@ -1,0 +1,26 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { aplicarEfeito, inverterEfeito, profundidade } from '../../motor/blocos-acao.mjs';
+
+test('aplicarEfeito liga e desliga flags', () => {
+  const flags = {};
+  const definir = (n, v) => { flags[n] = v; };
+  aplicarEfeito('handler_registrado', definir);
+  assert.equal(flags.handler_registrado, true);
+  aplicarEfeito('!handler_registrado', definir);
+  assert.equal(flags.handler_registrado, false);
+  aplicarEfeito(null, definir);
+  assert.deepEqual(Object.keys(flags), ['handler_registrado']);
+});
+
+test('inverterEfeito', () => {
+  assert.equal(inverterEfeito('x'), '!x');
+  assert.equal(inverterEfeito('!x'), 'x');
+  assert.equal(inverterEfeito(null), null);
+});
+
+test('profundidade de caminhos de pasta e arquivo', () => {
+  assert.equal(profundidade('src/'), 0);
+  assert.equal(profundidade('src/Pedidos/'), 1);
+  assert.equal(profundidade('src/Pedidos/CancelPedido/CancelPedidoEndpoint.cs'), 3);
+});

@@ -4,6 +4,7 @@ import { abaDoHash, vizinhas, progresso } from './roteador.mjs';
 import { montarBusca } from './busca.mjs';
 import './blocos-texto.mjs';
 import './blocos-codigo.mjs';
+import './blocos-acao.mjs';
 
 export function iniciar(doc, win) {
   const dados = JSON.parse(doc.getElementById('oda-dados').textContent);
