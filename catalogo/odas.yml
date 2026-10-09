@@ -1,0 +1,339 @@
+repositorios:
+  frontend-react: {url: "https://github.com/arkhibr/frontend-react", commit: "2179313"}
+  net-minimal-api: {url: "https://github.com/arkhibr/net-minimal-api", commit: "702145a"}
+  aspire-aws: {url: "https://github.com/arkhibr/aspire-aws", commit: "50a5344"}
+
+trilhas:
+  - {numero: 1, titulo: "Fundamentos"}
+  - {numero: 2, titulo: "Shell"}
+  - {numero: 3, titulo: "Plataforma de microfrontends"}
+  - {numero: 4, titulo: "Borda e back-end de borda"}
+  - {numero: 5, titulo: "Qualidade, segurança e entrega"}
+  - {numero: 6, titulo: "Back-end .NET"}
+  - {numero: 7, titulo: "Nuvem local"}
+
+odas:
+  - id: "00"
+    titulo: "Ambiente e mapa do repositório"
+    trilha: 1
+    repositorio: frontend-react
+    fontes: ["infra/docker-compose.yml", "package.json", "README.md"]
+    minutos: 60
+    pre_requisitos: []
+    objetivo: "Preparar o ambiente local e localizar a responsabilidade de cada pasta do repositório."
+    situacao: planejada
+  - id: "01"
+    titulo: "Ler a arquitetura com C4 e ADRs"
+    trilha: 1
+    repositorio: frontend-react
+    fontes: ["docs/architecture/README.md", "ADR-001"]
+    minutos: 45
+    pre_requisitos: ["00"]
+    objetivo: "Interpretar os diagramas C4 e localizar a ADR que responde a cada pergunta de projeto."
+    situacao: planejada
+  - id: "02"
+    titulo: "Feature-Sliced Design e fronteiras impostas pelo ESLint"
+    trilha: 2
+    repositorio: frontend-react
+    fontes: ["ADR-002", "ADR-007", "eslint.config.ts"]
+    minutos: 60
+    pre_requisitos: ["00"]
+    objetivo: "Aplicar as regras de dependência entre camadas do FSD e interpretar as violações apontadas pelo lint."
+    situacao: planejada
+  - id: "03"
+    titulo: "Estado global e estado de servidor"
+    trilha: 2
+    repositorio: frontend-react
+    fontes: ["ADR-003", "src/shared/lib/store/", "src/shared/lib/queryClient.ts"]
+    minutos: 60
+    pre_requisitos: ["02"]
+    objetivo: "Distinguir estado global de estado de servidor e estender uma fatia do Redux com teste."
+    situacao: planejada
+  - id: "04"
+    titulo: "Autenticação JWT de ponta a ponta"
+    trilha: 2
+    repositorio: frontend-react
+    fontes: ["ADR-004", "src/shared/auth/", "src/shared/api/httpClient.ts", "src/app/router/guards/"]
+    minutos: 75
+    pre_requisitos: ["03"]
+    objetivo: "Explicar o ciclo do token JWT no shell, dos guards de rota ao tratamento da resposta 401."
+    situacao: planejada
+  - id: "05"
+    titulo: "Microfrontends dinâmicos e o contrato mount/unmount"
+    trilha: 3
+    repositorio: frontend-react
+    fontes: ["ADR-008", "ADR-009", "mfes/endereco/src/contract.ts"]
+    minutos: 75
+    pre_requisitos: ["00", "02"]
+    objetivo: "Implementar um microfrontend mínimo que cumpre o contrato mount/unmount."
+    situacao: planejada
+  - id: "06"
+    titulo: "Manifesto e resolução de dependências"
+    trilha: 3
+    repositorio: frontend-react
+    fontes: ["ADR-010", "src/app/mfe/manifest.ts", "src/app/mfe/dependencyResolver.ts", "public/mfe-manifest.json"]
+    minutos: 60
+    pre_requisitos: ["05"]
+    objetivo: "Registrar um microfrontend no manifesto e prever a ordem de carga calculada pela ordenação topológica."
+    situacao: planejada
+  - id: "07"
+    titulo: "Carga segura e isolamento de falhas"
+    trilha: 3
+    repositorio: frontend-react
+    fontes: ["src/app/mfe/loadMfeModule.ts", "src/app/mfe/MfeHost.tsx", "src/app/mfe/MfeErrorBoundary.tsx", "docs/performance/"]
+    minutos: 75
+    pre_requisitos: ["06"]
+    objetivo: "Diagnosticar falhas de integridade, de origem e de montagem na carga de um microfrontend."
+    situacao: planejada
+  - id: "08"
+    titulo: "Build independente e deploy em S3"
+    trilha: 3
+    repositorio: frontend-react
+    fontes: ["ADR-011", "scripts/deploy.ts", "mfes/*/scripts/deploy.ts"]
+    minutos: 75
+    pre_requisitos: ["06"]
+    objetivo: "Publicar um microfrontend no LocalStack e promover bundle e manifesto em conjunto."
+    situacao: planejada
+  - id: "09"
+    titulo: "CSS e contrato visual entre microfrontends"
+    trilha: 3
+    repositorio: frontend-react
+    fontes: ["ADR-014", "mfes/emprestimo/src/theme/", "src/app/styles/tokens.css"]
+    minutos: 60
+    pre_requisitos: ["05"]
+    objetivo: "Aplicar tokens de design e escopo de estilo para evitar vazamento de CSS entre microfrontends."
+    situacao: planejada
+  - id: "10"
+    titulo: "Gateway de API"
+    trilha: 4
+    repositorio: frontend-react
+    fontes: ["ADR-015", "ADR-016", "gateway/src/"]
+    minutos: 75
+    pre_requisitos: ["00", "04"]
+    objetivo: "Explicar a cadeia de middlewares do Gateway e acrescentar uma rota com rate limit testado."
+    situacao: planejada
+  - id: "11"
+    titulo: "BFF e adaptação do contrato legado"
+    trilha: 4
+    repositorio: frontend-react
+    fontes: ["bffs/emprestimo/src/transform.ts", "bffs/emprestimo/src/legacyBackend.ts", "bffs/endereco/src/routes.ts"]
+    minutos: 75
+    pre_requisitos: ["10"]
+    objetivo: "Mapear um campo do contrato legado para o contrato do microfrontend, com teste e benchmark."
+    situacao: planejada
+  - id: "12"
+    titulo: "Contrato de tipos via Hono RPC"
+    trilha: 4
+    repositorio: frontend-react
+    fontes: ["ADR-017"]
+    minutos: 60
+    pre_requisitos: ["11"]
+    objetivo: "Detectar na compilação uma quebra de contrato entre BFF e microfrontend."
+    situacao: planejada
+  - id: "13"
+    titulo: "Segurança no navegador"
+    trilha: 5
+    repositorio: frontend-react
+    fontes: ["ADR-012", "ADR-013", "SECURITY.md", "nginx.conf.template"]
+    minutos: 75
+    pre_requisitos: ["07"]
+    objetivo: "Avaliar código contra uma política CSP estrita e interpretar relatórios de violação."
+    situacao: planejada
+  - id: "14"
+    titulo: "Estratégia de testes e medição de desempenho"
+    trilha: 5
+    repositorio: frontend-react
+    fontes: ["ADR-005", "src/mocks/", "playwright.config.ts", "docs/performance/"]
+    minutos: 90
+    pre_requisitos: ["00"]
+    objetivo: "Escolher o nível de teste adequado e escrever um teste com MSW e um benchmark."
+    situacao: planejada
+  - id: "15"
+    titulo: "Conteinerização e esteira de entrega"
+    trilha: 5
+    repositorio: frontend-react
+    fontes: ["ADR-006", "Dockerfile", ".github/workflows/"]
+    minutos: 60
+    pre_requisitos: ["14"]
+    objetivo: "Executar localmente o Quality Gate da esteira e construir a imagem do shell."
+    situacao: planejada
+  - id: "16"
+    titulo: "Ambiente .NET 10 e os três bounded contexts"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["setup.sh", "docs/00-VISAO-GERAL.md"]
+    minutos: 45
+    pre_requisitos: []
+    objetivo: "Executar a API localmente e identificar o padrão arquitetural de cada bounded context."
+    situacao: planejada
+  - id: "17"
+    titulo: "Minimal API: endpoints, auto-descoberta e versionamento"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0009", "ADR-0012", "docs/guias/MELHORES-PRATICAS-MINIMAL-API.md"]
+    minutos: 60
+    pre_requisitos: ["16"]
+    objetivo: "Registrar endpoints por auto-descoberta e organizá-los em route groups versionados."
+    situacao: planejada
+  - id: "18"
+    titulo: "Desenho de API REST e contratos JSON"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["docs/guias/MELHORES-PRATICAS-API.md", "docs/guias/JSON-COMPLEXO-E-BOAS-PRATICAS.md"]
+    minutos: 60
+    pre_requisitos: ["17"]
+    objetivo: "Avaliar recursos, códigos de status e payloads de uma API segundo as boas práticas do repositório."
+    situacao: planejada
+  - id: "19"
+    titulo: "Clean Architecture híbrida no Catálogo"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0001", "ADR-0011", "src/Catalogo/"]
+    minutos: 75
+    pre_requisitos: ["17"]
+    objetivo: "Explicar a responsabilidade de cada subprojeto do Catálogo e a direção das dependências."
+    situacao: planejada
+  - id: "20"
+    titulo: "Vertical Slice e comparativo com Clean Architecture"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0001", "ADR-0011", "src/Pedidos/", "docs/01-ARQUITETURA.md"]
+    minutos: 75
+    pre_requisitos: ["19"]
+    objetivo: "Comparar a organização por camada e por caso de uso e implementar um novo caso de uso como fatia."
+    situacao: planejada
+  - id: "21"
+    titulo: "DDD tático: domínio rico seletivo, value objects e agregado"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0004", "ADR-0015", "src/Catalogo/Catalogo.Domain/", "src/Pedidos/Domain/"]
+    minutos: 75
+    pre_requisitos: ["19"]
+    objetivo: "Decidir onde o domínio rico compensa e proteger invariantes em agregados e value objects."
+    situacao: planejada
+  - id: "22"
+    titulo: "Erros e validação: Result, FluentValidation e exceções"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0003", "ADR-0010", "src/Shared/Middleware/ExceptionHandlingMiddleware.cs"]
+    minutos: 60
+    pre_requisitos: ["17"]
+    objetivo: "Distinguir erro de domínio, erro de entrada e falha inesperada e tratar cada um no lugar certo."
+    situacao: planejada
+  - id: "23"
+    titulo: "CQRS com EF Core e Dapper, migrations e soft delete"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0002", "ADR-0005", "src/Shared/Data/"]
+    minutos: 75
+    pre_requisitos: ["19"]
+    objetivo: "Separar escrita e leitura com repositórios distintos e evoluir o esquema com migrations."
+    situacao: planejada
+  - id: "24"
+    titulo: "Segurança da API com JWT e rate limiting"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0007", "ADR-0013"]
+    minutos: 60
+    pre_requisitos: ["17"]
+    objetivo: "Proteger endpoints com JWT Bearer e escolher a política de rate limiting adequada a cada rota."
+    situacao: planejada
+  - id: "25"
+    titulo: "Idempotência por middleware"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0006", "src/Shared/Middleware/IdempotencyMiddleware.cs"]
+    minutos: 45
+    pre_requisitos: ["22"]
+    objetivo: "Garantir que a repetição de uma requisição não duplique o efeito no servidor."
+    situacao: planejada
+  - id: "26"
+    titulo: "Integrações externas resilientes e Pix com mTLS"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["ADR-0008", "ADR-0014", "src/Pix/", "docs/04-PIX.md"]
+    minutos: 90
+    pre_requisitos: ["17"]
+    objetivo: "Configurar um cliente HTTP resiliente e uma chamada com mTLS e OAuth2 ao servidor Pix simulado."
+    situacao: planejada
+  - id: "27"
+    titulo: "Testes de API com WebApplicationFactory"
+    trilha: 6
+    repositorio: net-minimal-api
+    fontes: ["docs/05-TESTES.md", "tests/"]
+    minutos: 75
+    pre_requisitos: ["17"]
+    objetivo: "Escrever testes de integração isolados que exercitam a API real em memória."
+    situacao: planejada
+  - id: "28"
+    titulo: "Aspire, LocalStack e testes de integração com nuvem emulada"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["ADR-001", "ADR-002", "ADR-003", "ADR-004", "ADR-005", "ADR-006", "src/Shared/", "src/AppHost/"]
+    minutos: 60
+    pre_requisitos: []
+    objetivo: "Explicar como o Aspire sobe o LocalStack e como o fixture isola cada cenário de teste."
+    situacao: planejada
+  - id: "29"
+    titulo: "Armazenamento e configuração: S3, SSM e Secrets Manager"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["scenarios/01-S3.Basic", "scenarios/05-SSM.Basic", "scenarios/06-SecretsManager.Basic"]
+    minutos: 60
+    pre_requisitos: ["28"]
+    objetivo: "Usar S3, SSM e Secrets Manager pelo SDK .NET contra o LocalStack."
+    situacao: planejada
+  - id: "30"
+    titulo: "Mensageria com SQS e SNS"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["scenarios/02-SQS.Basic", "scenarios/04-SNS.Basic", "scenarios/09-SNS.SQS.Fanout", "scenarios/10-S3.SQS.Notification"]
+    minutos: 75
+    pre_requisitos: ["28"]
+    objetivo: "Diferenciar fila e tópico e estender um fan-out de SNS para SQS com uma nova fila assinante."
+    situacao: planejada
+  - id: "31"
+    titulo: "Dados gerenciados: DynamoDB e RDS"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["scenarios/03-DynamoDB.Basic", "scenarios/17-RDS.Basic"]
+    minutos: 60
+    pre_requisitos: ["28"]
+    objetivo: "Comparar o acesso a DynamoDB e a um banco relacional emulado nos testes de integração."
+    situacao: planejada
+  - id: "32"
+    titulo: "Funções orientadas a eventos com Lambda"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["scenarios/07-S3.Lambda.Trigger", "scenarios/08-SQS.Lambda.Consumer", "scenarios/11-DynamoDB.Lambda", "scenarios/14-EventBridge.Lambda", "src/lambdas/"]
+    minutos: 90
+    pre_requisitos: ["29", "30"]
+    objetivo: "Ligar funções Lambda a gatilhos de S3, SQS, DynamoDB e EventBridge e verificar o efeito de forma assíncrona."
+    situacao: planejada
+  - id: "33"
+    titulo: "Pipelines com vários serviços"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB", "scenarios/13-Pipeline.SNS.SQS.Lambda.S3"]
+    minutos: 75
+    pre_requisitos: ["32"]
+    objetivo: "Rastrear uma mensagem por um pipeline com vários serviços e localizar o ponto de falha."
+    situacao: planejada
+  - id: "34"
+    titulo: "Orquestração com Step Functions e tarefas em ECS"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["scenarios/15-StepFunctions.Orchestration", "scenarios/18-ECS.RunTask"]
+    minutos: 75
+    pre_requisitos: ["32"]
+    objetivo: "Comparar orquestração por máquina de estados com execução de tarefas em contêiner."
+    situacao: planejada
+  - id: "35"
+    titulo: "Caso integrador: agendamento e roteamento de ofertas de crédito"
+    trilha: 7
+    repositorio: aspire-aws
+    fontes: ["scenarios/16-Pipeline.Scheduler.Router"]
+    minutos: 90
+    pre_requisitos: ["33"]
+    objetivo: "Analisar o pipeline de ofertas de crédito e alterar uma regra de roteamento com teste."
+    situacao: planejada
