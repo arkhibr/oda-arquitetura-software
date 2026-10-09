@@ -12,8 +12,7 @@ class TestPublicacao(unittest.TestCase):
     def test_portoes_no_workflow(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/publicar.yml").read_text(encoding="utf-8"))
         comandos = "\n".join(p.get("run", "") for p in workflow["jobs"]["build"]["steps"])
-        for portao in ("python -m unittest discover -s tests", 'node --test "tests/js/*.test.mjs"',
-                       "python scripts/validate_odas.py", "mkdocs build --strict"):
+        for portao in ("python -m unittest discover -s tests", 'node --test "tests/js/*.test.mjs"', "mkdocs build --strict"):
             self.assertIn(portao, comandos)
 
     def test_workflow_gera_odas_app_e_roda_e2e(self):

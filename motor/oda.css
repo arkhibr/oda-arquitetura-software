@@ -216,3 +216,4 @@ fieldset { min-width: 0; }
 .tempo--retido { border-left-color: #f59e0b; } .tempo--retido .tempo__status { color: #f59e0b; }
 .tempo--nao-ocorre { border-left-color: #64748b; opacity: .75; } .tempo--nao-ocorre .tempo__status { color: #94a3b8; }
 .tempo__resumo { font-weight: 700; margin: 10px 0 0; }
+a.botao { color: inherit; text-decoration: none; display: inline-block; }

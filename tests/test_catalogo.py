@@ -33,7 +33,7 @@ class TestCatalogoReal(unittest.TestCase):
         self.assertEqual([t["numero"] for t in CATALOGO["trilhas"]], [1, 2, 3, 4, 5, 6, 7])
 
     def test_catalogo_real_valido(self):
-        self.assertEqual(validar_catalogo(CATALOGO, ROOT / "docs"), [])
+        self.assertEqual(validar_catalogo(CATALOGO, ROOT), [])
 
     def test_commits_de_referencia(self):
         commits = {n: r["commit"] for n, r in CATALOGO["repositorios"].items()}
@@ -86,21 +86,24 @@ class TestValidacao(unittest.TestCase):
         c["odas"][0]["situacao"] = "pronta"
         self.assertIn("ODA 00: situação pronta inválida.", self.erros(c))
 
-    def test_disponivel_exige_pagina_existente(self):
+    def test_disponivel_exige_aplicacao_existente(self):
         c = minimo()
         c["odas"][0]["situacao"] = "disponivel"
-        self.assertIn("ODA 00: situação disponivel exige o campo pagina.", self.erros(c))
-        c["odas"][0]["pagina"] = "oda-00-a.md"
+        self.assertIn("ODA 00: situação disponivel exige o campo app.", self.erros(c))
+        c["odas"][0]["app"] = "oda-00"
         with tempfile.TemporaryDirectory() as tmp:
-            self.assertIn("ODA 00: página odas/oda-00-a.md não encontrada.", self.erros(c, Path(tmp)))
-            (Path(tmp) / "odas").mkdir()
-            (Path(tmp) / "odas" / "oda-00-a.md").write_text("# ODA 00 — A\n", encoding="utf-8")
+            self.assertIn("ODA 00: aplicação odas/oda-00/oda.yml não encontrada.", self.erros(c, Path(tmp)))
+            (Path(tmp) / "odas" / "oda-00").mkdir(parents=True)
+            (Path(tmp) / "odas" / "oda-00" / "oda.yml").write_text("id: '00'\n", encoding="utf-8")
             self.assertEqual(self.erros(c, Path(tmp)), [])
 
-    def test_planejada_nao_pode_ter_pagina(self):
+    def test_planejada_nao_pode_ter_aplicacao(self):
         c = minimo()
-        c["odas"][0]["pagina"] = "oda-00-a.md"
-        self.assertIn("ODA 00: situação planejada não admite o campo pagina.", self.erros(c))
+        c["odas"][0]["app"] = "oda-00"
+        self.assertIn("ODA 00: situação planejada não admite o campo app.", self.erros(c))
+
+    def test_disponiveis_do_catalogo_real(self):
+        self.assertEqual(sorted(o["app"] for o in CATALOGO["odas"] if o["situacao"] == "disponivel"), ["oda-02", "oda-20", "oda-30"])
 
     def test_campos_obrigatorios(self):
         c = copy.deepcopy(minimo())

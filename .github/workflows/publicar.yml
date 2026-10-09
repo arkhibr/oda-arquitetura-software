@@ -42,9 +42,6 @@ jobs:
       - name: Executar os testes dos componentes
         run: node --test "tests/js/*.test.mjs"
 
-      - name: Validar as páginas de ODA
-        run: python scripts/validate_odas.py
-
       - name: Construir o site
         run: mkdocs build --strict
 

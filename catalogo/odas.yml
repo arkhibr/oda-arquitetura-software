@@ -40,7 +40,7 @@ odas:
     pre_requisitos: ["00"]
     objetivo: "Aplicar as regras de dependência entre camadas do FSD e interpretar as violações apontadas pelo lint."
     situacao: disponivel
-    pagina: oda-02-fsd-fronteiras.md
+    app: oda-02
   - id: "03"
     titulo: "Estado global e estado de servidor"
     trilha: 2
@@ -203,7 +203,7 @@ odas:
     pre_requisitos: ["19"]
     objetivo: "Comparar a organização por camada e por caso de uso e implementar um novo caso de uso como fatia."
     situacao: disponivel
-    pagina: oda-20-vertical-slice.md
+    app: oda-20
   - id: "21"
     titulo: "DDD tático: domínio rico seletivo, value objects e agregado"
     trilha: 6
@@ -294,7 +294,7 @@ odas:
     pre_requisitos: ["28"]
     objetivo: "Diferenciar fila e tópico e estender um fan-out de SNS para SQS com uma nova fila assinante."
     situacao: disponivel
-    pagina: oda-30-mensageria.md
+    app: oda-30
   - id: "31"
     titulo: "Dados gerenciados: DynamoDB e RDS"
     trilha: 7

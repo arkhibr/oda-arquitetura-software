@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import html as _html
 from pathlib import Path
-import re
 
 from mkdocs.exceptions import PluginError
 import yaml
@@ -23,7 +22,7 @@ def oda_por_id(catalogo: dict, id_oda: str) -> dict | None:
     return next((o for o in catalogo["odas"] if o["id"] == id_oda), None)
 
 
-def validar_catalogo(catalogo: dict, docs_dir: Path | None = None) -> list[str]:
+def validar_catalogo(catalogo: dict, raiz: Path | None = None) -> list[str]:
     erros: list[str] = []
     trilhas = {t["numero"] for t in catalogo.get("trilhas", [])}
     repositorios = catalogo.get("repositorios", {})
@@ -53,13 +52,13 @@ def validar_catalogo(catalogo: dict, docs_dir: Path | None = None) -> list[str]:
         situacao = oda["situacao"]
         if situacao not in SITUACOES:
             erros.append(f"{rotulo}: situação {situacao} inválida.")
-        elif situacao == "disponivel" and not oda.get("pagina"):
-            erros.append(f"{rotulo}: situação disponivel exige o campo pagina.")
-        elif situacao == "planejada" and oda.get("pagina"):
-            erros.append(f"{rotulo}: situação planejada não admite o campo pagina.")
-        elif situacao == "disponivel" and docs_dir is not None:
-            if not (docs_dir / "odas" / oda["pagina"]).exists():
-                erros.append(f"{rotulo}: página odas/{oda['pagina']} não encontrada.")
+        elif situacao == "disponivel" and not oda.get("app"):
+            erros.append(f"{rotulo}: situação disponivel exige o campo app.")
+        elif situacao == "planejada" and oda.get("app"):
+            erros.append(f"{rotulo}: situação planejada não admite o campo app.")
+        elif situacao == "disponivel" and raiz is not None:
+            if not (raiz / "odas" / oda["app"] / "oda.yml").exists():
+                erros.append(f"{rotulo}: aplicação odas/{oda['app']}/oda.yml não encontrada.")
     return erros
 
 
@@ -72,8 +71,8 @@ def formatar_horas(minutos: int) -> str:
     return f"{minutos / 60:.1f} h".replace(".", ",")
 
 
-def _href(oda: dict, prefixo: str = "") -> str:
-    return f"{prefixo}{oda['pagina'].removesuffix('.md')}/"
+def _href(oda: dict) -> str:
+    return f"novo/{oda['app']}/"
 
 
 def _titulo_trilha(catalogo: dict, numero: int) -> str:
@@ -123,32 +122,10 @@ def renderizar_indice(catalogo: dict) -> str:
     return "\n".join(partes) + "\n"
 
 
-def renderizar_cabecalho(catalogo: dict, oda: dict) -> str:
-    esc = _html.escape
-    repo = catalogo["repositorios"][oda["repositorio"]]
-    url = f"{repo['url']}/tree/{repo['commit']}"
-    pres = []
-    for ident in oda["pre_requisitos"]:
-        pre = oda_por_id(catalogo, ident)
-        if pre["situacao"] == "disponivel":
-            pres.append(f'<a href="{esc(_href(pre, "../"))}">ODA {esc(ident)} — {esc(pre["titulo"])}</a>')
-        else:
-            pres.append(f"ODA {esc(ident)} (planejada)")
-    return (
-        '<div class="oda-cabecalho"><dl>'
-        f"<dt>Trilha</dt><dd>{esc(_titulo_trilha(catalogo, oda['trilha']))}</dd>"
-        f"<dt>Tempo estimado</dt><dd>{oda['minutos']} min</dd>"
-        f'<dt>Repositório</dt><dd><a href="{esc(url)}">{esc(repo["url"].removeprefix("https://github.com/"))}</a>'
-        f" no commit <code>{esc(repo['commit'])}</code></dd>"
-        f"<dt>Pré-requisitos</dt><dd>{'<br>'.join(pres) or 'Nenhum'}</dd>"
-        "</dl></div>"
-    )
-
-
 def on_config(config):
     raiz = Path(config["config_file_path"]).parent
     catalogo = carregar_catalogo(raiz / "catalogo" / "odas.yml")
-    erros = validar_catalogo(catalogo, Path(config["docs_dir"]))
+    erros = validar_catalogo(catalogo, raiz)
     if erros:
         raise PluginError("Catálogo de ODAs inválido:\n" + "\n".join(erros))
     _estado["catalogo"] = catalogo
@@ -156,14 +133,6 @@ def on_config(config):
 
 
 def on_page_markdown(markdown, page, config, files):
-    catalogo = _estado["catalogo"]
-    if page.file.src_uri == "odas/index.md":
-        return markdown.replace(MARCADOR, renderizar_indice(catalogo))
-    ident = page.meta.get("oda")
-    if ident is None:
-        return markdown
-    oda = oda_por_id(catalogo, str(ident))
-    if oda is None:
-        raise PluginError(f"{page.file.src_uri}: ODA {ident} não consta do catálogo.")
-    return re.sub(r"^(# .+)$", lambda m: m.group(1) + "\n\n" + renderizar_cabecalho(catalogo, oda),
-                  markdown, count=1, flags=re.MULTILINE)
+    if page.file.src_uri == "index.md":
+        return markdown.replace(MARCADOR, renderizar_indice(_estado["catalogo"]))
+    return markdown

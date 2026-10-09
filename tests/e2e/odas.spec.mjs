@@ -121,3 +121,13 @@ test('oda-02: desmarcar o passo 6 não liga a violação', async ({ page }) => {
   await campo.press('Enter');
   await expect(painel.locator('.terminal__tela')).not.toContainText('boundaries/dependencies');
 });
+
+test('página mestre leva a cada ODA disponível e cada ODA volta ao catálogo', async ({ page }) => {
+  for (const oda of ODAS) {
+    await page.goto('/');
+    await page.locator(`a[href="novo/${oda}/"]`).click();
+    await expect(page.getByRole('tab')).toHaveCount(7);
+    await page.getByRole('link', { name: 'Catálogo' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Catálogo de ODAs' })).toBeVisible();
+  }
+});

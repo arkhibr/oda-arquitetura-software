@@ -56,10 +56,4 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
 
 nav:
-  - Início: index.md
-  - Catálogo de ODAs: odas/index.md
-  - ODAs:
-      - "02 — FSD e fronteiras": odas/oda-02-fsd-fronteiras.md
-      - "20 — Vertical Slice": odas/oda-20-vertical-slice.md
-      - "30 — Mensageria": odas/oda-30-mensageria.md
-  - Como escrever uma ODA: referencia/modelo-de-oda.md
+  - Catálogo de ODAs: index.md

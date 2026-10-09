@@ -31,7 +31,7 @@ class TestProjeto(unittest.TestCase):
         self.assertIn("superpowers/**", carregar_config()["exclude_docs"])
 
     def test_pagina_mestre_tem_marcador(self):
-        texto = (ROOT / "docs/odas/index.md").read_text(encoding="utf-8")
+        texto = (ROOT / "docs/index.md").read_text(encoding="utf-8")
         self.assertIn("<!-- catalogo-odas -->", texto)
 
     def test_material_fixado(self):
