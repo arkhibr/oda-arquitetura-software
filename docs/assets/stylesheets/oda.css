@@ -1,0 +1,11 @@
+.oda { margin: 1.2em 0; padding: 1em; border: 1px solid var(--md-default-fg-color--lightest); border-radius: 0.3rem; }
+.oda-erro { color: var(--md-typeset-color); border-left: 0.25rem solid #d32f2f; padding-left: 0.6em; }
+.oda-ok { border-left: 0.25rem solid #2e7d32; padding-left: 0.6em; }
+.oda-falha { border-left: 0.25rem solid #d32f2f; padding-left: 0.6em; }
+.oda button { margin: 0.4em 0.4em 0.4em 0; }
+.oda button:focus-visible, .oda select:focus-visible, .oda input:focus-visible { outline: 2px solid var(--md-accent-fg-color); outline-offset: 2px; }
+.oda-cabecalho dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.2em 1em; margin: 0 0 1.5em; }
+.oda-cabecalho dt { font-weight: 700; }
+.oda-cabecalho dd { margin: 0; }
+.oda-catalogo__tabela { font-size: 0.85em; }
+@media (prefers-reduced-motion: reduce) { .oda * { transition: none !important; animation: none !important; } }
