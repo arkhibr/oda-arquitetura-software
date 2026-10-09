@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -83,6 +83,32 @@ test('oda-03: o logout limpa o ramo auth e mantém o ramo ui', async ({ page }) 
   await expect(tela).toContainText('"isAuthenticated": false');
   await rodar('store.getState().ui');
   await expect(tela).toContainText('"sidebarOpen": false');
+});
+
+test('oda-04: o teste do shell falha depois do passo 5 e passa depois do passo 7', async ({ page }) => {
+  await page.goto('/oda-04/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async () => { await campo.fill('npx vitest run src/app/providers'); await campo.press('Enter'); };
+  await rodar();
+  await expect(tela).toContainText('No test files found');
+  await painel.getByLabel('Passo 5 concluído').check();
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar();
+  await expect(tela).toContainText('Tests  1 failed (1)');
+  await painel.getByLabel('Passo 7 concluído').check();
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar();
+  await expect(tela).toContainText('Tests  1 passed (1)');
+});
+
+test('oda-04: sem o sessionMonitor, o evento do 401 fica sem consumo', async ({ page }) => {
+  await page.goto('/oda-04/#simulacao');
+  const tempo = page.locator('#painel-simulacao .tempo').first();
+  await tempo.getByLabel('O sessionMonitor não foi iniciado, como no commit 2179313').check();
+  for (let i = 0; i < 6; i += 1) await tempo.getByRole('button', { name: 'Próximo evento' }).click();
+  await expect(tempo.locator('.tempo__resumo')).toContainText('window (eventos DOM): 1');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

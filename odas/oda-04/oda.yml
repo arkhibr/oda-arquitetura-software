@@ -1,0 +1,882 @@
+id: '04'
+titulo: Autenticação JWT de ponta a ponta
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: 'O portal autentica com JWT: o shell guarda o token no `sessionStorage`, os guards de rota leem o estado do Redux, e o Gateway é a única autoridade que valida a assinatura. Esta ODA percorre esse ciclo, compara a ADR-004 com o código e corrige, com o teste escrito antes, o encerramento de sessão que a ADR descreve e o shell não executa.'
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar o caminho do token desde o login até os guards de rota e os microfrontends.
+    - Distinguir a verificação de expiração feita no shell da validação de assinatura feita no Gateway.
+    - Caracterizar o `sessionMonitor` com testes que usam relógio simulado.
+    - Ligar o `sessionMonitor` ao ciclo de vida do shell com o teste escrito e rodado antes da correção.
+    - Identificar onde o MSW, o shell e o Gateway respondem de forma diferente ao mesmo token.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 03, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas. O passo final do laboratório usa o navegador com `npm run dev` e não depende do Docker.
+  - tipo: terminal
+    titulo: terminal · testes de autenticação
+    comandos:
+    - entrada: npx vitest run src/shared/auth src/shared/api src/app/router
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  6 passed (6)\n      Tests  23 passed (23)"
+      origem: executado
+      dica: 'São 6 arquivos: o `httpClient`, o `ApiError`, o `tokenParser`, o `tokenStorage` e os dois guards. Nenhum deles testa o `sessionMonitor`.'
+    cenarios:
+    - rotulo: Rodar os testes de autenticação
+      comando: npx vitest run src/shared/auth src/shared/api src/app/router
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-004 decide onde guardar o token e como perceber que a sessão terminou. A Atualização 1.1 da mesma ADR acrescenta que o `sessionStorage` não é fronteira de autorização, porque a autoridade de segurança passou a ser o Gateway.
+  - tipo: comparativo
+    colunas:
+    - Shell (navegador)
+    - Gateway
+    linhas:
+    - dimensao: O que confere no token
+      valores:
+      - Formato, `sub`, `iat` e `exp`, decodificando o payload sem verificar a assinatura
+      - Assinatura, algoritmo, emissor, audiência e expiração
+    - dimensao: Arquivo
+      valores:
+      - '`src/shared/auth/tokenParser.ts`'
+      - '`gateway/src/auth.ts`'
+    - dimensao: Consequência de token inválido
+      valores:
+      - O usuário volta para o login, o que só melhora a experiência
+      - Resposta 401, e a requisição não chega ao BFF
+    - dimensao: Pode ser contornado pelo usuário?
+      valores:
+      - Sim, porque o código roda no navegador dele
+      - Não sem a chave de assinatura
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Sequência
+    titulo: Fluxo de autenticação da ADR-004 (docs/architecture/adrs/ADR-004-autenticacao.md)
+    mermaid: "sequenceDiagram\n    actor U as Usuário\n    participant SPA as Portal Web\n    participant TS as tokenStorage\n    participant SM as sessionMonitor\n    participant API as API de Clientes\n\n    U->>SPA: login(usuário, senha)\n    SPA->>API: POST /auth/token\n    API-->>SPA: { access_token }\n    SPA->>TS: set(token)\n    SPA->>SM: start()\n\n    loop a cada 60s\n        SM->>TS: get()\n        SM->>SM: isTokenExpired?\n        alt token expirado\n            SM->>SPA: dispatch(logout())\n            SPA->>TS: clear()\n        end\n    end\n\n    SPA->>API: GET /recurso (Bearer token)\n    alt 401 Unauthorized\n        API-->>SPA: 401\n        SPA-->>SPA: event(auth:unauthorized)\n        SPA->>SPA: dispatch(logout())\n        SPA->>TS: clear()\n    end"
+  - tipo: conceito
+    titulo: Dois mecanismos de encerramento
+    texto: O `sessionMonitor` combina uma verificação pelo relógio do navegador a cada 60 segundos com a escuta do evento `auth:unauthorized`, que o `httpClient` do shell emite ao receber 401. Os dois só funcionam depois de `sessionMonitor.start()`, e o diagrama da ADR mostra essa chamada logo após o login.
+  - tipo: adr
+    id: ADR-004
+    titulo: Tática de autenticação
+    status: Proposed
+    contexto: O token JWT precisa ficar no navegador entre requisições, ter a validade verificada de forma proativa e ser descartado quando o servidor recusar uma requisição por sessão expirada.
+    decisao: '`sessionStorage`, isolado por aba, com o `sessionMonitor` verificando a expiração a cada 60 segundos e reagindo ao evento DOM `auth:unauthorized`.'
+    alternativas: '`localStorage`, descartado por persistir além da sessão e ampliar a exposição a XSS, cookie `httpOnly`, descartado por exigir mudanças no back-end nesta fase, e token só em memória, descartado por perder a sessão a cada recarga.'
+    consequencias: O usuário autentica de novo ao reabrir a aba, e o relógio do navegador pode divergir do servidor. A Atualização 1.1 registra que a autorização depende do Gateway, que valida o token antes de encaminhar a requisição aos BFFs.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: 'Os trechos abaixo seguem o token no commit `2179313`: armazenamento, leitura do payload, reidratação no store, monitoramento, tratamento do 401 no shell e nos microfrontends e validação no Gateway. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/auth/tokenStorage.ts
+    commit: '2179313'
+    linhas:
+    - // src/shared/auth/tokenStorage.ts
+    - const KEY = 'portal_access_token'
+    - ''
+    - export const tokenStorage = {
+    - '  get(): string | null {'
+    - '    return sessionStorage.getItem(KEY)'
+    - '  },'
+    - '  set(token: string): void {'
+    - '    sessionStorage.setItem(KEY, token)'
+    - '  },'
+    - '  clear(): void {'
+    - '    sessionStorage.removeItem(KEY)'
+    - '  },'
+    - '}'
+    anotacoes:
+    - linha: 2
+      texto: A chave usada no `sessionStorage`, que aparece no console do navegador depois do login.
+    - linha: 9
+      texto: Único ponto de gravação do token, chamado pelo reducer `login`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/auth/tokenParser.ts
+    commit: '2179313'
+    linhas:
+    - 'export function parseToken(token: string): JwtPayload {'
+    - '  const parts = token.split(''.'')'
+    - '  if (parts.length !== 3) throw new Error(''Token JWT inválido'')'
+    - ''
+    - '  const raw = parts[1]!'
+    - '  const decoded = atob(raw.replace(/-/g, ''+'').replace(/_/g, ''/''))'
+    - '  return JSON.parse(decoded) as JwtPayload'
+    - '}'
+    - ''
+    - 'export function isTokenExpired(token: string): boolean {'
+    - '  try {'
+    - '    const { exp, iat, sub } = parseToken(token)'
+    - '    if (!Number.isFinite(exp) || !Number.isFinite(iat) || typeof sub !== ''string'' || sub.length === 0) return true'
+    - '    return Date.now() >= exp * 1000'
+    - '  } catch {'
+    - '    return true'
+    - '  }'
+    - '}'
+    anotacoes:
+    - linha: 14
+      texto: Decodifica o payload sem verificar a assinatura, que fica a cargo do Gateway.
+    - linha: 21
+      texto: Token sem `exp`, `iat` ou `sub` válidos é tratado como expirado, que é a falha segura citada pela ADR.
+    - linha: 22
+      texto: A expiração usa o relógio do navegador.
+    inicio: 9
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/lib/store/authSlice.ts
+    commit: '2179313'
+    linhas:
+    - 'function hydrateInitialState(): AuthState {'
+    - '  const token = tokenStorage.get()'
+    - '  if (token && !isTokenExpired(token)) {'
+    - '    try {'
+    - '      return { token, user: parseToken(token), isAuthenticated: true }'
+    - '    } catch {'
+    - '      tokenStorage.clear()'
+    - '    }'
+    - '  }'
+    - '  return { token: null, user: null, isAuthenticated: false }'
+    - '}'
+    - ''
+    - 'const initialState: AuthState = hydrateInitialState()'
+    anotacoes:
+    - linha: 14
+      texto: Ao carregar o módulo, o store lê o token gravado na aba.
+    - linha: 17
+      texto: Uma recarga de página mantém a sessão se o token ainda não expirou.
+    inicio: 13
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/auth/sessionMonitor.ts
+    commit: '2179313'
+    linhas:
+    - import { store } from '@/shared/lib/store'
+    - import { logout } from '@/shared/lib/store/authSlice'
+    - import { isTokenExpired } from './tokenParser'
+    - import { tokenStorage } from './tokenStorage'
+    - ''
+    - 'let intervalId: ReturnType<typeof setInterval> | null = null'
+    - ''
+    - function handleUnauthorized() {
+    - '  store.dispatch(logout())'
+    - '}'
+    - ''
+    - export const sessionMonitor = {
+    - '  start(): void {'
+    - '    if (intervalId) return'
+    - ''
+    - '    intervalId = setInterval(() => {'
+    - '      const token = tokenStorage.get()'
+    - '      if (token && isTokenExpired(token)) {'
+    - '        store.dispatch(logout())'
+    - '      }'
+    - '    }, 60_000)'
+    - ''
+    - '    window.addEventListener(''auth:unauthorized'', handleUnauthorized)'
+    - '  },'
+    - ''
+    - '  stop(): void {'
+    - '    if (intervalId) {'
+    - '      clearInterval(intervalId)'
+    - '      intervalId = null'
+    - '    }'
+    - '    window.removeEventListener(''auth:unauthorized'', handleUnauthorized)'
+    - '  },'
+    - '}'
+    anotacoes:
+    - linha: 16
+      texto: 'Primeiro mecanismo: verificação a cada 60 segundos.'
+    - linha: 23
+      texto: 'Segundo mecanismo: reação ao 401 sinalizado pelo `httpClient`.'
+    - linha: 26
+      texto: Desliga os dois mecanismos, o que um componente deve chamar ao desmontar.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/api/httpClient.ts
+    commit: '2179313'
+    linhas:
+    - export async function httpClient<T>(
+    - '  url: string,'
+    - '  options: RequestInit = {},'
+    - '): Promise<T> {'
+    - '  const token = tokenStorage.get()'
+    - '  const baseUrl = getApiUrl()'
+    - ''
+    - '  const response = await fetch(`${baseUrl}${url}`, {'
+    - '    ...options,'
+    - '    headers: {'
+    - '      ''Content-Type'': ''application/json'','
+    - '      ...(token ? { Authorization: `Bearer ${token}` } : {}),'
+    - '      ...options.headers,'
+    - '    },'
+    - '  })'
+    - ''
+    - '  if (response.status === 401) {'
+    - '    tokenStorage.clear()'
+    - '    window.dispatchEvent(new CustomEvent(''auth:unauthorized''))'
+    - '    throw new ApiError(401, ''Sessão expirada'')'
+    - '  }'
+    - ''
+    - '  if (!response.ok) {'
+    - '    const body = await response.json().catch(() => ({}))'
+    - '    throw new ApiError(response.status, body)'
+    - '  }'
+    - ''
+    - '  if (response.status === 204) return undefined as T'
+    - '  return response.json() as Promise<T>'
+    - '}'
+    anotacoes:
+    - linha: 16
+      texto: O token segue no cabeçalho `Authorization` de toda chamada feita pelo shell.
+    - linha: 22
+      texto: No 401, o `httpClient` apaga o token da aba antes de avisar o restante do shell.
+    - linha: 23
+      texto: O aviso é um evento DOM, ouvido apenas pelo `sessionMonitor` iniciado.
+    inicio: 5
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/src/api/httpClient.ts
+    commit: '2179313'
+    linhas:
+    - 'export function createHttpClient(deps: HttpClientDeps) {'
+    - '  const bff = deps.bff ?? ''endereco'''
+    - '  const prefix = deps.apiUrl ? `/bff/${bff}` : '''''
+    - '  return async function client<T>(path: string, options: RequestInit = {}): Promise<T> {'
+    - '    const res = await fetch(`${deps.apiUrl}${prefix}${path}`, {'
+    - '      ...options,'
+    - '      headers: {'
+    - '        ''Content-Type'': ''application/json'','
+    - '        ...(deps.token ? { Authorization: `Bearer ${deps.token}` } : {}),'
+    - '        ...options.headers,'
+    - '      },'
+    - '    })'
+    - '    if (res.status === 401) {'
+    - '      deps.onUnauthorized()'
+    - '      throw new Error(''Sessão expirada'')'
+    - '    }'
+    - '    if (!res.ok) throw new Error(`HTTP ${res.status}`)'
+    - '    if (res.status === 204) return undefined as T'
+    - '    return res.json() as Promise<T>'
+    - '  }'
+    - '}'
+    anotacoes:
+    - linha: 22
+      texto: O microfrontend recebe o token pelo contexto de montagem e não lê o `sessionStorage`.
+    - linha: 27
+      texto: No 401, o microfrontend chama o callback recebido do shell.
+    inicio: 14
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/MfeHost.tsx
+    commit: '2179313'
+    linhas:
+    - '        m.mount(el, {'
+    - '          apiUrl: getApiUrl(),'
+    - '          token,'
+    - '          basePath: entry.route,'
+    - '          onUnauthorized: () => dispatch(logout()),'
+    - '        })'
+    anotacoes:
+    - linha: 32
+      texto: O shell entrega ao microfrontend o token lido do store.
+    - linha: 34
+      texto: O callback encerra a sessão diretamente, sem depender do `sessionMonitor`.
+    inicio: 30
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/auth.ts
+    commit: '2179313'
+    linhas:
+    - '    const match = authorization?.match(/^Bearer ([A-Za-z0-9._~-]+)$/)'
+    - '    if (!match) {'
+    - '      return c.json({ error: ''unauthorized'', message: ''Token Bearer ausente ou inválido.'' }, 401)'
+    - '    }'
+    - ''
+    - '    try {'
+    - '      const options = { issuer: config.issuer, audience: config.audience }'
+    - '      const { payload } = remoteJwks'
+    - '        ? await jwtVerify(match[1], remoteJwks, { ...options, algorithms: [''RS256''] })'
+    - '        : await jwtVerify(match[1], sharedSecret!, { ...options, algorithms: [''HS256''] })'
+    - '      const user = userFromPayload(payload)'
+    - '      if (!user) throw new Error(''claims inválidos'')'
+    - '      c.set(''auth'', user)'
+    - '      await next()'
+    - '    } catch {'
+    - '      return c.json({ error: ''unauthorized'', message: ''Token Bearer ausente ou inválido.'' }, 401)'
+    - '    }'
+    anotacoes:
+    - linha: 25
+      texto: O Gateway exige o cabeçalho no formato `Bearer <token>`.
+    - linha: 34
+      texto: Com segredo compartilhado, só tokens HS256 assinados com o segredo são aceitos, com emissor e audiência conferidos.
+    - linha: 39
+      texto: Qualquer falha de verificação vira a mesma resposta 401.
+    inicio: 25
+  - tipo: faixa
+    estilo: erro
+    sintoma: O `src/shared/auth/README.md` diz que o `authSlice` chama `sessionMonitor.start()`, e o diagrama da ADR-004 mostra essa chamada logo após o login.
+    causa: No commit `2179313`, nenhum arquivo de `src/` chama `sessionMonitor.start()`, nem o `authSlice`, nem o `main.tsx`, nem os `Providers`, e os dois mecanismos de encerramento ficam desligados.
+    correcao: O laboratório inicia o monitor nos `Providers` com o teste escrito antes, e o README de `shared/auth` precisa registrar o novo ponto de chamada.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Envie pelo console as requisições de login e de endereço ao back-end simulado pelo MSW e ao Gateway, e compare as respostas para o mesmo token. Depois, acompanhe na linha do tempo o caminho de um 401 com e sem o `sessionMonitor` iniciado.
+  - tipo: console-api
+    cenarios:
+    - rotulo: MSW · login com a senha correta
+      requisicao:
+        metodo: POST
+        url: /auth/token
+        corpo:
+          email: usuario@teste.com
+          senha: senha123
+      resposta:
+        status: 200
+        corpo:
+          access_token: eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMSIsImV4cCI6OTk5OTk5OTk5OSwiaWF0IjoxNzAwMDAwMDAwfQ.signature
+      origem: executado
+      nota: 'O token tem cabeçalho RS256 e a assinatura literal `signature`, e o payload traz `sub: user1` e `exp: 9999999999`.'
+    - rotulo: MSW · login com a senha errada
+      requisicao:
+        metodo: POST
+        url: /auth/token
+        corpo:
+          email: usuario@teste.com
+          senha: errada
+      resposta:
+        status: 401
+      origem: executado
+      nota: O `loginRequest` usa um `fetch` próprio para que este 401 signifique credenciais inválidas e não dispare o encerramento de sessão.
+    - rotulo: MSW · endereço sem token
+      requisicao:
+        metodo: GET
+        url: /usuario/endereco
+      resposta:
+        status: 200
+        corpo:
+          cep: '01001000'
+          logradouro: Praça da Sé
+          numero: '1'
+      origem: executado
+      nota: Os handlers do MSW simulam o contrato da API e não conferem o cabeçalho `Authorization`.
+    - rotulo: Gateway · endereço sem token
+      requisicao:
+        metodo: GET
+        url: http://localhost:4000/bff/endereco/usuario/endereco
+      resposta:
+        status: 401
+        corpo:
+          error: unauthorized
+          message: Token Bearer ausente ou inválido.
+      origem: executado
+    - rotulo: Gateway · endereço com o token do MSW
+      requisicao:
+        metodo: GET
+        url: http://localhost:4000/bff/endereco/usuario/endereco
+        cabecalhos:
+          Authorization: Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMSIsImV4cCI6OTk5OTk5OTk5OSwiaWF0IjoxNzAwMDAwMDAwfQ.signature
+      resposta:
+        status: 401
+        corpo:
+          error: unauthorized
+          message: Token Bearer ausente ou inválido.
+      origem: executado
+      nota: O shell aceita esse token porque só lê o payload, e o Gateway o recusa porque a assinatura não confere.
+  - tipo: linha-do-tempo
+    titulo: Um 401 recebido pelo httpClient do shell
+    atores:
+    - id: gateway
+      rotulo: Gateway
+    - id: http
+      rotulo: httpClient do shell
+    - id: storage
+      rotulo: sessionStorage
+    - id: janela
+      rotulo: window (eventos DOM)
+    - id: monitor
+      rotulo: sessionMonitor
+    - id: store
+      rotulo: Store (auth)
+    - id: guard
+      rotulo: AuthGuard
+    eventos:
+    - id: e1
+      de: gateway
+      para: http
+      mensagem: 401 `Token Bearer ausente ou inválido.`
+    - id: e2
+      de: http
+      para: storage
+      mensagem: '`tokenStorage.clear()` apaga `portal_access_token`'
+      depende: e1
+    - id: e3
+      de: http
+      para: janela
+      mensagem: '`window.dispatchEvent(new CustomEvent(''auth:unauthorized''))`'
+      depende: e1
+    - id: e4
+      de: janela
+      para: monitor
+      mensagem: o ouvinte registrado por `sessionMonitor.start()` recebe o evento
+      depende: e3
+    - id: e5
+      de: monitor
+      para: store
+      mensagem: '`store.dispatch(logout())`'
+      depende: e4
+    - id: e6
+      de: store
+      para: guard
+      mensagem: '`isAuthenticated: false` leva a rota para `/login`'
+      depende: e5
+    falhas:
+    - id: monitor-parado
+      rotulo: O sessionMonitor não foi iniciado, como no commit 2179313
+      ator: monitor
+  - tipo: classificador
+    enunciado: Quem confere cada propriedade do token no portal?
+    categorias:
+    - id: shell
+      rotulo: Shell
+    - id: gateway
+      rotulo: Gateway
+    - id: ninguem
+      rotulo: Nenhum dos dois
+    itens:
+    - texto: A assinatura do token
+      categoria: gateway
+      explicacao: O `jwtVerify` do Gateway confere a assinatura com o segredo ou com o JWKS.
+    - texto: O emissor e a audiência
+      categoria: gateway
+      explicacao: O Gateway passa `issuer` e `audience` ao `jwtVerify`.
+    - texto: A expiração, para levar o usuário de volta ao login
+      categoria: shell
+      explicacao: O `tokenParser` e o `sessionMonitor` usam o relógio do navegador para melhorar a experiência, sem valor de autorização.
+    - texto: Se o token foi revogado antes de expirar
+      categoria: ninguem
+      explicacao: Nenhum dos trechos lidos consulta lista de revogação, e a ADR-004 não trata esse caso.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 4 caracterizam o `sessionMonitor`, os passos 5 a 9 corrigem o shell com o teste escrito antes da correção, e o passo 10 confere o resultado no navegador.
+  - tipo: passos
+    itens:
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/auth src/shared/api src/app/router
+      sucesso: '`Test Files 6 passed (6)` e `Tests 23 passed (23)`.'
+    - titulo: Escrever os testes do sessionMonitor
+      texto: Crie o arquivo abaixo. O relógio simulado do Vitest permite avançar 60 segundos sem esperar.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/auth/__tests__/sessionMonitor.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+        - import { store } from '@/shared/lib/store'
+        - import { login } from '@/shared/lib/store/authSlice'
+        - import { sessionMonitor } from '../sessionMonitor'
+        - ''
+        - const INICIO = new Date('2026-10-09T12:00:00Z')
+        - ''
+        - 'function tokenQueExpiraEm(segundos: number) {'
+        - '  const agora = Math.floor(INICIO.getTime() / 1000)'
+        - '  const payload = btoa(JSON.stringify({ sub: ''user1'', iat: agora, exp: agora + segundos })).replace(/=+$/, '''')'
+        - '  return `eyJhbGciOiJIUzI1NiJ9.${payload}.assinatura`'
+        - '}'
+        - ''
+        - describe('sessionMonitor', () => {
+        - '  beforeEach(() => {'
+        - '    vi.useFakeTimers()'
+        - '    vi.setSystemTime(INICIO)'
+        - '  })'
+        - ''
+        - '  afterEach(() => {'
+        - '    sessionMonitor.stop()'
+        - '    vi.useRealTimers()'
+        - '    sessionStorage.clear()'
+        - '  })'
+        - ''
+        - '  it(''faz logout na primeira verificação depois que o token expira'', () => {'
+        - '    store.dispatch(login({ token: tokenQueExpiraEm(30) }))'
+        - '    sessionMonitor.start()'
+        - '    vi.advanceTimersByTime(59_999)'
+        - '    expect(store.getState().auth.isAuthenticated).toBe(true)'
+        - '    vi.advanceTimersByTime(1)'
+        - '    expect(store.getState().auth.isAuthenticated).toBe(false)'
+        - '  })'
+        - ''
+        - '  it(''faz logout ao receber o evento auth:unauthorized'', () => {'
+        - '    store.dispatch(login({ token: tokenQueExpiraEm(3600) }))'
+        - '    sessionMonitor.start()'
+        - '    window.dispatchEvent(new CustomEvent(''auth:unauthorized''))'
+        - '    expect(store.getState().auth.isAuthenticated).toBe(false)'
+        - '  })'
+        - '})'
+      efeito: teste_monitor
+    - titulo: Rodar os testes do sessionMonitor
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
+      sucesso: '`Tests 2 passed (2)`, porque os testes descrevem o comportamento atual do monitor.'
+    - titulo: Provar que o teste protege o ouvinte
+      texto: Em `src/shared/auth/sessionMonitor.ts`, comente a linha do `addEventListener` e rode os testes do monitor. Depois de ver a falha, restaure a linha e desmarque este passo.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/auth/sessionMonitor.ts (alteração temporária)
+        commit: '2179313'
+        linhas:
+        - '    // window.addEventListener(''auth:unauthorized'', handleUnauthorized)'
+      efeito: sem_ouvinte
+      sucesso: '`expected true to be false` no teste do evento `auth:unauthorized`.'
+    - titulo: Escrever o teste do shell
+      texto: Crie a pasta `src/app/providers/__tests__/` e o arquivo abaixo. O teste monta os `Providers` do shell, faz login e emite o evento que o `httpClient` emite no 401.
+      editor:
+        rotulo: arquivo
+        caminho: src/app/providers/__tests__/Providers.test.tsx (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, it, expect, afterEach } from 'vitest'
+        - import { render, cleanup } from '@testing-library/react'
+        - import { Providers } from '..'
+        - import { store } from '@/shared/lib/store'
+        - import { login } from '@/shared/lib/store/authSlice'
+        - import { TEST_TOKEN } from '@/shared/auth/testToken'
+        - ''
+        - describe('Providers', () => {
+        - '  afterEach(() => {'
+        - '    cleanup()'
+        - '    sessionStorage.clear()'
+        - '  })'
+        - ''
+        - '  it(''encerra a sessão quando o shell recebe auth:unauthorized'', () => {'
+        - '    render(<Providers><p>portal</p></Providers>)'
+        - '    store.dispatch(login({ token: TEST_TOKEN }))'
+        - '    window.dispatchEvent(new CustomEvent(''auth:unauthorized''))'
+        - '    expect(store.getState().auth.isAuthenticated).toBe(false)'
+        - '  })'
+        - '})'
+      efeito: teste_providers
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/providers
+      sucesso: '`AssertionError: expected true to be false`, porque nenhum código do shell iniciou o monitor.'
+    - titulo: Iniciar o monitor nos Providers
+      texto: Em `src/app/providers/index.tsx`, importe `useEffect` de `react` e `sessionMonitor` de `@/shared/auth/sessionMonitor`, e acrescente o efeito abaixo no início da função `Providers`. A função de limpeza desliga o monitor quando o componente desmonta.
+      editor:
+        rotulo: arquivo
+        caminho: src/app/providers/index.tsx (alteração)
+        commit: '2179313'
+        linhas:
+        - '  useEffect(() => {'
+        - '    sessionMonitor.start()'
+        - '    return () => sessionMonitor.stop()'
+        - '  }, [])'
+      efeito: monitor_ligado
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/providers
+      sucesso: '`Tests 1 passed (1)`.'
+    - titulo: Conferir tipos, fronteiras e a suíte
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx tsc --noEmit -p . && npm run lint
+        - npx vitest run
+      sucesso: Tipos e lint sem erros, e `Test Files 25 passed (25)` com `Tests 102 passed (102)`.
+    - titulo: Conferir no navegador
+      texto: Rode `npm run dev`, abra `http://localhost:5173/login` e entre com `usuario@teste.com` e `senha123`. No console do DevTools, na página `/dashboard`, execute a linha abaixo.
+      editor:
+        rotulo: terminal
+        linhas:
+        - window.dispatchEvent(new CustomEvent('auth:unauthorized'))
+      sucesso: A página vai para `/login`, e a aba Application do DevTools mostra o `sessionStorage` sem `portal_access_token`. Sem a correção, a página fica em `/dashboard` com o token gravado.
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: npx vitest run src/shared/auth src/shared/api src/app/router
+      condicao:
+      - '!teste_monitor'
+      - '!teste_providers'
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  6 passed (6)\n      Tests  23 passed (23)"
+      origem: executado
+    - entrada: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
+      condicao:
+      - teste_monitor
+      - sem_ouvinte
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts (2 tests | 1 failed) 5ms\n     × faz logout ao receber o evento auth:unauthorized 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout ao receber o evento auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/shared/auth/__tests__/sessionMonitor.test.ts:39:51\n     37|     sessionMonitor.start()\n     38|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     39|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     40|   })\n     41| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 passed (2)"
+      origem: executado
+      dica: Sem o ouvinte, o evento não chega ao monitor. Restaure a linha e desmarque o passo 4.
+    - entrada: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
+      condicao: teste_monitor
+      saida: " RUN  v4.1.7 .\n\n ✓ src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout na primeira verificação depois que o token expira 2ms\n ✓ src/shared/auth/__tests__/sessionMonitor.test.ts > sessionMonitor > faz logout ao receber o evento auth:unauthorized 1ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
+      origem: executado
+    - entrada: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
+      saida: ' RUN  v4.1.7 .
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/shared/auth/__tests__/sessionMonitor.test.ts
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 2.
+    - entrada: npx vitest run src/app/providers
+      condicao:
+      - teste_providers
+      - monitor_ligado
+      saida: " RUN  v4.1.7 .\n\n ✓ src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized 7ms\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)"
+      origem: executado
+    - entrada: npx vitest run src/app/providers
+      condicao: teste_providers
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/providers/__tests__/Providers.test.tsx (1 test | 1 failed) 10ms\n     × encerra a sessão quando o shell recebe auth:unauthorized 8ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:18:51\n     16|     store.dispatch(login({ token: TEST_TOKEN }))\n     17|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     18|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     19|   })\n     20| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed (1)"
+      origem: executado
+      dica: 'A falha é a esperada: o teste existe e o shell ainda não inicia o monitor. Faça a correção no passo 7.'
+    - entrada: npx vitest run src/app/providers
+      saida: ' RUN  v4.1.7 .
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/app/providers
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
+    - entrada: npx tsc --noEmit -p . && npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    - entrada: npx vitest run
+      condicao:
+      - teste_monitor
+      - teste_providers
+      - monitor_ligado
+      - '!sem_ouvinte'
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  25 passed (25)\n      Tests  102 passed (102)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao:
+      - teste_monitor
+      - teste_providers
+      - '!monitor_ligado'
+      - '!sem_ouvinte'
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/providers/__tests__/Providers.test.tsx (1 test | 1 failed) 38ms\n     × encerra a sessão quando o shell recebe auth:unauthorized 34ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/providers/__tests__/Providers.test.tsx > Providers > encerra a sessão quando o shell recebe auth:unauthorized\nAssertionError: expected true to be false // Object.is equality\n\n- Expected\n+ Received\n\n- false\n+ true\n\n ❯ src/app/providers/__tests__/Providers.test.tsx:18:51\n     16|     store.dispatch(login({ token: TEST_TOKEN }))\n     17|     window.dispatchEvent(new CustomEvent('auth:unauthorized'))\n     18|     expect(store.getState().auth.isAuthenticated).toBe(false)\n       |                                                   ^\n     19|   })\n     20| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 24 passed (25)\n      Tests  1 failed | 101 passed (102)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao:
+      - teste_monitor
+      - '!teste_providers'
+      - '!monitor_ligado'
+      - '!sem_ouvinte'
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  101 passed (101)"
+      origem: executado
+      dica: 'São 101 testes: os 99 do commit de referência e os 2 do monitor.'
+    - entrada: npx vitest run
+      condicao:
+      - '!teste_monitor'
+      - '!teste_providers'
+      - '!monitor_ligado'
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
+      origem: executado
+    cenarios:
+    - rotulo: Testes do monitor
+      comando: npx vitest run src/shared/auth/__tests__/sessionMonitor.test.ts
+    - rotulo: Teste do shell
+      comando: npx vitest run src/app/providers
+    - rotulo: Tipos e lint
+      comando: npx tsc --noEmit -p . && npm run lint
+    - rotulo: Suíte completa
+      comando: npx vitest run
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os incidentes abaixo partem do navegador, do Gateway, do MSW e do código no commit `2179313`. Em cada um, identifique a causa antes de ler a correção.
+  - tipo: incidente
+    titulo: Sessão que continua depois do 401
+    origem: executado
+    rotulo_saida: log
+    saida: '> window.dispatchEvent(new CustomEvent(''auth:unauthorized''))
+
+
+      location.pathname        /dashboard
+
+      Object.keys(sessionStorage)  ["portal_access_token"]'
+    pergunta: O evento de sessão expirada foi emitido, e a pessoa continua no painel. Por quê?
+    correcao: Iniciar o `sessionMonitor` no ciclo de vida do shell, como no laboratório, e corrigir o README de `shared/auth`, que atribui a chamada ao `authSlice`.
+    alternativas:
+    - texto: O evento precisa ser emitido no `document`, e não na `window`.
+      correta: false
+      explicacao: O `sessionMonitor` registra o ouvinte na `window`, a mesma usada pelo `httpClient`.
+    - texto: Nenhum código do shell chama `sessionMonitor.start()`, e por isso ninguém ouve o evento.
+      correta: true
+      explicacao: O `main.tsx`, os `Providers` e o `authSlice` não iniciam o monitor no commit `2179313`.
+    - texto: O `AuthGuard` só confere a sessão ao trocar de rota.
+      correta: false
+      explicacao: O guard reage à mudança de `isAuthenticated`, e o valor não mudou.
+  - tipo: incidente
+    titulo: Token aceito no shell e recusado no Gateway
+    origem: executado
+    rotulo_saida: log
+    saida: '$ curl -i -H "Authorization: Bearer $TEST_TOKEN" http://localhost:4000/bff/endereco/usuario/endereco
+
+      HTTP/1.1 401 Unauthorized
+
+      content-type: application/json
+
+      vary: Origin
+
+      x-correlation-id: dac60d07-663e-472e-ad09-5ba4073eec27
+
+      content-length: 71
+
+      Date: Fri, 09 Oct 2026 20:55:10 GMT
+
+      Connection: keep-alive
+
+      Keep-Alive: timeout=5
+
+
+      {"error":"unauthorized","message":"Token Bearer ausente ou inválido."}'
+    pergunta: O shell aceita o `TEST_TOKEN` do MSW e libera o painel. Por que o Gateway responde 401?
+    correcao: Testar chamadas pelo Gateway com um token assinado pelo emissor configurado nele, porque o token do MSW serve apenas ao modo de desenvolvimento do shell.
+    alternativas:
+    - texto: O token expirou entre o login e a chamada.
+      correta: false
+      explicacao: O `exp` do token é 9999999999, no ano de 2286.
+    - texto: O Gateway exige o token num cabeçalho chamado `X-Token`.
+      correta: false
+      explicacao: O `gateway/src/auth.ts` lê o cabeçalho `Authorization` no formato `Bearer <token>`.
+    - texto: O shell só decodifica o payload e confere `exp`, e o Gateway verifica a assinatura, que no token do MSW é o texto `signature`.
+      correta: true
+      explicacao: O `tokenParser` não verifica assinatura, e o Gateway exige HS256 assinado com `JWT_SHARED_SECRET`.
+  - tipo: incidente
+    titulo: Endereço devolvido sem token
+    origem: executado
+    rotulo_saida: log
+    saida: "GET /usuario/endereco  (sem Authorization)\nHTTP 200\n{\"cep\":\"01001000\",\"logradouro\":\"Praça da Sé\",\"numero\":\"1\"}\n\nsrc/mocks/handlers.ts:15-17\n  http.get('/usuario/endereco', () =>\n    HttpResponse.json({ cep: '01001000', logradouro: 'Praça da Sé', numero: '1' }),\n  ),"
+    pergunta: Em `npm run dev`, o endereço chega mesmo sem token. O que isso indica?
+    correcao: Testar autorização contra o Gateway, e tratar o MSW como simulação do contrato de dados.
+    alternativas:
+    - texto: O handler do MSW devolve o endereço sem conferir o cabeçalho `Authorization`.
+      correta: true
+      explicacao: O handler de `GET /usuario/endereco` responde sempre 200 com o mesmo corpo.
+    - texto: O BFF de endereço está sem autenticação.
+      correta: false
+      explicacao: Em `npm run dev`, a requisição é interceptada pelo MSW no navegador e não chega ao BFF, que exige a chave interna do Gateway.
+    - texto: O token ficou no cache do navegador.
+      correta: false
+      explicacao: A requisição foi feita sem o cabeçalho `Authorization`, e o MSW não lê o `sessionStorage`.
+  - tipo: incidente
+    titulo: Por que o login não usa o httpClient
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/features/auth/loginRequest.ts:3-9\n/**\n * Autentica via `POST /auth/token` e retorna o access token.\n *\n * Usa fetch dedicado (e não o httpClient compartilhado) porque o 401 aqui\n * significa \"credenciais inválidas\" — não \"sessão expirada\" — e não deve\n * disparar o fluxo global de logout.\n */"
+    pergunta: O que aconteceria se o login usasse o `httpClient` compartilhado?
+    correcao: Manter o `fetch` dedicado no login, porque o 401 dessa rota tem significado próprio.
+    alternativas:
+    - texto: O `httpClient` não aceita o método `POST`.
+      correta: false
+      explicacao: O `httpClient` repassa `options`, que podem ter qualquer método.
+    - texto: A senha errada geraria 401, e o `httpClient` apagaria o token e emitiria `auth:unauthorized`, tratando credencial inválida como sessão expirada.
+      correta: true
+      explicacao: O comentário do arquivo registra essa razão, e o `httpClient` trata todo 401 como fim de sessão.
+    - texto: O login ficaria mais lento.
+      correta: false
+      explicacao: As duas formas fazem um único `fetch`.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Pela Atualização 1.1 da ADR-004, quem é a autoridade para aceitar ou recusar um JWT?
+      alternativas:
+      - texto: O `tokenParser` do shell.
+        correta: false
+        explicacao: O `tokenParser` só decodifica o payload e serve à experiência do usuário.
+      - texto: O `sessionStorage`.
+        correta: false
+        explicacao: A ADR registra que o `sessionStorage` não é fronteira de autorização.
+      - texto: O Gateway.
+        correta: true
+        explicacao: Ele valida assinatura, algoritmo, emissor, audiência e expiração antes de encaminhar aos BFFs.
+    - enunciado: Por que a ADR-004 escolheu `sessionStorage` e não `localStorage`?
+      alternativas:
+      - texto: Porque o `sessionStorage` é isolado por aba e é limpo ao fechar a aba.
+        correta: true
+        explicacao: A ADR cita o isolamento de sessão e a menor janela de exposição.
+      - texto: Porque o `sessionStorage` não é acessível por JavaScript.
+        correta: false
+        explicacao: O `sessionStorage` é acessível por JavaScript, e essa proteção é do cookie `httpOnly`.
+      - texto: Porque o `sessionStorage` tem mais espaço.
+        correta: false
+        explicacao: Espaço não aparece entre os drivers da ADR.
+    - enunciado: Num microfrontend, o que acontece quando o BFF responde 401?
+      alternativas:
+      - texto: Nada, porque só o shell trata 401.
+        correta: false
+        explicacao: O `createHttpClient` do microfrontend trata o 401 com o callback.
+      - texto: O `httpClient` do microfrontend chama `onUnauthorized`, e o shell despacha `logout()`.
+        correta: true
+        explicacao: 'O `MfeHost` passa `onUnauthorized: () => dispatch(logout())` no contexto de montagem.'
+      - texto: O microfrontend apaga o token do `sessionStorage`.
+        correta: false
+        explicacao: O microfrontend recebe o token pelo contexto e não acessa o `sessionStorage`.
+    - enunciado: No laboratório, por que o teste do `Providers` falhou antes da correção?
+      alternativas:
+      - texto: Porque o `TEST_TOKEN` estava expirado.
+        correta: false
+        explicacao: O `exp` do `TEST_TOKEN` é 9999999999.
+      - texto: Porque o `render` não monta o store.
+        correta: false
+        explicacao: Os `Providers` envolvem a árvore com o `ReduxProvider` do store do shell.
+      - texto: Porque o evento `auth:unauthorized` não tinha ouvinte, já que o monitor não era iniciado.
+        correta: true
+        explicacao: Depois do `useEffect` com `sessionMonitor.start()`, o mesmo teste passou.
+    - enunciado: O que o relógio simulado do Vitest permite verificar no `sessionMonitor`?
+      alternativas:
+      - texto: Que o logout acontece na verificação de 60 segundos, e não antes.
+        correta: true
+        explicacao: O teste avança 59.999 ms, confere a sessão ativa e só então avança o último milissegundo.
+      - texto: Que o Gateway recusa tokens expirados.
+        correta: false
+        explicacao: O teste roda só no shell, sem chamar o Gateway.
+      - texto: Que o `sessionStorage` expira sozinho.
+        correta: false
+        explicacao: O `sessionStorage` não tem expiração por tempo.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O caminho do token do login aos guards e aos microfrontends está claro.
+    - A diferença entre a verificação no shell e a validação no Gateway está clara.
+    - Os testes do `sessionMonitor` passaram e falharam sem o ouvinte.
+    - O teste do `Providers` falhou antes da correção e passou depois, com a suíte em 102 testes.
+    - O navegador foi para `/login` depois do evento `auth:unauthorized`.

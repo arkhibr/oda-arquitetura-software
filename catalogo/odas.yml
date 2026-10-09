@@ -61,7 +61,8 @@ odas:
     minutos: 75
     pre_requisitos: ["03"]
     objetivo: "Explicar o ciclo do token JWT no shell, dos guards de rota ao tratamento da resposta 401."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-04
   - id: "05"
     titulo: "Microfrontends dinâmicos e o contrato mount/unmount"
     trilha: 3
