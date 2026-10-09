@@ -23,7 +23,7 @@ abas:
     - entrada: node --version
       saida: v24.16.0
       origem: exemplo
-      dica: Qualquer versão 20 ou superior atende. A ODA foi produzida com Node 24.16.0.
+      dica: Qualquer versão 20 ou superior atende.
     - entrada: git --version
       saida: git version 2.50.1
       origem: exemplo

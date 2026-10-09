@@ -1,4 +1,4 @@
-import { registrarBloco, h, textoRico } from './nucleo.mjs';
+import { registrarBloco, h, textoRico, marcaOrigem } from './nucleo.mjs';
 import { aplicarEfeito } from './blocos-acao.mjs';
 
 export function normalizarComando(texto) {
@@ -54,7 +54,8 @@ registrarBloco('terminal', (casca, b, ctx) => {
       escrever('terminal__ajuda', `Comandos disponíveis:\n  ${r.disponiveis.join('\n  ')}`);
     } else {
       escrever('terminal__saida', r.saida);
-      tela.append(h(doc, 'div', { class: 'terminal__origem', texto: `origem: ${r.origem}` }));
+      const marca = marcaOrigem(doc, r.origem, 'terminal__origem');
+      if (marca) tela.append(marca);
       aplicarEfeito(r.efeito, estado.definirFlag);
       if (r.dica) tela.append(h(doc, 'div', { class: 'terminal__dica' }, [h(doc, 'strong', { texto: '💡 Dica: ' }), textoRico(doc, r.dica)]));
     }

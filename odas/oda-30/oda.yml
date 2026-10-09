@@ -18,9 +18,11 @@ abas:
     titulo: 💡 Pré-requisitos
     texto: São necessários o .NET SDK 10.0.103 ou superior, exigido pelo `global.json` do repositório, Git e um Docker em execução que exponha o socket em `/var/run/docker.sock`, como o Docker Desktop.
   - tipo: faixa
-    estilo: quebra
-    titulo: ⛔ Verificação do laboratório
-    texto: Os resultados desta ODA foram obtidos com Colima, que não expõe `/var/run/docker.sock`, numa cópia do repositório com a linha `.WithBindMount("/var/run/docker.sock", ...)` retirada de `src/AppHost/Program.cs`. A alteração não afeta os cenários de mensageria, que não usam Lambda, e o incidente 1 da aba Diagnóstico mostra o erro original.
+    estilo: erro
+    titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
+    sintoma: Os cenários falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
+    causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
+    correcao: Se o arquivo existir na sua máquina, nenhuma ação é necessária. Caso contrário, retire numa cópia local a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")`, que só é usada pelos cenários com Lambda e não afeta os cenários desta ODA.
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
@@ -549,7 +551,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os dois primeiros incidentes mostram saídas reais obtidas na produção desta ODA. Os dois últimos reproduzem limitações registradas no próprio repositório.
+    texto: Os dois primeiros incidentes mostram falhas reais deste laboratório, e os dois últimos reproduzem limitações registradas no README do repositório. Escolha a causa para ver a explicação e a correção.
   - tipo: incidente
     titulo: LocalStack não fica saudável
     origem: executado
@@ -642,7 +644,7 @@ abas:
         explicacao: Cada mensagem de uma fila é processada por um único consumidor.
       - texto: A fila guarda a mensagem até um consumidor recebê-la, e o tópico copia a mensagem para todos os assinantes no momento da publicação.
         correta: true
-        explicacao: 'É o comportamento observado no cenário 09: a cópia só chega às filas inscritas quando a mensagem é publicada.'
+        explicacao: 'É o que o cenário 09 mostra: a cópia só chega às filas inscritas quando a mensagem é publicada.'
     - enunciado: Para que serve a política gravada por `BuildQueuePolicy`?
       alternativas:
       - texto: Autorizar o serviço SNS a enviar mensagens para a fila, apenas quando a origem é o tópico do cenário.

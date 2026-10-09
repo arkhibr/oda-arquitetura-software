@@ -1,4 +1,4 @@
-import { registrarBloco, h, textoRico } from './nucleo.mjs';
+import { registrarBloco, h, textoRico, marcaOrigem } from './nucleo.mjs';
 
 const MOTIVOS = { 200: 'OK', 201: 'Created', 204: 'No Content', 301: 'Moved Permanently', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 409: 'Conflict', 422: 'Unprocessable Entity', 429: 'Too Many Requests', 500: 'Internal Server Error' };
 
@@ -29,7 +29,7 @@ registrarBloco('console-api', (casca, b, ctx) => {
   const resposta = h(doc, 'pre', { class: 'api__resp', 'aria-live': 'polite' });
   const status = h(doc, 'span', { class: 'api__status' });
   const nota = h(doc, 'p', { class: 'api__nota' });
-  const origem = h(doc, 'span', { class: 'origem' });
+  const origem = h(doc, 'span', { class: 'api__origem' });
   const botoes = b.cenarios.map((c) => h(doc, 'button', {
     type: 'button', class: 'botao api__cenario', 'aria-pressed': 'false', texto: `▶ ${c.rotulo}`,
     onclick: (ev) => {
@@ -38,7 +38,7 @@ registrarBloco('console-api', (casca, b, ctx) => {
       resposta.textContent = textoResposta(c.resposta);
       status.textContent = String(c.resposta.status);
       status.className = `api__status api__status--${classeStatus(c.resposta.status)}`;
-      origem.textContent = `origem: ${c.origem}`;
+      origem.replaceChildren(marcaOrigem(doc, c.origem) ?? doc.createTextNode(''));
       nota.replaceChildren(c.nota ? textoRico(doc, c.nota) : doc.createTextNode(''));
     },
   }));

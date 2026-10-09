@@ -47,6 +47,10 @@ export function renderizarBloco(doc, bloco, ctx) {
   return casca;
 }
 
+export function marcaOrigem(doc, origem, classe = 'origem') {
+  return origem === 'exemplo' ? h(doc, 'span', { class: classe, texto: 'saída ilustrativa' }) : null;
+}
+
 export function avisar(doc, texto) {
   let area = doc.querySelector('.avisos');
   if (!area) {

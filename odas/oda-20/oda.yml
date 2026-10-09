@@ -23,7 +23,7 @@ abas:
     - entrada: dotnet --version
       saida: 10.0.401
       origem: exemplo
-      dica: Qualquer versão 10.x atende. A versão exibida é a da máquina em que a ODA foi produzida.
+      dica: Qualquer versão 10.x atende.
     - entrada: git --version
       saida: git version 2.50.1
       origem: exemplo
@@ -451,7 +451,7 @@ abas:
         corpo:
           error: Pedido não encontrado.
       origem: codigo
-      nota: O corpo foi montado a partir de `CancelPedidoEndpoint.cs`. O código 404 foi confirmado na execução do teste `POST_Cancelar_PedidoInexistente_Retorna404`.
+      nota: O teste `POST_Cancelar_PedidoInexistente_Retorna404` confere esse código, e a mensagem vem de `CancelPedidoEndpoint.cs`.
     - rotulo: Cancelar sem motivo
       requisicao:
         metodo: POST
@@ -464,7 +464,7 @@ abas:
         corpo:
           error: Motivo do cancelamento é obrigatório.
       origem: codigo
-      nota: O corpo foi montado a partir de `Pedido.Cancelar`. O código 400 foi confirmado na execução do teste `POST_Cancelar_SemMotivo_Retorna400`.
+      nota: O teste `POST_Cancelar_SemMotivo_Retorna400` confere esse código, e a mensagem vem de `Pedido.Cancelar`.
     - rotulo: Cancelar com motivo
       requisicao:
         metodo: POST
@@ -478,7 +478,7 @@ abas:
           status: Cancelado
           motivoCancelamento: Desistência do cliente
       origem: executado
-      nota: Resposta resumida aos campos conferidos pelo teste `POST_Cancelar_ComMotivo_Retorna200ECancela`, que confirmou o código 200, o status e o motivo.
+      nota: 'Resposta resumida aos campos que o teste `POST_Cancelar_ComMotivo_Retorna200ECancela` confere: o código 200, o status e o motivo.'
     - rotulo: Cancelar sem token
       requisicao:
         metodo: POST
@@ -490,7 +490,7 @@ abas:
       resposta:
         status: 401
       origem: codigo
-      nota: O endpoint declara `.RequireAuthorization()`. O mesmo comportamento foi executado na fatia de confirmação, com resposta 401.
+      nota: O endpoint declara `.RequireAuthorization()`, e por isso uma chamada sem token recebe 401 antes de o pedido ser procurado.
   - tipo: classificador
     enunciado: Associe cada arquivo à forma de organização a que ele pertence.
     categorias:
@@ -760,7 +760,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Cada incidente mostra uma saída real obtida durante a produção desta ODA. Escolha a causa para ver a explicação e a correção.
+    texto: Cada incidente mostra a saída de uma falha real deste laboratório. Escolha a causa para ver a explicação e a correção.
   - tipo: incidente
     titulo: Confirmação responde 400 quando o esperado é 200
     origem: executado

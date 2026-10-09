@@ -131,3 +131,17 @@ test('página mestre leva a cada ODA disponível e cada ODA volta ao catálogo',
     await expect(page.getByRole('heading', { level: 1, name: 'Catálogo de ODAs' })).toBeVisible();
   }
 });
+
+test('o aluno não vê etiquetas internas de origem, só a marca de saída ilustrativa', async ({ page }) => {
+  for (const oda of ODAS) {
+    await page.goto(`/${oda}/#missao`);
+    const missao = page.locator('#painel-missao');
+    await missao.locator('.terminal__cenarios button').first().click();
+    await expect(missao.locator('.terminal__tela')).toContainText('saída ilustrativa');
+    for (const aba of ABAS) {
+      await page.goto(`/${oda}/#${aba}`);
+      const texto = await page.locator(`#painel-${aba}`).innerText();
+      expect(texto).not.toMatch(/origem: |\bexecutado\b|\bcodigo\b|produção desta ODA|foi produzida/);
+    }
+  }
+});

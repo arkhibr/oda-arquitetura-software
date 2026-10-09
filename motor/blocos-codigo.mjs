@@ -1,4 +1,4 @@
-import { registrarBloco, h, textoRico } from './nucleo.mjs';
+import { registrarBloco, h, textoRico, marcaOrigem } from './nucleo.mjs';
 
 const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
 
@@ -42,7 +42,7 @@ registrarBloco('editor', (casca, b, ctx) => {
   casca.append(h(doc, 'div', { class: `editor editor--${b.rotulo}${b.numeros === false ? ' editor--sem-numeros' : ''}` }, [
     h(doc, 'div', { class: 'editor__barra' }, [
       h(doc, 'span', { class: 'editor__rotulo', texto: rotuloEditor(b) }),
-      b.origem ? h(doc, 'span', { class: 'origem', texto: b.origem }) : null,
+      marcaOrigem(doc, b.origem),
       h(doc, 'button', { type: 'button', class: 'botao editor__copiar', texto: '📋 Copiar', onclick: () => copiar(ctx, b.linhas.join('\n')) }),
     ]),
     h(doc, 'pre', { class: 'editor__corpo', tabindex: '0' }, linhas),
