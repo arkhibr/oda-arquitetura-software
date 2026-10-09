@@ -36,11 +36,6 @@ jobs:
       - name: Instalar as dependências
         run: pip install -r requirements.txt
 
-      - name: Configurar o GitHub Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
       - name: Executar os testes Python
         run: python -m unittest discover -s tests -v
 
@@ -52,6 +47,20 @@ jobs:
 
       - name: Construir o site
         run: mkdocs build --strict
+
+      - name: Gerar as ODAs no formato de aplicação
+        run: python scripts/gerar_odas.py --destino site/novo
+
+      - name: Instalar dependências de teste do navegador
+        run: npm ci && npx playwright install --with-deps chromium
+
+      - name: Executar o teste de fumaça das ODAs
+        run: npx playwright test
+
+      - name: Configurar o GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Preparar o site para publicação
         uses: actions/upload-pages-artifact@v3

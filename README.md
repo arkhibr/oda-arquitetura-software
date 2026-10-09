@@ -24,3 +24,5 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
 | 3 | ODAs da trilha 7, sobre nuvem local | Pendente |
 
 As ODAs disponíveis são a 02 (Feature-Sliced Design e fronteiras impostas pelo ESLint), a 20 (Vertical Slice e comparativo com Clean Architecture) e a 30 (Mensageria com SQS e SNS). O catálogo completo fica em `catalogo/odas.yml`, e o guia de autoria em `docs/referencia/modelo-de-oda.md`.
+
+A prévia da ODA 20 no formato de aplicação fica em `/novo/oda-20/` e é gerada por `scripts/gerar_odas.py` a partir de `odas/oda-20/oda.yml`, com o motor em `motor/`.
