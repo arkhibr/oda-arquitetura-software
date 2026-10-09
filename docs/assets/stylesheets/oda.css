@@ -13,3 +13,12 @@
 .oda-quiz__pergunta legend { font-weight: 700; margin-bottom: 0.4em; }
 .oda-quiz__alternativa { display: block; margin: 0.2em 0; cursor: pointer; }
 .oda-classificador__tabela td { vertical-align: middle; }
+.oda-terminal__tela { background: var(--md-code-bg-color); color: var(--md-code-fg-color); min-height: 6em; max-height: 24em; overflow: auto; padding: 0.8em; white-space: pre-wrap; }
+.oda-terminal__comando { font-weight: 700; color: var(--md-accent-fg-color); }
+.oda-passos__lista { display: flex; flex-wrap: wrap; gap: 0.4em; list-style: none; padding: 0; margin: 0 0 0.8em; }
+.oda-passos__lista li { margin: 0; }
+.oda-passos__etapa { border: 1px solid var(--md-default-fg-color--lighter); border-radius: 1em; padding: 0.2em 0.8em; background: none; color: inherit; cursor: pointer; }
+.oda-passos__etapa[aria-current="step"] { background: var(--md-primary-fg-color); color: var(--md-primary-bg-color); }
+.oda-passos__titulo { font-weight: 700; }
+.oda-passos__codigo { background: var(--md-code-bg-color); padding: 0.8em; overflow: auto; }
+.oda-destaque { display: block; background: var(--md-accent-fg-color--transparent); }
