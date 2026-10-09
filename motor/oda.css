@@ -149,3 +149,16 @@ input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucess
 .terminal__campo:focus-visible { outline: none; }
 .terminal__linha:focus-within { box-shadow: inset 0 0 0 2px var(--destaque); }
 .terminal__cenarios { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.api { background: var(--interno); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; }
+.api__cenarios { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.api__cenario[aria-pressed="true"] { border-color: var(--destaque); color: var(--destaque); }
+.api__paineis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.api__painel { background: var(--terminal); border: 1px solid var(--borda); border-radius: 10px; padding: 10px; min-width: 0; }
+.api__painel pre { margin: 8px 0 0; color: var(--terminal-texto); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .84rem; }
+.api__cabeca { display: flex; gap: 8px; align-items: center; }
+.api__status { font-family: var(--mono); font-weight: 800; border-radius: 6px; padding: 0 8px; }
+.api__status--sucesso { background: var(--sucesso-fundo); color: var(--sucesso); }
+.api__status--erro-cliente { background: var(--alerta-fundo); color: var(--alerta); }
+.api__status--erro-servidor { background: var(--perigo-fundo); color: var(--perigo); }
+.api__nota { margin: 10px 0 0; color: var(--texto-suave); }
+@media (max-width: 760px) { .api__paineis { grid-template-columns: 1fr; } }
