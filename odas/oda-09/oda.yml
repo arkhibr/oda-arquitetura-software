@@ -1,0 +1,705 @@
+id: 09
+titulo: CSS e contrato visual entre microfrontends
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: 'A ADR-014 divide a responsabilidade visual: o shell publica tokens e a estrutura externa, e cada microfrontend carrega o próprio CSS, escopado ao seu domínio. Esta ODA mostra o contrato aplicado no microfrontend de empréstimo, revela que o de endereço depende do CSS gerado para o shell e o corrige com o teste escrito antes.'
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar a divisão de responsabilidades visuais da ADR-014 entre shell, design system e microfrontend.
+    - Reconhecer um tema escopado com tokens do shell e fallback local, injetado no `mount` e removido no `unmount`.
+    - Demonstrar que o microfrontend de endereço depende de classes geradas no build do shell.
+    - Levar o endereço ao contrato com o teste escrito e rodado antes, e conferir no portal a cor vinda do token.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: As ODAs 07 e 08, com as dependências de `mfes/endereco` instaladas e o LocalStack acessível para o deploy do passo 13. O passo 2 move a pasta `mfes/` temporariamente e a devolve no mesmo comando.
+  - tipo: terminal
+    titulo: terminal · CSS gerado para o shell
+    comandos:
+    - entrada: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+      saida: '       1'
+      origem: executado
+      dica: O valor 1 indica que a classe está no CSS gerado para o shell.
+    cenarios:
+    - rotulo: Procurar bg-blue-600 no CSS do shell
+      comando: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-014 descarta concentrar todo o CSS no shell, porque o shell passaria a conhecer o HTML dos microfrontends, e descarta deixar cada microfrontend com a própria identidade, porque o portal ficaria fragmentado. A decisão combina tokens do shell com CSS local de cada microfrontend.
+  - tipo: comparativo
+    colunas:
+    - Shell
+    - Microfrontend
+    linhas:
+    - dimensao: Publica
+      valores:
+      - Tokens como `--color-primary` e `--font-family-sans`, reset e layout externo
+      - CSS local com seletores do próprio namespace
+    - dimensao: Não deve
+      valores:
+      - Estilizar seletores internos de microfrontends
+      - Definir reset global ou estilizar `html`, `body` e `:root`
+    - dimensao: Ciclo de vida
+      valores:
+      - CSS global carregado no boot
+      - CSS injetado no `mount` e removido no `unmount`
+    - dimensao: No commit `2179313`
+      valores:
+      - '`tokens.css` com cinco tokens e `config.json` com as cores do ambiente'
+      - Empréstimo com tema escopado, e endereço com classes do Tailwind do shell
+  - tipo: conceito
+    titulo: Token com fallback
+    texto: 'O microfrontend lê o token do shell com `var(--color-primary, #1a56db)`. Quando o shell define o token, a cor do portal prevalece, e quando o microfrontend roda isolado, como num teste ou noutra aplicação, o valor local garante uma aparência coerente.'
+  - tipo: adr
+    id: ADR-014
+    titulo: CSS e contrato visual em microfrontends dinâmicos
+    status: Proposed
+    contexto: As ADRs 008 e 009 definiram a carga em tempo de execução e o contrato técnico, e faltava definir quem é dono do CSS e da identidade visual, sem acoplar o shell aos seletores internos e sem fragmentar o portal.
+    decisao: Contrato visual por tokens globais do shell, design system compartilhável e CSS local de cada microfrontend, escopado ao seu domínio.
+    alternativas: Todo o CSS no shell, descartado pelo acoplamento ao HTML dos microfrontends, e todo o CSS em cada microfrontend, descartado pela fragmentação visual.
+    consequencias: Os microfrontends mantêm autonomia de implantação e o portal mantém consistência, ao custo de disciplina de versionamento visual e de alguma duplicação de CSS nos bundles.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, os tokens do shell, o tema do empréstimo e as classes do endereço. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/styles/tokens.css
+    commit: '2179313'
+    linhas:
+    - '@theme {'
+    - '  --color-primary: #1A56DB;'
+    - '  --color-secondary: #6B7280;'
+    - '  --color-danger: #E02424;'
+    - '  --color-surface: #F9FAFB;'
+    - '  --font-family-sans: "Inter", sans-serif;'
+    - '}'
+    anotacoes:
+    - linha: 2
+      texto: Token de cor primária, que o `config.json` pode sobrescrever em tempo de execução.
+    - linha: 6
+      texto: Fonte do portal, consumida pelos microfrontends que seguem o contrato.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/config/index.ts
+    commit: '2179313'
+    linhas:
+    - '  const root = document.documentElement'
+    - '  if (data.primaryColor) root.style.setProperty(''--color-primary'', data.primaryColor)'
+    - '  if (data.secondaryColor) root.style.setProperty(''--color-secondary'', data.secondaryColor)'
+    anotacoes:
+    - linha: 59
+      texto: O `config.json` do ambiente redefine o token no elemento raiz do documento.
+    inicio: 58
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/emprestimo/src/theme/inject.ts
+    commit: '2179313'
+    linhas:
+    - import css from './theme.css?raw'
+    - ''
+    - 'export function injectTheme(host: HTMLElement): () => void {'
+    - '  const style = document.createElement(''style'')'
+    - '  style.setAttribute(''data-emprestimo-theme'', '''')'
+    - '  style.textContent = css'
+    - '  host.prepend(style)'
+    - '  return () => style.remove()'
+    - '}'
+    anotacoes:
+    - linha: 1
+      texto: O CSS vai como texto dentro do bundle, sem arquivo separado no manifesto.
+    - linha: 7
+      texto: O `<style>` entra no elemento entregue pelo shell.
+    - linha: 8
+      texto: A função devolvida remove o tema no `unmount`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/emprestimo/src/theme/theme.css
+    commit: '2179313'
+    linhas:
+    - .emprestimo-app {
+    - '    --emprestimo-ink: #111817;'
+    - '    --emprestimo-muted: var(--color-secondary, #65716e);'
+    - '    --emprestimo-subtle: #87918e;'
+    - '    --emprestimo-line: #dfe6df;'
+    - '    --emprestimo-line-strong: #c8d4cb;'
+    - '    --emprestimo-surface: var(--color-surface, #f7faf7);'
+    - '    --emprestimo-panel: #ffffff;'
+    - '    --emprestimo-primary: var(--color-primary, #06422f);'
+    - '    --emprestimo-primary-hover: #083827;'
+    - '    --emprestimo-primary-soft: #e6f3ed;'
+    - '    --emprestimo-primary-hover: color-mix(in srgb, var(--emprestimo-primary) 84%, #000);'
+    - '    --emprestimo-primary-soft: color-mix(in srgb, var(--emprestimo-primary) 12%, #fff);'
+    - '    --emprestimo-accent: #c89412;'
+    - '    --emprestimo-accent-soft: #fff4d6;'
+    - '    --emprestimo-danger: var(--color-danger, #b4233a);'
+    anotacoes:
+    - linha: 1
+      texto: Todos os seletores começam pelo namespace do microfrontend.
+    - linha: 9
+      texto: Token do shell com fallback local.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/src/EnderecoForm.tsx
+    commit: '2179313'
+    linhas:
+    - '  return ('
+    - '    <form onSubmit={handleSubmit((data) => onSubmit(data))} className="flex max-w-md flex-col gap-4">'
+    - '      <label className="flex flex-col gap-1">CEP<input {...register(''cep'')} className="rounded border p-2" /></label>'
+    - '      <label className="flex flex-col gap-1">Logradouro<input {...register(''logradouro'')} className="rounded border p-2" /></label>'
+    - '      <label className="flex flex-col gap-1">Número<input {...register(''numero'')} className="rounded border p-2" /></label>'
+    - '      <button type="submit" className="rounded bg-blue-600 px-4 py-2 text-white">Salvar</button>'
+    - '    </form>'
+    - '  )'
+    anotacoes:
+    - linha: 16
+      texto: 'Classes utilitárias do Tailwind, que o microfrontend não compila: o CSS delas vem do build do shell.'
+    inicio: 11
+  - tipo: faixa
+    estilo: dica
+    texto: O `mfes/endereco/package.json` não tem Tailwind entre as dependências, e o `src/app/styles/globals.css` do shell importa o Tailwind, que gera classes a partir dos arquivos que encontra no repositório, inclusive em `mfes/`.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Percorra a origem da cor do botão Salvar antes e depois do laboratório, e classifique regras de CSS conforme o contrato da ADR-014.
+  - tipo: fluxo
+    titulo: De onde vem a cor do botão Salvar
+    etapas:
+    - titulo: 'Antes: classe do Tailwind'
+      descricao: O botão tem `rounded bg-blue-600 px-4 py-2 text-white`, e o navegador calcula `oklch(0.546 0.245 262.881)`, a cor fixa da paleta do Tailwind, sem relação com o token do portal.
+    - titulo: 'Antes: quem gera a classe'
+      descricao: O CSS da classe existe porque o build do shell encontrou `bg-blue-600` em `mfes/endereco/src`. Sem a pasta `mfes/`, o mesmo build não gera a classe.
+    - titulo: 'Depois: tema do microfrontend'
+      descricao: 'O botão tem `endereco-botao`, e o tema injetado no `mount` define o fundo como `var(--endereco-primary)`, que lê `var(--color-primary, #1a56db)`.'
+    - titulo: 'Depois: token do shell'
+      descricao: O navegador calcula `rgb(26, 86, 219)`, que é o `#1A56DB` do shell, e a fonte `Inter, sans-serif`.
+    - titulo: 'Depois: cor do ambiente'
+      descricao: Com `primaryColor` igual a `#047857` no `config.json`, o mesmo bundle passa a mostrar `rgb(4, 120, 87)`, sem novo deploy.
+  - tipo: classificador
+    enunciado: Cada regra de CSS respeita o contrato da ADR-014?
+    categorias:
+    - id: sim
+      rotulo: Respeita
+    - id: nao
+      rotulo: Viola
+    itens:
+    - texto: '`.endereco-botao { background: var(--color-primary, #1a56db) }` no tema do endereço'
+      categoria: sim
+      explicacao: Seletor no namespace do microfrontend e token do shell com fallback.
+    - texto: '`body { font-family: Arial }` no tema de um microfrontend'
+      categoria: nao
+      explicacao: O microfrontend não pode estilizar o documento, e o teste do empréstimo recusa `body`.
+    - texto: '`.emprestimo-card { padding: 12px }` no `globals.css` do shell'
+      categoria: nao
+      explicacao: O shell não pode depender de classes internas, como confere o `visualContract.test.ts`.
+    - texto: '`--color-primary: #1A56DB` no `tokens.css` do shell'
+      categoria: sim
+      explicacao: Publicar tokens é responsabilidade do shell.
+    - texto: Botão do microfrontend com `bg-blue-600`, gerado pelo build do shell
+      categoria: nao
+      explicacao: O microfrontend passa a depender do CSS do shell e do repositório compartilhado.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 3 mostram a dependência do endereço em relação ao CSS do shell, os passos 4 a 12 aplicam o contrato com o teste escrito antes, e o passo 13 confere o resultado no portal.
+  - tipo: passos
+    itens:
+    - titulo: Procurar a classe no CSS do shell
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+      sucesso: '`1`: a classe `bg-blue-600` está no CSS gerado para o shell.'
+    - titulo: Repetir sem a pasta mfes
+      texto: O comando move `mfes/` para fora do repositório, refaz o build, conta a classe e devolve a pasta.
+      editor:
+        rotulo: terminal
+        linhas:
+        - mv mfes ../mfes-fora && npm run build > /dev/null; grep -o '\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes
+      sucesso: '`0`: sem os microfrontends, o shell não gera a classe que o botão do endereço usa.'
+    - titulo: Rodar a linha de base do endereço
+      editor:
+        rotulo: terminal
+        linhas:
+        - cd mfes/endereco && npx vitest run
+      sucesso: '`Test Files 4 passed (4)` e `Tests 11 passed (11)`.'
+    - titulo: Escrever o teste do contrato visual
+      texto: Crie o arquivo abaixo em `mfes/endereco`. Ele confere o namespace dos seletores, o token com fallback, a injeção do tema e as classes usadas na tela.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/src/theme/__tests__/contratoVisual.test.tsx (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, it, expect, vi, afterEach } from 'vitest'
+        - import css from '../theme.css?raw'
+        - import { mount, unmount } from '../../index'
+        - ''
+        - afterEach(() => vi.unstubAllGlobals())
+        - ''
+        - 'const ctx = { apiUrl: '''', token: ''t'', onUnauthorized: () => {}, basePath: ''/endereco'' }'
+        - ''
+        - 'function seletores(): string[] {'
+        - '  return [...css.replace(/\/\*[\s\S]*?\*\//g, '''').matchAll(/([^{}]+)\{/g)]'
+        - '    .flatMap((m) => (m[1] ?? '''').split('','').map((s) => s.trim()))'
+        - '    .filter((s) => s !== '''' && !s.startsWith(''@''))'
+        - '}'
+        - ''
+        - describe('ADR-014 contrato visual do MFE endereço', () => {
+        - '  it(''mantém todos os seletores no namespace endereco-'', () => {'
+        - '    expect(seletores().length).toBeGreaterThan(0)'
+        - '    expect(seletores().filter((s) => !s.startsWith(''.endereco-''))).toEqual([])'
+        - '  })'
+        - ''
+        - '  it(''consome a cor primária do shell com fallback local'', () => {'
+        - '    expect(css).toMatch(/var\(--color-primary,\s*#[0-9a-fA-F]{6}\)/)'
+        - '  })'
+        - ''
+        - '  it(''injeta o tema no mount e o remove no unmount'', async () => {'
+        - '    vi.stubGlobal(''fetch'', vi.fn(async () => new Response(JSON.stringify({ cep: '''', logradouro: '''', numero: '''' }))))'
+        - '    const el = document.createElement(''div'')'
+        - '    mount(el, ctx)'
+        - '    expect(el.querySelector(''style[data-endereco-theme]'')).not.toBeNull()'
+        - '    await vi.waitFor(() => expect(el.querySelector(''button'')).not.toBeNull())'
+        - '    unmount(el)'
+        - '    expect(el.querySelector(''style[data-endereco-theme]'')).toBeNull()'
+        - '  })'
+        - ''
+        - '  it(''usa apenas classes do próprio namespace'', async () => {'
+        - '    vi.stubGlobal(''fetch'', vi.fn(async () => new Response(JSON.stringify({ cep: '''', logradouro: '''', numero: '''' }))))'
+        - '    const el = document.createElement(''div'')'
+        - '    mount(el, ctx)'
+        - '    await vi.waitFor(() => expect(el.querySelector(''button'')).not.toBeNull())'
+        - '    const classes = [...el.querySelectorAll(''[class]'')].flatMap((n) => [...n.classList])'
+        - '    expect(classes.filter((c) => !c.startsWith(''endereco-''))).toEqual([])'
+        - '    unmount(el)'
+        - '  })'
+        - '})'
+      efeito: teste_tema
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - cd mfes/endereco && npx vitest run src/theme
+      sucesso: '`Failed to resolve import "../theme.css?raw"`, porque o tema ainda não existe.'
+    - titulo: Criar o tema do endereço
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/src/theme/theme.css (novo)
+        commit: '2179313'
+        linhas:
+        - .endereco-app {
+        - '  --endereco-primary: var(--color-primary, #1a56db);'
+        - '  --endereco-line: var(--color-secondary, #6b7280);'
+        - '  --endereco-ink: #111827;'
+        - '  --endereco-success: #047857;'
+        - '  display: grid;'
+        - '  gap: 16px;'
+        - '  color: var(--endereco-ink);'
+        - '  font-family: var(--font-family-sans, system-ui, sans-serif);'
+        - '}'
+        - ''
+        - .endereco-titulo {
+        - '  margin: 0;'
+        - '  font-size: 1.25rem;'
+        - '  font-weight: 700;'
+        - '}'
+        - ''
+        - .endereco-form {
+        - '  display: flex;'
+        - '  flex-direction: column;'
+        - '  gap: 16px;'
+        - '  max-width: 28rem;'
+        - '}'
+        - ''
+        - .endereco-campo {
+        - '  display: flex;'
+        - '  flex-direction: column;'
+        - '  gap: 4px;'
+        - '}'
+        - ''
+        - .endereco-entrada {
+        - '  border: 1px solid var(--endereco-line);'
+        - '  border-radius: 4px;'
+        - '  padding: 8px;'
+        - '}'
+        - ''
+        - .endereco-botao {
+        - '  border: 0;'
+        - '  border-radius: 4px;'
+        - '  padding: 8px 16px;'
+        - '  background: var(--endereco-primary);'
+        - '  color: #ffffff;'
+        - '}'
+        - ''
+        - .endereco-status {
+        - '  color: var(--endereco-success);'
+        - '}'
+    - titulo: Injetar o tema no mount
+      texto: Crie o `inject.ts` abaixo, no mesmo formato do empréstimo, e substitua o `src/index.tsx` pela segunda parte do editor, que injeta o tema e monta a raiz React num contêiner próprio.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/src/theme/inject.ts (novo) e src/index.tsx (alteração)
+        commit: '2179313'
+        linhas:
+        - import css from './theme.css?raw'
+        - ''
+        - 'export function injectTheme(host: HTMLElement): () => void {'
+        - '  const style = document.createElement(''style'')'
+        - '  style.setAttribute(''data-endereco-theme'', '''')'
+        - '  style.textContent = css'
+        - '  host.prepend(style)'
+        - '  return () => style.remove()'
+        - '}'
+        - ''
+        - // mfes/endereco/src/index.tsx
+        - import { StrictMode } from 'react'
+        - import { createRoot, type Root } from 'react-dom/client'
+        - import { EnderecoApp } from './EnderecoApp'
+        - import { injectTheme } from './theme/inject'
+        - import type { MfeMountContext } from './contract'
+        - ''
+        - const roots = new WeakMap<HTMLElement, Root>()
+        - const containers = new WeakMap<HTMLElement, HTMLElement>()
+        - const disposers = new WeakMap<HTMLElement, () => void>()
+        - ''
+        - 'export function mount(el: HTMLElement, ctx: MfeMountContext): void {'
+        - '  disposers.set(el, injectTheme(el))'
+        - '  const container = document.createElement(''div'')'
+        - '  el.append(container)'
+        - '  containers.set(el, container)'
+        - ''
+        - '  const root = createRoot(container)'
+        - '  roots.set(el, root)'
+        - '  root.render('
+        - '    <StrictMode>'
+        - '      <EnderecoApp ctx={ctx} />'
+        - '    </StrictMode>,'
+        - '  )'
+        - '}'
+        - ''
+        - 'export function unmount(el: HTMLElement): void {'
+        - '  roots.get(el)?.unmount()'
+        - '  roots.delete(el)'
+        - '  containers.get(el)?.remove()'
+        - '  containers.delete(el)'
+        - '  disposers.get(el)?.()'
+        - '  disposers.delete(el)'
+        - '}'
+    - titulo: Trocar as classes dos componentes
+      texto: Substitua as classes do Tailwind pelas classes do namespace, conforme a lista abaixo.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/src/EnderecoApp.tsx e EnderecoForm.tsx (alteração)
+        commit: '2179313'
+        linhas:
+        - // mfes/endereco/src/EnderecoApp.tsx
+        - <section className="endereco-app">
+        - <h2 className="endereco-titulo">Alteração de Endereço</h2>
+        - <p role="status" className="endereco-status">Endereço atualizado.</p>
+        - ''
+        - // mfes/endereco/src/EnderecoForm.tsx
+        - <form ... className="endereco-form">
+        - <label className="endereco-campo">
+        - <input ... className="endereco-entrada" />
+        - <button type="submit" className="endereco-botao">Salvar</button>
+      efeito: tema_criado
+    - titulo: Rodar o teste e a verificação de tipos
+      editor:
+        rotulo: terminal
+        linhas:
+        - cd mfes/endereco && npx vitest run src/theme
+        - cd mfes/endereco && npx tsc --noEmit
+      sucesso: '`Tests 2 failed | 2 passed (4)`, com o CSS lido como texto vazio nos testes do namespace e do token, e `TS2307` para `theme.css?raw` no TypeScript.'
+    - titulo: Configurar o CSS bruto nos testes e nos tipos
+      texto: No `mfes/endereco/vitest.config.ts`, acrescente a linha `css` depois de `setupFiles`, e copie `mfes/emprestimo/src/vite-env.d.ts` para `mfes/endereco/src/`, que declara o tipo de `*.css?raw`. O empréstimo já usa as duas configurações.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/vitest.config.ts (alteração) e src/vite-env.d.ts (novo)
+        commit: '2179313'
+        linhas:
+        - '    setupFiles: [''./src/test-setup.ts''],'
+        - '    // Sem esta linha, o Vitest entrega os imports `?raw` de CSS como texto vazio.'
+        - '    css: { include: [/\.css\?raw$/] },'
+        - ''
+        - // mfes/endereco/src/vite-env.d.ts
+        - /// <reference types="vite/client" />
+        - ''
+        - declare module '*.css?raw' {
+        - '  const s: string'
+        - '  export default s'
+        - '}'
+      efeito: raw_configurado
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - cd mfes/endereco && npx vitest run src/theme
+        - cd mfes/endereco && npx vitest run
+        - cd mfes/endereco && npx tsc --noEmit
+      sucesso: '`Tests 4 passed (4)`, a suíte do endereço com `Tests 15 passed (15)` e o `tsc` sem mensagens.'
+    - titulo: Procurar a classe de novo
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+      sucesso: '`0`: o shell deixou de carregar CSS para o endereço.'
+    - titulo: Conferir no portal
+      texto: Rode `npm run deploy` e `npm run dev`, abra Alteração de Endereço e inspecione o botão Salvar no DevTools. Depois, troque `primaryColor` para `#047857` em `public/config.json`, recarregue a página e restaure o valor.
+      sucesso: Fundo `rgb(26, 86, 219)` e fonte `Inter, sans-serif`, e com a cor trocada, fundo `rgb(4, 120, 87)`.
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+      condicao: tema_criado
+      saida: '       0'
+      origem: executado
+      dica: O endereço não usa mais `bg-blue-600`, e o CSS do shell deixa de carregar a classe.
+    - entrada: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+      saida: '       1'
+      origem: executado
+      dica: O valor 1 indica que a classe está no CSS gerado para o shell.
+    - entrada: mv mfes ../mfes-fora && npm run build > /dev/null; grep -o '\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes
+      saida: '       0'
+      origem: executado
+      dica: Sem a pasta `mfes/`, o Tailwind do shell não encontra a classe e não a gera.
+    - entrada: cd mfes/endereco && npx vitest run src/theme
+      condicao:
+      - teste_tema
+      - tema_criado
+      - raw_configurado
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)"
+      origem: executado
+    - entrada: cd mfes/endereco && npx vitest run src/theme
+      condicao:
+      - teste_tema
+      - tema_criado
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (4 tests | 2 failed) 117ms\n     × mantém todos os seletores no namespace endereco- 2ms\n     × consome a cor primária do shell com fallback local 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > mantém todos os seletores no namespace endereco-\nAssertionError: expected 0 to be greater than 0\n ❯ src/theme/__tests__/contratoVisual.test.tsx:17:32\n     15| describe('ADR-014 contrato visual do MFE endereço', () => {\n     16|   it('mantém todos os seletores no namespace endereco-', () => {\n     17|     expect(seletores().length).toBeGreaterThan(0)\n       |                                ^\n     18|     expect(seletores().filter((s) => !s.startsWith('.endereco-'))).toE…\n     19|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > consome a cor primária do shell com fallback local\nAssertionError: expected '' to match /var\\(--color-primary,\\s*#[0-9a-fA-F]{…/\n\n- Expected:\n/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/\n\n+ Received:\n\"\"\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx:22:17\n     20|\n     21|   it('consome a cor primária do shell com fallback local', () => {\n     22|     expect(css).toMatch(/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/)\n       |                 ^\n     23|   })\n     24|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed (1)\n      Tests  2 failed | 2 passed (4)"
+      origem: executado
+      dica: 'Os testes de injeção e de classes passam, e os dois que leem o CSS recebem texto vazio: o Vitest não entrega o conteúdo de `?raw` de CSS sem configuração. Siga para o passo 10.'
+    - entrada: cd mfes/endereco && npx vitest run src/theme
+      condicao: teste_tema
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (0 test)\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx [ src/theme/__tests__/contratoVisual.test.tsx ]\nError: Failed to resolve import \"../theme.css?raw\" from \"src/theme/__tests__/contratoVisual.test.tsx\". Does the file exist?\n  Plugin: vite:import-analysis\n  File: ./mfes/endereco/src/theme/__tests__/contratoVisual.test.tsx:2:16\n  1  |  import { describe, it, expect, vi, afterEach } from \"vitest\";\n  2  |  import css from \"../theme.css?raw\";\n     |                   ^\n  3  |  import { mount, unmount } from \"../../index\";\n  4  |  afterEach(() => vi.unstubAllGlobals());\n ❯ TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:30602:39\n ❯ TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:30599:14\n ❯ normalizeUrl node_modules/vite/dist/node/chunks/node.js:27842:18\n ❯ node_modules/vite/dist/node/chunks/node.js:27905:30\n ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:27873:4\n ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:30387:14\n ❯ loadAndTransform node_modules/vite/dist/node/chunks/node.js:24646:26\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  no tests"
+      origem: executado
+      dica: 'A falha é a esperada: o `theme.css` ainda não existe.'
+    - entrada: cd mfes/endereco && npx vitest run src/theme
+      saida: ' RUN  v4.1.8 ./mfes/endereco
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/theme
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, **/.git/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 4.
+    - entrada: cd mfes/endereco && npx vitest run
+      condicao:
+      - teste_tema
+      - tema_criado
+      - raw_configurado
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  5 passed (5)\n      Tests  15 passed (15)"
+      origem: executado
+    - entrada: cd mfes/endereco && npx vitest run
+      condicao:
+      - teste_tema
+      - tema_criado
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (4 tests | 2 failed) 116ms\n     × mantém todos os seletores no namespace endereco- 2ms\n     × consome a cor primária do shell com fallback local 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > mantém todos os seletores no namespace endereco-\nAssertionError: expected 0 to be greater than 0\n ❯ src/theme/__tests__/contratoVisual.test.tsx:17:32\n     15| describe('ADR-014 contrato visual do MFE endereço', () => {\n     16|   it('mantém todos os seletores no namespace endereco-', () => {\n     17|     expect(seletores().length).toBeGreaterThan(0)\n       |                                ^\n     18|     expect(seletores().filter((s) => !s.startsWith('.endereco-'))).toE…\n     19|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > consome a cor primária do shell com fallback local\nAssertionError: expected '' to match /var\\(--color-primary,\\s*#[0-9a-fA-F]{…/\n\n- Expected:\n/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/\n\n+ Received:\n\"\"\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx:22:17\n     20|\n     21|   it('consome a cor primária do shell com fallback local', () => {\n     22|     expect(css).toMatch(/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/)\n       |                 ^\n     23|   })\n     24|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed | 4 passed (5)\n      Tests  2 failed | 13 passed (15)"
+      origem: executado
+    - entrada: cd mfes/endereco && npx vitest run
+      condicao: teste_tema
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (0 test)\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx [ src/theme/__tests__/contratoVisual.test.tsx ]\nError: Failed to resolve import \"../theme.css?raw\" from \"src/theme/__tests__/contratoVisual.test.tsx\". Does the file exist?\n  Plugin: vite:import-analysis\n  File: ./mfes/endereco/src/theme/__tests__/contratoVisual.test.tsx:2:16\n  1  |  import { describe, it, expect, vi, afterEach } from \"vitest\";\n  2  |  import css from \"../theme.css?raw\";\n     |                   ^\n  3  |  import { mount, unmount } from \"../../index\";\n  4  |  afterEach(() => vi.unstubAllGlobals());\n ❯ TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:30602:39\n ❯ TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:30599:14\n ❯ normalizeUrl node_modules/vite/dist/node/chunks/node.js:27842:18\n ❯ node_modules/vite/dist/node/chunks/node.js:27905:30\n ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:27873:4\n ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:30387:14\n ❯ loadAndTransform node_modules/vite/dist/node/chunks/node.js:24646:26\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 4 passed (5)\n      Tests  11 passed (11)"
+      origem: executado
+    - entrada: cd mfes/endereco && npx vitest run
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
+      origem: executado
+    - entrada: cd mfes/endereco && npx tsc --noEmit
+      condicao:
+      - teste_tema
+      - tema_criado
+      - raw_configurado
+      saida: ''
+      origem: executado
+    - entrada: cd mfes/endereco && npx tsc --noEmit
+      condicao:
+      - teste_tema
+      - tema_criado
+      saida: 'src/theme/__tests__/contratoVisual.test.tsx(2,17): error TS2307: Cannot find module ''../theme.css?raw'' or its corresponding type declarations.
+
+        src/theme/__tests__/contratoVisual.test.tsx(11,50): error TS7006: Parameter ''s'' implicitly has an ''any'' type.
+
+        src/theme/inject.ts(1,17): error TS2307: Cannot find module ''./theme.css?raw'' or its corresponding type declarations.'
+      origem: executado
+      dica: O TypeScript não conhece o tipo de `?raw`, declarado pelo `vite-env.d.ts` do passo 10.
+    - entrada: cd mfes/endereco && npx tsc --noEmit
+      condicao: teste_tema
+      saida: 'src/theme/__tests__/contratoVisual.test.tsx(2,17): error TS2307: Cannot find module ''../theme.css?raw'' or its corresponding type declarations.
+
+        src/theme/__tests__/contratoVisual.test.tsx(11,50): error TS7006: Parameter ''s'' implicitly has an ''any'' type.'
+      origem: executado
+      dica: O TypeScript não conhece o tipo de `?raw`, declarado pelo `vite-env.d.ts` do passo 10.
+    - entrada: cd mfes/endereco && npx tsc --noEmit
+      saida: ''
+      origem: executado
+    cenarios:
+    - rotulo: Classe no CSS do shell
+      comando: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+    - rotulo: Teste do tema
+      comando: cd mfes/endereco && npx vitest run src/theme
+    - rotulo: Suíte do endereço
+      comando: cd mfes/endereco && npx vitest run
+    - rotulo: Tipos do endereço
+      comando: cd mfes/endereco && npx tsc --noEmit
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os três primeiros incidentes partem de saídas do laboratório, e o último, de um trecho do tema do empréstimo.
+  - tipo: incidente
+    titulo: Botão sem estilo depois da separação dos repositórios
+    origem: executado
+    rotulo_saida: log
+    saida: "$ npm run build > /dev/null && grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l\n       1\n\n$ mv mfes ../mfes-fora && npm run build > /dev/null; grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes\n       0"
+    pergunta: A ADR-011 recomenda um repositório por microfrontend em produção. O que acontece com o botão do endereço nesse cenário?
+    correcao: Levar o endereço ao contrato da ADR-014, com CSS próprio no bundle e tokens do shell com fallback, como no laboratório.
+    alternativas:
+    - texto: O shell deixa de iniciar.
+      correta: false
+      explicacao: CSS ausente não interrompe o boot, só a aparência.
+    - texto: O botão perde o estilo, porque o build do shell deixa de encontrar as classes do endereço e não as gera.
+      correta: true
+      explicacao: A contagem cai de 1 para 0 sem a pasta `mfes/`.
+    - texto: Nada muda, porque o Tailwind gera todas as classes possíveis.
+      correta: false
+      explicacao: O Tailwind gera só as classes encontradas nos arquivos que varre.
+  - tipo: incidente
+    titulo: Teste de CSS que recebe texto vazio
+    origem: executado
+    rotulo_saida: log
+    saida: "     × mantém todos os seletores no namespace endereco- 2ms\n     × consome a cor primária do shell com fallback local 1ms\nAssertionError: expected 0 to be greater than 0\nAssertionError: expected '' to match /var\\(--color-primary,\\s*#[0-9a-fA-F]{…/\n Test Files  1 failed (1)\n      Tests  2 failed | 2 passed (4)"
+    pergunta: O `theme.css` tem seletores e o token, e os dois testes que leem o arquivo receberam texto vazio. Por quê?
+    correcao: Incluir o padrão `.css?raw` em `test.css.include` do `vitest.config.ts`, como o empréstimo faz.
+    alternativas:
+    - texto: O arquivo `theme.css` foi salvo vazio.
+      correta: false
+      explicacao: O arquivo tem o token, como mostra o passo 6, e o mesmo texto vazio derruba também o teste do namespace, que exige ao menos um seletor.
+    - texto: O token precisa estar em letras maiúsculas.
+      correta: false
+      explicacao: A expressão do teste aceita maiúsculas e minúsculas no hexadecimal.
+    - texto: O Vitest substitui imports de CSS por texto vazio, inclusive com `?raw`, quando o padrão não está em `css.include`.
+      correta: true
+      explicacao: O `vitest.config.ts` do empréstimo documenta o mesmo comportamento no comentário da opção.
+  - tipo: incidente
+    titulo: Cor do ambiente que não chega ao endereço
+    origem: executado
+    rotulo_saida: log
+    saida: "{\n  \"classe\": \"rounded bg-blue-600 px-4 py-2 text-white\",\n  \"fundo\": \"oklch(0.546 0.245 262.881)\"\n}"
+    pergunta: Antes do laboratório, o ambiente define `primaryColor` no `config.json`. Por que o botão do endereço não segue essa cor?
+    correcao: Ler a cor por `var(--color-primary, <fallback>)` no CSS do microfrontend, e não por uma classe de paleta fixa.
+    alternativas:
+    - texto: A classe `bg-blue-600` usa a cor fixa da paleta do Tailwind e não lê o token `--color-primary`.
+      correta: true
+      explicacao: Depois do laboratório, o mesmo botão mostrou `rgb(4, 120, 87)` com a cor do ambiente trocada.
+    - texto: O `config.json` só vale para o shell em produção.
+      correta: false
+      explicacao: O `loadConfig` aplica a cor também em desenvolvimento.
+    - texto: O microfrontend não pode ler variáveis CSS do shell.
+      correta: false
+      explicacao: Variáveis CSS do elemento raiz são herdadas por todo o documento, inclusive pela área do microfrontend.
+  - tipo: incidente
+    titulo: Propriedades declaradas duas vezes no tema do empréstimo
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "mfes/emprestimo/src/theme/theme.css:9-13\n    --emprestimo-primary: var(--color-primary, #06422f);\n    --emprestimo-primary-hover: #083827;\n    --emprestimo-primary-soft: #e6f3ed;\n    --emprestimo-primary-hover: color-mix(in srgb, var(--emprestimo-primary) 84%, #000);\n    --emprestimo-primary-soft: color-mix(in srgb, var(--emprestimo-primary) 12%, #fff);"
+    pergunta: Que valor de `--emprestimo-primary-hover` o navegador usa?
+    correcao: Remover as duas declarações fixas das linhas 10 e 11, que nunca prevalecem.
+    alternativas:
+    - texto: Nenhum, porque declarações duplicadas invalidam o bloco.
+      correta: false
+      explicacao: O CSS aceita declarações repetidas e usa a última válida.
+    - texto: O `color-mix` da linha 12, porque a última declaração da mesma propriedade no mesmo bloco prevalece.
+      correta: true
+      explicacao: As declarações das linhas 10 e 11 ficam sem efeito e só confundem a leitura.
+    - texto: O `#083827` da linha 10, porque vem primeiro.
+      correta: false
+      explicacao: Na cascata, a declaração posterior com a mesma especificidade substitui a anterior.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Pela ADR-014, o que o shell publica para os microfrontends?
+      alternativas:
+      - texto: As classes de cada tela de domínio.
+        correta: false
+        explicacao: A ADR proíbe o shell de conhecer classes internas.
+      - texto: Um arquivo CSS por microfrontend no manifesto.
+        correta: false
+        explicacao: A ADR exclui CSS separado no manifesto como requisito.
+      - texto: Tokens e estrutura externa, sem estilizar seletores internos.
+        correta: true
+        explicacao: O shell governa o vocabulário visual, e o microfrontend governa a implementação local.
+    - enunciado: Por que o tema é injetado no `mount` e removido no `unmount`?
+      alternativas:
+      - texto: Para que o CSS siga o ciclo de vida do microfrontend e não fique no documento depois que ele sai.
+        correta: true
+        explicacao: O teste do laboratório confere o `<style>` antes e depois do `unmount`.
+      - texto: Para acelerar o build.
+        correta: false
+        explicacao: A injeção acontece em tempo de execução.
+      - texto: Porque o shell exige.
+        correta: false
+        explicacao: O shell não conhece o tema dos microfrontends.
+    - enunciado: 'Para que serve o valor depois da vírgula em `var(--color-primary, #1a56db)`?'
+      alternativas:
+      - texto: Sobrescreve o token do shell.
+        correta: false
+        explicacao: Quando o token existe, ele prevalece.
+      - texto: É o fallback usado quando o token do shell não está definido.
+        correta: true
+        explicacao: O microfrontend continua coerente fora do portal.
+      - texto: É uma segunda cor para o modo escuro.
+        correta: false
+        explicacao: O `var()` não trata temas.
+    - enunciado: Por que o build do shell gerava `bg-blue-600`?
+      alternativas:
+      - texto: Porque o `tokens.css` declara a classe.
+        correta: false
+        explicacao: O `tokens.css` declara apenas variáveis.
+      - texto: Porque o bundle do endereço injeta a classe.
+        correta: false
+        explicacao: O bundle do endereço não tinha CSS antes do laboratório.
+      - texto: Porque o Tailwind do shell varre os arquivos do repositório, inclusive `mfes/endereco/src`.
+        correta: true
+        explicacao: O código do shell não usa a classe, e ela some do build sem a pasta `mfes/`.
+    - enunciado: Depois do laboratório, o que acontece com o botão ao trocar `primaryColor` no `config.json`?
+      alternativas:
+      - texto: A cor muda sem novo deploy do microfrontend.
+        correta: true
+        explicacao: O tema lê o token que o shell aplica a partir do `config.json`.
+      - texto: Nada, até um novo deploy.
+        correta: false
+        explicacao: O bundle lê o token em tempo de execução.
+      - texto: O portal deixa de iniciar.
+        correta: false
+        explicacao: A cor é um valor válido de configuração.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A divisão de responsabilidades visuais da ADR-014 está clara.
+    - A dependência do endereço em relação ao build do shell foi demonstrada com a contagem da classe.
+    - O teste do contrato visual falhou antes do tema e passou depois, com o CSS bruto configurado.
+    - O botão mostrou no portal a cor do token do shell e a cor trocada pelo `config.json`.
+    - As declarações duplicadas no tema do empréstimo foram identificadas.

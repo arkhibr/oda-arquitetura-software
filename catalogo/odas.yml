@@ -111,7 +111,8 @@ odas:
     minutos: 60
     pre_requisitos: ["05"]
     objetivo: "Aplicar tokens de design e escopo de estilo para evitar vazamento de CSS entre microfrontends."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-09
   - id: "10"
     titulo: "Gateway de API"
     trilha: 4

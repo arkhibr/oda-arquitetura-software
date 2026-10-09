@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -180,6 +180,22 @@ test('oda-08: o hash do manifesto só acompanha o bundle depois do deploy da rai
   await rodar('npm run deploy');
   await limpar(); await rodar(grep);
   await expect(tela).toContainText('sha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=');
+});
+
+test('oda-09: o teste do tema falha sem o CSS bruto configurado e passa depois', async ({ page }) => {
+  await page.goto('/oda-09/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async () => { await campo.fill('cd mfes/endereco && npx vitest run src/theme'); await campo.press('Enter'); };
+  await painel.getByLabel('Passo 4 concluído').check();
+  await painel.getByLabel('Passo 8 concluído').check();
+  await rodar();
+  await expect(tela).toContainText('Tests  2 failed | 2 passed (4)');
+  await painel.getByLabel('Passo 10 concluído').check();
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar();
+  await expect(tela).toContainText('Tests  4 passed (4)');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {
