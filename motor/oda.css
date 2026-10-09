@@ -162,3 +162,26 @@ input[type="checkbox"] { width: 1.1em; height: 1.1em; accent-color: var(--sucess
 .api__status--erro-servidor { background: var(--perigo-fundo); color: var(--perigo); }
 .api__nota { margin: 10px 0 0; color: var(--texto-suave); }
 @media (max-width: 760px) { .api__paineis { grid-template-columns: 1fr; } }
+.fluxo, .classificador, .quiz, .incidente { background: var(--interno); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; }
+.fluxo__nome, .incidente__titulo { font-weight: 700; color: var(--destaque); margin: 0 0 10px; }
+.incidente__titulo { color: var(--perigo); }
+.fluxo__etapas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.fluxo__etapa { background: none; border: 1px solid var(--borda); border-radius: 999px; padding: 4px 12px; font-size: .85rem; }
+.fluxo__etapa[aria-current="step"] { background: var(--destaque); color: var(--fundo); border-color: var(--destaque); }
+.fluxo__titulo { font-weight: 700; margin: 0 0 6px; }
+.fluxo__nav { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.classificador ul { list-style: none; padding: 0; display: grid; gap: 10px; }
+.classificador__item { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; border-bottom: 1px solid var(--borda); padding-bottom: 8px; }
+.classificador__item > div { grid-column: 1 / -1; }
+select { background: var(--terminal); border: 1px solid var(--borda); border-radius: 8px; padding: 6px 8px; }
+.quiz__pergunta { border: 0; padding: 0; margin: 0 0 14px; }
+.quiz__pergunta legend { font-weight: 700; margin-bottom: 6px; }
+.quiz__alternativa { display: block; padding: 6px 10px; border: 1px solid var(--borda); border-radius: 8px; margin: 6px 0; cursor: pointer; }
+.quiz__alternativa:hover { border-color: var(--destaque); }
+.retorno { margin-top: 6px; border-left: 4px solid; padding: 6px 10px; border-radius: 6px; }
+.retorno--certo { border-color: var(--sucesso); background: var(--sucesso-fundo); }
+.retorno--errado { border-color: var(--alerta); background: var(--alerta-fundo); }
+.resultado { font-weight: 700; }
+.incidente .bloco { margin: 0 0 12px; }
+.incidente__correcao { border-left: 4px solid var(--sucesso); background: var(--sucesso-fundo); padding: 8px 12px; border-radius: 8px; margin-top: 8px; }
+@media (max-width: 600px) { .classificador__item { grid-template-columns: 1fr; } }
