@@ -7,7 +7,8 @@
 .oda-cabecalho dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.2em 1em; margin: 0 0 1.5em; }
 .oda-cabecalho dt { font-weight: 700; }
 .oda-cabecalho dd { margin: 0; }
-.oda-catalogo__tabela { font-size: 0.85em; }
+.oda-catalogo__tabela table { font-size: 0.85em; }
+.oda select { padding: 0.2em 0.4em; border: 1px solid var(--md-default-fg-color--lighter); border-radius: 0.2rem; background: var(--md-default-bg-color); color: var(--md-default-fg-color); }
 @media (prefers-reduced-motion: reduce) { .oda * { transition: none !important; animation: none !important; } }
 .oda-quiz__pergunta { border: none; margin: 0 0 1em; padding: 0; }
 .oda-quiz__pergunta legend { font-weight: 700; margin-bottom: 0.4em; }

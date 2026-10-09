@@ -38,6 +38,10 @@ class TestPaginaMestre(unittest.TestCase):
         self.assertIn("36 ODAs", self.html)
         self.assertIn("2 ODAs · 1,8 h", self.html)
 
+    def test_tabela_sem_classe_para_receber_estilo_do_material(self):
+        self.assertEqual(self.html.count('<div class="oda-catalogo__tabela"><table>'), 7)
+        self.assertNotIn("<table class=", self.html)
+
     def test_filtro_antes_da_primeira_trilha(self):
         self.assertLess(self.html.index('data-oda="filtro-catalogo"'), self.html.index("## Trilha 1"))
 

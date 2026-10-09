@@ -100,7 +100,7 @@ def renderizar_indice(catalogo: dict) -> str:
             "",
             f"{len(da_trilha)} ODAs · {formatar_horas(minutos)}",
             "",
-            '<table class="oda-catalogo__tabela">',
+            '<div class="oda-catalogo__tabela"><table>',
             "<thead><tr><th>ODA</th><th>Título e objetivo</th><th>Repositório</th>"
             "<th>Tempo</th><th>Pré-requisitos</th><th>Situação</th></tr></thead>",
             "<tbody>",
@@ -119,7 +119,7 @@ def renderizar_indice(catalogo: dict) -> str:
                 f"<td>{esc(pre)}</td>"
                 f"<td>{_ROTULO_SITUACAO[oda['situacao']]}</td></tr>"
             )
-        partes += ["</tbody>", "</table>"]
+        partes += ["</tbody>", "</table></div>"]
     return "\n".join(partes) + "\n"
 
 
