@@ -23,7 +23,7 @@ OBRIGATORIOS = {
     "legenda": ("texto",), "faixa": ("estilo",), "checklist": ("titulo", "itens"), "editor": ("rotulo", "linhas"),
     "passos": ("itens",), "conceito": ("titulo", "texto"),
     "adr": ("id", "titulo", "status", "contexto", "decisao", "alternativas", "consequencias"),
-    "arvores": ("esquerda", "direita"), "comparativo": ("colunas", "linhas"), "diagrama": ("id", "tipo", "titulo", "mermaid"),
+    "arvores": ("esquerda", "direita"), "comparativo": ("colunas", "linhas"), "diagrama": ("id", "tipo_diagrama", "titulo", "mermaid"),
     "fluxo": ("titulo", "etapas"), "console-api": ("cenarios",), "classificador": ("categorias", "itens"),
     "terminal": ("comandos",), "incidente": ("titulo", "saida", "origem", "pergunta", "alternativas", "correcao"),
     "quiz": ("perguntas",),
@@ -130,8 +130,6 @@ def preparar(dados: dict) -> dict:
                 bloco["id_adr"] = bloco.pop("id")
             if bloco["tipo"] == "diagrama":
                 bloco["id_diagrama"] = bloco.pop("id")
-                bloco["tipo_diagrama"] = bloco.pop("tipo")
-                bloco["tipo"] = "diagrama"
             bloco["id"] = f"{aba['id']}-{i}"
     return dados
 

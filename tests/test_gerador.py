@@ -97,6 +97,16 @@ class TestGeracao(unittest.TestCase):
         self.assertEqual(p["abas"][1]["blocos"][1]["id"], "conceito-1")
         self.assertEqual(p["abas"][1]["blocos"][1]["id_adr"], "ADR-0001")
 
+    def test_diagrama_mantem_tipo_do_bloco_e_exige_tipo_diagrama(self):
+        d = minima()
+        d["abas"][1]["blocos"].append({"tipo": "diagrama", "id": "D-01", "tipo_diagrama": "Fluxo", "titulo": "t", "mermaid": "graph LR\n a --> b"})
+        self.assertEqual(validar_oda(d, CATALOGO), [])
+        p = preparar(copy.deepcopy(d))
+        bloco = p["abas"][1]["blocos"][1]
+        self.assertEqual((bloco["tipo"], bloco["id_diagrama"], bloco["tipo_diagrama"], bloco["id"]), ("diagrama", "D-01", "Fluxo", "conceito-1"))
+        del d["abas"][1]["blocos"][1]["tipo_diagrama"]
+        self.assertIn("conceito[1]: diagrama exige a propriedade tipo_diagrama.", validar_oda(d, CATALOGO))
+
     def test_html_escapa_fechamento_de_script(self):
         d = preparar(minima())
         d.update(repositorio="net-minimal-api", commit="702145a", minutos=75)
