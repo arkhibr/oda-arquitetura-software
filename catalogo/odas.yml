@@ -51,7 +51,8 @@ odas:
     minutos: 60
     pre_requisitos: ["02"]
     objetivo: "Distinguir estado global de estado de servidor e estender uma fatia do Redux com teste."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-03
   - id: "04"
     titulo: "Autenticação JWT de ponta a ponta"
     trilha: 2

@@ -1,0 +1,773 @@
+id: '03'
+titulo: Estado global e estado de servidor
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: 'O shell do portal separa o estado em duas ferramentas: Redux Toolkit para o estado do cliente e React Query para o estado vindo do servidor. Esta ODA mostra onde cada ferramenta atua no código, quais regras as fatias do Redux seguem e como estender uma fatia com o teste escrito antes da implementação.'
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Distinguir estado do cliente, estado do servidor e estado local de componente, conforme a ADR-003.
+    - Ler as três fatias do store e identificar quem despacha cada ação no shell.
+    - Acrescentar um campo à `uiSlice` com o teste escrito e rodado antes da implementação.
+    - Caracterizar com testes o cache configurado em `queryClient.ts`.
+    - Reconhecer efeitos colaterais em reducers e a fronteira da ADR-003 em relação aos microfrontends.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 02, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas por `npm ci`. Os testes rodam com Vitest e não dependem do Docker nem do LocalStack.
+  - tipo: terminal
+    titulo: terminal · linha de base das fatias
+    comandos:
+    - entrada: npx vitest run src/shared/lib/store
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  2 passed (2)\n      Tests  7 passed (7)"
+      origem: executado
+      dica: Dois arquivos de teste, um para `authSlice` e outro para `uiSlice`, com 7 testes no total.
+    cenarios:
+    - rotulo: Rodar os testes das fatias
+      comando: npx vitest run src/shared/lib/store
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-003 parte da diferença de ciclo de vida entre dois tipos de estado. O estado do cliente nasce e termina no navegador, e o estado do servidor é uma cópia local de dados que pertencem à API e que podem mudar sem aviso.
+  - tipo: comparativo
+    colunas:
+    - Estado do cliente
+    - Estado do servidor
+    linhas:
+    - dimensao: Fonte da verdade
+      valores:
+      - O próprio navegador
+      - A API, e o navegador guarda uma cópia
+    - dimensao: Ferramenta no shell
+      valores:
+      - Redux Toolkit, em `src/shared/lib/store/`
+      - React Query, configurado em `src/shared/lib/queryClient.ts`
+    - dimensao: Exemplos no portal
+      valores:
+      - Token e usuário autenticado, barra lateral, modal ativo, notificações e tempo de inatividade
+      - Dados de clientes, endereço e contratos devolvidos pelos BFFs
+    - dimensao: Problemas que a ferramenta resolve
+      valores:
+      - Mudanças síncronas, rastreáveis no Redux DevTools
+      - Cache, revalidação, nova tentativa e estados de carregamento e erro
+    - dimensao: Risco apontado pela ADR
+      valores:
+      - Copiar para o Redux dados que já estão no cache do React Query
+      - '`staleTime` inadequado, com requisições em excesso'
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Separação de estado
+    titulo: Diagrama da ADR-003 (docs/architecture/adrs/ADR-003-gerenciamento-de-estado.md)
+    mermaid: "graph LR\n    api[\"API de Clientes\"]\n\n    subgraph cliente[\"Estado do Cliente — Redux Toolkit\"]\n        auth[\"authSlice\\ntoken · user · isAuthenticated\"]\n        ui[\"uiSlice\\nsidebar · modal · toasts\"]\n        session[\"sessionSlice\\nlastActivityAt · timeout\"]\n    end\n\n    subgraph servidor[\"Estado do Servidor — React Query\"]\n        qc[\"QueryClient\\ncache · revalidação · retry\"]\n    end\n\n    api -->|\"dados remotos\"| qc\n    auth -.->|\"logout() ao expirar\"| api"
+  - tipo: conceito
+    titulo: Estado local de componente
+    texto: Nem todo estado precisa de uma das duas ferramentas. O valor digitado num campo e o indicador de envio de um formulário pertencem a um único componente, e a página de login os mantém com `react-hook-form` e `useState`, sem passar pelo store.
+  - tipo: conceito
+    titulo: Regras de uma fatia do Redux Toolkit
+    texto: Uma fatia criada com `createSlice` declara o estado inicial e os reducers, e o Redux Toolkit gera uma ação para cada reducer. O guia de estilo do Redux (https://redux.js.org/style-guide/) exige que o reducer dependa apenas do estado e da ação, sem efeitos fora da função, sem lógica assíncrona e sem valores aleatórios como `Date.now()` e `Math.random()`.
+  - tipo: adr
+    id: ADR-003
+    titulo: Tática de gerenciamento de estado
+    status: Proposed
+    contexto: Uma SPA lida com estado do servidor, que exige cache, revalidação e sincronização com a API, e com estado do cliente, como flags de interface, autenticação e sessão. Colocar os dois no Redux resulta em reducers complexos e em invalidação manual de cache.
+    decisao: Redux Toolkit para o estado do cliente, nas fatias `auth`, `ui` e `session`, e React Query para o estado do servidor.
+    alternativas: Redux Toolkit com RTK Query, descartado por ser menos ergonômico em requisições complexas, Zustand com React Query, descartado pela ausência do Redux DevTools nativo, e apenas `useState` e `useEffect`, descartado porque não escala.
+    consequencias: A equipe precisa respeitar a fronteira entre as duas ferramentas, novas fatias devem ser registradas em `src/shared/lib/store/index.ts`, e o `staleTime` e o `retry` do `QueryClient` devem ser revistos quando os contratos da API mudarem.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, o store, uma fatia completa, o reducer de login, a configuração do React Query e o hook que os microfrontends usam para buscar dados. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/lib/store/index.ts
+    commit: '2179313'
+    linhas:
+    - import { configureStore } from '@reduxjs/toolkit'
+    - import { authSlice } from './authSlice'
+    - import { uiSlice } from './uiSlice'
+    - import { sessionSlice } from './sessionSlice'
+    - ''
+    - export const store = configureStore({
+    - '  reducer: {'
+    - '    auth: authSlice.reducer,'
+    - '    ui: uiSlice.reducer,'
+    - '    session: sessionSlice.reducer,'
+    - '  },'
+    - '})'
+    - ''
+    - export type RootState = ReturnType<typeof store.getState>
+    - export type AppDispatch = typeof store.dispatch
+    anotacoes:
+    - linha: 6
+      texto: O store único do shell, criado com `configureStore`, que habilita por padrão a integração com o Redux DevTools.
+    - linha: 8
+      texto: 'Cada chave do objeto `reducer` vira um ramo do estado: `auth`, `ui` e `session`.'
+    - linha: 14
+      texto: O tipo do estado é derivado do próprio store, e os seletores usam `RootState` para ler cada ramo.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/lib/store/uiSlice.ts
+    commit: '2179313'
+    linhas:
+    - import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+    - ''
+    - 'type Toast = { id: string; message: string; type: ''success'' | ''error'' | ''info'' }'
+    - ''
+    - type UiState = {
+    - '  sidebarOpen: boolean'
+    - '  activeModal: string | null'
+    - '  toasts: Toast[]'
+    - '}'
+    - ''
+    - 'const initialState: UiState = {'
+    - '  sidebarOpen: true,'
+    - '  activeModal: null,'
+    - '  toasts: [],'
+    - '}'
+    - ''
+    - export const uiSlice = createSlice({
+    - '  name: ''ui'','
+    - '  initialState,'
+    - '  reducers: {'
+    - '    toggleSidebar(state) {'
+    - '      state.sidebarOpen = !state.sidebarOpen'
+    - '    },'
+    - '    openModal(state, action: PayloadAction<string>) {'
+    - '      state.activeModal = action.payload'
+    - '    },'
+    - '    closeModal(state) {'
+    - '      state.activeModal = null'
+    - '    },'
+    - '    addToast(state, action: PayloadAction<Omit<Toast, ''id''>>) {'
+    - '      state.toasts.push({ ...action.payload, id: crypto.randomUUID() })'
+    - '    },'
+    - '    removeToast(state, action: PayloadAction<string>) {'
+    - '      state.toasts = state.toasts.filter((t) => t.id !== action.payload)'
+    - '    },'
+    - '  },'
+    - '})'
+    - ''
+    - export const { toggleSidebar, openModal, closeModal, addToast, removeToast } =
+    - '  uiSlice.actions'
+    anotacoes:
+    - linha: 5
+      texto: O tipo da fatia, que o laboratório estende com o campo `densidade`.
+    - linha: 17
+      texto: '`createSlice` gera o reducer e as ações a partir de um único objeto.'
+    - linha: 22
+      texto: O reducer parece alterar o estado, mas o Redux Toolkit usa o Immer e produz um objeto novo.
+    - linha: 31
+      texto: O identificador aleatório é gerado dentro do reducer, o que o guia de estilo do Redux proíbe.
+    - linha: 39
+      texto: As ações geradas, com o tipo `ui/<nome do reducer>`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/lib/store/authSlice.ts
+    commit: '2179313'
+    linhas:
+    - '    login(state, action: PayloadAction<{ token: string }>) {'
+    - '      const { token } = action.payload'
+    - '      if (isTokenExpired(token)) throw new Error(''Token JWT inválido ou expirado'')'
+    - '      const user = parseToken(token)'
+    - '      tokenStorage.set(token)'
+    - '      state.token = token'
+    - '      state.user = user'
+    - '      state.isAuthenticated = true'
+    - '    },'
+    - '    logout(state) {'
+    - '      tokenStorage.clear()'
+    - '      state.token = null'
+    - '      state.user = null'
+    - '      state.isAuthenticated = false'
+    - '    },'
+    anotacoes:
+    - linha: 33
+      texto: Com token expirado, o reducer lança uma exceção, que chega a quem chamou `dispatch`.
+    - linha: 35
+      texto: Gravação no `sessionStorage` feita dentro do reducer, que é um efeito fora da função.
+    - linha: 38
+      texto: Campo lido pelo `AuthGuard` para liberar as rotas protegidas.
+    - linha: 41
+      texto: O `logout` também apaga o token do `sessionStorage` e altera apenas o ramo `auth`.
+    inicio: 31
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/lib/queryClient.ts
+    commit: '2179313'
+    linhas:
+    - import { QueryClient } from '@tanstack/react-query'
+    - ''
+    - export const queryClient = new QueryClient({
+    - '  defaultOptions: {'
+    - '    queries: {'
+    - '      staleTime: 5 * 60 * 1000,'
+    - '      retry: 1,'
+    - '      refetchOnWindowFocus: false,'
+    - '    },'
+    - '  },'
+    - '})'
+    anotacoes:
+    - linha: 6
+      texto: Durante 5 minutos, uma consulta com a mesma chave usa o cache sem chamar a API.
+    - linha: 7
+      texto: Uma nova tentativa depois de uma falha.
+    - linha: 8
+      texto: Voltar à aba do navegador não dispara nova busca.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/providers/index.tsx
+    commit: '2179313'
+    linhas:
+    - 'export function Providers({ children }: ProvidersProps) {'
+    - '  return ('
+    - '    <ReduxProvider store={store}>'
+    - '      <QueryClientProvider client={queryClient}>'
+    - '        {children}'
+    - '      </QueryClientProvider>'
+    - '    </ReduxProvider>'
+    - '  )'
+    - '}'
+    anotacoes:
+    - linha: 11
+      texto: O store do Redux envolve toda a árvore do shell.
+    - linha: 12
+      texto: O cliente do React Query fica disponível para qualquer componente do shell que chame `useQuery`.
+    inicio: 9
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/emprestimo/src/hooks/useAsync.ts
+    commit: '2179313'
+    linhas:
+    - 'export function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {'
+    - '  const [data, setData] = useState<T | null>(null)'
+    - '  const [loading, setLoading] = useState(true)'
+    - '  const [error, setError] = useState<Error | null>(null)'
+    - '  useEffect(() => {'
+    - '    let vivo = true'
+    - '    setLoading(true)'
+    - '    setError(null)'
+    - '    fn()'
+    - '      .then((d) => { if (vivo) setData(d) })'
+    - '      .catch((e) => { if (vivo) setError(e instanceof Error ? e : new Error(String(e))) })'
+    - '      .finally(() => { if (vivo) setLoading(false) })'
+    - '    return () => { vivo = false }'
+    - '    // eslint-disable-next-line react-hooks/exhaustive-deps'
+    - '  }, deps)'
+    - '  return { data, loading, error }'
+    - '}'
+    anotacoes:
+    - linha: 3
+      texto: Hook do microfrontend de empréstimo para buscar dados, sem React Query.
+    - linha: 5
+      texto: Carregamento e erro controlados à mão, com `useState`, a cada uso do hook.
+    - linha: 15
+      texto: Evita atualizar o estado depois que o componente foi desmontado, e não guarda cache entre montagens.
+    inicio: 3
+  - tipo: faixa
+    estilo: dica
+    texto: 'No commit `2179313`, nenhum componente do shell chama `useQuery`: o `QueryClientProvider` está montado e aguarda a primeira consulta. Os dados remotos chegam pelos microfrontends, que usam `useEffect` e `useState`.'
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: O console abaixo reproduz o store do shell, com as três fatias e as respostas do código no commit `2179313`. `TOKEN` é um JWT válido até 2286, com `sub` igual a `user1`, e `EXPIRADO` é um JWT com `exp` igual a 1. Leia o estado, despache ações e observe qual ramo cada ação altera.
+  - tipo: terminal
+    titulo: console · store do shell
+    comandos:
+    - entrada: store.getState().auth
+      condicao: logado
+      saida: "{\n  \"token\": \"eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMSIsImV4cCI6OTk5OTk5OTk5OSwiaWF0IjoxNzAwMDAwMDAwfQ.signature\",\n  \"user\": {\n    \"sub\": \"user1\",\n    \"exp\": 9999999999,\n    \"iat\": 1700000000\n  },\n  \"isAuthenticated\": true\n}"
+      origem: executado
+    - entrada: store.getState().auth
+      saida: "{\n  \"token\": null,\n  \"user\": null,\n  \"isAuthenticated\": false\n}"
+      origem: executado
+    - entrada: store.getState().ui
+      condicao: sidebar_fechada
+      saida: "{\n  \"sidebarOpen\": false,\n  \"activeModal\": null,\n  \"toasts\": []\n}"
+      origem: executado
+    - entrada: store.getState().ui
+      saida: "{\n  \"sidebarOpen\": true,\n  \"activeModal\": null,\n  \"toasts\": []\n}"
+      origem: executado
+    - entrada: store.getState().session
+      saida: "{\n  \"lastActivityAt\": null,\n  \"inactivityTimeoutMs\": 1800000\n}"
+      origem: executado
+      dica: Nenhum código do shell despacha `recordActivity`, por isso `lastActivityAt` continua nulo.
+    - entrada: Object.keys(sessionStorage)
+      condicao: logado
+      saida: "[\n  \"portal_access_token\"\n]"
+      origem: executado
+      dica: A chave foi gravada pelo reducer `login`, por meio de `tokenStorage.set`.
+    - entrada: Object.keys(sessionStorage)
+      saida: '[]'
+      origem: executado
+    - entrada: 'store.dispatch(login({ token: TOKEN }))'
+      saida: "{\n  \"type\": \"auth/login\",\n  \"payload\": {\n    \"token\": \"eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMSIsImV4cCI6OTk5OTk5OTk5OSwiaWF0IjoxNzAwMDAwMDAwfQ.signature\"\n  }\n}"
+      origem: executado
+      efeito: logado
+      dica: O `dispatch` devolve a ação despachada. Leia de novo o ramo `auth` e o `sessionStorage`.
+    - entrada: 'store.dispatch(login({ token: EXPIRADO }))'
+      saida: 'Error: Token JWT inválido ou expirado'
+      origem: executado
+      dica: A exceção sai do reducer e chega a quem chamou `dispatch`, e o estado anterior continua intacto.
+    - entrada: store.dispatch(toggleSidebar())
+      condicao: sidebar_fechada
+      saida: "{\n  \"type\": \"ui/toggleSidebar\"\n}"
+      origem: executado
+      efeito: '!sidebar_fechada'
+    - entrada: store.dispatch(toggleSidebar())
+      saida: "{\n  \"type\": \"ui/toggleSidebar\"\n}"
+      origem: executado
+      efeito: sidebar_fechada
+    - entrada: store.dispatch(logout())
+      saida: "{\n  \"type\": \"auth/logout\"\n}"
+      origem: executado
+      efeito: '!logado'
+      dica: 'Leia o ramo `ui` depois do logout: a barra lateral continua como estava.'
+    cenarios:
+    - rotulo: Ler auth
+      comando: store.getState().auth
+    - rotulo: Login válido
+      comando: 'store.dispatch(login({ token: TOKEN }))'
+    - rotulo: Ler sessionStorage
+      comando: Object.keys(sessionStorage)
+    - rotulo: Login expirado
+      comando: 'store.dispatch(login({ token: EXPIRADO }))'
+    - rotulo: Alternar barra lateral
+      comando: store.dispatch(toggleSidebar())
+    - rotulo: Ler ui
+      comando: store.getState().ui
+    - rotulo: Logout
+      comando: store.dispatch(logout())
+    - rotulo: Ler session
+      comando: store.getState().session
+  - tipo: fluxo
+    titulo: Do formulário de login ao AuthGuard
+    etapas:
+    - titulo: Requisição de login
+      descricao: A página de login chama `loginRequest` e recebe o token, que na configuração de desenvolvimento vem do back-end simulado pelo MSW.
+      codigo:
+        arquivo: src/pages/login/index.tsx
+        commit: '2179313'
+        linhas:
+        - '    try {'
+        - '      const token = await loginRequest(email, senha)'
+        - '      dispatch(login({ token }))'
+        destaque:
+        - 2
+        - 3
+    - titulo: Validação no reducer
+      descricao: O reducer `login` recusa o token expirado com uma exceção antes de alterar o estado.
+      codigo:
+        arquivo: src/shared/lib/store/authSlice.ts
+        commit: '2179313'
+        linhas:
+        - '    login(state, action: PayloadAction<{ token: string }>) {'
+        - '      const { token } = action.payload'
+        - '      if (isTokenExpired(token)) throw new Error(''Token JWT inválido ou expirado'')'
+        - '      const user = parseToken(token)'
+        destaque:
+        - 3
+    - titulo: Persistência do token
+      descricao: O mesmo reducer grava o token no `sessionStorage`, o que permite reidratar a sessão depois de recarregar a página.
+      codigo:
+        arquivo: src/shared/lib/store/authSlice.ts
+        commit: '2179313'
+        linhas:
+        - '      tokenStorage.set(token)'
+        - '      state.token = token'
+        - '      state.user = user'
+        - '      state.isAuthenticated = true'
+        destaque:
+        - 1
+    - titulo: Leitura pelo guard
+      descricao: O `AuthGuard` lê `isAuthenticated` com `useSelector` e libera as rotas protegidas, ou redireciona para o login.
+      codigo:
+        arquivo: src/app/router/guards/AuthGuard.tsx
+        commit: '2179313'
+        linhas:
+        - '  const isAuthenticated = useSelector((s: RootState) => s.auth.isAuthenticated)'
+        - '  const location = useLocation()'
+        - ''
+        - '  if (!isAuthenticated) {'
+        destaque:
+        - 1
+        - 4
+  - tipo: classificador
+    enunciado: Pela ADR-003, onde o shell deve guardar cada estado?
+    categorias:
+    - id: redux
+      rotulo: Redux Toolkit
+    - id: query
+      rotulo: React Query
+    - id: local
+      rotulo: Estado local do componente
+    itens:
+    - texto: Token JWT e dados do usuário autenticado
+      categoria: redux
+      explicacao: A fatia `auth` guarda o token, o usuário e `isAuthenticated`, lidos pelos guards e pelo host dos microfrontends.
+    - texto: Barra lateral aberta ou fechada
+      categoria: redux
+      explicacao: É estado de interface compartilhado pelo layout, na fatia `ui`.
+    - texto: Momento da última atividade do usuário
+      categoria: redux
+      explicacao: A fatia `session` tem `lastActivityAt` e o tempo limite de inatividade.
+    - texto: Lista de clientes que uma página do shell busca na API
+      categoria: query
+      explicacao: Dados que pertencem à API ficam no cache do React Query, com revalidação pelo `staleTime`.
+    - texto: Resultado de uma consulta de CEP feita por uma página do shell
+      categoria: query
+      explicacao: É uma cópia de dado remoto, com carregamento, erro e cache tratados pelo React Query.
+    - texto: Texto digitado no campo de e-mail do login
+      categoria: local
+      explicacao: A página de login mantém os campos com `react-hook-form`, sem passar pelo store.
+    - texto: Indicador de envio do formulário de login
+      categoria: local
+      explicacao: A página de login usa `useState` para `submitting`, porque nenhum outro componente lê esse valor.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 6 acrescentam o campo `densidade` à `uiSlice` com o teste escrito antes da implementação, e os passos 7 a 9 caracterizam o cache do `queryClient` com dois testes.
+  - tipo: passos
+    itens:
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/lib/store
+      sucesso: '`Test Files 2 passed (2)` e `Tests 7 passed (7)`.'
+    - titulo: Escrever o teste da densidade
+      texto: Em `src/shared/lib/store/__tests__/uiSlice.test.ts`, acrescente `setDensidade` à lista importada de `../uiSlice` e inclua o teste abaixo antes do `})` que fecha o `describe`.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/lib/store/__tests__/uiSlice.test.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '  it(''setDensidade troca a densidade da interface'', () => {'
+        - '    const inicial = reducer(undefined, { type: ''inicio'' })'
+        - '    expect(inicial.densidade).toBe(''confortavel'')'
+        - '    const state = reducer(inicial, setDensidade(''compacta''))'
+        - '    expect(state.densidade).toBe(''compacta'')'
+        - '  })'
+      efeito: teste_densidade
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/lib/store
+      sucesso: '`AssertionError: expected undefined to be ''confortavel''` e `Tests 1 failed | 7 passed (8)`, porque o campo ainda não existe.'
+    - titulo: Implementar o campo na fatia
+      texto: Em `src/shared/lib/store/uiSlice.ts`, declare o tipo antes de `UiState`, acrescente o campo ao tipo e ao estado inicial e inclua o reducer depois de `removeToast`, exportando `setDensidade` junto das demais ações.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/lib/store/uiSlice.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - type Densidade = 'confortavel' | 'compacta'
+        - ''
+        - // em UiState
+        - '  densidade: Densidade'
+        - ''
+        - // em initialState
+        - '  densidade: ''confortavel'','
+        - ''
+        - // em reducers
+        - '    setDensidade(state, action: PayloadAction<Densidade>) {'
+        - '      state.densidade = action.payload'
+        - '    },'
+        - ''
+        - export const { toggleSidebar, openModal, closeModal, addToast, removeToast, setDensidade } =
+      efeito: densidade_implementada
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/lib/store
+      sucesso: '`Tests 8 passed (8)`, com `setDensidade troca a densidade da interface` na lista.'
+    - titulo: Conferir tipos e fronteiras
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx tsc --noEmit -p . && npm run lint
+      sucesso: O `tsc` termina sem mensagens, e o ESLint termina sem erros depois de `> eslint src/`.
+    - titulo: Escrever os testes de caracterização do queryClient
+      texto: Crie a pasta `src/shared/lib/__tests__/` e o arquivo abaixo. Os dois testes descrevem o comportamento atual, por isso passam desde a primeira execução.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/lib/__tests__/queryClient.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, it, expect, vi, afterEach } from 'vitest'
+        - import { queryClient } from '../queryClient'
+        - ''
+        - 'const endereco = { cep: ''01001000'', logradouro: ''Praça da Sé'', numero: ''1'' }'
+        - ''
+        - describe('queryClient', () => {
+        - '  afterEach(() => queryClient.clear())'
+        - ''
+        - '  it(''reaproveita o cache dentro do staleTime'', async () => {'
+        - '    const buscar = vi.fn().mockResolvedValue(endereco)'
+        - '    await queryClient.fetchQuery({ queryKey: [''endereco''], queryFn: buscar })'
+        - '    await queryClient.fetchQuery({ queryKey: [''endereco''], queryFn: buscar })'
+        - '    expect(buscar).toHaveBeenCalledTimes(1)'
+        - '  })'
+        - ''
+        - '  it(''busca de novo depois de invalidar a chave'', async () => {'
+        - '    const buscar = vi.fn().mockResolvedValue(endereco)'
+        - '    await queryClient.fetchQuery({ queryKey: [''endereco''], queryFn: buscar })'
+        - '    await queryClient.invalidateQueries({ queryKey: [''endereco''] })'
+        - '    await queryClient.fetchQuery({ queryKey: [''endereco''], queryFn: buscar })'
+        - '    expect(buscar).toHaveBeenCalledTimes(2)'
+        - '  })'
+        - '})'
+      efeito: teste_query
+    - titulo: Rodar os testes do queryClient
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/lib/__tests__/queryClient.test.ts
+      sucesso: '`Tests 2 passed (2)`.'
+    - titulo: Provar que o teste protege o staleTime
+      texto: 'Em `src/shared/lib/queryClient.ts`, troque `staleTime: 5 * 60 * 1000` por `staleTime: 0` e rode os testes do `queryClient`. Depois de ver a falha, desmarque este passo e restaure o valor original.'
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/lib/queryClient.ts (alteração temporária)
+        commit: '2179313'
+        linhas:
+        - '      staleTime: 0,'
+      efeito: stale_zero
+      sucesso: '`expected "vi.fn()" to be called 1 times, but got 2 times` no primeiro teste.'
+    - titulo: Rodar a suíte completa
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run
+      sucesso: '`Test Files 24 passed (24)` e `Tests 102 passed (102)`, com o `staleTime` restaurado.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: npx vitest run src/shared/lib/store
+      condicao: densidade_implementada
+      saida: " RUN  v4.1.7 .\n\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > toggleSidebar inverte sidebarOpen 1ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > openModal e closeModal gerenciam activeModal 0ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > addToast adiciona toast com id único 1ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > removeToast remove pelo id 0ms\n ✓ src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > setDensidade troca a densidade da interface 0ms\n ✓ src/shared/lib/store/__tests__/authSlice.test.ts > authSlice > estado inicial não autenticado 1ms\n ✓ src/shared/lib/store/__tests__/authSlice.test.ts > authSlice > login: seta token, user e isAuthenticated=true 0ms\n ✓ src/shared/lib/store/__tests__/authSlice.test.ts > authSlice > logout: limpa estado completamente 0ms\n\n Test Files  2 passed (2)\n      Tests  8 passed (8)"
+      origem: executado
+    - entrada: npx vitest run src/shared/lib/store
+      condicao: teste_densidade
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/lib/store/__tests__/uiSlice.test.ts (5 tests | 1 failed) 6ms\n     × setDensidade troca a densidade da interface 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/store/__tests__/uiSlice.test.ts > uiSlice > setDensidade troca a densidade da interface\nAssertionError: expected undefined to be 'confortavel' // Object.is equality\n\n- Expected:\n\"confortavel\"\n\n+ Received:\nundefined\n\n ❯ src/shared/lib/store/__tests__/uiSlice.test.ts:37:31\n     35|   it('setDensidade troca a densidade da interface', () => {\n     36|     const inicial = reducer(undefined, { type: 'inicio' })\n     37|     expect(inicial.densidade).toBe('confortavel')\n       |                               ^\n     38|     const state = reducer(inicial, setDensidade('compacta'))\n     39|     expect(state.densidade).toBe('compacta')\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 1 passed (2)\n      Tests  1 failed | 7 passed (8)"
+      origem: executado
+      dica: 'A falha é a esperada: o teste existe e o campo ainda não. Implemente o campo no passo 4.'
+    - entrada: npx vitest run src/shared/lib/store
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  2 passed (2)\n      Tests  7 passed (7)"
+      origem: executado
+    - entrada: npx tsc --noEmit -p . && npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    - entrada: npx vitest run src/shared/lib/__tests__/queryClient.test.ts
+      condicao:
+      - teste_query
+      - stale_zero
+      saida: " RUN  v4.1.7 .\n\n × src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime 2ms\n   → expected \"vi.fn()\" to be called 1 times, but got 2 times\n ✓ src/shared/lib/__tests__/queryClient.test.ts > queryClient > busca de novo depois de invalidar a chave 0ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times\n ❯ src/shared/lib/__tests__/queryClient.test.ts:13:20\n     11|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     12|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     13|     expect(buscar).toHaveBeenCalledTimes(1)\n       |                    ^\n     14|   })\n     15|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 passed (2)"
+      origem: executado
+      dica: 'Com `staleTime: 0`, a segunda consulta chama a API de novo. Restaure o valor original e desmarque o passo 9.'
+    - entrada: npx vitest run src/shared/lib/__tests__/queryClient.test.ts
+      condicao: teste_query
+      saida: " RUN  v4.1.7 .\n\n ✓ src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime 1ms\n ✓ src/shared/lib/__tests__/queryClient.test.ts > queryClient > busca de novo depois de invalidar a chave 0ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)"
+      origem: executado
+    - entrada: npx vitest run src/shared/lib/__tests__/queryClient.test.ts
+      saida: ' RUN  v4.1.7 .
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/shared/lib/__tests__/queryClient.test.ts
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 7.
+    - entrada: npx vitest run
+      condicao:
+      - densidade_implementada
+      - teste_query
+      - '!stale_zero'
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  102 passed (102)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao:
+      - densidade_implementada
+      - '!teste_query'
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  100 passed (100)"
+      origem: executado
+      dica: 'São 100 testes: os 99 do commit de referência e o teste da densidade. Os testes do `queryClient` entram no passo 7.'
+    - entrada: npx vitest run
+      condicao:
+      - densidade_implementada
+      - teste_query
+      - stale_zero
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/lib/__tests__/queryClient.test.ts (2 tests | 1 failed) 10ms\n     × reaproveita o cache dentro do staleTime 5ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/lib/__tests__/queryClient.test.ts > queryClient > reaproveita o cache dentro do staleTime\nAssertionError: expected \"vi.fn()\" to be called 1 times, but got 2 times\n ❯ src/shared/lib/__tests__/queryClient.test.ts:13:20\n     11|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     12|     await queryClient.fetchQuery({ queryKey: ['endereco'], queryFn: bu…\n     13|     expect(buscar).toHaveBeenCalledTimes(1)\n       |                    ^\n     14|   })\n     15|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  1 failed | 101 passed (102)"
+      origem: executado
+      dica: O `staleTime` ainda está em 0, e a saída mostra a falha do teste do `queryClient`. Restaure o valor original e desmarque o passo 9.
+    - entrada: npx vitest run
+      condicao: '!densidade_implementada'
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
+      origem: executado
+      dica: Esta é a suíte do commit de referência, com 99 testes, antes das mudanças do laboratório.
+    cenarios:
+    - rotulo: Testes das fatias
+      comando: npx vitest run src/shared/lib/store
+    - rotulo: Tipos e lint
+      comando: npx tsc --noEmit -p . && npm run lint
+    - rotulo: Testes do queryClient
+      comando: npx vitest run src/shared/lib/__tests__/queryClient.test.ts
+    - rotulo: Suíte completa
+      comando: npx vitest run
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os incidentes abaixo partem de respostas do store e de trechos do código no commit `2179313`. Em cada um, identifique a causa antes de ler a correção.
+  - tipo: incidente
+    titulo: Token expirado relatado como senha errada
+    origem: executado
+    rotulo_saida: log
+    saida: "> store.dispatch(login({ token: EXPIRADO }))\nError: Token JWT inválido ou expirado\n\nsrc/pages/login/index.tsx:22-26\n      const token = await loginRequest(email, senha)\n      dispatch(login({ token }))\n      navigate('/dashboard')\n    } catch {\n      setError('E-mail ou senha inválidos.')"
+    pergunta: Se o back-end devolver um token já expirado, que mensagem a pessoa vê na tela de login?
+    correcao: Validar o token antes do `dispatch`, ou tratar a exceção do reducer separadamente, para que a tela informe que o token recebido do back-end já está expirado.
+    alternativas:
+    - texto: Nenhuma, porque o login é concluído e a pessoa vai para `/dashboard`.
+      correta: false
+      explicacao: A exceção interrompe o `try` antes de `navigate`, e o estado `auth` não muda.
+    - texto: '`E-mail ou senha inválidos.`, porque a exceção do reducer cai no mesmo `catch` da falha de credenciais.'
+      correta: true
+      explicacao: O `dispatch` está dentro do `try`, e o `catch` não distingue a origem do erro.
+    - texto: '`Token JWT inválido ou expirado`, exibida pelo Redux.'
+      correta: false
+      explicacao: O Redux não exibe mensagens na tela, e a página substitui o erro pelo próprio texto.
+  - tipo: incidente
+    titulo: Logout que mantém a interface
+    origem: executado
+    rotulo_saida: log
+    saida: "> store.dispatch(toggleSidebar())\n> store.dispatch(logout())\n> store.getState().auth\n{\n  \"token\": null,\n  \"user\": null,\n  \"isAuthenticated\": false\n}\n> store.getState().ui\n{\n  \"sidebarOpen\": false,\n  \"activeModal\": null,\n  \"toasts\": []\n}"
+    pergunta: Por que a barra lateral continua fechada depois do logout?
+    correcao: Quando o produto exigir uma interface reiniciada no logout, a `uiSlice` deve responder à ação `auth/logout` por meio de `extraReducers`, sem que a fatia `auth` altere o ramo `ui`.
+    alternativas:
+    - texto: O `logout` falhou e o usuário continua autenticado.
+      correta: false
+      explicacao: 'O ramo `auth` mostra `isAuthenticated: false`.'
+    - texto: O `sessionStorage` guarda o estado da barra lateral.
+      correta: false
+      explicacao: O `sessionStorage` guarda apenas `portal_access_token`.
+    - texto: Cada fatia só responde às ações que declara, e `logout` pertence à fatia `auth`.
+      correta: true
+      explicacao: O reducer `logout` altera apenas `token`, `user` e `isAuthenticated`.
+  - tipo: incidente
+    titulo: Reducers com efeitos fora da função
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/shared/lib/store/authSlice.ts\n      if (isTokenExpired(token)) throw new Error('Token JWT inválido ou expirado')\n      const user = parseToken(token)\n      tokenStorage.set(token)\n\nsrc/shared/lib/store/uiSlice.ts\n    addToast(state, action: PayloadAction<Omit<Toast, 'id'>>) {\n      state.toasts.push({ ...action.payload, id: crypto.randomUUID() })\n    },\n\nsrc/shared/lib/store/sessionSlice.ts\n    recordActivity(state) {\n      state.lastActivityAt = Date.now()\n    },"
+    pergunta: Qual regra do Redux os três trechos contrariam?
+    correcao: Gerar o identificador e o horário no `prepare` da ação, que roda antes do reducer, e mover a gravação do token para quem despacha a ação ou para um middleware.
+    alternativas:
+    - texto: O reducer deve depender só do estado e da ação, sem gravar fora da função nem gerar valores aleatórios ou de horário.
+      correta: true
+      explicacao: O guia de estilo do Redux cita `Date.now()` e valores aleatórios entre os exemplos proibidos, e `tokenStorage.set` grava fora da função.
+    - texto: O reducer não pode alterar o estado com atribuição.
+      correta: false
+      explicacao: Com `createSlice`, a atribuição é permitida, porque o Immer produz um objeto novo.
+    - texto: O reducer não pode importar módulos de `shared/auth`.
+      correta: false
+      explicacao: A importação respeita as fronteiras da ADR-007, e o problema está no que o reducer faz.
+  - tipo: incidente
+    titulo: Busca de dados sem React Query
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "mfes/emprestimo/src/hooks/useAsync.ts\nexport function useAsync<T>(fn: () => Promise<T>, deps: unknown[]) {\n  const [data, setData] = useState<T | null>(null)\n  const [loading, setLoading] = useState(true)\n  const [error, setError] = useState<Error | null>(null)\n  ...\n\nmfes/endereco/src/index.tsx:9\n  const root = createRoot(el)"
+    pergunta: A ADR-003 escolheu React Query para o estado do servidor. Por que os microfrontends usam `useState` e `useEffect`?
+    correcao: Registrar a tática de estado dos microfrontends numa ADR própria, ou ampliar a ADR-003, porque a decisão atual só cobre o shell.
+    alternativas:
+    - texto: O CSP da ADR-012 bloqueia o React Query.
+      correta: false
+      explicacao: O CSP restringe origens de scripts e recursos, e não bibliotecas embutidas no bundle.
+    - texto: Cada microfrontend cria a própria árvore React com `createRoot` e não enxerga o `QueryClientProvider` do shell, e o `package.json` deles não inclui React Query.
+      correta: true
+      explicacao: O React fica embutido em cada bundle, conforme `mfes/endereco/vite.config.ts`, e a ADR-003 trata apenas do shell.
+    - texto: O React Query não funciona com React 19.
+      correta: false
+      explicacao: O shell usa React 19 e `@tanstack/react-query` 5 no mesmo `package.json`.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Pela ADR-003, onde fica a lista de contratos que uma página do shell busca na API?
+      alternativas:
+      - texto: Numa nova fatia do Redux.
+        correta: false
+        explicacao: A ADR aponta essa cópia como risco de duplicação.
+      - texto: No `sessionStorage`.
+        correta: false
+        explicacao: O `sessionStorage` guarda apenas o token de acesso.
+      - texto: No cache do React Query.
+        correta: true
+        explicacao: Dados que pertencem à API são estado do servidor.
+    - enunciado: O que acontece com o estado quando um reducer lança uma exceção?
+      alternativas:
+      - texto: O estado anterior permanece, e a exceção chega a quem chamou `dispatch`.
+        correta: true
+        explicacao: O console mostrou o ramo `auth` igual ao de antes do `login` com token expirado.
+      - texto: O estado volta ao inicial.
+        correta: false
+        explicacao: O store não reinicia o estado diante de uma exceção.
+      - texto: O Redux ignora a exceção e aplica a ação.
+        correta: false
+        explicacao: A exceção interrompe o reducer antes das atribuições.
+    - enunciado: No laboratório, por que o teste da densidade roda antes da implementação?
+      alternativas:
+      - texto: Porque o TypeScript exige o teste antes do tipo.
+        correta: false
+        explicacao: O TypeScript não impõe ordem entre teste e implementação.
+      - texto: Para confirmar que o teste falha pela ausência do campo e, portanto, verifica o comportamento novo.
+        correta: true
+        explicacao: A falha `expected undefined to be 'confortavel'` mostrou que o teste lê o campo que ainda não existia.
+      - texto: Para gerar o código da fatia automaticamente.
+        correta: false
+        explicacao: O Vitest executa testes e não gera código.
+    - enunciado: Que configuração do `queryClient` o teste de caracterização protege?
+      alternativas:
+      - texto: 'O `retry: 1`.'
+        correta: false
+        explicacao: Os testes usam funções que não falham, por isso não exercitam a nova tentativa.
+      - texto: O `refetchOnWindowFocus`.
+        correta: false
+        explicacao: Os testes não simulam foco de janela.
+      - texto: O `staleTime` de 5 minutos, que evita nova chamada à API dentro desse prazo.
+        correta: true
+        explicacao: 'Com `staleTime: 0`, o primeiro teste registrou duas chamadas no lugar de uma.'
+    - enunciado: Onde gerar o identificador aleatório de uma notificação para manter o reducer conforme o guia de estilo do Redux?
+      alternativas:
+      - texto: No `prepare` da ação, antes de o reducer receber o payload.
+        correta: true
+        explicacao: O `prepare` monta o payload da ação, e o reducer só copia o valor recebido.
+      - texto: No próprio reducer, com `crypto.randomUUID()`.
+        correta: false
+        explicacao: É o que o código atual faz, e o guia proíbe valores aleatórios no reducer.
+      - texto: No `configureStore`.
+        correta: false
+        explicacao: O `configureStore` monta o store e não cria ações.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A diferença entre estado do cliente, estado do servidor e estado local está clara.
+    - O teste da densidade falhou antes da implementação e passou depois.
+    - 'Os testes do `queryClient` passaram e falharam com `staleTime: 0`.'
+    - A suíte completa terminou com 102 testes aprovados e o `staleTime` restaurado.
+    - Os efeitos colaterais nos reducers e a fronteira da ADR-003 foram identificados.

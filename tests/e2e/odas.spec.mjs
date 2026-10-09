@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -49,6 +49,40 @@ test('oda-02: lint acusa a violação depois do passo 3 e volta a passar no pass
   await campo.fill('npm run lint');
   await campo.press('Enter');
   await expect(tela).not.toContainText('boundaries/dependencies');
+});
+
+test('oda-03: o teste da densidade falha depois do passo 2 e passa depois do passo 4', async ({ page }) => {
+  await page.goto('/oda-03/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async () => { await campo.fill('npx vitest run src/shared/lib/store'); await campo.press('Enter'); };
+  await rodar();
+  await expect(tela).toContainText('Tests  7 passed (7)');
+  await painel.getByLabel('Passo 2 concluído').check();
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar();
+  await expect(tela).toContainText('Tests  1 failed | 7 passed (8)');
+  await painel.getByLabel('Passo 4 concluído').check();
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar();
+  await expect(tela).toContainText('Tests  8 passed (8)');
+});
+
+test('oda-03: o logout limpa o ramo auth e mantém o ramo ui', async ({ page }) => {
+  await page.goto('/oda-03/#simulacao');
+  const painel = page.locator('#painel-simulacao');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await campo.fill(comando); await campo.press('Enter'); };
+  await rodar('store.dispatch(login({ token: TOKEN }))');
+  await rodar('store.dispatch(toggleSidebar())');
+  await rodar('store.dispatch(logout())');
+  await painel.getByRole('button', { name: 'Limpar' }).click();
+  await rodar('store.getState().auth');
+  await expect(tela).toContainText('"isAuthenticated": false');
+  await rodar('store.getState().ui');
+  await expect(tela).toContainText('"sidebarOpen": false');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {
@@ -133,11 +167,11 @@ test('página mestre leva a cada ODA disponível e cada ODA volta ao catálogo',
 });
 
 test('o aluno não vê etiquetas internas de origem, só a marca de saída ilustrativa', async ({ page }) => {
+  await page.goto('/oda-00/#missao');
+  const missao = page.locator('#painel-missao');
+  await missao.locator('.terminal__cenarios button').first().click();
+  await expect(missao.locator('.terminal__tela')).toContainText('saída ilustrativa');
   for (const oda of ODAS) {
-    await page.goto(`/${oda}/#missao`);
-    const missao = page.locator('#painel-missao');
-    await missao.locator('.terminal__cenarios button').first().click();
-    await expect(missao.locator('.terminal__tela')).toContainText('saída ilustrativa');
     for (const aba of ABAS) {
       await page.goto(`/${oda}/#${aba}`);
       const texto = await page.locator(`#painel-${aba}`).innerText();
