@@ -1,0 +1,525 @@
+id: '00'
+titulo: Ambiente e mapa do repositório
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: Antes de estudar cada decisão de arquitetura, é preciso ter a plataforma rodando e saber onde fica cada peça. Nesta ODA, o shell, os microfrontends e o LocalStack sobem na sua máquina, e a rota `/endereco` carrega um microfrontend publicado no S3 local.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Identificar a responsabilidade de cada pasta de primeiro nível do `frontend-react`.
+    - Executar o deploy dos microfrontends no LocalStack e subir o shell em modo de desenvolvimento.
+    - Distinguir o shell, os microfrontends, o LocalStack, o Gateway e os BFFs pela porta e pela forma de subir.
+    - Diagnosticar as falhas de ambiente mais comuns pela mensagem do console do navegador.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: São necessários Node 20 ou superior, versão usada na esteira de CI do repositório, npm, Git e Docker com o comando `docker compose`. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
+  - tipo: terminal
+    titulo: terminal · verificação do ambiente
+    comandos:
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão 20 ou superior atende.
+    - entrada: docker compose version
+      saida: Docker Compose version 5.1.4
+      origem: exemplo
+      dica: O deploy usa `docker compose` para subir o LocalStack quando ele não está no ar.
+    cenarios:
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Docker Compose
+      comando: docker compose version
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: O repositório reúne o shell, dois microfrontends, um Gateway e dois BFFs, cada um com o próprio `package.json`. Clique nas pastas para ver a responsabilidade de cada uma.
+  - tipo: arvores
+    esquerda:
+      titulo: Raiz do repositório
+      nos:
+      - caminho: src/
+        descricao: 'Shell nuclear: SPA em React que autentica, monta o layout e carrega os microfrontends.'
+      - caminho: mfes/
+        descricao: Microfrontends autônomos, cada um com build e deploy próprios.
+      - caminho: mfes/endereco/
+        descricao: Microfrontend de alteração de endereço, carregado na rota `/endereco`.
+      - caminho: mfes/emprestimo/
+        descricao: Microfrontend de simulação de empréstimo, que depende do de endereço no manifesto.
+      - caminho: gateway/
+        descricao: Gateway de API em Hono, porta única de entrada do back-end.
+      - caminho: bffs/
+        descricao: BFFs por domínio, chamados apenas pelo Gateway.
+      - caminho: infra/
+        descricao: '`docker-compose.yml` com o LocalStack e com o Gateway e os BFFs.'
+      - caminho: public/
+        descricao: Arquivos servidos pelo shell, entre eles o manifesto `mfe-manifest.json`.
+      - caminho: scripts/
+        descricao: Script de deploy da raiz, que publica todos os microfrontends.
+      - caminho: docs/architecture/
+        descricao: Diagramas C4, mapa de módulos e ADRs.
+    direita:
+      titulo: Dentro do shell (src/)
+      nos:
+      - caminho: src/app/
+        descricao: Inicialização, providers, roteamento e layout.
+      - caminho: src/app/mfe/
+        descricao: 'Motor de microfrontends: manifesto, carga do bundle, montagem e isolamento de falhas.'
+      - caminho: src/pages/
+        descricao: Telas próprias do shell, como login e painel.
+      - caminho: src/features/
+        descricao: Funcionalidades de negócio, como a chamada de login.
+      - caminho: src/shared/
+        descricao: 'Infraestrutura comum: cliente HTTP, autenticação, estado e configuração.'
+      - caminho: src/mocks/
+        descricao: Back-end simulado com MSW, ativado em modo de desenvolvimento.
+  - tipo: comparativo
+    colunas:
+    - Porta
+    - Como sobe
+    - Papel
+    linhas:
+    - dimensao: Shell
+      valores:
+      - '5173'
+      - '`npm run dev` na raiz'
+      - Interface do usuário e carga dos microfrontends
+    - dimensao: Microfrontends
+      valores:
+      - servidos pelo LocalStack em 4566
+      - '`npm run deploy` na raiz'
+      - Bundles ESM carregados nas rotas `/endereco` e `/emprestimos`
+    - dimensao: LocalStack
+      valores:
+      - '4566'
+      - '`docker compose -f infra/docker-compose.yml up -d`, ou pelo próprio deploy'
+      - S3 local que guarda os bundles
+    - dimensao: Gateway
+      valores:
+      - '4000'
+      - '`npm run dev` em `gateway/`'
+      - Autentica o JWT e encaminha ao BFF
+    - dimensao: BFFs
+      valores:
+      - 4001 e 4002
+      - '`npm run dev` em cada pasta de `bffs/`'
+      - Adaptam o back-end para cada microfrontend
+  - tipo: conceito
+    titulo: Shell nuclear e microfrontends
+    texto: O shell é um núcleo estável que cuida de login, layout e roteamento, e os microfrontends entram e saem sem recompilar o shell. Em desenvolvimento, as chamadas de API do shell caem no back-end simulado do MSW, e os microfrontends são baixados do S3 local.
+    analogia: O shell funciona como o prédio de um shopping, e os microfrontends funcionam como as lojas, que abrem e fecham sem obra na estrutura do prédio.
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Fluxo
+    titulo: O que acontece entre o clone e a rota /endereco
+    mermaid: "flowchart LR\n    A[npm run deploy] --> B{LocalStack no ar?}\n    B -->|não| C[docker compose up -d]\n    B -->|sim| D[build de cada MFE]\n    C --> D\n    D --> E[upload no bucket do MFE]\n    E --> F[confere HTTP 200]\n    F --> G[atualiza integrity no manifesto]\n    G --> H[npm run dev]\n    H --> I[login e rota /endereco]\n    I --> J[shell baixa e monta o bundle]"
+  - tipo: adr
+    id: ADR-011
+    titulo: Build independente e deploy de MFEs em S3 (LocalStack)
+    status: Proposed
+    contexto: Cada microfrontend é um bundle ESM carregado em tempo de execução, e faltava definir como ele é construído, onde fica hospedado e como é publicado.
+    decisao: Build em Vite lib mode e hospedagem num bucket S3 por microfrontend, com LocalStack em desenvolvimento, num repositório único com uma pasta por microfrontend para fins didáticos.
+    alternativas: Um repositório isolado por microfrontend, recomendado pela ADR para produção.
+    consequencias: O deploy da raiz calcula o SHA-256 do bundle, confirma HTTP 200 no bucket e atualiza o campo `integrity` do manifesto, e bundle e manifesto precisam ser promovidos juntos.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo são do commit `2179313`. Clique nos marcadores numerados para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: package.json
+    commit: '2179313'
+    linhas:
+    - '  "scripts": {'
+    - '    "dev": "vite",'
+    - '    "build": "tsc -b && vite build",'
+    - '    "deploy": "node --experimental-strip-types scripts/deploy.ts",'
+    - '    "preview": "vite preview",'
+    - '    "type-check": "tsc --noEmit",'
+    - '    "lint": "eslint src/",'
+    - '    "lint:css": "stylelint ''src/**/*.css''",'
+    - '    "test": "vitest run",'
+    - '    "test:watch": "vitest",'
+    - '    "test:coverage": "vitest run --coverage",'
+    - '    "bench": "vitest bench --run",'
+    - '    "test:e2e": "playwright test --project=chromium",'
+    - '    "test:e2e:ui": "playwright test --ui",'
+    - '    "test:perf": "playwright test --project=perf"'
+    - '  },'
+    anotacoes:
+    - linha: 7
+      texto: Sobe o shell em modo de desenvolvimento, na porta 5173.
+    - linha: 9
+      texto: Publica todos os microfrontends no LocalStack. O Node executa o TypeScript diretamente.
+    - linha: 12
+      texto: Confere as fronteiras entre camadas, assunto da ODA 02.
+    inicio: 6
+  - tipo: editor
+    rotulo: arquivo
+    caminho: infra/docker-compose.yml
+    commit: '2179313'
+    linhas:
+    - 'services:'
+    - '  localstack:'
+    - '    image: localstack/localstack:3'
+    - '    ports:'
+    - '      - "4566:4566"'
+    - '    environment:'
+    - '      - SERVICES=s3'
+    - '      - DEBUG=0'
+    - '    volumes:'
+    - '      - "./.localstack:/var/lib/localstack"'
+    anotacoes:
+    - linha: 3
+      texto: Imagem do LocalStack que emula o S3 na porta 4566.
+    - linha: 7
+      texto: Só o S3 é ativado, porque os bundles são o único uso do LocalStack nesta plataforma.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scripts/deploy.ts
+    commit: '2179313'
+    linhas:
+    - const MFES = [
+    - '  // endereco primeiro: emprestimo declara dependsOn: ["endereco"] no manifesto.'
+    - '  { id: ''endereco'', dir: ''mfes/endereco'', bucket: ''mfe-endereco'', file: ''endereco.js'' },'
+    - '  { id: ''emprestimo'', dir: ''mfes/emprestimo'', bucket: ''mfe-emprestimo'', file: ''emprestimo.js'' },'
+    - ']'
+    anotacoes:
+    - linha: 19
+      texto: 'A ordem respeita a dependência declarada no manifesto: `emprestimo` depende de `endereco`.'
+    inicio: 18
+  - tipo: editor
+    rotulo: arquivo
+    caminho: public/mfe-manifest.json
+    commit: '2179313'
+    linhas:
+    - '{'
+    - '  "schemaVersion": 1,'
+    - '  "mfes": ['
+    - '    {'
+    - '      "id": "endereco",'
+    - '      "name": "Alteração de Endereço",'
+    - '      "state": "active",'
+    - '      "url": "http://localhost:4566/mfe-endereco/endereco.js",'
+    - '      "integrity": "sha256-SygiadgW+MYQQUTdBHhLPTyZy9/RpfDmESrQSdyr6Qo=",'
+    - '      "route": "/endereco",'
+    - '      "dependsOn": []'
+    - '    },'
+    - '    {'
+    - '      "id": "emprestimo",'
+    - '      "name": "Simulação de Empréstimo",'
+    - '      "state": "active",'
+    - '      "url": "http://localhost:4566/mfe-emprestimo/emprestimo.js",'
+    - '      "integrity": "sha256-riuE71dIgkSNVQ8xufyyCjctyNU9G7DJ6oYHb22eL0c=",'
+    - '      "route": "/emprestimos",'
+    - '      "dependsOn": ["endereco"]'
+    - '    }'
+    - '  ]'
+    - '}'
+    anotacoes:
+    - linha: 8
+      texto: O bundle é baixado do bucket `mfe-endereco` no LocalStack.
+    - linha: 9
+      texto: Hash do bundle publicado. O deploy reescreve este valor a cada build.
+  - tipo: faixa
+    estilo: dica
+    texto: Depois do `npm run deploy`, o `git status` mostra `public/mfe-manifest.json` modificado, porque o hash dos bundles recém-compilados difere do hash registrado no commit.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Percorra o que o `npm run deploy` faz, etapa por etapa, e depois localize cada peça do repositório. As saídas abaixo seguem a execução real do laboratório.
+  - tipo: fluxo
+    titulo: O que o npm run deploy faz
+    etapas:
+    - titulo: Verificar o LocalStack
+      descricao: O script consulta `/_localstack/health` e, sem resposta, sobe o compose.
+      codigo:
+        arquivo: scripts/deploy.ts
+        commit: '2179313'
+        linhas:
+        - console.log('LocalStack fora do ar — subindo via docker compose…')
+        - run(`docker compose -f ${COMPOSE_FILE} up -d`)
+        destaque:
+        - 2
+    - titulo: Compilar cada microfrontend
+      descricao: Para cada item da lista, o script instala as dependências quando faltam e roda o build em Vite lib mode, que gera um único arquivo ESM em `dist/`.
+    - titulo: Publicar no bucket
+      descricao: O script de deploy do próprio microfrontend envia o bundle para o bucket correspondente no LocalStack.
+    - titulo: Conferir a publicação
+      descricao: O script baixa o bundle publicado e exige HTTP 200 antes de seguir.
+    - titulo: Atualizar o manifesto
+      descricao: O SHA-256 do bundle vai para o campo `integrity` da entrada do microfrontend em `public/mfe-manifest.json`.
+      codigo:
+        arquivo: scripts/deploy.ts
+        commit: '2179313'
+        linhas:
+        - const integrity = `sha256-${createHash('sha256').update(readFileSync(bundlePath)).digest('base64')}`
+        - entry.integrity = integrity
+        destaque:
+        - 1
+        - 2
+  - tipo: classificador
+    enunciado: Em qual pasta fica cada arquivo?
+    categorias:
+    - id: shell
+      rotulo: src/ (shell)
+    - id: mfe
+      rotulo: mfes/ (microfrontend)
+    - id: borda
+      rotulo: gateway/ ou bffs/
+    - id: infra
+      rotulo: infra/, scripts/ ou public/
+    itens:
+    - texto: Motor que baixa e monta os bundles (`MfeHost.tsx`)
+      categoria: shell
+      explicacao: Fica em `src/app/mfe/`, na camada `app` do shell.
+    - texto: Formulário de CEP e logradouro
+      categoria: mfe
+      explicacao: É o microfrontend de endereço, em `mfes/endereco/`.
+    - texto: Validação do JWT antes de chamar o back-end
+      categoria: borda
+      explicacao: Fica no Gateway, em `gateway/src/auth.ts`.
+    - texto: Lista de microfrontends com URL e hash
+      categoria: infra
+      explicacao: É o `public/mfe-manifest.json`, servido pelo shell.
+    - texto: Definição do contêiner do LocalStack
+      categoria: infra
+      explicacao: Fica em `infra/docker-compose.yml`.
+    - texto: Back-end simulado do login
+      categoria: shell
+      explicacao: Fica em `src/mocks/`, ativado pelo shell em desenvolvimento.
+    - texto: Adaptação do contrato legado de empréstimo
+      categoria: borda
+      explicacao: É o BFF de empréstimo, em `bffs/emprestimo/`.
+  - tipo: terminal
+    titulo: terminal · deploy e shell
+    comandos:
+    - entrada: npm run deploy
+      saida: "LocalStack fora do ar — subindo via docker compose…\n✓ LocalStack pronto em http://localhost:4566\n▶ mfes/endereco\n✅ deploy: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ publicado e validado: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ manifesto atualizado: endereco → sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=\n▶ mfes/emprestimo\n✅ deploy: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ publicado e validado: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ manifesto atualizado: emprestimo → sha256-JipnXLXX2ZObIxBYmjNzsLy5W2WvXcShNJ9T30xMDi0=\n✅ deploy concluído: 2 MFEs publicados em http://localhost:4566"
+      origem: executado
+    - entrada: npm run dev
+      saida: "  VITE v8.1.4  ready in 887 ms\n  ➜  Local:   http://localhost:5173/"
+      origem: executado
+    cenarios:
+    - rotulo: Publicar os microfrontends
+      comando: npm run deploy
+    - rotulo: Subir o shell
+      comando: npm run dev
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no seu computador. O terminal simulado abaixo reproduz os comandos com as saídas esperadas no commit de referência.
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório e instalar as dependências do shell
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+        - git checkout 2179313
+        - npm ci
+    - titulo: Publicar os microfrontends no LocalStack
+      texto: Com o Docker em execução, rode o deploy da raiz. Na primeira vez, ele sobe o compose e constrói as imagens do Gateway e dos BFFs.
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run deploy
+      sucesso: 'A última linha `✅ deploy concluído: 2 MFEs publicados em http://localhost:4566`.'
+    - titulo: Conferir o manifesto modificado
+      editor:
+        rotulo: terminal
+        linhas:
+        - git status --short
+      sucesso: A linha ` M public/mfe-manifest.json`, com os hashes dos bundles recém-compilados.
+    - titulo: Subir o shell
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run dev
+      sucesso: '`VITE ... ready` e o endereço `http://localhost:5173/`.'
+    - titulo: Entrar no portal
+      texto: Abra `http://localhost:5173/`, que redireciona para `/login`, e entre com o usuário de teste do back-end simulado.
+      editor:
+        rotulo: saida
+        origem: codigo
+        linhas:
+        - 'E-mail: usuario@teste.com'
+        - 'Senha:  senha123'
+      sucesso: O painel em `/dashboard`, com o menu Início, Alteração de Endereço e Simulação de Empréstimo.
+    - titulo: Abrir o microfrontend de endereço
+      texto: Clique em Alteração de Endereço no menu.
+      sucesso: O formulário com CEP `01001000`, logradouro `Praça da Sé` e número `1`, e nenhum erro no console do navegador.
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git clone https://github.com/arkhibr/frontend-react
+      saida: Cloning into 'frontend-react'...
+      origem: exemplo
+    - entrada: cd frontend-react
+      saida: ''
+      origem: exemplo
+    - entrada: git checkout 2179313
+      saida: ''
+      origem: exemplo
+    - entrada: npm ci
+      saida: ''
+      origem: exemplo
+      dica: A instalação usa as versões registradas em `package-lock.json`.
+    - entrada: npm run deploy
+      saida: "LocalStack fora do ar — subindo via docker compose…\n✓ LocalStack pronto em http://localhost:4566\n▶ mfes/endereco\n✅ deploy: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ publicado e validado: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ manifesto atualizado: endereco → sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=\n▶ mfes/emprestimo\n✅ deploy: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ publicado e validado: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ manifesto atualizado: emprestimo → sha256-JipnXLXX2ZObIxBYmjNzsLy5W2WvXcShNJ9T30xMDi0=\n✅ deploy concluído: 2 MFEs publicados em http://localhost:4566"
+      origem: executado
+    - entrada: git status --short
+      saida: ' M public/mfe-manifest.json'
+      origem: executado
+    - entrada: npm run dev
+      saida: "  VITE v8.1.4  ready in 887 ms\n  ➜  Local:   http://localhost:5173/"
+      origem: executado
+    cenarios:
+    - rotulo: Publicar os microfrontends
+      comando: npm run deploy
+    - rotulo: Ver o manifesto modificado
+      comando: git status --short
+    - rotulo: Subir o shell
+      comando: npm run dev
+  - tipo: faixa
+    estilo: erro
+    sintoma: Depois de reiniciar o Docker ou o LocalStack, a rota `/endereco` mostra que o módulo está indisponível.
+    causa: O compose não ativa a persistência do LocalStack, e os buckets com os bundles se perdem a cada reinício.
+    correcao: Rodar `npm run deploy` de novo, que recria os buckets e atualiza o manifesto.
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: A tela mostra a mesma mensagem nos três incidentes abaixo, e o console do navegador é que diferencia a causa. Escolha a causa de cada um para ver a explicação e a correção.
+  - tipo: incidente
+    titulo: Módulo indisponível depois de desfazer alterações
+    origem: executado
+    rotulo_saida: log
+    saida: "tela: O módulo Alteração de Endereço está indisponível no momento.\nconsole: error: [mfe] falha ao carregar \"Alteração de Endereço\": Error: [mfe] integridade do bundle inválida\n    at verifyBundleIntegrity (http://localhost:5173/src/app/mfe/loadMfeModule.ts:16:34)"
+    pergunta: O deploy foi feito e, em seguida, o `public/mfe-manifest.json` foi restaurado com `git checkout`. Qual é a causa?
+    correcao: Rodar `npm run deploy` de novo, para que o manifesto receba o hash do bundle publicado.
+    alternativas:
+    - texto: O usuário não fez login.
+      correta: false
+      explicacao: Sem login, o roteador levaria para `/login` antes de tentar montar o microfrontend.
+    - texto: O hash do manifesto voltou ao valor do commit e não corresponde mais ao bundle publicado.
+      correta: true
+      explicacao: O shell recalcula o SHA-256 do bundle baixado e recusa a montagem quando ele difere do `integrity`.
+    - texto: O LocalStack está fora do ar.
+      correta: false
+      explicacao: Com o LocalStack fora do ar, o erro seria `Failed to fetch`, e não de integridade.
+  - tipo: incidente
+    titulo: Módulo indisponível com o shell no ar
+    origem: executado
+    rotulo_saida: log
+    saida: "tela: O módulo Alteração de Endereço está indisponível no momento.\nconsole: error: Failed to load resource: net::ERR_FAILED\nconsole: error: [mfe] falha ao carregar \"Alteração de Endereço\": TypeError: Failed to fetch\n    at loadMfeModule (http://localhost:5173/src/app/mfe/loadMfeModule.ts:20:25)"
+    pergunta: O shell carregou normalmente, mas o microfrontend não. Qual é a causa?
+    correcao: Subir o LocalStack com `docker compose -f infra/docker-compose.yml up -d` e rodar `npm run deploy` de novo.
+    alternativas:
+    - texto: O hash do bundle está errado.
+      correta: false
+      explicacao: A verificação de hash só acontece depois que o bundle é baixado.
+    - texto: O microfrontend lançou uma exceção ao montar.
+      correta: false
+      explicacao: A falha aconteceu em `loadMfeModule`, antes da montagem.
+    - texto: O bundle não pôde ser baixado, porque o LocalStack, que serve os buckets na porta 4566, está parado.
+      correta: true
+      explicacao: '`Failed to fetch` indica que a requisição do bundle não obteve resposta.'
+  - tipo: incidente
+    titulo: Bucket inexistente depois de reiniciar o LocalStack
+    origem: executado
+    rotulo_saida: log
+    saida: 'GET http://localhost:4566/_localstack/health -> 200
+
+      GET http://localhost:4566/mfe-endereco/endereco.js -> 404
+
+      <Error><Code>NoSuchBucket</Code><Message>The specified bucket does not exist</Message>...<BucketName>mfe-endereco</BucketName></Error>'
+    pergunta: O LocalStack responde ao health check, mas o bundle não existe mais. Por quê?
+    correcao: Rodar `npm run deploy` depois de cada reinício do LocalStack.
+    alternativas:
+    - texto: O LocalStack do compose não guarda os dados entre reinícios, e os buckets precisam ser recriados.
+      correta: true
+      explicacao: O `infra/docker-compose.yml` não ativa a persistência, então cada reinício começa com o S3 vazio.
+    - texto: O nome do bucket mudou no manifesto.
+      correta: false
+      explicacao: O manifesto continua apontando para `mfe-endereco`, que deixou de existir.
+    - texto: O Gateway bloqueou o download.
+      correta: false
+      explicacao: O bundle é baixado direto do LocalStack, sem passar pelo Gateway.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Onde fica o código que baixa e monta os microfrontends?
+      alternativas:
+      - texto: Em `gateway/`.
+        correta: false
+        explicacao: O Gateway atende chamadas de API, e não o download dos bundles.
+      - texto: Em `src/app/mfe/`, no shell.
+        correta: true
+        explicacao: O motor de microfrontends fica na camada `app` do shell.
+      - texto: Em `mfes/endereco/`.
+        correta: false
+        explicacao: Essa pasta contém um microfrontend, e não o motor que carrega os microfrontends.
+    - enunciado: Por que o `public/mfe-manifest.json` aparece modificado depois do `npm run deploy`?
+      alternativas:
+      - texto: O deploy adiciona novos microfrontends ao manifesto.
+        correta: false
+        explicacao: O deploy só atualiza o hash das entradas existentes.
+      - texto: O Vite reformata todos os arquivos JSON.
+        correta: false
+        explicacao: A alteração vem do script de deploy, e não do Vite.
+      - texto: O deploy grava no campo `integrity` o SHA-256 dos bundles que acabou de publicar.
+        correta: true
+        explicacao: A ADR-011 vincula o manifesto ao artefato efetivamente publicado.
+    - enunciado: Qual peça responde na porta 4566?
+      alternativas:
+      - texto: O LocalStack, que emula o S3 com os bundles.
+        correta: true
+        explicacao: É a porta declarada no `infra/docker-compose.yml` e usada nas URLs do manifesto.
+      - texto: O shell em modo de desenvolvimento.
+        correta: false
+        explicacao: O shell responde na porta 5173.
+      - texto: O Gateway de API.
+        correta: false
+        explicacao: O Gateway usa a porta 4000.
+    - enunciado: A tela mostra o módulo indisponível e o console registra `integridade do bundle inválida`. O que fazer?
+      alternativas:
+      - texto: Apagar a pasta `node_modules`.
+        correta: false
+        explicacao: As dependências não participam da verificação de integridade.
+      - texto: Rodar `npm run deploy` de novo, para alinhar o manifesto ao bundle publicado.
+        correta: true
+        explicacao: O deploy recalcula o hash e atualiza o manifesto.
+      - texto: Reiniciar o navegador.
+        correta: false
+        explicacao: O hash divergente continua no manifesto depois do reinício.
+    - enunciado: Por que o login funciona sem nenhum back-end rodando?
+      alternativas:
+      - texto: O Gateway aceita qualquer senha em desenvolvimento.
+        correta: false
+        explicacao: O shell em desenvolvimento não chama o Gateway para o login.
+      - texto: O login fica gravado no LocalStack.
+        correta: false
+        explicacao: O LocalStack guarda apenas os bundles.
+      - texto: Em desenvolvimento, o shell ativa o back-end simulado do MSW, que responde ao login de teste.
+        correta: true
+        explicacao: Os handlers ficam em `src/mocks/` e aceitam o usuário `usuario@teste.com`.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O deploy publicou os dois microfrontends no LocalStack.
+    - O shell subiu em `http://localhost:5173/`.
+    - O login de teste levou ao painel.
+    - A rota `/endereco` mostrou o formulário do microfrontend.
+    - As três falhas de ambiente estão claras.

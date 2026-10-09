@@ -1,0 +1,571 @@
+id: '01'
+titulo: Ler a arquitetura com C4 e ADRs
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: A documentação de arquitetura do `frontend-react` reúne diagramas C4 e 17 ADRs. Nesta ODA, o aluno aprende a ler esses artefatos e confere no código e no terminal o caminho de uma requisição entre os containers.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Interpretar os níveis de contexto e de containers do modelo C4 aplicados ao portal.
+    - Localizar a ADR que responde a cada pergunta de projeto.
+    - Rastrear uma requisição do cliente ao Gateway e do Gateway ao BFF no diagrama e no código.
+    - Identificar divergências entre a documentação e o código do repositório.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 00, com o repositório clonado no commit `2179313` e as dependências instaladas. O laboratório também usa `curl`, disponível no terminal do macOS e do Linux e no Windows 10 ou superior.
+  - tipo: terminal
+    titulo: terminal · verificação do ambiente
+    comandos:
+    - entrada: curl --version
+      saida: curl 8.7.1 (x86_64-apple-darwin26.0) libcurl/8.7.1 (SecureTransport) LibreSSL/3.3.6 zlib/1.2.12 nghttp2/1.69.0
+      origem: exemplo
+      dica: Qualquer versão do curl atende.
+    cenarios:
+    - rotulo: Verificar o curl
+      comando: curl --version
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'O modelo C4 descreve um sistema em quatro níveis de zoom, e as ADRs registram por que cada escolha foi feita. Os dois artefatos se completam: o diagrama mostra o que existe, e a ADR explica a razão.'
+  - tipo: comparativo
+    colunas:
+    - O que mostra
+    - Onde está no repositório
+    linhas:
+    - dimensao: Nível 1 · Contexto
+      valores:
+      - O sistema, os usuários e os sistemas externos
+      - '`docs/architecture/README.md`, seção Diagrama de Contexto'
+    - dimensao: Nível 2 · Containers
+      valores:
+      - Aplicações e armazenamentos que se comunicam pela rede
+      - '`docs/architecture/README.md`, seção Diagrama de Containers'
+    - dimensao: Nível 3 · Componentes
+      valores:
+      - Módulos internos de um container
+      - Mapa de Módulos do mesmo README e os README de cada pasta
+    - dimensao: Nível 4 · Código
+      valores:
+      - Classes, funções e arquivos
+      - O próprio código-fonte
+    - dimensao: ADR
+      valores:
+      - Contexto, opções avaliadas, decisão e consequências
+      - '`docs/architecture/adrs/`, com o status no índice do README'
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: C4 · Containers
+    titulo: Diagrama de containers do portal (docs/architecture/README.md)
+    mermaid: "graph LR\n    user([\"\U0001F464 Usuário\"])\n\n    subgraph infra[\"Infraestrutura de produção\"]\n        nginx[\"Nginx\\nservidor HTTP estático\"]\n        shell[\"Shell nuclear\\nReact 19 + TypeScript\\nexecutado no navegador\"]\n        mfe[\"MFE autônomo\\nbundle ESM (ex: endereço)\"]\n    end\n\n    subgraph storage[\"Object storage (S3 / LocalStack)\"]\n        manifest[\"mfe-manifest.json\"]\n        bundle[\"bundles dos MFEs\\n(um bucket por MFE)\"]\n    end\n\n    gateway[\"Gateway\\nJWT · auditoria · rate limit\"]\n    bff[\"BFFs internos\\ncontrato + autorização\"]\n\n    user -->|\"HTTPS\"| nginx\n    nginx -->|\"HTML + JS + CSS\"| shell\n    shell -->|\"fetch manifesto\"| manifest\n    shell -->|\"fetch + SHA-256 + import Blob\"| bundle\n    bundle -->|\"monta na rota\"| mfe\n    shell -->|\"HTTPS + Bearer JWT\"| gateway\n    mfe -->|\"HTTPS + Bearer JWT\"| gateway\n    gateway -->|\"identidade interna\"| bff"
+  - tipo: conceito
+    titulo: Como ler uma ADR
+    texto: 'Toda ADR do repositório segue a mesma ordem: contexto e problema, opções consideradas, decisão e consequências. O índice em `docs/architecture/README.md` mostra o status de cada uma, e no commit de referência todas estão como Proposed.'
+    analogia: O diagrama funciona como a planta de uma casa, e a ADR funciona como o memorial que explica por que a escada ficou naquela parede.
+  - tipo: adr
+    id: ADR-001
+    titulo: Tática de plataforma tecnológica
+    status: Proposed
+    contexto: O projeto precisava de uma plataforma front-end moderna com TypeScript e ecossistema maduro, e a equipe já tinha experiência com React.
+    decisao: Adotar React 19, TypeScript e Vite como plataforma principal.
+    alternativas: Vue 3 com TypeScript e Vite, descartado pela falta de experiência da equipe, e não adotar plataforma alguma.
+    consequencias: Estrutura, estado e roteamento exigem decisões adicionais, registradas nas ADR-002 e ADR-003, e o Vite determina as ferramentas de teste.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, o caminho de uma requisição entre os containers Gateway e BFF. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/app.ts
+    commit: '2179313'
+    linhas:
+    - 'export function createApp(config: GatewayConfig): Hono<GatewayEnv> {'
+    - '  const app = new Hono<GatewayEnv>()'
+    - ''
+    - '  app.use(correlationId)'
+    - '  app.use(cors({ origin: config.corsOrigin }))'
+    - '  app.use(createAuthentication(config.auth))'
+    - '  app.use(createAuditLog(config.auditLogPath, config.bffs))'
+    - ''
+    - '  const { global, mutating } = createRateLimiters(config.rateLimit)'
+    - '  app.use(global)'
+    - '  app.use(mutating)'
+    - ''
+    - '  app.all(''*'', createProxyRouter(config.bffs, config.internalGatewayKey))'
+    - ''
+    - '  return app'
+    - '}'
+    anotacoes:
+    - linha: 14
+      texto: 'Primeiro passo de toda requisição: recebe ou cria o identificador de correlação.'
+    - linha: 16
+      texto: Valida o JWT e recusa a requisição com 401 quando o token falta ou é inválido.
+    - linha: 23
+      texto: 'Último passo: encaminha a requisição ao BFF indicado no caminho.'
+    inicio: 11
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/proxy.ts
+    commit: '2179313'
+    linhas:
+    - ''
+    - '    const headers = new Headers(c.req.raw.headers)'
+    - '    headers.delete(''authorization'')'
+    - '    headers.delete(''host'')'
+    - '    const auth = c.get(''auth'')'
+    - '    headers.set(''X-Correlation-Id'', c.get(''correlationId'') ?? ''unknown'')'
+    - '    headers.set(''X-Internal-Gateway-Key'', internalGatewayKey)'
+    - '    headers.set(''X-Authenticated-Subject'', auth.sub)'
+    - '    headers.set(''X-Authenticated-Roles'', auth.roles.join('',''))'
+    - ''
+    anotacoes:
+    - linha: 22
+      texto: O JWT do usuário não segue para o BFF.
+    - linha: 26
+      texto: Chave que prova ao BFF que a chamada veio do Gateway.
+    - linha: 27
+      texto: Identidade do usuário, extraída do JWT pelo Gateway.
+    inicio: 20
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/endereco/src/auth.ts
+    commit: '2179313'
+    linhas:
+    - 'export function createInternalAuthentication(internalGatewayKey: string): MiddlewareHandler<BffEnv> {'
+    - '  return async (c, next) => {'
+    - '    const sub = c.req.header(''x-authenticated-subject'')'
+    - '    if (!keysMatch(c.req.header(''x-internal-gateway-key''), internalGatewayKey) ||'
+    - '      !sub || !/^[A-Za-z0-9._:@-]{1,128}$/.test(sub)) {'
+    - '      return c.json({ error: ''unauthorized'', message: ''Requisição interna não autenticada.'' }, 401)'
+    - '    }'
+    - '    c.set(''auth'', { sub })'
+    - '    await next()'
+    - '  }'
+    - '}'
+    anotacoes:
+    - linha: 15
+      texto: O BFF só aceita chamadas com a chave interna e com o sujeito autenticado.
+    - linha: 17
+      texto: Resposta para chamadas que não vieram do Gateway.
+    inicio: 12
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/loadManifest.ts
+    commit: '2179313'
+    linhas:
+    - 'export async function loadManifest(): Promise<MfeManifest> {'
+    - '  const res = await fetch(''/mfe-manifest.json'')'
+    - '  if (!res.ok) throw new Error(`[mfe-manifest] falha ao carregar manifesto: HTTP ${res.status}`)'
+    anotacoes:
+    - linha: 6
+      texto: O shell busca o manifesto na própria origem, servido a partir de `public/`.
+    inicio: 5
+  - tipo: faixa
+    estilo: dica
+    texto: O diagrama de containers mostra a identidade interna entre Gateway e BFF numa única seta, e o código revela os três cabeçalhos que compõem essa identidade.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Percorra o caminho de uma requisição autenticada pelo Gateway e depois envie requisições pelo console. As respostas foram obtidas com o Gateway e o BFF de endereço rodando localmente.
+  - tipo: fluxo
+    titulo: Caminho de uma requisição até o BFF de endereço
+    etapas:
+    - titulo: Correlação
+      descricao: O Gateway aceita o `X-Correlation-Id` recebido ou cria um novo e o devolve no cabeçalho da resposta.
+      codigo:
+        arquivo: gateway/src/correlationId.ts
+        commit: '2179313'
+        linhas:
+        - 'const id = incoming && /^[A-Za-z0-9_-]{1,128}$/.test(incoming) ? incoming : randomUUID()'
+        - c.header('X-Correlation-Id', id)
+        destaque:
+        - 1
+        - 2
+    - titulo: Autenticação
+      descricao: 'O Gateway exige `Authorization: Bearer` e valida emissor, público e assinatura do JWT.'
+      codigo:
+        arquivo: gateway/src/auth.ts
+        commit: '2179313'
+        linhas:
+        - const match = authorization?.match(/^Bearer ([A-Za-z0-9._~-]+)$/)
+        - if (!match) {
+        - '  return c.json({ error: ''unauthorized'', message: ''Token Bearer ausente ou inválido.'' }, 401)'
+        - '}'
+        destaque:
+        - 3
+    - titulo: Auditoria e limite de taxa
+      descricao: Com o usuário autenticado, a requisição passa pelo registro de auditoria e pelos limites de taxa global e de escrita.
+    - titulo: Repasse ao BFF
+      descricao: O proxy troca o JWT pela chave interna e pela identidade do usuário e chama o BFF pelo nome do caminho `/bff/<nome>`.
+      codigo:
+        arquivo: gateway/src/proxy.ts
+        commit: '2179313'
+        linhas:
+        - headers.delete('authorization')
+        - headers.set('X-Internal-Gateway-Key', internalGatewayKey)
+        - headers.set('X-Authenticated-Subject', auth.sub)
+        destaque:
+        - 2
+        - 3
+    - titulo: Validação no BFF
+      descricao: O BFF confere a chave interna e o sujeito antes de responder com o endereço.
+  - tipo: console-api
+    cenarios:
+    - rotulo: Gateway sem token
+      requisicao:
+        metodo: GET
+        url: http://localhost:4000/bff/endereco/usuario/endereco
+      resposta:
+        status: 401
+        corpo:
+          error: unauthorized
+          message: Token Bearer ausente ou inválido.
+      origem: executado
+      nota: A resposta traz o cabeçalho `x-correlation-id`, criado pelo Gateway antes da autenticação.
+    - rotulo: BFF direto, sem a chave interna
+      requisicao:
+        metodo: GET
+        url: http://localhost:4002/usuario/endereco
+      resposta:
+        status: 401
+        corpo:
+          error: unauthorized
+          message: Requisição interna não autenticada.
+      origem: executado
+      nota: O BFF recusa qualquer chamada que não traga a chave interna do Gateway.
+    - rotulo: BFF direto, com os cabeçalhos do Gateway
+      requisicao:
+        metodo: GET
+        url: http://localhost:4002/usuario/endereco
+        cabecalhos:
+          X-Internal-Gateway-Key: local-development-gateway-key
+          X-Authenticated-Subject: usuario-teste
+      resposta:
+        status: 200
+        corpo:
+          cep: '01001000'
+          logradouro: Praça da Sé
+          numero: '1'
+      origem: executado
+      nota: São os cabeçalhos que o proxy do Gateway acrescenta antes de chamar o BFF.
+  - tipo: classificador
+    enunciado: Qual ADR responde a cada pergunta de projeto?
+    categorias:
+    - id: adr001
+      rotulo: ADR-001
+    - id: adr003
+      rotulo: ADR-003
+    - id: adr007
+      rotulo: ADR-007
+    - id: adr010
+      rotulo: ADR-010
+    - id: adr011
+      rotulo: ADR-011
+    - id: adr012
+      rotulo: ADR-012
+    - id: adr015
+      rotulo: ADR-015
+    itens:
+    - texto: Por que React, e não Vue?
+      categoria: adr001
+      explicacao: A ADR-001 compara React e Vue e registra a experiência da equipe como critério.
+    - texto: Como o estado global é gerenciado?
+      categoria: adr003
+      explicacao: A ADR-003 trata do gerenciamento de estado.
+    - texto: Como impedir que `shared` importe de `features`?
+      categoria: adr007
+      explicacao: A ADR-007 adota o `eslint-plugin-boundaries`.
+    - texto: Como o shell descobre quais microfrontends existem e em que ordem carregá-los?
+      categoria: adr010
+      explicacao: A ADR-010 trata do manifesto e da resolução de dependências.
+    - texto: Onde os bundles dos microfrontends ficam hospedados?
+      categoria: adr011
+      explicacao: A ADR-011 decide por um bucket S3 por microfrontend, com LocalStack em desenvolvimento.
+    - texto: Como reduzir o risco de script injetado na página?
+      categoria: adr012
+      explicacao: A ADR-012 adota Content Security Policy estrito.
+    - texto: Por que o microfrontend não chama o back-end legado diretamente?
+      categoria: adr015
+      explicacao: A ADR-015 coloca um Gateway com BFFs entre os microfrontends e o back-end.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 3 percorrem a documentação, e os passos 4 a 7 conferem no terminal o que o diagrama de containers descreve.
+  - tipo: passos
+    itens:
+    - titulo: Abrir o diagrama de containers
+      texto: Abra `docs/architecture/README.md` e localize a seção Diagrama de Containers. Identifique as setas entre o shell, o Gateway e os BFFs.
+    - titulo: Listar as ADRs
+      editor:
+        rotulo: terminal
+        linhas:
+        - ls docs/architecture/adrs
+      sucesso: 17 arquivos, de `ADR-001-plataforma-tecnologica.md` a `ADR-017-contrato-de-tipos-mfe-bff-hono-rpc.md`.
+    - titulo: Consultar o status no índice
+      editor:
+        rotulo: terminal
+        linhas:
+        - grep -E '^\| \[ADR-0(01|07|11|15)\]' docs/architecture/README.md
+      sucesso: Quatro linhas do índice, todas com o status `Proposed`.
+    - titulo: Subir o BFF de endereço
+      texto: Num terminal separado, instale as dependências e suba o BFF com a chave interna usada no compose.
+      editor:
+        rotulo: terminal
+        linhas:
+        - cd bffs/endereco
+        - npm ci
+        - INTERNAL_GATEWAY_KEY=local-development-gateway-key npm run dev
+      sucesso: '`BFF-endereco ouvindo em http://localhost:4002`.'
+    - titulo: Subir o Gateway
+      texto: Em outro terminal, suba o Gateway com o segredo de desenvolvimento do JWT e a mesma chave interna. No PowerShell, defina as variáveis com `$env:NOME="valor"` antes de `npm run dev`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - cd gateway
+        - npm ci
+        - JWT_SHARED_SECRET=local-development-jwt-secret INTERNAL_GATEWAY_KEY=local-development-gateway-key npm run dev
+      sucesso: '`Gateway ouvindo em http://localhost:4000`.'
+    - titulo: Chamar o Gateway sem token
+      editor:
+        rotulo: terminal
+        linhas:
+        - curl -i http://localhost:4000/bff/endereco/usuario/endereco
+      sucesso: '`401 Unauthorized`, com `x-correlation-id` e a mensagem `Token Bearer ausente ou inválido.`'
+    - titulo: Chamar o BFF diretamente
+      editor:
+        rotulo: terminal
+        linhas:
+        - curl -i http://localhost:4002/usuario/endereco
+        - 'curl -i -H "X-Internal-Gateway-Key: local-development-gateway-key" -H "X-Authenticated-Subject: usuario-teste" http://localhost:4002/usuario/endereco'
+      sucesso: '`401` na primeira chamada e `200` com o endereço na segunda.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: ls docs/architecture/adrs
+      saida: 'ADR-001-plataforma-tecnologica.md
+
+        ADR-002-modularizacao.md
+
+        ADR-003-gerenciamento-de-estado.md
+
+        ADR-004-autenticacao.md
+
+        ADR-005-testes.md
+
+        ADR-006-conteinizacao.md
+
+        ADR-007-imposicao-fronteiras-arquiteturais.md
+
+        ADR-008-microfrontends-dinamicos.md
+
+        ADR-009-contrato-mount-unmount.md
+
+        ADR-010-manifesto-e-dependencias.md
+
+        ADR-011-deploy-s3-localstack.md
+
+        ADR-012-content-security-policy.md
+
+        ADR-013-trusted-types-e-reporting.md
+
+        ADR-014-css-e-contrato-visual-em-microfrontends.md
+
+        ADR-015-gateway-api-e-bff.md
+
+        ADR-016-hono-gateway-e-bffs.md
+
+        ADR-017-contrato-de-tipos-mfe-bff-hono-rpc.md'
+      origem: executado
+    - entrada: grep -E '^\| \[ADR-0(01|07|11|15)\]' docs/architecture/README.md
+      saida: '| [ADR-001](adrs/ADR-001-plataforma-tecnologica.md) | Tática de plataforma tecnológica | Proposed |
+
+        | [ADR-007](adrs/ADR-007-imposicao-fronteiras-arquiteturais.md) | Tática de imposição de fronteiras arquiteturais | Proposed |
+
+        | [ADR-011](adrs/ADR-011-deploy-s3-localstack.md) | Build independente e deploy de MFEs em S3 (LocalStack) | Proposed |
+
+        | [ADR-015](adrs/ADR-015-gateway-api-e-bff.md) | **Gateway de API com BFFs** | Proposed |'
+      origem: executado
+    - entrada: curl -i http://localhost:4000/bff/endereco/usuario/endereco
+      saida: 'HTTP/1.1 401 Unauthorized
+
+        x-correlation-id: 4d4a8692-5e1d-4399-93b1-50c078a7d083
+
+
+        {"error":"unauthorized","message":"Token Bearer ausente ou inválido."}'
+      origem: executado
+    - entrada: curl -i http://localhost:4002/usuario/endereco
+      saida: 'HTTP/1.1 401 Unauthorized
+
+
+        {"error":"unauthorized","message":"Requisição interna não autenticada."}'
+      origem: executado
+    - entrada: 'curl -i -H "X-Internal-Gateway-Key: local-development-gateway-key" -H "X-Authenticated-Subject: usuario-teste" http://localhost:4002/usuario/endereco'
+      saida: 'HTTP/1.1 200 OK
+
+
+        {"cep":"01001000","logradouro":"Praça da Sé","numero":"1"}'
+      origem: executado
+    cenarios:
+    - rotulo: Gateway sem token
+      comando: curl -i http://localhost:4000/bff/endereco/usuario/endereco
+    - rotulo: BFF sem a chave
+      comando: curl -i http://localhost:4002/usuario/endereco
+    - rotulo: BFF com os cabeçalhos
+      comando: 'curl -i -H "X-Internal-Gateway-Key: local-development-gateway-key" -H "X-Authenticated-Subject: usuario-teste" http://localhost:4002/usuario/endereco'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os dois primeiros incidentes mostram respostas reais do laboratório. Os dois últimos mostram divergências entre a documentação e o código, que um leitor atento precisa saber identificar.
+  - tipo: incidente
+    titulo: Quem respondeu 401?
+    origem: executado
+    rotulo_saida: log
+    saida: 'HTTP/1.1 401 Unauthorized
+
+      x-correlation-id: 4d4a8692-5e1d-4399-93b1-50c078a7d083
+
+
+      {"error":"unauthorized","message":"Token Bearer ausente ou inválido."}'
+    pergunta: Qual container produziu esta resposta?
+    correcao: 'Enviar o JWT no cabeçalho `Authorization: Bearer <token>`.'
+    alternativas:
+    - texto: O shell.
+      correta: false
+      explicacao: O shell roda no navegador e não responde a chamadas HTTP.
+    - texto: O Gateway, que recusou a requisição sem token antes de chamar o BFF.
+      correta: true
+      explicacao: A mensagem `Token Bearer ausente ou inválido.` vem de `gateway/src/auth.ts`, e o `x-correlation-id` foi criado pelo Gateway.
+    - texto: O BFF de endereço.
+      correta: false
+      explicacao: O BFF responde com `Requisição interna não autenticada.`
+  - tipo: incidente
+    titulo: Chamada recusada pelo BFF
+    origem: executado
+    rotulo_saida: log
+    saida: 'HTTP/1.1 401 Unauthorized
+
+
+      {"error":"unauthorized","message":"Requisição interna não autenticada."}'
+    pergunta: Por que o BFF recusou a chamada?
+    correcao: Chamar o back-end sempre pelo Gateway, que acrescenta a chave interna e a identidade do usuário.
+    alternativas:
+    - texto: O JWT expirou.
+      correta: false
+      explicacao: O BFF não lê JWT, porque o Gateway remove o cabeçalho `Authorization`.
+    - texto: O endereço não existe.
+      correta: false
+      explicacao: Endereço inexistente geraria 404, e não 401.
+    - texto: A chamada não trouxe a chave interna nem o sujeito autenticado, que só o Gateway acrescenta.
+      correta: true
+      explicacao: O `bffs/endereco/src/auth.ts` exige `X-Internal-Gateway-Key` e `X-Authenticated-Subject`.
+  - tipo: incidente
+    titulo: Manifesto no lugar errado do diagrama
+    origem: codigo
+    rotulo_saida: log
+    saida: "docs/architecture/README.md · Diagrama de Containers\n  subgraph storage[\"Object storage (S3 / LocalStack)\"]\n      manifest[\"mfe-manifest.json\"]\n\nsrc/app/mfe/loadManifest.ts:6\n  const res = await fetch('/mfe-manifest.json')"
+    pergunta: O diagrama coloca o manifesto no armazenamento de objetos. O que o código mostra?
+    correcao: Tratar o código como fonte da verdade e registrar a divergência para correção do diagrama.
+    alternativas:
+    - texto: O shell busca o manifesto na própria origem, servido a partir de `public/`, e não no S3.
+      correta: true
+      explicacao: O caminho relativo `/mfe-manifest.json` aponta para o servidor do shell, que é o Vite em desenvolvimento e o Nginx em produção.
+    - texto: O shell busca o manifesto no LocalStack, na porta 4566.
+      correta: false
+      explicacao: Apenas os bundles têm URL do LocalStack, declarada no próprio manifesto.
+    - texto: O manifesto é embutido no bundle do shell durante o build.
+      correta: false
+      explicacao: O `fetch` acontece em tempo de execução, no boot do shell.
+  - tipo: incidente
+    titulo: Contagem de ADRs desatualizada
+    origem: codigo
+    rotulo_saida: log
+    saida: "README.md:5  ... mapa de módulos e as 15 ADRs (Architecture Decision Record ...)\n\n$ ls docs/architecture/adrs | wc -l\n      17"
+    pergunta: O README raiz cita 15 ADRs, e a pasta tem 17. Qual é a leitura correta?
+    correcao: Consultar o índice de `docs/architecture/README.md`, que lista as 17 ADRs com status.
+    alternativas:
+    - texto: A pasta tem arquivos duplicados.
+      correta: false
+      explicacao: Os 17 arquivos têm números e títulos diferentes.
+    - texto: As ADR-016 e ADR-017 foram acrescentadas depois, e o texto do README raiz não acompanhou.
+      correta: true
+      explicacao: O índice em `docs/architecture/README.md` já lista as 17 ADRs.
+    - texto: Duas ADRs foram revogadas e continuam na pasta.
+      correta: false
+      explicacao: O índice mostra as 17 com status `Proposed`, sem revogação.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Qual nível do C4 mostra o shell, o Gateway, os BFFs e o armazenamento como peças que se comunicam pela rede?
+      alternativas:
+      - texto: Contexto.
+        correta: false
+        explicacao: O nível 1 mostra o sistema como uma caixa só, com usuários e sistemas externos.
+      - texto: Código.
+        correta: false
+        explicacao: O nível 4 mostra classes e arquivos.
+      - texto: Containers.
+        correta: true
+        explicacao: O nível 2 mostra aplicações e armazenamentos e as comunicações entre eles.
+    - enunciado: Onde se confirma o status de uma ADR no repositório?
+      alternativas:
+      - texto: No índice de ADRs em `docs/architecture/README.md`.
+        correta: true
+        explicacao: O índice tem a coluna de status de cada ADR.
+      - texto: No nome do arquivo da ADR.
+        correta: false
+        explicacao: O nome traz número e título, sem status.
+      - texto: No `package.json`.
+        correta: false
+        explicacao: O `package.json` não registra decisões de arquitetura.
+    - enunciado: Que cabeçalho prova ao BFF que a chamada veio do Gateway?
+      alternativas:
+      - texto: '`X-Correlation-Id`.'
+        correta: false
+        explicacao: A correlação serve para rastrear a requisição, e não para autenticá-la.
+      - texto: '`X-Internal-Gateway-Key`.'
+        correta: true
+        explicacao: O BFF compara a chave recebida com a configurada, em tempo constante.
+      - texto: '`Authorization`.'
+        correta: false
+        explicacao: O Gateway remove o JWT antes de chamar o BFF.
+    - enunciado: Qual ADR explica por que os bundles ficam num bucket S3 por microfrontend?
+      alternativas:
+      - texto: ADR-001.
+        correta: false
+        explicacao: A ADR-001 trata da plataforma React, TypeScript e Vite.
+      - texto: ADR-015.
+        correta: false
+        explicacao: A ADR-015 trata do Gateway e dos BFFs.
+      - texto: ADR-011.
+        correta: true
+        explicacao: A ADR-011 decide o build em Vite lib mode e a hospedagem em S3.
+    - enunciado: O diagrama e o código divergem sobre um detalhe. O que deve prevalecer?
+      alternativas:
+      - texto: O código, e a divergência deve ser registrada para correção da documentação.
+        correta: true
+        explicacao: O código descreve o comportamento real, e o diagrama precisa acompanhá-lo.
+      - texto: O diagrama, porque foi aprovado em ADR.
+        correta: false
+        explicacao: O diagrama não é uma ADR, e as ADRs do repositório estão como Proposed.
+      - texto: Nenhum dos dois até uma reunião de arquitetura.
+        correta: false
+        explicacao: O comportamento em produção é o do código, independentemente da reunião.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - Os quatro níveis do C4 estão claros.
+    - As ADRs foram listadas e o status foi conferido no índice.
+    - O Gateway respondeu 401 sem token.
+    - O BFF recusou a chamada sem a chave interna e respondeu com os cabeçalhos do Gateway.
+    - As duas divergências entre documentação e código foram identificadas.

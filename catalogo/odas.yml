@@ -21,7 +21,8 @@ odas:
     minutos: 60
     pre_requisitos: []
     objetivo: "Preparar o ambiente local e localizar a responsabilidade de cada pasta do repositório."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-00
   - id: "01"
     titulo: "Ler a arquitetura com C4 e ADRs"
     trilha: 1
@@ -30,7 +31,8 @@ odas:
     minutos: 45
     pre_requisitos: ["00"]
     objetivo: "Interpretar os diagramas C4 e localizar a ADR que responde a cada pergunta de projeto."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-01
   - id: "02"
     titulo: "Feature-Sliced Design e fronteiras impostas pelo ESLint"
     trilha: 2

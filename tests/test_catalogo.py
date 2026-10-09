@@ -103,7 +103,10 @@ class TestValidacao(unittest.TestCase):
         self.assertIn("ODA 00: situação planejada não admite o campo app.", self.erros(c))
 
     def test_disponiveis_do_catalogo_real(self):
-        self.assertEqual(sorted(o["app"] for o in CATALOGO["odas"] if o["situacao"] == "disponivel"), ["oda-02", "oda-20", "oda-30"])
+        disponiveis = [o for o in CATALOGO["odas"] if o["situacao"] == "disponivel"]
+        self.assertTrue(disponiveis)
+        for oda in disponiveis:
+            self.assertEqual(oda["app"], f"oda-{oda['id']}")
 
     def test_campos_obrigatorios(self):
         c = copy.deepcopy(minimo())

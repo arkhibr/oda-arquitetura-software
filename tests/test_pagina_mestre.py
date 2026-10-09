@@ -25,7 +25,8 @@ class TestPaginaMestre(unittest.TestCase):
 
     def test_planejada_sem_link(self):
         self.assertIn('data-situacao="planejada"', self.html)
-        self.assertNotIn('href="oda-00', self.html)
+        planejada = next(o for o in CATALOGO["odas"] if o["situacao"] == "planejada")
+        self.assertNotIn(f'href="oda-{planejada["id"]}', self.html)
 
     def test_disponivel_com_link_relativo(self):
         catalogo = {**CATALOGO, "odas": [dict(o) for o in CATALOGO["odas"]]}

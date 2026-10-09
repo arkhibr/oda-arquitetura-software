@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-02', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
