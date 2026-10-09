@@ -185,6 +185,10 @@ O terminal reproduz as três execuções do laboratório, com as saídas obtidas
 
 O laboratório exige .NET SDK 10.0.103 ou superior, Git e um Docker em execução que exponha o socket em `/var/run/docker.sock`, como o Docker Desktop. Em Windows com Docker Engine no WSL2, o repositório traz o guia `docs/docker-engine-wsl2-windows.md`.
 
+!!! warning "Laboratório não verificado"
+
+    Os passos abaixo não foram executados exatamente como estão escritos. O ambiente de produção desta ODA usava Colima, que não expõe `/var/run/docker.sock`, e o commit de referência falhou na subida do LocalStack, como descrito em "Erros comuns". Os resultados citados nos passos 2 a 7 foram obtidos numa cópia do repositório com a linha `.WithBindMount("/var/run/docker.sock", ...)` retirada de `src/AppHost/Program.cs`, alteração que não afeta os cenários de mensageria, porque eles não usam Lambda.
+
 1. Clone o repositório e posicione-o no commit de referência.
 
     ```bash
@@ -193,7 +197,7 @@ O laboratório exige .NET SDK 10.0.103 ou superior, Git e um Docker em execuçã
     git checkout 50a5344
     ```
 
-2. Execute os quatro cenários de mensageria, um de cada vez. Os resultados esperados no commit de referência são 4 testes aprovados no cenário 02, 3 no cenário 04, 1 no cenário 09 e 1 no cenário 10. A primeira execução também baixa as imagens do LocalStack e do PostgreSQL.
+2. Execute os quatro cenários de mensageria, um de cada vez. Os resultados esperados são 4 testes aprovados no cenário 02, 3 no cenário 04, 1 no cenário 09 e 1 no cenário 10. A primeira execução também baixa as imagens do LocalStack e do PostgreSQL.
 
     ```bash
     dotnet test scenarios/02-SQS.Basic/
@@ -243,7 +247,7 @@ O laboratório exige .NET SDK 10.0.103 ou superior, Git e um Docker em execuçã
 
 ## Decisão arquitetural
 
-!!! abstract "ADR-003 — Tática de simulação de serviços AWS"
+!!! abstract "ADR-003 — Tática de simulação de serviços AWS (status Proposed)"
 
     **Contexto:** os testes precisam interagir com vários serviços AWS, e o uso da AWS real em testes automatizados implica custo, credenciais e estado persistente entre execuções.
 
@@ -253,7 +257,7 @@ O laboratório exige .NET SDK 10.0.103 ou superior, Git e um Docker em execuçã
 
     **Consequências:** os cenários rodam sem custo e sem credenciais em Linux e na esteira, enquanto Lambda em macOS ARM64 e Step Functions na edição Community ficam marcados como limitações documentadas, com os cenários afetados ignorados.
 
-!!! abstract "ADR-004 — Tática de isolamento entre cenários de teste"
+!!! abstract "ADR-004 — Tática de isolamento entre cenários de teste (status Proposed)"
 
     **Contexto:** dezesseis projetos de teste independentes compartilham a porta 4566, e dois cenários em paralelo tentariam subir dois contêineres LocalStack na mesma porta.
 

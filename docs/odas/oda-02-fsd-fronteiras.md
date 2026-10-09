@@ -165,7 +165,7 @@ O laboratório usa o repositório no commit de referência e exige Node 24 e npm
 
 ## Decisão arquitetural
 
-!!! abstract "ADR-007 — Tática de imposição de fronteiras arquiteturais"
+!!! abstract "ADR-007 — Tática de imposição de fronteiras arquiteturais (status Proposed)"
 
     **Contexto:** o FSD, adotado na ADR-002, define regras explícitas de dependência entre camadas, e sem verificação automatizada essas regras ficam como convenção documentada que se degrada sob pressão de entrega.
 
@@ -175,7 +175,7 @@ O laboratório usa o repositório no commit de referência e exige Node 24 e npm
 
     **Consequências:** os erros de fronteira aparecem no editor, quando o ESLint está integrado, e obrigatoriamente na esteira de CI, e todo novo módulo precisa ser registrado em `boundaries/elements`, enquanto a camada `mocks` mantém permissão especial para importar de `shared`, `entities` e `features`.
 
-A escolha do FSD em si está registrada na ADR-002, que compara a metodologia com a organização por tipo técnico e aceita a curva de aprendizado inicial em troca de dependências unidirecionais verificadas automaticamente.
+O índice de ADRs em `docs/architecture/README.md` registra a ADR-007 e a ADR-002 com status Proposed. A escolha do FSD em si está registrada na ADR-002, que compara a metodologia com a organização por tipo técnico e aceita a curva de aprendizado inicial em troca de dependências unidirecionais verificadas automaticamente.
 
 ## Verificação
 

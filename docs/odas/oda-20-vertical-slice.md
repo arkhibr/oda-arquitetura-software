@@ -156,7 +156,7 @@ builder.Services.AddScoped<CancelPedidoHandler>();
 
 ## Simulador
 
-O passo a passo acompanha uma requisição `POST /api/v1/pedidos/{id}/cancelar` desde a inicialização da API até a resposta.
+O primeiro passo a passo acompanha uma requisição `POST /api/v1/pedidos/{id}/cancelar` em Pedidos, desde a inicialização da API até a resposta.
 
 <div data-oda="passo-a-passo">
 <script type="application/json">
@@ -173,6 +173,27 @@ O passo a passo acompanha uma requisição `POST /api/v1/pedidos/{id}/cancelar` 
   "codigo": {"arquivo": "src/Pedidos/CancelPedido/CancelPedidoCommand.cs", "linhas": ["var resultado = pedido.Cancelar(cmd.Motivo);", "if (!resultado.IsSuccess)", "    return Result<PedidoResponse>.Fail(resultado.Error!);", "", "await repository.SaveChangesAsync(ct);"], "destaque": [1, 5]}},
  {"titulo": "Tradução em resposta HTTP", "descricao": "O endpoint converte a falha em 404 ou 400 conforme a mensagem e devolve 200 com o pedido quando a operação tem sucesso.",
   "codigo": {"arquivo": "src/Pedidos/CancelPedido/CancelPedidoEndpoint.cs", "linhas": ["if (!result.IsSuccess)", "{", "    return result.Error!.Contains(\"não encontrado\", StringComparison.OrdinalIgnoreCase)", "        ? Results.NotFound(new { error = result.Error })", "        : Results.BadRequest(new { error = result.Error });", "}", "return Results.Ok(result.Value);"], "destaque": [3, 4, 5, 7]}}
+]}
+</script>
+</div>
+
+O segundo passo a passo acompanha uma requisição `POST /api/v1/catalogo/produtos` no Catálogo, que atravessa as quatro camadas da Clean Architecture.
+
+<div data-oda="passo-a-passo">
+<script type="application/json">
+{"etapas": [
+ {"titulo": "Registro dos serviços", "descricao": "`AddCatalogo` registra a interface do serviço de aplicação e as duas implementações de repositório, uma de escrita com EF Core e outra de leitura com Dapper.",
+  "codigo": {"arquivo": "src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs", "linhas": ["services.AddScoped<IProdutoService, ProdutoService>();", "services.AddScoped<IProdutoQueryRepository, DapperProdutoQueryRepository>();", "services.AddScoped<IProdutoCommandRepository, EfProdutoCommandRepository>();"], "destaque": [1, 3]}},
+ {"titulo": "Mapeamento da rota", "descricao": "Em `Program.cs`, o grupo `/api/v1/catalogo` recebe as rotas de produto, e `ProdutoEndpoints` associa o `POST` ao método `CriarProduto`.",
+  "codigo": {"arquivo": "src/Catalogo/Catalogo.API/Endpoints/Produtos/ProdutoEndpoints.cs", "linhas": ["var group = catalogoGroup.MapGroup(\"/produtos\")", "    .WithTags(\"Catálogo - Produtos\");", "", "group.MapPost(\"/\", CriarProduto).WithName(\"CriarProduto\")"], "destaque": [1, 4]}},
+ {"titulo": "Validação na camada de API", "descricao": "O endpoint valida a requisição com FluentValidation e responde 422 quando há erro de entrada, antes de chamar a aplicação.",
+  "codigo": {"arquivo": "src/Catalogo/Catalogo.API/Endpoints/Produtos/ProdutoEndpoints.cs", "linhas": ["var validation = await validator.ValidateAsync(request);", "if (!validation.IsValid)", "    return Results.UnprocessableEntity(new ErrorResponse"], "destaque": [1, 3]}},
+ {"titulo": "Regra no domínio", "descricao": "O serviço de aplicação cria a entidade pelo método de fábrica `Produto.Criar`, e uma falha de domínio vira exceção, tratada pelo middleware global.",
+  "codigo": {"arquivo": "src/Catalogo/Catalogo.Application/Services/ProdutoService.cs", "linhas": ["var resultado = Produto.Criar(", "    request.Nome, request.Descricao, request.Preco,", "    request.Categoria, request.Estoque, request.ContatoEmail);", "if (!resultado.IsSuccess) throw new InvalidOperationException(resultado.Error);"], "destaque": [1, 4]}},
+ {"titulo": "Persistência na infraestrutura", "descricao": "O serviço grava a entidade pela interface de escrita, implementada com EF Core na camada Infrastructure.",
+  "codigo": {"arquivo": "src/Catalogo/Catalogo.Application/Services/ProdutoService.cs", "linhas": ["var produto = await _commandRepo.AdicionarAsync(resultado.Value!);", "_logger.LogInformation(\"Produto criado. ID: {ProductId}\", produto.Id);", "return _mapper.Map<ProdutoResponse>(produto);"], "destaque": [1]}},
+ {"titulo": "Resposta HTTP", "descricao": "O endpoint devolve 201 com o endereço do novo recurso e o DTO montado pelo AutoMapper.",
+  "codigo": {"arquivo": "src/Catalogo/Catalogo.API/Endpoints/Produtos/ProdutoEndpoints.cs", "linhas": ["var produto = await service.CriarProdutoAsync(request);", "return Results.Created($\"/api/v1/catalogo/produtos/{produto.Id}\", produto);"], "destaque": [2]}}
 ]}
 </script>
 </div>
@@ -220,7 +241,7 @@ O classificador associa arquivos reais do repositório ao padrão que os organiz
 
 ## Laboratório
 
-O laboratório cria o caso de uso de confirmação de pedido. O agregado `Pedido` já tem o método `Confirmar()`, com três regras (somente pedido em rascunho, ao menos um item e valor mínimo de R$ 10,00), mas o repositório não tem a fatia que expõe essa operação pela API. São necessários o .NET SDK 10.0.103 ou superior e o Git.
+O laboratório cria o caso de uso de confirmação de pedido. O agregado `Pedido` já tem o método `Confirmar()`, com três regras (somente pedido em rascunho, ao menos um item e valor mínimo de R$ 10,00), mas o repositório não tem a fatia que expõe essa operação pela API. São necessários o .NET 10 SDK, como indica o README do repositório, e o Git.
 
 1. Clone o repositório e posicione-o no commit de referência.
 
@@ -406,12 +427,12 @@ A fatia nova tocou apenas a pasta `ConfirmarPedido`, o arquivo de teste e duas l
 | --- | --- | --- |
 | Todas as chamadas ao novo endpoint retornam 400 com corpo vazio, sem exceção na inicialização. | O handler não foi registrado com `AddScoped`. Pela regra de precedência da Minimal API, um parâmetro cujo tipo não é serviço registrado é lido do corpo da requisição, e a ausência de corpo produz 400. | Registrar o handler em `Program.cs`, como no passo 7. |
 | Um teste que espera 400 passa mesmo com a fatia quebrada. | O teste confere apenas o código de status, e o 400 vem de outro motivo, como a vinculação descrita acima. | Conferir também a mensagem de domínio no corpo da resposta, como no terceiro teste do laboratório. |
-| O endpoint responde 404 a uma chamada sem token, em vez de 401. | A linha `.RequireAuthorization()` foi omitida, e o endpoint passa a executar sem autenticação. O comportamento foi observado no commit de referência, com 401 quando a linha está presente. | Manter `.RequireAuthorization()` em todo endpoint de Pedidos, como nas fatias existentes. |
+| Uma chamada sem token é executada pelo endpoint, em vez de receber 401. | A linha `.RequireAuthorization()` foi omitida, e o endpoint passa a executar sem autenticação. No commit de referência, uma chamada sem token para um pedido inexistente recebeu 401 com a linha presente e 404 sem ela. | Manter `.RequireAuthorization()` em todo endpoint de Pedidos, como nas fatias existentes. |
 | Os testes de `tests/Pedidos.Tests/Endpoints/` passam, mas não detectam erro nenhum na API. | No commit de referência, esses testes atribuem o código de status a uma variável e conferem a própria variável, sem chamar a API, e descrevem `PATCH` com 204, 409 e 422, enquanto o endpoint real é `POST` com 200, 400 ou 404. | Usar como modelo os testes de `tests/ProdutosAPI.Tests/Integration/Pedidos/`, que chamam a API em memória com `ApiFactory`. |
 
 ## Decisão arquitetural
 
-!!! abstract "ADR-0001 — Coexistência de Clean Architecture e Vertical Slice Architecture"
+!!! abstract "ADR-0001 — Coexistência de Clean Architecture e Vertical Slice Architecture (status accepted)"
 
     **Contexto:** os engenheiros lidam com domínios de complexidade variada, alguns com regras simples e alta taxa de mudança, outros com regras complexas e necessidade de testabilidade isolada, e o projeto precisava escolher o padrão de base.
 
@@ -421,7 +442,7 @@ A fatia nova tocou apenas a pasta `ConfirmarPedido`, o arquivo de teste e duas l
 
     **Consequências:** a comparação dos padrões em contexto real é o ganho principal, enquanto a carga cognitiva para novos contribuidores aumenta e regras compartilhadas, como validação e autenticação, precisam funcionar com as duas organizações de código.
 
-!!! abstract "ADR-0011 — Arquitetura híbrida no Catálogo"
+!!! abstract "ADR-0011 — Arquitetura híbrida no Catálogo (status accepted)"
 
     **Contexto:** o Catálogo passou a ter cinco recursos com regras de domínio ricas, e a estrutura plana anterior não escalava para essa complexidade.
 
