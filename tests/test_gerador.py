@@ -88,6 +88,47 @@ class TestValidacao(unittest.TestCase):
         d["abas"][4]["blocos"].append({"tipo": "passos", "itens": [{"titulo": "t", "editor": {"rotulo": "arquivo", "caminho": "a", "linhas": ["x"]}}]})
         self.assertIn("laboratorio[1].passo 1: editor de arquivo exige caminho e commit.", self.erros(d))
 
+    def test_validacoes_aninhadas(self):
+        casos = [
+            (3, {"tipo": "classificador", "categorias": [{"id": "a", "rotulo": "A"}], "itens": [{"texto": "t", "categoria": "x", "explicacao": "e"}]},
+             "simulacao[1]: item 1 do classificador usa categoria inexistente: x."),
+            (4, {"tipo": "terminal", "comandos": [{"entrada": "ls", "saida": "", "origem": "exemplo"}], "cenarios": [{"rotulo": "r", "comando": "pwd"}]},
+             "laboratorio[1]: cenário 1 do terminal usa comando não declarado: pwd."),
+            (2, {"tipo": "editor", "rotulo": "terminal", "linhas": ["a"], "anotacoes": [{"linha": 9, "texto": "x"}]},
+             "codigo[1]: anotação na linha 9 fora do trecho exibido."),
+            (2, {"tipo": "editor", "rotulo": "terminal", "linhas": ["a", "b"], "anotacoes": [{"linha": 1, "texto": "x"}, {"linha": 1, "texto": "y"}]},
+             "codigo[1]: duas anotações na linha 1."),
+            (2, {"tipo": "editor", "rotulo": "terminal", "linhas": "abc"},
+             "codigo[1]: editor exige linhas como lista de textos."),
+            (4, {"tipo": "terminal", "comandos": [{"entrada": "ls", "saida": "", "origem": "exemplo", "condicao": "fantasma"}]},
+             "laboratorio[1]: condição usa estado que nenhum efeito define: fantasma."),
+            (6, {"tipo": "quiz", "perguntas": [{"alternativas": [{"texto": "a", "correta": True, "explicacao": "x"}, {"texto": "b", "correta": False, "explicacao": "y"}]}]},
+             "verificacao[2]: pergunta 1 exige enunciado."),
+            (1, {"tipo": "arvores", "esquerda": {"titulo": "E", "nos": [{"descricao": "d"}]}, "direita": {"titulo": "D", "nos": []}},
+             "conceito[1]: nó 1 da árvore esquerda exige caminho e descricao."),
+            (3, {"tipo": "fluxo", "titulo": "F", "etapas": [{"titulo": "t"}]},
+             "simulacao[1]: etapa 1 exige titulo e descricao."),
+            (5, {"tipo": "incidente", "titulo": "t", "saida": ["x"], "origem": "executado", "pergunta": "p", "correcao": "c",
+                 "alternativas": [{"texto": "a", "correta": True, "explicacao": "x"}, {"texto": "b", "correta": False, "explicacao": "y"}]},
+             "diagnostico[1]: incidente exige saida como texto."),
+            (0, "texto solto", "missao[1]: bloco deve ser um objeto."),
+        ]
+        for aba, bloco, esperado in casos:
+            with self.subTest(esperado=esperado):
+                d = minima()
+                d["abas"][aba]["blocos"].append(bloco)
+                self.assertIn(esperado, validar_oda(d, CATALOGO))
+
+    def test_anotacao_respeita_inicio_do_trecho(self):
+        d = minima()
+        d["abas"][2]["blocos"].append({"tipo": "editor", "rotulo": "arquivo", "caminho": "Program.cs", "commit": "702145a", "inicio": 94, "linhas": ["a", "b"], "anotacoes": [{"linha": 95, "texto": "x"}]})
+        self.assertEqual(validar_oda(d, CATALOGO), [])
+
+    def test_resumo_e_um_bloco_valido(self):
+        d = minima()
+        d["abas"][6]["blocos"].append({"tipo": "resumo"})
+        self.assertEqual(validar_oda(d, CATALOGO), [])
+
 
 class TestGeracao(unittest.TestCase):
     def test_preparar_atribui_ids_e_renomeia(self):

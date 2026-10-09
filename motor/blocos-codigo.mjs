@@ -2,10 +2,13 @@ import { registrarBloco, h, textoRico } from './nucleo.mjs';
 
 const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
 
-export function prepararLinhas(linhas, destaque = [], anotacoes = []) {
+export function prepararLinhas(linhas, destaque = [], anotacoes = [], inicio = 1) {
   const marcadas = new Set(destaque);
   const porLinha = new Map(anotacoes.map((a, i) => [a.linha, i + 1]));
-  return linhas.map((texto, i) => ({ numero: i + 1, texto, destacada: marcadas.has(i + 1), anotacao: porLinha.get(i + 1) ?? null }));
+  return linhas.map((texto, i) => {
+    const numero = inicio + i;
+    return { numero, texto, destacada: marcadas.has(numero), anotacao: porLinha.get(numero) ?? null };
+  });
 }
 
 export function rotuloEditor(b) {
@@ -24,7 +27,7 @@ async function copiar(ctx, texto) {
 registrarBloco('editor', (casca, b, ctx) => {
   const { doc } = ctx;
   const explicacao = h(doc, 'div', { class: 'editor__explicacao', 'aria-live': 'polite', hidden: true });
-  const linhas = prepararLinhas(b.linhas, b.destaque, b.anotacoes).map((l) => h(doc, 'span', { class: `editor__linha${l.destacada ? ' editor__linha--destaque' : ''}` }, [
+  const linhas = prepararLinhas(b.linhas, b.destaque, b.anotacoes, b.inicio ?? 1).map((l) => h(doc, 'span', { class: `editor__linha${l.destacada ? ' editor__linha--destaque' : ''}` }, [
     h(doc, 'span', { class: 'editor__num', 'aria-hidden': 'true', texto: String(l.numero) }),
     h(doc, 'span', { class: 'editor__codigo', texto: l.texto }),
     l.anotacao ? h(doc, 'button', {
@@ -36,7 +39,7 @@ registrarBloco('editor', (casca, b, ctx) => {
       },
     }) : null,
   ]));
-  casca.append(h(doc, 'div', { class: `editor editor--${b.rotulo}` }, [
+  casca.append(h(doc, 'div', { class: `editor editor--${b.rotulo}${b.numeros === false ? ' editor--sem-numeros' : ''}` }, [
     h(doc, 'div', { class: 'editor__barra' }, [
       h(doc, 'span', { class: 'editor__rotulo', texto: rotuloEditor(b) }),
       b.origem ? h(doc, 'span', { class: 'origem', texto: b.origem }) : null,

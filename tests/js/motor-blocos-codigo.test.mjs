@@ -15,3 +15,8 @@ test('rotuloEditor por tipo', () => {
   assert.equal(rotuloEditor({ rotulo: 'terminal' }), 'terminal');
   assert.equal(rotuloEditor({ rotulo: 'arquivo', caminho: 'Program.cs', commit: '702145a' }), 'arquivo · Program.cs @ 702145a');
 });
+
+test('prepararLinhas usa o número real quando há início', () => {
+  const r = prepararLinhas(['a', 'b'], [95], [{ linha: 94, texto: 'x' }], 94);
+  assert.deepEqual(r.map((l) => [l.numero, l.destacada, l.anotacao]), [[94, false, 1], [95, true, null]]);
+});

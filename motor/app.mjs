@@ -17,7 +17,7 @@ export function iniciar(doc, win) {
   const raiz = doc.documentElement;
   raiz.dataset.tema = armazenamento.ler('oda-app:tema', 'escuro') === 'claro' ? 'claro' : 'escuro';
 
-  const ctx = { doc, win, estado, armazenamento, avisar: (t) => avisar(doc, t) };
+  const ctx = { doc, win, estado, armazenamento, abas: dados.abas, avisar: (t) => avisar(doc, t) };
   ctx.renderizarBloco = (bloco) => renderizarBloco(doc, bloco, ctx);
 
   const barra = h(doc, 'ol', { class: 'progresso', 'aria-label': 'Progresso por etapa' });
@@ -100,16 +100,21 @@ export function iniciar(doc, win) {
     raiz.dataset.tema = raiz.dataset.tema === 'claro' ? 'escuro' : 'claro';
     armazenamento.gravar('oda-app:tema', raiz.dataset.tema);
   });
-  botaoFoco.addEventListener('click', () => {
-    const ativo = doc.body.classList.toggle('modo-foco');
+  const sairFoco = h(doc, 'button', { type: 'button', class: 'botao botao--primario sair-foco', texto: 'Sair do foco' });
+  const definirFoco = (ativo) => {
+    doc.body.classList.toggle('modo-foco', ativo);
     botaoFoco.setAttribute('aria-pressed', String(ativo));
-  });
+    if (ativo) sairFoco.focus(); else botaoFoco.focus();
+  };
+  botaoFoco.addEventListener('click', () => definirFoco(true));
+  sairFoco.addEventListener('click', () => definirFoco(false));
+  doc.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && doc.body.classList.contains('modo-foco')) definirFoco(false); });
   win.addEventListener('hashchange', () => mostrar(abaDoHash(win.location.hash, ids)));
 
   ctx.mostrarAba = mostrar;
   ctx.campoBusca = busca;
   estado.assinar(atualizarProgresso);
-  doc.getElementById('app').replaceChildren(cabecalho, lista, principal);
+  doc.getElementById('app').replaceChildren(cabecalho, lista, principal, sairFoco);
   atualizarProgresso();
   mostrar(abaDoHash(win.location.hash, ids));
   montarBusca(ctx, dados);

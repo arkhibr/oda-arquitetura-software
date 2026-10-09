@@ -45,7 +45,7 @@ registrarBloco('fluxo', (casca, b, ctx) => {
     painel.replaceChildren(
       h(doc, 'p', { class: 'fluxo__titulo', texto: `Etapa ${atual + 1} de ${total}: ${e.titulo}` }),
       h(doc, 'p', {}, [textoRico(doc, e.descricao)]),
-      e.codigo ? ctx.renderizarBloco({ tipo: 'editor', id: `${b.id}-e${atual}`, rotulo: 'arquivo', caminho: e.codigo.arquivo, commit: e.codigo.commit, linhas: e.codigo.linhas, destaque: e.codigo.destaque }) : h(doc, 'span'),
+      e.codigo ? ctx.renderizarBloco({ tipo: 'editor', id: `${b.id}-e${atual}`, rotulo: 'arquivo', caminho: e.codigo.arquivo, commit: e.codigo.commit, linhas: e.codigo.linhas, destaque: e.codigo.destaque, inicio: e.codigo.inicio, numeros: e.codigo.inicio !== undefined }) : h(doc, 'span'),
     );
     anterior.disabled = atual === 0;
     proxima.disabled = atual === total - 1;
@@ -129,4 +129,19 @@ registrarBloco('incidente', (casca, b, ctx) => {
     ]),
     correcao,
   ]));
+});
+
+registrarBloco('resumo', (casca, b, ctx) => {
+  const { doc, estado } = ctx;
+  const lista = h(doc, 'ul', { class: 'resumo' });
+  const desenhar = () => lista.replaceChildren(...ctx.abas.map((aba, i) => {
+    const feita = estado.abaConcluida(aba.id);
+    return h(doc, 'li', { class: feita ? 'resumo__item resumo__item--feito' : 'resumo__item' }, [
+      h(doc, 'span', { texto: `${i + 1}. ${aba.titulo}` }),
+      h(doc, 'strong', { texto: feita ? '✓ concluída' : 'pendente' }),
+    ]);
+  }));
+  desenhar();
+  estado.assinar(desenhar);
+  casca.append(h(doc, 'p', { class: 'resumo__titulo', texto: 'Resumo do progresso por etapa' }), lista);
 });

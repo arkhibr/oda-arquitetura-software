@@ -59,3 +59,29 @@ test('tema claro é lembrado', async ({ page }) => {
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-tema', 'claro');
 });
+
+test('modo Foco tem saída por Escape e por botão', async ({ page }) => {
+  await page.getByRole('button', { name: 'Foco', exact: true }).click();
+  await expect(page.locator('body')).toHaveClass(/modo-foco/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('body')).not.toHaveClass(/modo-foco/);
+  await page.getByRole('button', { name: 'Foco', exact: true }).click();
+  await page.getByRole('button', { name: 'Sair do foco' }).click();
+  await expect(page.locator('body')).not.toHaveClass(/modo-foco/);
+});
+
+test('resultados da busca ficam dentro da tela em 360 px', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.getByLabel('Buscar na ODA').fill('pedido');
+  const caixa = await page.locator('.busca__resultados').boundingBox();
+  expect(caixa.x).toBeGreaterThanOrEqual(0);
+  expect(caixa.x + caixa.width).toBeLessThanOrEqual(360);
+});
+
+test('aba Verificação mostra o resumo do progresso por etapa', async ({ page }) => {
+  await page.locator('#painel-missao .concluir').click();
+  await page.locator('#aba-verificacao').click();
+  const resumo = page.locator('#painel-verificacao ul.resumo');
+  await expect(resumo.locator('li', { hasText: 'Missão' })).toContainText('concluída');
+  await expect(resumo.locator('li', { hasText: 'Conceito' })).toContainText('pendente');
+});

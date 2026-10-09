@@ -26,7 +26,7 @@ OBRIGATORIOS = {
     "arvores": ("esquerda", "direita"), "comparativo": ("colunas", "linhas"), "diagrama": ("id", "tipo_diagrama", "titulo", "mermaid"),
     "fluxo": ("titulo", "etapas"), "console-api": ("cenarios",), "classificador": ("categorias", "itens"),
     "terminal": ("comandos",), "incidente": ("titulo", "saida", "origem", "pergunta", "alternativas", "correcao"),
-    "quiz": ("perguntas",),
+    "quiz": ("perguntas",), "resumo": (),
 }
 ESTILOS = {"dica", "erro", "quebra", "sucesso"}
 ROTULOS = {"terminal", "arquivo", "saida", "log"}
@@ -36,6 +36,17 @@ FRASE = re.compile(r"[.!?](\s|$)")
 
 def _editor(bloco: dict, commit: str, rotulo: str) -> list[str]:
     erros = []
+    linhas = bloco.get("linhas")
+    if not isinstance(linhas, list) or not all(isinstance(l, str) for l in linhas):
+        return [f"{rotulo}: editor exige linhas como lista de textos."]
+    inicio = bloco.get("inicio", 1)
+    vistas = set()
+    for a in bloco.get("anotacoes", []):
+        if not inicio <= a.get("linha", 0) < inicio + len(linhas):
+            erros.append(f"{rotulo}: anotação na linha {a.get('linha')} fora do trecho exibido.")
+        elif a["linha"] in vistas:
+            erros.append(f"{rotulo}: duas anotações na linha {a['linha']}.")
+        vistas.add(a.get("linha"))
     if bloco.get("rotulo") not in ROTULOS:
         erros.append(f"{rotulo}: rótulo de editor inválido: {bloco.get('rotulo')}.")
     if bloco.get("rotulo") == "arquivo":
@@ -52,7 +63,13 @@ def _uma_correta(alternativas) -> bool:
     return isinstance(alternativas, list) and sum(1 for a in alternativas if a.get("correta") is True) == 1
 
 
-def _bloco(bloco: dict, commit: str, rotulo: str) -> list[str]:
+def _normalizar(comando: str) -> str:
+    return " ".join(str(comando).split())
+
+
+def _bloco(bloco, commit: str, rotulo: str, flags: set[str] = frozenset()) -> list[str]:
+    if not isinstance(bloco, dict):
+        return [f"{rotulo}: bloco deve ser um objeto."]
     tipo = bloco.get("tipo")
     if tipo not in OBRIGATORIOS:
         return [f"{rotulo}: tipo de bloco desconhecido: {tipo}."]
@@ -77,6 +94,14 @@ def _bloco(bloco: dict, commit: str, rotulo: str) -> list[str]:
             if "editor" in passo:
                 erros += _editor(passo["editor"], commit, f"{rotulo}.passo {i}")
     if tipo == "terminal":
+        entradas = {_normalizar(c.get("entrada", "")) for c in bloco["comandos"]}
+        for i, c in enumerate(bloco.get("cenarios", []), 1):
+            if _normalizar(c.get("comando", "")) not in entradas:
+                erros.append(f"{rotulo}: cenário {i} do terminal usa comando não declarado: {c.get('comando')}.")
+        for c in bloco["comandos"]:
+            condicao = (c.get("condicao") or "").lstrip("!")
+            if condicao and condicao not in flags:
+                erros.append(f"{rotulo}: condição usa estado que nenhum efeito define: {condicao}.")
         for i, c in enumerate(bloco["comandos"], 1):
             if not c.get("entrada") or not isinstance(c.get("saida"), str):
                 erros.append(f"{rotulo}: comando {i} exige entrada e saida.")
@@ -88,17 +113,33 @@ def _bloco(bloco: dict, commit: str, rotulo: str) -> list[str]:
                 erros.append(f"{rotulo}: cenário {i} exige rotulo, requisicao.metodo e resposta.status.")
             if c.get("origem") not in ORIGENS:
                 erros.append(f"{rotulo}: cenário {i} com origem inválida: {c.get('origem')}.")
+    if tipo == "classificador":
+        ids = {c.get("id") for c in bloco["categorias"]}
+        for i, item in enumerate(bloco["itens"], 1):
+            if item.get("categoria") not in ids:
+                erros.append(f"{rotulo}: item {i} do classificador usa categoria inexistente: {item.get('categoria')}.")
+    if tipo == "arvores":
+        for lado in ("esquerda", "direita"):
+            for i, no in enumerate(bloco[lado].get("nos", []), 1):
+                if not no.get("caminho") or not no.get("descricao"):
+                    erros.append(f"{rotulo}: nó {i} da árvore {lado} exige caminho e descricao.")
     if tipo == "fluxo":
         for i, e in enumerate(bloco["etapas"], 1):
+            if not e.get("titulo") or not e.get("descricao"):
+                erros.append(f"{rotulo}: etapa {i} exige titulo e descricao.")
             if "codigo" in e and e["codigo"].get("commit") != commit:
                 erros.append(f"{rotulo}: etapa {i} cita commit diferente do catálogo.")
     if tipo == "incidente":
+        if not isinstance(bloco["saida"], str):
+            erros.append(f"{rotulo}: incidente exige saida como texto.")
         if bloco["origem"] not in ORIGENS:
             erros.append(f"{rotulo}: incidente com origem inválida: {bloco['origem']}.")
         if not _uma_correta(bloco["alternativas"]):
             erros.append(f"{rotulo}: incidente deve ter exatamente uma alternativa correta.")
     if tipo == "quiz":
         for i, p in enumerate(bloco["perguntas"], 1):
+            if not p.get("enunciado"):
+                erros.append(f"{rotulo}: pergunta {i} exige enunciado.")
             if not _uma_correta(p.get("alternativas")):
                 erros.append(f"{rotulo}: pergunta {i} deve ter exatamente uma alternativa correta.")
     return erros
@@ -115,11 +156,17 @@ def validar_oda(dados: dict, catalogo: dict) -> list[str]:
     if tuple(a.get("id") for a in abas) != ABAS:
         erros.append(f"As abas devem ser, nesta ordem: {', '.join(ABAS)}.")
     commit = catalogo["repositorios"][oda["repositorio"]]["commit"]
+    flags = set()
+    for aba in abas:
+        for bloco in aba.get("blocos", []):
+            if isinstance(bloco, dict):
+                fontes = bloco.get("itens", []) if bloco.get("tipo") == "passos" else bloco.get("comandos", []) if bloco.get("tipo") == "terminal" else []
+                flags |= {f["efeito"].lstrip("!") for f in fontes if isinstance(f, dict) and f.get("efeito")}
     for aba in abas:
         if not aba.get("titulo"):
             erros.append(f"{aba.get('id')}: aba sem titulo.")
         for i, bloco in enumerate(aba.get("blocos", [])):
-            erros += _bloco(bloco, commit, f"{aba.get('id')}[{i}]")
+            erros += _bloco(bloco, commit, f"{aba.get('id')}[{i}]", flags)
     return erros
 
 

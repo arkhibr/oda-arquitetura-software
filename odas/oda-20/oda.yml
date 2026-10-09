@@ -125,7 +125,7 @@ abas:
     titulo: Arquitetura híbrida no Catálogo
     status: accepted
     contexto: O Catálogo passou a ter cinco recursos com regras de domínio ricas, e a estrutura plana anterior não escalava.
-    decisao: Domain, Application e Infrastructure em Clean Architecture, com a camada de API organizada por grupo de endpoints.
+    decisao: Domain, Application e Infrastructure em Clean Architecture, com a camada de API no estilo Vertical Slice, descrita na ADR como um arquivo por endpoint. No código do commit de referência, cada arquivo de `Endpoints/` reúne os endpoints de um recurso.
     alternativas: Clean Architecture pura, com alto custo para endpoints simples, e Vertical Slice pura, com duplicação de domínio.
     consequencias: Domínio e aplicação são reutilizados por todos os endpoints, ao custo de mais arquivos e do risco de mistura de responsabilidades.
 - id: codigo
@@ -239,19 +239,20 @@ abas:
     caminho: src/Shared/Common/EndpointExtensions.cs
     commit: 702145a
     linhas:
-    - public static WebApplication MapRegisteredEndpoints(this WebApplication app)
-    - '{'
-    - '    var endpoints = app.Services.GetServices<IEndpoint>();'
-    - '    foreach (var endpoint in endpoints)'
-    - '        endpoint.MapEndpoints(app);'
+    - '    public static WebApplication MapRegisteredEndpoints(this WebApplication app)'
+    - '    {'
+    - '        var endpoints = app.Services.GetServices<IEndpoint>();'
+    - '        foreach (var endpoint in endpoints)'
+    - '            endpoint.MapEndpoints(app);'
     - ''
-    - '    return app;'
-    - '}'
+    - '        return app;'
+    - '    }'
     anotacoes:
-    - linha: 3
+    - linha: 32
       texto: Recupera todos os endpoints registrados por `AddEndpointsFromAssembly`.
-    - linha: 5
+    - linha: 34
       texto: Cada fatia mapeia a própria rota na inicialização da API.
+    inicio: 30
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -264,8 +265,9 @@ abas:
     - builder.Services.AddScoped<AddItemHandler>();
     - builder.Services.AddScoped<CancelPedidoHandler>();
     anotacoes:
-    - linha: 6
+    - linha: 99
       texto: Os handlers são registrados um a um, enquanto os endpoints são descobertos por reflexão.
+    inicio: 94
   - tipo: faixa
     estilo: dica
     texto: A fatia nova precisa de uma linha em `Program.cs` para o handler, mas não precisa registrar a rota, que é descoberta pela implementação de `IEndpoint`.
@@ -448,8 +450,8 @@ abas:
         status: 404
         corpo:
           error: Pedido não encontrado.
-      origem: executado
-      nota: O código 404 foi obtido no teste `POST_Cancelar_PedidoInexistente_Retorna404`. O corpo vem de `CancelPedidoEndpoint.cs`.
+      origem: codigo
+      nota: O corpo foi montado a partir de `CancelPedidoEndpoint.cs`. O código 404 foi confirmado na execução do teste `POST_Cancelar_PedidoInexistente_Retorna404`.
     - rotulo: Cancelar sem motivo
       requisicao:
         metodo: POST
@@ -461,8 +463,8 @@ abas:
         status: 400
         corpo:
           error: Motivo do cancelamento é obrigatório.
-      origem: executado
-      nota: O código 400 foi obtido no teste `POST_Cancelar_SemMotivo_Retorna400`. A mensagem vem de `Pedido.Cancelar`.
+      origem: codigo
+      nota: O corpo foi montado a partir de `Pedido.Cancelar`. O código 400 foi confirmado na execução do teste `POST_Cancelar_SemMotivo_Retorna400`.
     - rotulo: Cancelar com motivo
       requisicao:
         metodo: POST
@@ -473,12 +475,10 @@ abas:
       resposta:
         status: 200
         corpo:
-          id: <id>
           status: Cancelado
           motivoCancelamento: Desistência do cliente
-          demais campos: omitidos
       origem: executado
-      nota: O teste `POST_Cancelar_ComMotivo_Retorna200ECancela` confere o código 200, o status e o motivo. Os demais campos foram omitidos.
+      nota: Resposta resumida aos campos conferidos pelo teste `POST_Cancelar_ComMotivo_Retorna200ECancela`, que confirmou o código 200, o status e o motivo.
     - rotulo: Cancelar sem token
       requisicao:
         metodo: POST
@@ -692,7 +692,6 @@ abas:
         - '        corpo.Should().Contain("Apenas pedidos em rascunho podem ser confirmados.");'
         - '    }'
         - '}'
-        - ''
     - titulo: Rodar os testes da fatia antes do registro
       editor:
         rotulo: terminal
@@ -784,9 +783,11 @@ abas:
   - tipo: incidente
     titulo: Endpoint responde sem token
     origem: executado
-    saida: 'POST /api/v1/pedidos/99999/confirmar (sem cabeçalho Authorization)
+    saida: 'Chamada sem token a POST /api/v1/pedidos/99999/confirmar
 
-      HTTP/1.1 404 Not Found'
+      com .RequireAuthorization():  STATUS=401
+
+      sem .RequireAuthorization():  STATUS=404'
     pergunta: Por que a chamada sem token não recebeu 401?
     correcao: Manter `.RequireAuthorization()` em todo endpoint de Pedidos, como nas fatias existentes.
     alternativas:
@@ -844,7 +845,7 @@ abas:
         explicacao: Pedidos tem o agregado `Pedido` em `src/Pedidos/Domain/`, compartilhado pelas fatias.
       - texto: O Catálogo não usa Vertical Slice em nenhuma parte.
         correta: false
-        explicacao: A ADR-0011 organiza a camada de API do Catálogo com um arquivo por grupo de endpoints, no estilo Vertical Slice.
+        explicacao: A ADR-0011 organiza a camada de API do Catálogo no estilo Vertical Slice.
       - texto: O Catálogo distribui um recurso por camadas técnicas, e Pedidos agrupa tudo de um caso de uso numa pasta.
         correta: true
         explicacao: É a diferença registrada na ADR-0001 e no quadro de `docs/01-ARQUITETURA.md`.
@@ -892,6 +893,7 @@ abas:
       - texto: Do contêiner, que cria a instância automaticamente.
         correta: false
         explicacao: O contêiner só fornece tipos registrados.
+  - tipo: resumo
   - tipo: checklist
     titulo: Checklist final
     itens:
