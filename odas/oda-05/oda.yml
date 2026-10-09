@@ -1,0 +1,793 @@
+id: '05'
+titulo: Microfrontends dinâmicos e o contrato mount/unmount
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O portal carrega microfrontends em tempo de execução, e cada um é um bundle ESM autônomo que exporta duas funções, `mount` e `unmount`. Esta ODA mostra por que a ADR-008 escolheu integração em tempo de execução, como a ADR-009 define o contrato e como o shell confere o bundle antes de montá-lo, e termina com um microfrontend mínimo, sem React, escrito com o teste antes.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar a escolha de integração em tempo de execução da ADR-008 e o contrato da ADR-009.
+    - 'Seguir no código o caminho do bundle: download, hash SHA-256, importação e validação do contrato.'
+    - Implementar um microfrontend mínimo que cumpre o contrato, com o teste escrito e rodado antes.
+    - Reconhecer as mensagens do carregador quando o contrato ou o hash não conferem.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 04, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas. O laboratório usa `openssl`, disponível no macOS, no Linux e no Git Bash do Windows.
+  - tipo: terminal
+    titulo: terminal · testes do carregamento de microfrontends
+    comandos:
+    - entrada: npx vitest run src/app/mfe
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
+      origem: executado
+      dica: São 8 arquivos de teste da pasta `src/app/mfe`, do manifesto ao error boundary.
+    cenarios:
+    - rotulo: Rodar os testes de src/app/mfe
+      comando: npx vitest run src/app/mfe
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'A ADR-008 decide que funcionalidades entram no portal sem recompilar o shell, e a ADR-009 decide o mecanismo: um módulo ESM com duas funções, que leva o próprio React embutido.'
+  - tipo: comparativo
+    colunas:
+    - Contrato mount/unmount (escolhido)
+    - Module Federation
+    - Web Components
+    linhas:
+    - dimensao: Dependências compartilhadas
+      valores:
+      - Nenhuma, cada bundle embute o próprio React
+      - React compartilhado como singleton
+      - Nenhuma, com estilos isolados por Shadow DOM
+    - dimensao: Tamanho do bundle
+      valores:
+      - Maior, com cerca de 800 kB não comprimidos no `endereco.js`, segundo a ADR
+      - Menor
+      - Depende do framework interno
+    - dimensao: Passagem de contexto
+      valores:
+      - Objeto `ctx` com `apiUrl`, `token`, `basePath` e `onUnauthorized`
+      - Imports federados
+      - Atributos e propriedades do elemento, com dificuldade para funções
+    - dimensao: Motivo na ADR-009
+      valores:
+      - Autonomia total e contrato mínimo
+      - Descartado por acoplar versões de React
+      - Descartado pelo atrito com estilos globais e contexto rico
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Sequência
+    titulo: Ciclo de vida do contrato (docs/architecture/adrs/ADR-009-contrato-mount-unmount.md)
+    mermaid: "sequenceDiagram\n    participant S as Shell (MfeHost)\n    participant L as loadMfeModule\n    participant M as MFE bundle\n    S->>L: import(url)\n    L->>L: valida mount/unmount\n    L-->>S: { mount, unmount }\n    S->>M: mount(div, ctx)\n    M->>M: renderiza (React próprio)\n    Note over S,M: usuário sai da rota / token muda\n    S->>M: unmount(div)"
+  - tipo: conceito
+    titulo: O que o contrato exige
+    texto: O `mount(el, ctx)` assume a `div` entregue pelo shell e renderiza dentro dela com os dados do contexto, e o `unmount(el)` libera a mesma `div`, desmontando a árvore e removendo ouvintes. O shell chama `unmount` ao sair da rota e remonta o microfrontend quando a URL do bundle ou o token mudam.
+  - tipo: adr
+    id: ADR-009
+    titulo: Contrato mount/unmount entre shell e MFEs
+    status: Proposed
+    contexto: A ADR-008 decidiu integrar microfrontends em tempo de execução, e faltava definir como um bundle de outra equipe é montado no shell e recebe a URL da API e o token sem importar nada do shell em build.
+    decisao: Contrato `mount`/`unmount` com bundles ESM gerados pelo Vite em lib mode, com o React embutido em cada bundle.
+    alternativas: Module Federation, descartado porque compartilhar dependências contraria a autonomia e acopla versões de React, e Web Components com Shadow DOM, descartado pelo atrito com estilos globais e com a passagem de funções.
+    consequencias: Cada microfrontend embute o próprio React, o que aumenta o tamanho dos bundles, e o contrato precisa ser mantido estável e versionado.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, o contrato, a implementação no microfrontend de endereço e o carregador do shell. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/src/contract.ts
+    commit: '2179313'
+    linhas:
+    - // Contrato publicado pelo shell (ADR-009). Cópia local para manter o MFE autônomo.
+    - export interface MfeMountContext {
+    - '  apiUrl: string'
+    - '  token: string | null'
+    - '  onUnauthorized: () => void'
+    - '  basePath: string'
+    - '}'
+    - export interface MfeModule {
+    - '  mount: (el: HTMLElement, ctx: MfeMountContext) => void'
+    - '  unmount: (el: HTMLElement) => void'
+    - '}'
+    anotacoes:
+    - linha: 1
+      texto: O microfrontend mantém uma cópia local do contrato para não importar nada do shell.
+    - linha: 5
+      texto: Única função de retorno ao shell, usada para encerrar a sessão num 401.
+    - linha: 10
+      texto: A desmontagem recebe o mesmo elemento entregue ao `mount`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/src/index.tsx
+    commit: '2179313'
+    linhas:
+    - import { StrictMode } from 'react'
+    - import { createRoot, type Root } from 'react-dom/client'
+    - import { EnderecoApp } from './EnderecoApp'
+    - import type { MfeMountContext } from './contract'
+    - ''
+    - const roots = new WeakMap<HTMLElement, Root>()
+    - ''
+    - 'export function mount(el: HTMLElement, ctx: MfeMountContext): void {'
+    - '  const root = createRoot(el)'
+    - '  roots.set(el, root)'
+    - '  root.render('
+    - '    <StrictMode>'
+    - '      <EnderecoApp ctx={ctx} />'
+    - '    </StrictMode>,'
+    - '  )'
+    - '}'
+    - ''
+    - 'export function unmount(el: HTMLElement): void {'
+    - '  roots.get(el)?.unmount()'
+    - '  roots.delete(el)'
+    - '}'
+    anotacoes:
+    - linha: 6
+      texto: Guarda a raiz React de cada elemento, para que o `unmount` encontre a raiz certa.
+    - linha: 9
+      texto: O microfrontend cria a própria raiz React, separada da árvore do shell.
+    - linha: 19
+      texto: Desmonta a árvore e libera o elemento.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/loadMfeModule.ts
+    commit: '2179313'
+    linhas:
+    - 'export function assertMfeModule(mod: unknown, url: string): MfeModule {'
+    - '  const m = mod as Partial<MfeModule>'
+    - '  if (typeof m?.mount !== ''function'') throw new Error(`[mfe] bundle ${url} não exporta mount()`)'
+    - '  if (typeof m?.unmount !== ''function'') throw new Error(`[mfe] bundle ${url} não exporta unmount()`)'
+    - '  return m as MfeModule'
+    - '}'
+    - ''
+    - 'function toBase64(bytes: Uint8Array): string {'
+    - '  let binary = '''''
+    - '  for (const byte of bytes) binary += String.fromCharCode(byte)'
+    - '  return btoa(binary)'
+    - '}'
+    - ''
+    - 'export async function verifyBundleIntegrity(bytes: ArrayBuffer, integrity: string): Promise<void> {'
+    - '  const digest = await crypto.subtle.digest(''SHA-256'', bytes)'
+    - '  const actual = `sha256-${toBase64(new Uint8Array(digest))}`'
+    - '  if (actual !== integrity) throw new Error(''[mfe] integridade do bundle inválida'')'
+    - '}'
+    - ''
+    - 'export async function loadMfeModule(url: string, integrity: string, id?: string): Promise<MfeModule> {'
+    - '  if (id) markStart(id, ''fetchEval'')'
+    - '  const response = await fetch(url, { credentials: ''omit'', cache: ''no-store'' })'
+    - '  if (!response.ok) throw new Error(`[mfe] bundle ${url} respondeu HTTP ${response.status}`)'
+    - '  const bytes = await response.arrayBuffer()'
+    - '  await verifyBundleIntegrity(bytes, integrity)'
+    - '  const blobUrl = URL.createObjectURL(new Blob([bytes], { type: ''text/javascript'' }))'
+    - '  let mod: unknown'
+    - '  try {'
+    - '    mod = await import(/* @vite-ignore */ blobUrl)'
+    - '  } finally {'
+    - '    URL.revokeObjectURL(blobUrl)'
+    - '  }'
+    - '  if (id) markEnd(id, ''fetchEval'')'
+    - ''
+    - '  if (id) markStart(id, ''validate'')'
+    - '  const result = assertMfeModule(mod, url)'
+    - '  if (id) markEnd(id, ''validate'')'
+    - ''
+    - '  return result'
+    - '}'
+    anotacoes:
+    - linha: 7
+      texto: 'Validação do contrato: um módulo sem `mount` ou sem `unmount` é recusado.'
+    - linha: 20
+      texto: O hash SHA-256 dos bytes baixados precisa ser igual ao campo `integrity` do manifesto.
+    - linha: 25
+      texto: O shell baixa os bytes do bundle sem cookies e sem cache.
+    - linha: 29
+      texto: Os bytes já conferidos viram um Blob, e é esse Blob que o shell importa.
+    - linha: 39
+      texto: A validação do contrato acontece depois da importação e antes de qualquer `mount`.
+    inicio: 4
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/MfeHost.tsx
+    commit: '2179313'
+    linhas:
+    - '    loadMfeModule(entry.url, entry.integrity, entry.id)'
+    - '      .then((m) => {'
+    - '        if (cancelled) return'
+    - '        mod = m'
+    - '        markStart(entry.id, ''mount'')'
+    - '        m.mount(el, {'
+    - '          apiUrl: getApiUrl(),'
+    - '          token,'
+    - '          basePath: entry.route,'
+    - '          onUnauthorized: () => dispatch(logout()),'
+    - '        })'
+    anotacoes:
+    - linha: 25
+      texto: O bundle só é baixado quando a rota do microfrontend é renderizada.
+    - linha: 30
+      texto: O shell entrega a `div` e o contexto definido pelo contrato.
+    inicio: 25
+  - tipo: faixa
+    estilo: dica
+    texto: A ADR-009 descreve que o shell faz `import(url)` do bundle. O código do commit `2179313` baixa os bytes, confere o SHA-256 e importa um Blob, o que corresponde à descrição da ADR-008 e permite recusar o bundle antes de executá-lo.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Percorra as etapas do carregamento de um microfrontend e acompanhe na linha do tempo o ciclo de vida do contrato, com e sem uma falha no bundle. Depois, classifique as responsabilidades entre o shell e o microfrontend.
+  - tipo: fluxo
+    titulo: Do manifesto ao mount
+    etapas:
+    - titulo: Download
+      descricao: O `MfeHost` chama `loadMfeModule` com a URL e o `integrity` da entrada do manifesto.
+      codigo:
+        arquivo: src/app/mfe/loadMfeModule.ts
+        commit: '2179313'
+        linhas:
+        - '  const response = await fetch(url, { credentials: ''omit'', cache: ''no-store'' })'
+        - '  if (!response.ok) throw new Error(`[mfe] bundle ${url} respondeu HTTP ${response.status}`)'
+        - '  const bytes = await response.arrayBuffer()'
+        destaque:
+        - 1
+        - 2
+    - titulo: Hash
+      descricao: O SHA-256 dos bytes é comparado com o manifesto, e a diferença interrompe a carga antes de executar o código.
+      codigo:
+        arquivo: src/app/mfe/loadMfeModule.ts
+        commit: '2179313'
+        linhas:
+        - 'export async function verifyBundleIntegrity(bytes: ArrayBuffer, integrity: string): Promise<void> {'
+        - '  const digest = await crypto.subtle.digest(''SHA-256'', bytes)'
+        - '  const actual = `sha256-${toBase64(new Uint8Array(digest))}`'
+        - '  if (actual !== integrity) throw new Error(''[mfe] integridade do bundle inválida'')'
+        - '}'
+        destaque:
+        - 4
+    - titulo: Importação
+      descricao: Os bytes conferidos viram um Blob, importado como módulo ESM.
+      codigo:
+        arquivo: src/app/mfe/loadMfeModule.ts
+        commit: '2179313'
+        linhas:
+        - '  const blobUrl = URL.createObjectURL(new Blob([bytes], { type: ''text/javascript'' }))'
+        - '  let mod: unknown'
+        - '  try {'
+        - '    mod = await import(/* @vite-ignore */ blobUrl)'
+        - '  } finally {'
+        - '    URL.revokeObjectURL(blobUrl)'
+        - '  }'
+        destaque:
+        - 1
+        - 4
+    - titulo: Contrato
+      descricao: O módulo precisa exportar `mount` e `unmount` como funções.
+      codigo:
+        arquivo: src/app/mfe/loadMfeModule.ts
+        commit: '2179313'
+        linhas:
+        - 'export function assertMfeModule(mod: unknown, url: string): MfeModule {'
+        - '  const m = mod as Partial<MfeModule>'
+        - '  if (typeof m?.mount !== ''function'') throw new Error(`[mfe] bundle ${url} não exporta mount()`)'
+        - '  if (typeof m?.unmount !== ''function'') throw new Error(`[mfe] bundle ${url} não exporta unmount()`)'
+        - '  return m as MfeModule'
+        - '}'
+        destaque:
+        - 3
+        - 4
+    - titulo: Montagem
+      descricao: O `MfeHost` chama `mount` com a `div` e o contexto, e chama `unmount` quando a rota sai da tela ou o token muda.
+  - tipo: linha-do-tempo
+    titulo: Ciclo de vida de um microfrontend
+    atores:
+    - id: host
+      rotulo: MfeHost
+    - id: loader
+      rotulo: loadMfeModule
+    - id: s3
+      rotulo: Bucket do microfrontend
+    - id: mfe
+      rotulo: Bundle do microfrontend
+    eventos:
+    - id: e1
+      de: host
+      para: loader
+      mensagem: '`loadMfeModule(url, integrity)`'
+    - id: e2
+      de: loader
+      para: s3
+      mensagem: '`fetch(url)` dos bytes do bundle'
+      depende: e1
+    - id: e3
+      de: s3
+      para: loader
+      mensagem: bytes, conferidos com o SHA-256 do manifesto
+      depende: e2
+    - id: e4
+      de: loader
+      para: host
+      mensagem: '`{ mount, unmount }` validados'
+      depende: e3
+    - id: e5
+      de: host
+      para: mfe
+      mensagem: '`mount(div, ctx)`'
+      depende: e4
+    - id: e6
+      de: host
+      para: mfe
+      mensagem: '`unmount(div)` ao sair da rota'
+      depende: e5
+    falhas:
+    - id: bucket-fora
+      rotulo: O bucket não responde, como depois de reiniciar o LocalStack
+      ator: s3
+  - tipo: classificador
+    enunciado: Quem é responsável por cada tarefa no contrato da ADR-009?
+    categorias:
+    - id: shell
+      rotulo: Shell
+    - id: mfe
+      rotulo: Microfrontend
+    itens:
+    - texto: Conferir o hash SHA-256 do bundle
+      categoria: shell
+      explicacao: O `verifyBundleIntegrity` roda no carregador do shell, antes da importação.
+    - texto: Criar a raiz React que renderiza a tela
+      categoria: mfe
+      explicacao: O `mount` do microfrontend chama `createRoot` com o próprio React embutido.
+    - texto: Entregar `apiUrl`, `token` e `basePath`
+      categoria: shell
+      explicacao: O `MfeHost` monta o contexto a partir da configuração e do store.
+    - texto: Remover os ouvintes de eventos ao sair da rota
+      categoria: mfe
+      explicacao: A ADR-009 atribui ao `unmount` a remoção da árvore e dos ouvintes.
+    - texto: Recusar um módulo sem `unmount`
+      categoria: shell
+      explicacao: O `assertMfeModule` lança o erro que o error boundary transforma em aviso.
+    - texto: Encerrar a sessão quando a API responde 401
+      categoria: shell
+      explicacao: O microfrontend só chama `onUnauthorized`, e o shell despacha o `logout`.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no repositório clonado na ODA 00. O microfrontend mínimo é um único arquivo JavaScript, sem React e sem build, testado pelo carregador real do shell. Os passos 8 e 9 provocam as duas falhas que o carregador detecta.
+  - tipo: passos
+    itens:
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/mfe
+      sucesso: '`Test Files 8 passed (8)` e `Tests 31 passed (31)`.'
+    - titulo: Escrever o teste do microfrontend mínimo
+      texto: Crie o arquivo abaixo. O `import.meta.glob` do Vite carrega o módulo e lê o texto dos arquivos de `mfes/minimo/` sem depender de APIs do Node.
+      editor:
+        rotulo: arquivo
+        caminho: src/app/mfe/__tests__/mfeMinimo.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, it, expect } from 'vitest'
+        - import { assertMfeModule, verifyBundleIntegrity } from '../loadMfeModule'
+        - ''
+        - const PASTA = '../../../../mfes/minimo'
+        - const modulos = import.meta.glob('../../../../mfes/minimo/index.js')
+        - 'const textos = import.meta.glob<string>(''../../../../mfes/minimo/*'', { query: ''?raw'', import: ''default'', eager: true })'
+        - 'const ctx = { apiUrl: '''', token: ''token-de-teste'', onUnauthorized: () => {}, basePath: ''/minimo'' }'
+        - ''
+        - async function carregar() {
+        - '  const importar = modulos[`${PASTA}/index.js`]'
+        - '  if (!importar) throw new Error(`[teste] ${PASTA}/index.js não encontrado`)'
+        - '  return assertMfeModule(await importar(), `${PASTA}/index.js`)'
+        - '}'
+        - ''
+        - describe('microfrontend mínimo', () => {
+        - '  it(''exporta mount e unmount'', async () => {'
+        - '    await expect(carregar()).resolves.toBeDefined()'
+        - '  })'
+        - ''
+        - '  it(''mount renderiza dentro do elemento recebido, com o basePath do contexto'', async () => {'
+        - '    const mfe = await carregar()'
+        - '    const el = document.createElement(''div'')'
+        - '    mfe.mount(el, ctx)'
+        - '    expect(el.textContent).toContain(''/minimo'')'
+        - '  })'
+        - ''
+        - '  it(''unmount esvazia o elemento'', async () => {'
+        - '    const mfe = await carregar()'
+        - '    const el = document.createElement(''div'')'
+        - '    mfe.mount(el, ctx)'
+        - '    mfe.unmount(el)'
+        - '    expect(el.childElementCount).toBe(0)'
+        - '  })'
+        - ''
+        - '  it(''o hash SHA-256 do arquivo confere com o valor de integrity.txt'', async () => {'
+        - '    const conteudo = textos[`${PASTA}/index.js`]'
+        - '    const integridade = textos[`${PASTA}/integrity.txt`]'
+        - '    expect(conteudo).toBeDefined()'
+        - '    expect(integridade).toBeDefined()'
+        - '    await expect(verifyBundleIntegrity(new TextEncoder().encode(conteudo).buffer, integridade!.trim())).resolves.toBeUndefined()'
+        - '  })'
+        - '})'
+      efeito: teste_minimo
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      sucesso: '`Tests 4 failed (4)`, com `[teste] ../../../../mfes/minimo/index.js não encontrado`.'
+    - titulo: Criar o microfrontend mínimo
+      texto: Crie a pasta `mfes/minimo/` e o arquivo abaixo, que cumpre o contrato com a API do DOM.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/minimo/index.js (novo)
+        commit: '2179313'
+        linhas:
+        - '// Microfrontend mínimo: cumpre o contrato mount/unmount da ADR-009 sem framework.'
+        - const limpezas = new WeakMap()
+        - ''
+        - export function mount(el, ctx) {
+        - '  const secao = document.createElement(''section'')'
+        - '  const titulo = document.createElement(''h2'')'
+        - '  titulo.textContent = ''Microfrontend mínimo'''
+        - '  const rota = document.createElement(''p'')'
+        - '  rota.textContent = `Rota: ${ctx.basePath}`'
+        - '  const botao = document.createElement(''button'')'
+        - '  botao.type = ''button'''
+        - '  botao.textContent = ''Sinalizar sessão expirada'''
+        - '  const aoClicar = () => ctx.onUnauthorized()'
+        - '  botao.addEventListener(''click'', aoClicar)'
+        - '  secao.append(titulo, rota, botao)'
+        - '  el.replaceChildren(secao)'
+        - '  limpezas.set(el, () => botao.removeEventListener(''click'', aoClicar))'
+        - '}'
+        - ''
+        - export function unmount(el) {
+        - '  limpezas.get(el)?.()'
+        - '  limpezas.delete(el)'
+        - '  el.replaceChildren()'
+        - '}'
+      efeito: modulo
+    - titulo: Rodar o teste sem o hash publicado
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      sucesso: '`Tests 1 failed | 3 passed (4)`: o contrato está cumprido, e falta o `integrity.txt`.'
+    - titulo: Gerar o hash do arquivo
+      texto: O comando grava em `mfes/minimo/integrity.txt` o valor no formato do campo `integrity` do manifesto.
+      editor:
+        rotulo: terminal
+        linhas:
+        - printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/minimo/index.js | openssl base64 -A)" | tee mfes/minimo/integrity.txt
+      efeito: integridade
+      sucesso: '`sha256-0gkcEL1G2JvJqf1d5Eiu017gUNftn9rgI9A35CytriM=`, se o arquivo for idêntico ao do passo 4.'
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      sucesso: '`Tests 4 passed (4)`.'
+    - titulo: Quebrar o contrato
+      texto: Em `mfes/minimo/index.js`, renomeie `unmount` para `desmontar` e rode o teste. Depois de ver a falha, restaure o nome e desmarque este passo.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/minimo/index.js (alteração temporária)
+        commit: '2179313'
+        linhas:
+        - export function desmontar(el) {
+      efeito: sem_unmount
+      sucesso: '`[mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()`.'
+    - titulo: Alterar o arquivo depois do hash
+      texto: Troque `mínimo` por `minimo` no título e rode o teste. Depois de ver a falha, restaure o texto e desmarque este passo.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/minimo/index.js (alteração temporária)
+        commit: '2179313'
+        linhas:
+        - '  titulo.textContent = ''Microfrontend minimo'''
+      efeito: alterado
+      sucesso: '`[mfe] integridade do bundle inválida` no teste do hash, com os outros três aprovados.'
+    - titulo: Conferir tipos, fronteiras e a suíte
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx tsc --noEmit -p tsconfig.app.json && npm run lint
+        - npx vitest run
+      sucesso: Tipos e lint sem erros, e `Test Files 24 passed (24)` com `Tests 103 passed (103)`.
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/minimo/index.js | openssl base64 -A)" | tee mfes/minimo/integrity.txt
+      condicao: modulo
+      saida: sha256-0gkcEL1G2JvJqf1d5Eiu017gUNftn9rgI9A35CytriM=
+      origem: executado
+      dica: O valor depende dos bytes exatos do arquivo. Se o seu for diferente, o arquivo difere em algum caractere, e o teste usa o valor que você gerou.
+      efeito: integridade
+    - entrada: npx vitest run src/app/mfe
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      - alterado
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 1 failed) 13ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: promise rejected \"Error: [mfe] integridade do bundle inváli…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:104\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n       |                                                                                                        ^\n     41|   })\n     42| })\n\nCaused by: Error: [mfe] integridade do bundle inválida\n ❯ verifyBundleIntegrity src/app/mfe/loadMfeModule.ts:20:35\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 8 passed (9)\n      Tests  1 failed | 34 passed (35)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      - sem_unmount
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 4 failed) 12ms\n     × exporta mount e unmount 7ms\n     × mount renderiza dentro do elemento recebido, com o basePath do contexto 0ms\n     × unmount esvazia o elemento 0ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > exporta mount e unmount\nAssertionError: promise rejected \"Error: [mfe] bundle ../../../../mfes/mini…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:29\n     15| describe('microfrontend mínimo', () => {\n     16|   it('exporta mount e unmount', async () => {\n     17|     await expect(carregar()).resolves.toBeDefined()\n       |                             ^\n     18|   })\n     19|\n\nCaused by: Error: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > mount renderiza dentro do elemento recebido, com o basePath do contexto\nError: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n      5|   const m = mod as Partial<MfeModule>\n      6|   if (typeof m?.mount !== 'function') throw new Error(`[mfe] bundle ${…\n      7|   if (typeof m?.unmount !== 'function') throw new Error(`[mfe] bundle …\n       |                                               ^\n      8|   return m as MfeModule\n      9| }\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:21:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > unmount esvazia o elemento\nError: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n      5|   const m = mod as Partial<MfeModule>\n      6|   if (typeof m?.mount !== 'function') throw new Error(`[mfe] bundle ${…\n      7|   if (typeof m?.unmount !== 'function') throw new Error(`[mfe] bundle …\n       |                                               ^\n      8|   return m as MfeModule\n      9| }\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:28:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: promise rejected \"Error: [mfe] integridade do bundle inváli…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:104\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n       |                                                                                                        ^\n     41|   })\n     42| })\n\nCaused by: Error: [mfe] integridade do bundle inválida\n ❯ verifyBundleIntegrity src/app/mfe/loadMfeModule.ts:20:35\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed | 8 passed (9)\n      Tests  4 failed | 31 passed (35)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  9 passed (9)\n      Tests  35 passed (35)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      condicao:
+      - teste_minimo
+      - modulo
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 1 failed) 13ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: expected undefined to be defined\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:39:25\n     37|     const integridade = textos[`${PASTA}/integrity.txt`]\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n       |                         ^\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n     41|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 8 passed (9)\n      Tests  1 failed | 34 passed (35)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      condicao: teste_minimo
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 4 failed) 9ms\n     × exporta mount e unmount 3ms\n     × mount renderiza dentro do elemento recebido, com o basePath do contexto 0ms\n     × unmount esvazia o elemento 0ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > exporta mount e unmount\nAssertionError: promise rejected \"Error: [teste] ../../../../mfes/minimo/in…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:29\n     15| describe('microfrontend mínimo', () => {\n     16|   it('exporta mount e unmount', async () => {\n     17|     await expect(carregar()).resolves.toBeDefined()\n       |                             ^\n     18|   })\n     19|\n\nCaused by: Error: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:18\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > mount renderiza dentro do elemento recebido, com o basePath do contexto\nError: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n      9| async function carregar() {\n     10|   const importar = modulos[`${PASTA}/index.js`]\n     11|   if (!importar) throw new Error(`[teste] ${PASTA}/index.js não encont…\n       |                        ^\n     12|   return assertMfeModule(await importar(), `${PASTA}/index.js`)\n     13| }\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:21:23\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > unmount esvazia o elemento\nError: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n      9| async function carregar() {\n     10|   const importar = modulos[`${PASTA}/index.js`]\n     11|   if (!importar) throw new Error(`[teste] ${PASTA}/index.js não encont…\n       |                        ^\n     12|   return assertMfeModule(await importar(), `${PASTA}/index.js`)\n     13| }\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:28:23\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: expected undefined to be defined\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:38:22\n     36|     const conteudo = textos[`${PASTA}/index.js`]\n     37|     const integridade = textos[`${PASTA}/integrity.txt`]\n     38|     expect(conteudo).toBeDefined()\n       |                      ^\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed | 8 passed (9)\n      Tests  4 failed | 31 passed (35)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      - alterado
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 1 failed) 7ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: promise rejected \"Error: [mfe] integridade do bundle inváli…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:104\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n       |                                                                                                        ^\n     41|   })\n     42| })\n\nCaused by: Error: [mfe] integridade do bundle inválida\n ❯ verifyBundleIntegrity src/app/mfe/loadMfeModule.ts:20:35\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 3 passed (4)"
+      origem: executado
+      dica: Uma letra trocada muda o hash. Restaure o texto e desmarque o passo 9.
+    - entrada: npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      - sem_unmount
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 4 failed) 5ms\n     × exporta mount e unmount 2ms\n     × mount renderiza dentro do elemento recebido, com o basePath do contexto 0ms\n     × unmount esvazia o elemento 0ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > exporta mount e unmount\nAssertionError: promise rejected \"Error: [mfe] bundle ../../../../mfes/mini…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:29\n     15| describe('microfrontend mínimo', () => {\n     16|   it('exporta mount e unmount', async () => {\n     17|     await expect(carregar()).resolves.toBeDefined()\n       |                             ^\n     18|   })\n     19|\n\nCaused by: Error: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > mount renderiza dentro do elemento recebido, com o basePath do contexto\nError: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n      5|   const m = mod as Partial<MfeModule>\n      6|   if (typeof m?.mount !== 'function') throw new Error(`[mfe] bundle ${…\n      7|   if (typeof m?.unmount !== 'function') throw new Error(`[mfe] bundle …\n       |                                               ^\n      8|   return m as MfeModule\n      9| }\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:21:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > unmount esvazia o elemento\nError: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n      5|   const m = mod as Partial<MfeModule>\n      6|   if (typeof m?.mount !== 'function') throw new Error(`[mfe] bundle ${…\n      7|   if (typeof m?.unmount !== 'function') throw new Error(`[mfe] bundle …\n       |                                               ^\n      8|   return m as MfeModule\n      9| }\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:28:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: promise rejected \"Error: [mfe] integridade do bundle inváli…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:104\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n       |                                                                                                        ^\n     41|   })\n     42| })\n\nCaused by: Error: [mfe] integridade do bundle inválida\n ❯ verifyBundleIntegrity src/app/mfe/loadMfeModule.ts:20:35\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed (1)\n      Tests  4 failed (4)"
+      origem: executado
+      dica: O carregador do shell recusa o módulo sem `unmount`. Restaure o nome da função e desmarque o passo 8.
+    - entrada: npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      condicao:
+      - teste_minimo
+      - modulo
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 1 failed) 6ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: expected undefined to be defined\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:39:25\n     37|     const integridade = textos[`${PASTA}/integrity.txt`]\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n       |                         ^\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n     41|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 3 passed (4)"
+      origem: executado
+      dica: Falta o `integrity.txt`, que o passo 6 gera.
+    - entrada: npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      condicao: teste_minimo
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 4 failed) 4ms\n     × exporta mount e unmount 1ms\n     × mount renderiza dentro do elemento recebido, com o basePath do contexto 0ms\n     × unmount esvazia o elemento 0ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 0ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > exporta mount e unmount\nAssertionError: promise rejected \"Error: [teste] ../../../../mfes/minimo/in…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:29\n     15| describe('microfrontend mínimo', () => {\n     16|   it('exporta mount e unmount', async () => {\n     17|     await expect(carregar()).resolves.toBeDefined()\n       |                             ^\n     18|   })\n     19|\n\nCaused by: Error: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:18\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > mount renderiza dentro do elemento recebido, com o basePath do contexto\nError: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n      9| async function carregar() {\n     10|   const importar = modulos[`${PASTA}/index.js`]\n     11|   if (!importar) throw new Error(`[teste] ${PASTA}/index.js não encont…\n       |                        ^\n     12|   return assertMfeModule(await importar(), `${PASTA}/index.js`)\n     13| }\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:21:23\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > unmount esvazia o elemento\nError: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n      9| async function carregar() {\n     10|   const importar = modulos[`${PASTA}/index.js`]\n     11|   if (!importar) throw new Error(`[teste] ${PASTA}/index.js não encont…\n       |                        ^\n     12|   return assertMfeModule(await importar(), `${PASTA}/index.js`)\n     13| }\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:28:23\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: expected undefined to be defined\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:38:22\n     36|     const conteudo = textos[`${PASTA}/index.js`]\n     37|     const integridade = textos[`${PASTA}/integrity.txt`]\n     38|     expect(conteudo).toBeDefined()\n       |                      ^\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed (1)\n      Tests  4 failed (4)"
+      origem: executado
+      dica: 'As quatro falhas são as esperadas: o módulo ainda não existe. Crie-o no passo 4.'
+    - entrada: npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+      saida: ' RUN  v4.1.7 .
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/app/mfe/__tests__/mfeMinimo.test.ts
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 2.
+    - entrada: npx vitest run
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      - alterado
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 1 failed) 17ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 3ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: promise rejected \"Error: [mfe] integridade do bundle inváli…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:104\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n       |                                                                                                        ^\n     41|   })\n     42| })\n\nCaused by: Error: [mfe] integridade do bundle inválida\n ❯ verifyBundleIntegrity src/app/mfe/loadMfeModule.ts:20:35\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  1 failed | 102 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      - sem_unmount
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 4 failed) 30ms\n     × exporta mount e unmount 23ms\n     × mount renderiza dentro do elemento recebido, com o basePath do contexto 1ms\n     × unmount esvazia o elemento 0ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > exporta mount e unmount\nAssertionError: promise rejected \"Error: [mfe] bundle ../../../../mfes/mini…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:29\n     15| describe('microfrontend mínimo', () => {\n     16|   it('exporta mount e unmount', async () => {\n     17|     await expect(carregar()).resolves.toBeDefined()\n       |                             ^\n     18|   })\n     19|\n\nCaused by: Error: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > mount renderiza dentro do elemento recebido, com o basePath do contexto\nError: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n      5|   const m = mod as Partial<MfeModule>\n      6|   if (typeof m?.mount !== 'function') throw new Error(`[mfe] bundle ${…\n      7|   if (typeof m?.unmount !== 'function') throw new Error(`[mfe] bundle …\n       |                                               ^\n      8|   return m as MfeModule\n      9| }\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:21:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > unmount esvazia o elemento\nError: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\n ❯ assertMfeModule src/app/mfe/loadMfeModule.ts:7:47\n      5|   const m = mod as Partial<MfeModule>\n      6|   if (typeof m?.mount !== 'function') throw new Error(`[mfe] bundle ${…\n      7|   if (typeof m?.unmount !== 'function') throw new Error(`[mfe] bundle …\n       |                                               ^\n      8|   return m as MfeModule\n      9| }\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:12:10\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:28:17\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: promise rejected \"Error: [mfe] integridade do bundle inváli…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:104\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n       |                                                                                                        ^\n     41|   })\n     42| })\n\nCaused by: Error: [mfe] integridade do bundle inválida\n ❯ verifyBundleIntegrity src/app/mfe/loadMfeModule.ts:20:35\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:40:5\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  4 failed | 99 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao:
+      - teste_minimo
+      - modulo
+      - integridade
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  103 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao:
+      - teste_minimo
+      - modulo
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 1 failed) 19ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: expected undefined to be defined\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:39:25\n     37|     const integridade = textos[`${PASTA}/integrity.txt`]\n     38|     expect(conteudo).toBeDefined()\n     39|     expect(integridade).toBeDefined()\n       |                         ^\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n     41|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  1 failed | 102 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao: teste_minimo
+      saida: " RUN  v4.1.7 .\n\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts (4 tests | 4 failed) 9ms\n     × exporta mount e unmount 3ms\n     × mount renderiza dentro do elemento recebido, com o basePath do contexto 0ms\n     × unmount esvazia o elemento 0ms\n     × o hash SHA-256 do arquivo confere com o valor de integrity.txt 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > exporta mount e unmount\nAssertionError: promise rejected \"Error: [teste] ../../../../mfes/minimo/in…\" instead of resolving\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:29\n     15| describe('microfrontend mínimo', () => {\n     16|   it('exporta mount e unmount', async () => {\n     17|     await expect(carregar()).resolves.toBeDefined()\n       |                             ^\n     18|   })\n     19|\n\nCaused by: Error: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:17:18\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > mount renderiza dentro do elemento recebido, com o basePath do contexto\nError: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n      9| async function carregar() {\n     10|   const importar = modulos[`${PASTA}/index.js`]\n     11|   if (!importar) throw new Error(`[teste] ${PASTA}/index.js não encont…\n       |                        ^\n     12|   return assertMfeModule(await importar(), `${PASTA}/index.js`)\n     13| }\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:21:23\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > unmount esvazia o elemento\nError: [teste] ../../../../mfes/minimo/index.js não encontrado\n ❯ carregar src/app/mfe/__tests__/mfeMinimo.test.ts:11:24\n      9| async function carregar() {\n     10|   const importar = modulos[`${PASTA}/index.js`]\n     11|   if (!importar) throw new Error(`[teste] ${PASTA}/index.js não encont…\n       |                        ^\n     12|   return assertMfeModule(await importar(), `${PASTA}/index.js`)\n     13| }\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:28:23\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/app/mfe/__tests__/mfeMinimo.test.ts > microfrontend mínimo > o hash SHA-256 do arquivo confere com o valor de integrity.txt\nAssertionError: expected undefined to be defined\n ❯ src/app/mfe/__tests__/mfeMinimo.test.ts:38:22\n     36|     const conteudo = textos[`${PASTA}/index.js`]\n     37|     const integridade = textos[`${PASTA}/integrity.txt`]\n     38|     expect(conteudo).toBeDefined()\n       |                      ^\n     39|     expect(integridade).toBeDefined()\n     40|     await expect(verifyBundleIntegrity(new TextEncoder().encode(conteu…\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  4 failed | 99 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
+      origem: executado
+      dica: Esta é a suíte do commit de referência, com 99 testes.
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    cenarios:
+    - rotulo: Teste do mínimo
+      comando: npx vitest run src/app/mfe/__tests__/mfeMinimo.test.ts
+    - rotulo: Gerar o hash
+      comando: printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/minimo/index.js | openssl base64 -A)" | tee mfes/minimo/integrity.txt
+    - rotulo: Tipos e lint
+      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+    - rotulo: Suíte completa
+      comando: npx vitest run
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os dois primeiros incidentes mostram falhas reais do carregador no laboratório, e os dois últimos tratam de divergências entre a documentação e o código.
+  - tipo: incidente
+    titulo: Bundle recusado pelo carregador
+    origem: executado
+    rotulo_saida: log
+    saida: "Caused by: Error: [mfe] bundle ../../../../mfes/minimo/index.js não exporta unmount()\nCaused by: Error: [mfe] integridade do bundle inválida\n Test Files  1 failed (1)\n      Tests  4 failed (4)"
+    pergunta: O que o carregador do shell detectou?
+    correcao: Exportar `mount` e `unmount` com esses nomes exatos, que são o contrato da ADR-009.
+    alternativas:
+    - texto: O React do microfrontend tem versão diferente da do shell.
+      correta: false
+      explicacao: O microfrontend mínimo nem usa React, e o contrato não compara versões.
+    - texto: O módulo não exporta uma função chamada `unmount`, e o `assertMfeModule` o recusa.
+      correta: true
+      explicacao: A mensagem vem de `loadMfeModule.ts:7`, que confere o tipo de `unmount`. A falha de integridade aparece junto porque renomear a função também mudou os bytes do arquivo.
+    - texto: O bundle não foi encontrado no bucket.
+      correta: false
+      explicacao: Bundle ausente gera `respondeu HTTP 404` ou falha de `fetch`, e não a mensagem do contrato.
+  - tipo: incidente
+    titulo: Hash que não confere
+    origem: executado
+    rotulo_saida: log
+    saida: "Caused by: Error: [mfe] integridade do bundle inválida\n Test Files  1 failed (1)\n      Tests  1 failed | 3 passed (4)"
+    pergunta: Uma única letra do arquivo mudou depois de gerar o hash. Por que o teste falhou?
+    correcao: Gerar o hash depois da última alteração e publicar o bundle e o manifesto juntos, como faz o deploy da raiz.
+    alternativas:
+    - texto: O `mount` lançou exceção por causa do texto.
+      correta: false
+      explicacao: Os testes de `mount` e `unmount` passaram, e só o teste do hash falhou.
+    - texto: O `openssl` gerou o hash com outro algoritmo.
+      correta: false
+      explicacao: O comando usa `-sha256`, e o mesmo arquivo sem a alteração passou no teste.
+    - texto: O SHA-256 dos bytes atuais difere do valor registrado, e o shell recusa o bundle antes de executá-lo.
+      correta: true
+      explicacao: O `verifyBundleIntegrity` compara o hash calculado com o `integrity` publicado.
+  - tipo: incidente
+    titulo: import(url) na ADR e Blob no código
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "docs/architecture/adrs/ADR-009-contrato-mount-unmount.md\n  O shell faz `import(url)` nativo do bundle, valida que `mount`/`unmount` existem ...\n\nsrc/app/mfe/loadMfeModule.ts:25-32\n  const response = await fetch(url, { credentials: 'omit', cache: 'no-store' })\n  if (!response.ok) throw new Error(`[mfe] bundle ${url} respondeu HTTP ${response.status}`)\n  const bytes = await response.arrayBuffer()\n  await verifyBundleIntegrity(bytes, integrity)\n  const blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'text/javascript' }))\n  let mod: unknown\n  try {\n    mod = await import(/* @vite-ignore */ blobUrl)"
+    pergunta: Por que o código não importa a URL do bundle diretamente, como a ADR-009 descreve?
+    correcao: Atualizar a ADR-009 para descrever o download, a verificação do hash e a importação do Blob.
+    alternativas:
+    - texto: Para conferir o hash dos bytes antes de executá-los, o que `import(url)` não permite.
+      correta: true
+      explicacao: Com `import(url)`, o navegador executa o módulo ao baixá-lo, sem dar ao shell a chance de recusá-lo.
+    - texto: Porque `import()` não funciona com URLs de outra origem.
+      correta: false
+      explicacao: O `import()` aceita outras origens com CORS, e a ADR-011 configura CORS nos buckets.
+    - texto: Para reduzir o tamanho do bundle.
+      correta: false
+      explicacao: O Blob tem os mesmos bytes baixados.
+  - tipo: incidente
+    titulo: Três cópias do mesmo contrato
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/app/mfe/types.ts:18-29\n/** Contrato que todo bundle de MFE deve exportar. */\nexport interface MfeMountContext {\n  apiUrl: string\n  token: string | null\n  onUnauthorized: () => void\n  basePath: string\n}\n\nexport interface MfeModule {\n  mount: (el: HTMLElement, ctx: MfeMountContext) => void\n  unmount: (el: HTMLElement) => void\n}\n\nmfes/endereco/src/contract.ts e mfes/emprestimo/src/contract.ts\n// Contrato publicado pelo shell (ADR-009). Cópia local para manter o MFE autônomo.\nexport interface MfeMountContext {\n  ..."
+    pergunta: O shell e os dois microfrontends têm cópias idênticas do contrato, e nenhum teste as compara. Qual é o risco?
+    correcao: Versionar o contrato e acrescentar uma verificação que compare as cópias, ou publicar o contrato como pacote de tipos sem código de execução.
+    alternativas:
+    - texto: O Vite recusa tipos duplicados no build.
+      correta: false
+      explicacao: Cada pacote tem o próprio build, e tipos iguais em pacotes diferentes não conflitam.
+    - texto: Uma mudança numa cópia passa despercebida até falhar em tempo de execução, porque cada pacote compila contra a própria cópia.
+      correta: true
+      explicacao: A cópia local mantém a autonomia de build, e o preço é a divergência silenciosa entre as versões.
+    - texto: O bundle fica maior por causa das cópias.
+      correta: false
+      explicacao: As interfaces do TypeScript somem na compilação e não vão para o bundle.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que a ADR-009 descartou o Module Federation?
+      alternativas:
+      - texto: Porque o Federation não funciona com Vite.
+        correta: false
+        explicacao: A ADR cita o plugin `@originjs/vite-plugin-federation` como opção viável.
+      - texto: Porque o Federation gera bundles maiores.
+        correta: false
+        explicacao: O Federation gera bundles menores, e a ADR aceitou bundles maiores pela autonomia.
+      - texto: Porque compartilhar dependências acopla as versões de React entre shell e microfrontends.
+        correta: true
+        explicacao: A ADR registra que o benefício central do Federation contraria o requisito de autonomia.
+    - enunciado: Em que momento o shell baixa o bundle de um microfrontend?
+      alternativas:
+      - texto: Quando a rota do microfrontend é renderizada pelo `MfeHost`.
+        correta: true
+        explicacao: O único chamador de `loadMfeModule` é o efeito do `MfeMountPoint`.
+      - texto: No boot do shell, na ordem do manifesto.
+        correta: false
+        explicacao: No boot, o shell só lê e valida o manifesto.
+      - texto: No login.
+        correta: false
+        explicacao: O login só grava o token.
+    - enunciado: O que o `unmount` precisa fazer?
+      alternativas:
+      - texto: Chamar `onUnauthorized`.
+        correta: false
+        explicacao: O `onUnauthorized` serve para sinalizar o 401.
+      - texto: Liberar o elemento recebido, desmontando a árvore e removendo os ouvintes.
+        correta: true
+        explicacao: É a regra da ADR-009, e o teste do laboratório confere o elemento vazio.
+      - texto: Apagar o bundle do bucket.
+        correta: false
+        explicacao: O bundle continua publicado, e o `unmount` só trata o DOM.
+    - enunciado: Por que o microfrontend mínimo do laboratório funciona sem React?
+      alternativas:
+      - texto: Porque o shell empresta o React dele.
+        correta: false
+        explicacao: O shell não compartilha React com os microfrontends.
+      - texto: Porque o teste simula o React.
+        correta: false
+        explicacao: O teste usa o módulo real e o carregador real do shell.
+      - texto: Porque o contrato só exige duas funções que recebem um elemento do DOM.
+        correta: true
+        explicacao: A ADR-009 define um contrato independente de framework.
+    - enunciado: O que acontece se o arquivo do bundle mudar depois de o hash ser publicado no manifesto?
+      alternativas:
+      - texto: O shell recusa o bundle com `[mfe] integridade do bundle inválida`.
+        correta: true
+        explicacao: O laboratório mostrou a falha com uma única letra alterada.
+      - texto: O shell carrega a versão nova normalmente.
+        correta: false
+        explicacao: O hash é conferido em toda carga.
+      - texto: O shell recalcula o hash e atualiza o manifesto.
+        correta: false
+        explicacao: Quem atualiza o manifesto é o deploy, e não o shell.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A escolha da ADR-008 e o contrato da ADR-009 estão claros.
+    - O caminho do bundle, do download à validação do contrato, está claro.
+    - O teste do microfrontend mínimo falhou antes do módulo e passou depois do hash.
+    - As mensagens de contrato quebrado e de hash diferente foram reconhecidas.
+    - A suíte completa terminou com 103 testes aprovados.

@@ -71,7 +71,8 @@ odas:
     minutos: 75
     pre_requisitos: ["00", "02"]
     objetivo: "Implementar um microfrontend mínimo que cumpre o contrato mount/unmount."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-05
   - id: "06"
     titulo: "Manifesto e resolução de dependências"
     trilha: 3
