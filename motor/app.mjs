@@ -1,6 +1,7 @@
 import { h, renderizarBloco, avisar } from './nucleo.mjs';
 import { criarArmazenamento, criarEstado } from './estado.mjs';
 import { abaDoHash, vizinhas, progresso } from './roteador.mjs';
+import { montarBusca } from './busca.mjs';
 
 export function iniciar(doc, win) {
   const dados = JSON.parse(doc.getElementById('oda-dados').textContent);
@@ -105,5 +106,6 @@ export function iniciar(doc, win) {
   doc.getElementById('app').replaceChildren(cabecalho, lista, principal);
   atualizarProgresso();
   mostrar(abaDoHash(win.location.hash, ids));
+  montarBusca(ctx, dados);
   return ctx;
 }

@@ -54,3 +54,12 @@ button { cursor: pointer; }
 .modo-foco .cabecalho, .modo-foco .abas { display: none; }
 .modo-foco .painel__rodape { position: sticky; bottom: 0; background: var(--cartao); }
 @media (max-width: 600px) { #app { padding: 8px; } .painel { padding: 14px; } .cabecalho__titulo { font-size: 1.05rem; } }
+.busca { position: relative; }
+.busca__campo { background: var(--interno); border: 1px solid var(--borda); border-radius: 999px; padding: 7px 14px; width: 220px; }
+.busca__resultados { position: absolute; right: 0; top: 110%; width: min(420px, 90vw); list-style: none; margin: 0; padding: 6px; background: var(--cartao); border: 1px solid var(--borda); border-radius: 10px; z-index: 20; }
+.busca__item { display: grid; gap: 2px; width: 100%; text-align: left; background: none; border: 0; border-radius: 8px; padding: 8px; }
+.busca__item:hover, .busca__item:focus-visible { background: var(--interno); }
+.busca__item span { color: var(--texto-suave); font-size: .85em; }
+.busca__vazio { padding: 8px; color: var(--texto-suave); }
+.realce { outline: 2px solid var(--alerta); outline-offset: 4px; border-radius: 8px; }
+@media (max-width: 600px) { .busca__campo { width: 150px; } }
