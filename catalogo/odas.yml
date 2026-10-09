@@ -101,7 +101,8 @@ odas:
     minutos: 75
     pre_requisitos: ["06"]
     objetivo: "Publicar um microfrontend no LocalStack e promover bundle e manifesto em conjunto."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-08
   - id: "09"
     titulo: "CSS e contrato visual entre microfrontends"
     trilha: 3

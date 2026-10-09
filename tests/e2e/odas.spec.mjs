@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -163,6 +163,23 @@ test('oda-07: o teste da falha interna falha antes do boundary e passa depois', 
   await painel.getByRole('button', { name: 'Limpar' }).click();
   await rodar();
   await expect(tela).toContainText('Tests  1 passed (1)');
+});
+
+test('oda-08: o hash do manifesto só acompanha o bundle depois do deploy da raiz', async ({ page }) => {
+  await page.goto('/oda-08/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const limpar = () => painel.getByRole('button', { name: 'Limpar' }).click();
+  const rodar = async (c) => { await campo.fill(c); await campo.press('Enter'); };
+  const grep = `grep -A4 '"id": "endereco"' public/mfe-manifest.json`;
+  await painel.getByLabel('Passo 5 concluído').check();
+  await rodar('cd mfes/endereco && npm run build && npm run deploy');
+  await limpar(); await rodar(grep);
+  await expect(tela).toContainText('sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=');
+  await rodar('npm run deploy');
+  await limpar(); await rodar(grep);
+  await expect(tela).toContainText('sha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

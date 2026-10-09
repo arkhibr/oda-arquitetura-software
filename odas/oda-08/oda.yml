@@ -1,0 +1,600 @@
+id: 08
+titulo: Build independente e deploy em S3
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: Cada microfrontend tem build e deploy próprios, e o shell confere o hash de cada bundle contra o manifesto. Esta ODA mostra o que o deploy de um microfrontend faz e o que ele deixa de fazer, e demonstra no portal por que bundle e manifesto precisam ser promovidos juntos.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar o build em Vite lib mode e a publicação num bucket S3 por microfrontend, conforme a ADR-011.
+    - Distinguir o deploy do microfrontend, que só publica o bundle, do deploy da raiz, que também atualiza o manifesto.
+    - Reproduzir no portal a falha causada por um bundle novo com manifesto antigo e corrigi-la com a promoção conjunta.
+    - Conferir o hash do bundle publicado contra o campo `integrity` do manifesto.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: 'A ODA 00, com o Docker em execução e o LocalStack acessível na porta 4566, e a ODA 07, cujo boundary interno serve de alteração no microfrontend de endereço. O laboratório usa dois terminais: um com `npm run dev` e outro para os comandos de deploy.'
+  - tipo: terminal
+    titulo: terminal · LocalStack
+    comandos:
+    - entrada: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4566/_localstack/health
+      saida: '200'
+      origem: executado
+      dica: 200 indica o LocalStack no ar. Sem resposta, rode `docker compose -f infra/docker-compose.yml up -d` ou deixe o `npm run deploy` subir o compose.
+    cenarios:
+    - rotulo: Conferir o LocalStack
+      comando: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4566/_localstack/health
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'A ADR-011 decide como cada microfrontend é construído e onde o bundle fica hospedado, e a Atualização 1.1 da mesma ADR liga a publicação ao hash do manifesto. O ponto central desta ODA está nessa ligação: um bundle publicado sem o manifesto correspondente é recusado pelo shell.'
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Pipeline
+    titulo: Pipeline de deploy da ADR-011 (docs/architecture/adrs/ADR-011-deploy-s3-localstack.md)
+    mermaid: "graph LR\n    src[\"mfes/endereco/src\"] -->|\"vite build (lib)\"| dist[\"dist/endereco.js\"]\n    dist -->|\"AWS SDK v3 PutObject\"| bucket[\"S3 bucket\\nmfe-endereco (LocalStack)\"]\n    bucket -->|\"fetch + CORS\"| shell[\"Shell\"]\n    dist -->|\"SHA-256\"| manifest[\"mfe-manifest.json\"]"
+  - tipo: comparativo
+    colunas:
+    - Deploy do microfrontend
+    - Deploy da raiz
+    linhas:
+    - dimensao: Comando
+      valores:
+      - '`npm run build` e `npm run deploy` dentro de `mfes/endereco`'
+      - '`npm run deploy` na raiz do repositório'
+    - dimensao: Sobe o LocalStack se estiver parado
+      valores:
+      - Não
+      - Sim, com `docker compose`
+    - dimensao: Publica o bundle
+      valores:
+      - Sim, no bucket `mfe-endereco`, com policy pública e CORS
+      - Sim, para cada microfrontend da lista `MFES`, delegando ao deploy de cada um
+    - dimensao: Confere HTTP 200 no bucket
+      valores:
+      - Não
+      - Sim
+    - dimensao: Atualiza o `integrity` do manifesto
+      valores:
+      - Não
+      - Sim, com o SHA-256 do arquivo em `dist/`
+  - tipo: conceito
+    titulo: Promoção conjunta
+    texto: O shell lê o manifesto no boot de cada carga da página e confere o hash de cada bundle baixado contra ele. Se o bundle muda e o manifesto não, a carga falha, e se o manifesto muda antes do bundle, a falha também acontece. A Atualização 1.1 da ADR-011 registra que pipelines de produção devem executar as duas etapas de forma atômica.
+  - tipo: adr
+    id: ADR-011
+    titulo: Build independente e deploy de MFEs em S3 (LocalStack)
+    status: Proposed
+    contexto: Cada microfrontend é um bundle ESM carregado em tempo de execução, e faltava definir como ele é construído, onde fica hospedado e como é publicado sem reacoplar o deploy ao do shell.
+    decisao: Build em Vite lib mode e um bucket S3 por microfrontend, com LocalStack em desenvolvimento e publicação pelo AWS SDK v3, num repositório único com uma pasta por microfrontend para fins didáticos.
+    alternativas: Servir os bundles pelo próprio shell, descartado por reacoplar os deploys, e um repositório isolado por microfrontend, recomendado pela ADR para produção.
+    consequencias: Cada microfrontend compila e publica sozinho, ao custo de configurar policy e CORS por bucket. A Atualização 1.1 acrescenta a atualização do `integrity` no deploy da raiz e a exigência de promover bundle e manifesto juntos.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, o build em lib mode, o deploy de um microfrontend e o deploy da raiz. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/vite.config.ts
+    commit: '2179313'
+    linhas:
+    - '  // Lib mode não substitui process.env.NODE_ENV; como o React vai embutido no'
+    - '  // bundle (MFE autônomo), é preciso defini-lo ou o bundle quebra no browser'
+    - '  // com "ReferenceError: process is not defined".'
+    - '  define: { ''process.env.NODE_ENV'': JSON.stringify(''production'') },'
+    - '  build: {'
+    - '    lib: {'
+    - '      entry: path.resolve(__dirname, ''src/index.tsx''),'
+    - '      formats: [''es''],'
+    - '      fileName: () => ''endereco.js'','
+    - '    },'
+    - '    // React fica embutido no bundle (MFE autônomo) — NÃO marcar como external.'
+    - '    rollupOptions: { output: { inlineDynamicImports: true } },'
+    - '  },'
+    anotacoes:
+    - linha: 11
+      texto: Sem esta definição, o React embutido quebra no navegador com `process is not defined`.
+    - linha: 15
+      texto: Um único módulo ESM, que o shell importa como Blob.
+    - linha: 19
+      texto: 'Tudo num arquivo só. O Vite 8 avisa no build que a opção está obsoleta e sugere `codeSplitting: false`.'
+    inicio: 8
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/scripts/deploy.ts
+    commit: '2179313'
+    linhas:
+    - async function ensureBucket() {
+    - '  try {'
+    - '    await s3.send(new CreateBucketCommand({ Bucket: BUCKET }))'
+    - '  } catch (err) {'
+    - '    if ((err as { name?: string }).name !== ''BucketAlreadyOwnedByYou'') {'
+    - '      // LocalStack costuma ser idempotente; ignora "já existe"'
+    - '    }'
+    - '  }'
+    - '  await s3.send(new PutBucketPolicyCommand({'
+    - '    Bucket: BUCKET,'
+    - '    Policy: JSON.stringify({'
+    - '      Version: ''2012-10-17'','
+    - '      Statement: [{ Effect: ''Allow'', Principal: ''*'', Action: ''s3:GetObject'', Resource: `arn:aws:s3:::${BUCKET}/*` }],'
+    - '    }),'
+    - '  }))'
+    - '  // O shell faz import() ESM cross-origin do bundle; o navegador exige CORS.'
+    - '  await s3.send(new PutBucketCorsCommand({'
+    - '    Bucket: BUCKET,'
+    - '    CORSConfiguration: {'
+    - '      CORSRules: [{ AllowedOrigins: [''*''], AllowedMethods: [''GET''], AllowedHeaders: [''*''] }],'
+    - '    },'
+    - '  }))'
+    - '}'
+    - ''
+    - async function main() {
+    - '  await ensureBucket()'
+    - '  await s3.send(new PutObjectCommand({'
+    - '    Bucket: BUCKET,'
+    - '    Key: ''endereco.js'','
+    - '    Body: readFileSync(''dist/endereco.js''),'
+    - '    ContentType: ''application/javascript'','
+    - '  }))'
+    - '  console.log(`✅ deploy: ${ENDPOINT}/${BUCKET}/endereco.js`)'
+    - '}'
+    anotacoes:
+    - linha: 22
+      texto: Cria o bucket do microfrontend, que pode já existir.
+    - linha: 24
+      texto: 'O bloco está vazio: qualquer erro na criação do bucket é ignorado, e não só o de bucket existente.'
+    - linha: 32
+      texto: Leitura pública dos objetos, para o navegador baixar o bundle.
+    - linha: 39
+      texto: CORS para o `fetch` do shell, que roda noutra origem.
+    - linha: 49
+      texto: Publica o arquivo de `dist/` com a mesma chave, sobrescrevendo a versão anterior.
+    inicio: 20
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scripts/deploy.ts
+    commit: '2179313'
+    linhas:
+    - 'async function deployMfe(mfe: (typeof MFES)[number]): Promise<void> {'
+    - '  console.log(`\n▶ ${mfe.dir}`)'
+    - '  if (!existsSync(`${mfe.dir}/node_modules`)) {'
+    - '    console.log(''  node_modules ausente — npm ci…'')'
+    - '    run(''npm ci'', mfe.dir)'
+    - '  }'
+    - '  run(''npm run build'', mfe.dir)'
+    - '  run(''npm run deploy'', mfe.dir)'
+    - ''
+    - '  const url = `${ENDPOINT}/${mfe.bucket}/${mfe.file}`'
+    - '  const res = await fetch(url).catch(() => null)'
+    - '  if (!res?.ok) {'
+    - '    throw new Error('
+    - '      `Validação falhou: ${url} respondeu ${res?.status ?? ''sem resposta''} após o deploy.`,'
+    - '    )'
+    - '  }'
+    - '  console.log(`  ✓ publicado e validado: ${url}`)'
+    - '  updateManifestIntegrity(mfe)'
+    - '}'
+    - ''
+    - 'function updateManifestIntegrity(mfe: (typeof MFES)[number]): void {'
+    - '  const bundlePath = `${mfe.dir}/dist/${mfe.file}`'
+    - '  const integrity = `sha256-${createHash(''sha256'').update(readFileSync(bundlePath)).digest(''base64'')}`'
+    - '  const manifest = JSON.parse(readFileSync(MANIFEST_PATH, ''utf-8'')) as Manifest'
+    - '  const entry = manifest.mfes.find((item) => item.id === mfe.id)'
+    - '  if (!entry) throw new Error(`Manifesto não possui entrada para o MFE "${mfe.id}".`)'
+    - ''
+    - '  entry.integrity = integrity'
+    - '  writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`)'
+    - '  console.log(`  ✓ manifesto atualizado: ${mfe.id} → ${integrity}`)'
+    - '}'
+    anotacoes:
+    - linha: 72
+      texto: O deploy da raiz roda o build e o deploy de cada microfrontend.
+    - linha: 77
+      texto: Confere que o bundle responde no bucket antes de mexer no manifesto.
+    - linha: 88
+      texto: Calcula o hash do arquivo local publicado.
+    - linha: 94
+      texto: Grava o manifesto em `public/`, que é versionado no Git.
+    inicio: 66
+  - tipo: faixa
+    estilo: dica
+    texto: O shell lê o manifesto uma única vez, no boot da página (`src/main.tsx:27`). Depois de qualquer deploy, uma aba já aberta continua com os hashes antigos e recusa o bundle novo até ser recarregada, e o deploy da raiz grava o manifesto só depois de publicar e validar o bundle.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Percorra as etapas do deploy da raiz para um microfrontend e classifique cada situação pelo resultado no portal.
+  - tipo: fluxo
+    titulo: Deploy da raiz para um microfrontend
+    etapas:
+    - titulo: LocalStack
+      descricao: Confere a saúde em `/_localstack/health` e sobe o compose se necessário.
+      codigo:
+        arquivo: scripts/deploy.ts
+        commit: '2179313'
+        linhas:
+        - 'async function ensureLocalStack(): Promise<void> {'
+        - '  if (await isHealthy()) {'
+        - '    console.log(`✓ LocalStack no ar em ${ENDPOINT}`)'
+        - '    return'
+        - '  }'
+        destaque:
+        - 2
+    - titulo: Build
+      descricao: Instala as dependências se faltarem e roda `tsc --noEmit && vite build` no microfrontend.
+      codigo:
+        arquivo: scripts/deploy.ts
+        commit: '2179313'
+        linhas:
+        - '  if (!existsSync(`${mfe.dir}/node_modules`)) {'
+        - '    console.log(''  node_modules ausente — npm ci…'')'
+        - '    run(''npm ci'', mfe.dir)'
+        - '  }'
+        - '  run(''npm run build'', mfe.dir)'
+        destaque:
+        - 5
+    - titulo: Publicação
+      descricao: O deploy do microfrontend cria o bucket, aplica policy e CORS e envia o arquivo.
+      codigo:
+        arquivo: scripts/deploy.ts
+        commit: '2179313'
+        linhas:
+        - '  run(''npm run deploy'', mfe.dir)'
+        destaque:
+        - 1
+    - titulo: Validação
+      descricao: O script baixa a URL do bundle e exige HTTP 200.
+      codigo:
+        arquivo: scripts/deploy.ts
+        commit: '2179313'
+        linhas:
+        - '  const url = `${ENDPOINT}/${mfe.bucket}/${mfe.file}`'
+        - '  const res = await fetch(url).catch(() => null)'
+        - '  if (!res?.ok) {'
+        - '    throw new Error('
+        - '      `Validação falhou: ${url} respondeu ${res?.status ?? ''sem resposta''} após o deploy.`,'
+        - '    )'
+        - '  }'
+        destaque:
+        - 2
+        - 3
+    - titulo: Manifesto
+      descricao: O SHA-256 do arquivo em `dist/` vai para o `integrity` da entrada, e o manifesto é gravado.
+      codigo:
+        arquivo: scripts/deploy.ts
+        commit: '2179313'
+        linhas:
+        - '  const bundlePath = `${mfe.dir}/dist/${mfe.file}`'
+        - '  const integrity = `sha256-${createHash(''sha256'').update(readFileSync(bundlePath)).digest(''base64'')}`'
+        - '  const manifest = JSON.parse(readFileSync(MANIFEST_PATH, ''utf-8'')) as Manifest'
+        - '  const entry = manifest.mfes.find((item) => item.id === mfe.id)'
+        - '  if (!entry) throw new Error(`Manifesto não possui entrada para o MFE "${mfe.id}".`)'
+        - ''
+        - '  entry.integrity = integrity'
+        - '  writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`)'
+        destaque:
+        - 2
+        - 8
+  - tipo: classificador
+    enunciado: O que o portal mostra na rota do endereço em cada situação?
+    categorias:
+    - id: ok
+      rotulo: O formulário de endereço
+    - id: indisponivel
+      rotulo: Módulo indisponível
+    itens:
+    - texto: Deploy da raiz concluído
+      categoria: ok
+      explicacao: Bundle e manifesto têm o mesmo hash.
+    - texto: Código alterado e deploy só do microfrontend
+      categoria: indisponivel
+      explicacao: O bundle novo está no bucket, e o manifesto continua com o hash anterior.
+    - texto: Código alterado sem nenhum deploy
+      categoria: ok
+      explicacao: O bucket ainda tem o bundle anterior, que corresponde ao manifesto.
+    - texto: Manifesto restaurado com `git checkout` depois de um deploy
+      categoria: indisponivel
+      explicacao: O manifesto volta ao hash do commit, diferente do bundle publicado, como na ODA 00.
+    - texto: Deploy só do microfrontend seguido do deploy da raiz
+      categoria: ok
+      explicacao: O deploy da raiz recalcula o hash e grava o manifesto.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos no repositório clonado na ODA 00, com `npm run dev` num terminal separado. Os passos 1 a 4 partem de um deploy consistente, os passos 5 a 8 publicam só o bundle e mostram a falha, e os passos 9 e 10 promovem bundle e manifesto juntos.
+  - tipo: passos
+    itens:
+    - titulo: Conferir o LocalStack
+      editor:
+        rotulo: terminal
+        linhas:
+        - curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4566/_localstack/health
+      sucesso: '`200`.'
+    - titulo: Fazer o deploy da raiz
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run deploy
+      efeito: deploy_inicial
+      sucesso: 'A última linha `✅ deploy concluído: 2 MFEs publicados em http://localhost:4566`.'
+    - titulo: Comparar o hash publicado com o manifesto
+      editor:
+        rotulo: terminal
+        linhas:
+        - printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)"
+        - 'grep -A4 ''"id": "endereco"'' public/mfe-manifest.json'
+      sucesso: O mesmo valor nas duas saídas, no formato `sha256-` seguido de 44 caracteres.
+    - titulo: Abrir o endereço no portal
+      texto: Entre com `usuario@teste.com` e `senha123` e clique em Alteração de Endereço.
+      sucesso: O formulário com CEP, Logradouro, Número e o botão Salvar, sem erros no console.
+    - titulo: Alterar o microfrontend
+      texto: Se o boundary da ODA 07 ainda não estiver no repositório, crie `mfes/endereco/src/FalhaInterna.tsx` com o conteúdo abaixo e, em `mfes/endereco/src/index.tsx`, importe o componente e envolva o `EnderecoApp`, como nas linhas finais do editor.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/src/FalhaInterna.tsx (novo) e index.tsx (alteração)
+        commit: '2179313'
+        linhas:
+        - import { Component, type ReactNode } from 'react'
+        - ''
+        - 'type Props = { children: ReactNode }'
+        - 'type State = { falhou: boolean }'
+        - ''
+        - // Captura erros da árvore deste microfrontend, que roda num createRoot próprio
+        - // e por isso não chega ao MfeErrorBoundary do shell.
+        - export class FalhaInterna extends Component<Props, State> {
+        - '  state: State = { falhou: false }'
+        - ''
+        - '  static getDerivedStateFromError(): State {'
+        - '    return { falhou: true }'
+        - '  }'
+        - ''
+        - '  render() {'
+        - '    if (this.state.falhou) return <p role="alert">O módulo de endereço encontrou um erro.</p>'
+        - '    return this.props.children'
+        - '  }'
+        - '}'
+        - ''
+        - // mfes/endereco/src/index.tsx
+        - import { FalhaInterna } from './FalhaInterna'
+        - ''
+        - '      <FalhaInterna>'
+        - '        <EnderecoApp ctx={ctx} />'
+        - '      </FalhaInterna>'
+      efeito: mudanca
+    - titulo: Publicar só o microfrontend
+      editor:
+        rotulo: terminal
+        linhas:
+        - cd mfes/endereco && npm run build && npm run deploy
+      efeito: deploy_mfe
+      sucesso: '`dist/endereco.js  296.41 kB │ gzip: 78.85 kB` e `✅ deploy: http://localhost:4566/mfe-endereco/endereco.js`.'
+    - titulo: Comparar de novo
+      editor:
+        rotulo: terminal
+        linhas:
+        - printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)"
+        - 'grep -A4 ''"id": "endereco"'' public/mfe-manifest.json'
+      sucesso: 'Valores diferentes: o hash do arquivo mudou, e o manifesto não.'
+    - titulo: Recarregar o endereço no portal
+      texto: Recarregue a página e clique em Alteração de Endereço.
+      sucesso: 'A mensagem `O módulo Alteração de Endereço está indisponível no momento.` e, no console, `[mfe] falha ao carregar "Alteração de Endereço": Error: [mfe] integridade do bundle inválida`.'
+    - titulo: Promover bundle e manifesto juntos
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run deploy
+        - printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)"
+        - 'grep -A4 ''"id": "endereco"'' public/mfe-manifest.json'
+      efeito: deploy_raiz
+      sucesso: '`✓ manifesto atualizado: endereco → sha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=` e o mesmo valor nas duas comparações.'
+    - titulo: Conferir o portal e o repositório
+      texto: Recarregue o endereço no portal e liste os arquivos alterados com `git status --short`. O manifesto e o código do microfrontend aparecem juntos e devem ir no mesmo commit.
+      sucesso: O formulário de endereço de volta, sem erros no console.
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4566/_localstack/health
+      saida: '200'
+      origem: executado
+      dica: 200 indica o LocalStack no ar. Sem resposta, rode `docker compose -f infra/docker-compose.yml up -d` ou deixe o `npm run deploy` subir o compose.
+    - entrada: npm run deploy
+      condicao: mudanca
+      saida: "> frontend-react@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\n✓ LocalStack no ar em http://localhost:4566\n\n▶ mfes/endereco\n\n> mfe-endereco@0.0.0 build\n> tsc --noEmit && vite build\n\nvite v8.0.16 building client environment for production...\n\n WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.\n\n\ntransforming...✓ 17 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/endereco.js  296.41 kB │ gzip: 78.85 kB\n\n✓ built in 46ms\n\n> mfe-endereco@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\n✅ deploy: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ publicado e validado: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ manifesto atualizado: endereco → sha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=\n\n▶ mfes/emprestimo\n\n> mfe-emprestimo@0.0.0 build\n> tsc --noEmit && vite build\n\nvite v8.0.16 building client environment for production...\n\n WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.\n\n\ntransforming...✓ 28 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/emprestimo.js  337.89 kB │ gzip: 87.26 kB\n\n✓ built in 58ms\n\n> mfe-emprestimo@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\n✅ deploy: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ publicado e validado: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ manifesto atualizado: emprestimo → sha256-JipnXLXX2ZObIxBYmjNzsLy5W2WvXcShNJ9T30xMDi0=\n\n✅ deploy concluído: 2 MFEs publicados em http://localhost:4566"
+      origem: executado
+      efeito: deploy_raiz
+    - entrada: npm run deploy
+      saida: "> frontend-react@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\n✓ LocalStack no ar em http://localhost:4566\n\n▶ mfes/endereco\n\n> mfe-endereco@0.0.0 build\n> tsc --noEmit && vite build\n\nvite v8.0.16 building client environment for production...\n\n WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.\n\n\ntransforming...✓ 16 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/endereco.js  296.05 kB │ gzip: 78.72 kB\n\n✓ built in 56ms\n\n> mfe-endereco@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\n✅ deploy: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ publicado e validado: http://localhost:4566/mfe-endereco/endereco.js\n  ✓ manifesto atualizado: endereco → sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=\n\n▶ mfes/emprestimo\n\n> mfe-emprestimo@0.0.0 build\n> tsc --noEmit && vite build\n\nvite v8.0.16 building client environment for production...\n\n WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.\n\n\ntransforming...✓ 28 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/emprestimo.js  337.89 kB │ gzip: 87.26 kB\n\n✓ built in 57ms\n\n> mfe-emprestimo@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\n✅ deploy: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ publicado e validado: http://localhost:4566/mfe-emprestimo/emprestimo.js\n  ✓ manifesto atualizado: emprestimo → sha256-JipnXLXX2ZObIxBYmjNzsLy5W2WvXcShNJ9T30xMDi0=\n\n✅ deploy concluído: 2 MFEs publicados em http://localhost:4566"
+      origem: executado
+      efeito: deploy_inicial
+    - entrada: cd mfes/endereco && npm run build && npm run deploy
+      condicao: mudanca
+      saida: "> mfe-endereco@0.0.0 build\n> tsc --noEmit && vite build\n\nvite v8.0.16 building client environment for production...\n\n WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.\n\n\ntransforming...✓ 17 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/endereco.js  296.41 kB │ gzip: 78.85 kB\n\n✓ built in 45ms\n\n> mfe-endereco@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\n✅ deploy: http://localhost:4566/mfe-endereco/endereco.js"
+      origem: executado
+      efeito: deploy_mfe
+      dica: O bundle novo está no bucket, e o manifesto continua com o hash anterior. Compare os dois nos passos seguintes.
+    - entrada: printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)"
+      condicao: deploy_raiz
+      saida: sha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=
+      origem: executado
+    - entrada: printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)"
+      condicao: deploy_mfe
+      saida: sha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=
+      origem: executado
+      dica: Este é o hash do bundle recém-publicado, diferente do que está no manifesto.
+    - entrada: printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)"
+      saida: sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=
+      origem: executado
+    - entrada: 'grep -A4 ''"id": "endereco"'' public/mfe-manifest.json'
+      condicao: deploy_raiz
+      saida: "      \"id\": \"endereco\",\n      \"name\": \"Alteração de Endereço\",\n      \"state\": \"active\",\n      \"url\": \"http://localhost:4566/mfe-endereco/endereco.js\",\n      \"integrity\": \"sha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=\","
+      origem: executado
+      dica: O deploy da raiz gravou no manifesto o hash do bundle publicado.
+    - entrada: 'grep -A4 ''"id": "endereco"'' public/mfe-manifest.json'
+      saida: "      \"id\": \"endereco\",\n      \"name\": \"Alteração de Endereço\",\n      \"state\": \"active\",\n      \"url\": \"http://localhost:4566/mfe-endereco/endereco.js\",\n      \"integrity\": \"sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=\","
+      origem: executado
+    - entrada: git status --short
+      condicao: '!mudanca'
+      saida: ' M public/mfe-manifest.json'
+      origem: executado
+      dica: O deploy da raiz altera o manifesto versionado, que precisa ir no mesmo commit do código que gerou o bundle.
+    cenarios:
+    - rotulo: Deploy da raiz
+      comando: npm run deploy
+    - rotulo: Deploy do microfrontend
+      comando: cd mfes/endereco && npm run build && npm run deploy
+    - rotulo: Hash do bundle
+      comando: printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)"
+    - rotulo: Hash no manifesto
+      comando: 'grep -A4 ''"id": "endereco"'' public/mfe-manifest.json'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os incidentes abaixo partem das saídas do laboratório e de dois pontos do código e da documentação que merecem atenção.
+  - tipo: incidente
+    titulo: Endereço indisponível depois de uma entrega
+    origem: executado
+    rotulo_saida: log
+    saida: 'tela: O módulo Alteração de Endereço está indisponível no momento.
+
+      console: [mfe] falha ao carregar "Alteração de Endereço": Error: [mfe] integridade do bundle inválida
+
+      console: [mfe] falha no microfrontend "Alteração de Endereço": Error: [mfe] integridade do bundle inválida'
+    pergunta: A equipe publicou o microfrontend com `npm run deploy` dentro de `mfes/endereco`. O que faltou?
+    correcao: Rodar o deploy da raiz, que publica o bundle e grava o hash no manifesto, e versionar o manifesto no mesmo commit do código.
+    alternativas:
+    - texto: Recompilar o shell.
+      correta: false
+      explicacao: O shell não muda, e o problema está no hash registrado no manifesto.
+    - texto: Atualizar o `integrity` do manifesto, que o deploy do microfrontend não grava.
+      correta: true
+      explicacao: Só `scripts/deploy.ts` da raiz chama `updateManifestIntegrity`.
+    - texto: Configurar CORS no bucket.
+      correta: false
+      explicacao: O deploy do microfrontend aplica CORS, e o erro é de integridade.
+  - tipo: incidente
+    titulo: Dois hashes para o mesmo arquivo
+    origem: executado
+    rotulo_saida: log
+    saida: "$ printf 'sha256-%s\\n' \"$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)\"\nsha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=\n\n$ grep -A4 '\"id\": \"endereco\"' public/mfe-manifest.json\n      \"id\": \"endereco\",\n      \"name\": \"Alteração de Endereço\",\n      \"state\": \"active\",\n      \"url\": \"http://localhost:4566/mfe-endereco/endereco.js\",\n      \"integrity\": \"sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=\","
+    pergunta: O que a diferença entre as duas saídas indica?
+    correcao: Promover bundle e manifesto juntos e, numa esteira de produção, tornar as duas etapas atômicas, como pede a Atualização 1.1 da ADR-011.
+    alternativas:
+    - texto: O `openssl` e o Node calculam hashes diferentes.
+      correta: false
+      explicacao: Depois do deploy da raiz, os dois valores coincidem.
+    - texto: O LocalStack alterou o arquivo no upload.
+      correta: false
+      explicacao: O hash é calculado sobre o arquivo local, e o shell aceita o bundle baixado quando o manifesto é atualizado.
+    - texto: O bundle em `dist/` e no bucket mudou, e o manifesto ainda aponta para o build anterior.
+      correta: true
+      explicacao: O valor do manifesto é o do deploy inicial, e o do arquivo é o do deploy só do microfrontend.
+  - tipo: incidente
+    titulo: Deploy contra um endpoint errado
+    origem: executado
+    rotulo_saida: log
+    saida: "$ cd mfes/endereco && S3_ENDPOINT=http://localhost:4599 npm run deploy\n> mfe-endereco@0.0.0 deploy\n> node --experimental-strip-types scripts/deploy.ts\n\nAggregateError [ECONNREFUSED]: \n    at internalConnectMultiple (node:net:1193:18)\n    at afterConnectMultiple (node:net:1783:7) {\n  code: 'ECONNREFUSED',\n  '$metadata': { attempts: 3, totalRetryDelay: 158 },\n  ..."
+    pergunta: O erro não diz qual operação falhou. Qual foi a primeira a falhar?
+    correcao: Tratar no `ensureBucket` apenas o erro de bucket existente e relançar os demais, para que a mensagem aponte a criação do bucket.
+    alternativas:
+    - texto: A criação do bucket, cuja falha o `catch` vazio ignorou, e o erro exibido vem da aplicação da policy, que veio em seguida.
+      correta: true
+      explicacao: O `if` dentro do `catch` de `ensureBucket` não tem corpo, e o `PutBucketPolicyCommand` é a próxima chamada fora do `try`.
+    - texto: O build do microfrontend.
+      correta: false
+      explicacao: O comando roda só o `npm run deploy`, que não compila.
+    - texto: A leitura de `dist/endereco.js`.
+      correta: false
+      explicacao: O erro é de conexão recusada na porta 4599, e não de arquivo ausente.
+  - tipo: incidente
+    titulo: Tamanho do bundle na ADR
+    origem: executado
+    rotulo_saida: log
+    saida: "docs/architecture/adrs/ADR-009-contrato-mount-unmount.md\n  O bundle de exemplo (`endereco.js`) tem ~800 kB não comprimido (~200 kB gzip)\n\n$ cd mfes/endereco && npm run build && npm run deploy\n  ...\ndist/endereco.js  296.41 kB │ gzip: 78.85 kB"
+    pergunta: Como tratar a diferença entre o tamanho citado na ADR e o do build?
+    correcao: Atualizar o número na ADR-009 com a medição atual e registrar a data, porque o custo da autonomia continua sendo o React embutido.
+    alternativas:
+    - texto: Concluir que o build falhou.
+      correta: false
+      explicacao: O build terminou com `✓ built` e o deploy validou o bundle.
+    - texto: Tratar o build como fonte atual e atualizar a ADR, porque o número registrado não corresponde ao código do commit.
+      correta: true
+      explicacao: A saída do Vite 8 mede o arquivo gerado agora, e a ADR registra uma medição anterior.
+    - texto: Concluir que o React deixou de ir no bundle.
+      correta: false
+      explicacao: O `vite.config.ts` continua sem marcar o React como externo.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Qual comando atualiza o `integrity` do manifesto?
+      alternativas:
+      - texto: '`npm run deploy` dentro do microfrontend.'
+        correta: false
+        explicacao: O deploy do microfrontend só cria o bucket e envia o arquivo.
+      - texto: '`npm run build` do microfrontend.'
+        correta: false
+        explicacao: O build só gera `dist/`.
+      - texto: '`npm run deploy` na raiz do repositório.'
+        correta: true
+        explicacao: A função `updateManifestIntegrity` fica em `scripts/deploy.ts`.
+    - enunciado: Por que o bucket recebe CORS?
+      alternativas:
+      - texto: Porque o shell baixa o bundle com `fetch` a partir de outra origem.
+        correta: true
+        explicacao: O shell roda em `localhost:5173`, e o bucket em `localhost:4566`.
+      - texto: Porque o LocalStack exige CORS para aceitar uploads.
+        correta: false
+        explicacao: O upload é feito pelo SDK no Node, sem regras de CORS.
+      - texto: Porque o Gateway lê o bucket.
+        correta: false
+        explicacao: O Gateway não participa do download dos bundles.
+    - enunciado: O que a ADR-011 pede para pipelines de produção?
+      alternativas:
+      - texto: Que cada microfrontend tenha o próprio manifesto.
+        correta: false
+        explicacao: O manifesto é único e lido pelo shell.
+      - texto: Que bundle e manifesto sejam promovidos juntos, de forma atômica.
+        correta: true
+        explicacao: É o texto da Atualização 1.1.
+      - texto: Que o manifesto seja publicado antes do bundle.
+        correta: false
+        explicacao: Nessa ordem, o manifesto aponta para um bundle que ainda não existe com aquele hash.
+    - enunciado: Por que o build usa lib mode com um único arquivo ESM?
+      alternativas:
+      - texto: Para compartilhar o React do shell.
+        correta: false
+        explicacao: O React vai embutido no bundle.
+      - texto: Para gerar o manifesto.
+        correta: false
+        explicacao: O manifesto é gravado pelo deploy da raiz.
+      - texto: Para que o shell baixe, confira e importe um só módulo com `mount` e `unmount`.
+        correta: true
+        explicacao: O carregador confere o hash de um arquivo e importa um Blob.
+    - enunciado: Depois do deploy da raiz, por que o manifesto aparece no `git status`?
+      alternativas:
+      - texto: Porque o deploy grava o hash novo em `public/mfe-manifest.json`, que é versionado.
+        correta: true
+        explicacao: O manifesto precisa ir no mesmo commit do código que gerou o bundle.
+      - texto: Porque o Vite reescreve o manifesto ao subir.
+        correta: false
+        explicacao: O Vite só serve o arquivo de `public/`.
+      - texto: Porque o LocalStack devolve o manifesto.
+        correta: false
+        explicacao: O manifesto fica no repositório do shell.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A diferença entre o deploy do microfrontend e o deploy da raiz está clara.
+    - O portal recusou o bundle publicado sem o manifesto correspondente.
+    - O deploy da raiz alinhou o hash do bundle e o do manifesto, e o endereço voltou a funcionar.
+    - O manifesto alterado foi identificado como parte do mesmo commit do código.
+    - O efeito do `catch` vazio em `ensureBucket` e a divergência de tamanho na ADR-009 foram identificados.
