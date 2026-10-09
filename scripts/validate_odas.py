@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
@@ -26,8 +27,51 @@ VERBOS_BLOOM = {
 }
 MARCADORES = ("TODO", "TBD", "PLACEHOLDER", "PREENCHER")
 ARQUIVO_RE = re.compile(r"^Arquivo: `[^`]+` \(commit `([0-9a-f]{7})`\)$")
-COMPONENTE_RE = re.compile(
-    r'<div[^>]*data-oda="([^"]+)"[^>]*>\s*(?:<script type="application/json">(.*?)</script>)?', re.DOTALL)
+SEM_CONFIGURACAO = {"filtro-catalogo"}
+
+
+class _Marcadores(HTMLParser):
+    """Coleta cada elemento data-oda e o bloco JSON filho, aceitando qualquer forma de atributo."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=False)
+        self.componentes: list[list] = []
+        self._capturando = False
+
+    def handle_starttag(self, tag, attrs):
+        atributos = dict(attrs)
+        if "data-oda" in atributos:
+            self.componentes.append([atributos["data-oda"], None])
+        elif tag == "script" and atributos.get("type") == "application/json" and self.componentes:
+            if self.componentes[-1][1] is None:
+                self._capturando = True
+                self.componentes[-1][1] = ""
+
+    def handle_data(self, data):
+        if self._capturando:
+            self.componentes[-1][1] += data
+
+    def handle_endtag(self, tag):
+        if tag == "script":
+            self._capturando = False
+
+
+def _sem_cercas(corpo: str) -> str:
+    linhas, em_cerca = [], False
+    for linha in corpo.splitlines():
+        if linha.lstrip().startswith("```"):
+            em_cerca = not em_cerca
+            continue
+        if not em_cerca:
+            linhas.append(linha)
+    return "\n".join(linhas)
+
+
+def _componentes(corpo: str) -> list[list]:
+    leitor = _Marcadores()
+    leitor.feed(_sem_cercas(corpo))
+    leitor.close()
+    return leitor.componentes
 
 
 def _front_matter(texto: str) -> tuple[dict, str]:
@@ -108,9 +152,13 @@ def validar_pagina(caminho: Path, catalogo: dict, componentes: set[str]) -> list
         erros.append("A seção 'Verificação' precisa de um componente quiz.")
     if "ADR-" not in "\n".join(conteudo.get("Decisão arquitetural", [])):
         erros.append("A seção 'Decisão arquitetural' precisa citar uma ADR.")
-    for nome, bruto in COMPONENTE_RE.findall(corpo):
+    for nome, bruto in _componentes(corpo):
         if nome not in componentes:
             erros.append(f"Componente desconhecido: {nome}.")
+        if bruto is None:
+            if nome not in SEM_CONFIGURACAO:
+                erros.append(f"Componente {nome} sem bloco de configuração JSON.")
+            continue
         if bruto.strip():
             try:
                 config = json.loads(bruto)

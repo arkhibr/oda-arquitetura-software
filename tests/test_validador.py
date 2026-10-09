@@ -118,6 +118,22 @@ class TestValidador(unittest.TestCase):
         texto = PAGINA_VALIDA.replace('data-oda="quiz"', 'data-oda="terminal"')
         self.assertIn("A seção 'Verificação' precisa de um componente quiz.", self.validar(texto))
 
+    def test_json_invalido_com_aspas_simples_na_tag(self):
+        texto = PAGINA_VALIDA.replace('<script type="application/json">{"perguntas": []}', "<script type='application/json'>{\"perguntas\": ]}")
+        self.assertTrue(any("JSON inválido no componente quiz" in e for e in self.validar(texto)))
+
+    def test_json_invalido_com_atributo_extra_na_tag(self):
+        texto = PAGINA_VALIDA.replace('<script type="application/json">{"perguntas": []}', '<script id="cfg" type="application/json">{"perguntas": ]}')
+        self.assertTrue(any("JSON inválido no componente quiz" in e for e in self.validar(texto)))
+
+    def test_componente_sem_bloco_de_configuracao(self):
+        texto = PAGINA_VALIDA.replace('<script type="application/json">{"categorias": [], "itens": []}</script>\n', "")
+        self.assertIn("Componente classificador sem bloco de configuração JSON.", self.validar(texto))
+
+    def test_marcador_dentro_de_bloco_de_codigo_e_ignorado(self):
+        texto = PAGINA_VALIDA.replace("const x = 1", '<div data-oda="roleta"></div>')
+        self.assertEqual(self.validar(texto), [])
+
     def test_marcador_editorial(self):
         self.assertIn("Marcador editorial pendente: TODO.", self.validar(PAGINA_VALIDA.replace("Passos.", "TODO passos.")))
 
