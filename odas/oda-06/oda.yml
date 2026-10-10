@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 05, com o repositório clonado no commit `2179313`. O laboratório usa o navegador com `npm run dev` e não depende do Docker, porque o microfrontend mínimo é registrado em manutenção e o shell não baixa o bundle dele.
+    texto: A ODA 05, com o repositório clonado no commit `2179313`. O laboratório usa o navegador com `npm run dev` e não depende do Docker, porque o microfrontend mínimo é registrado em manutenção e o shell não baixa o bundle dele. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -151,7 +151,7 @@ abas:
     - '}'
     anotacoes:
     - linha: 17
-      texto: O `integrity` precisa ter o formato `sha256-` seguido de 44 caracteres em Base64.
+      texto: O `integrity` precisa ter o formato `sha256-` seguido de 43 caracteres em Base64 e do sinal `=`.
     - linha: 25
       texto: HTTP só é aceito para `localhost` em desenvolvimento.
     - linha: 26
@@ -342,6 +342,10 @@ abas:
   blocos:
   - tipo: legenda
     texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 6 registram o microfrontend mínimo com o teste escrito antes, e os passos 7 a 9 conferem no navegador o menu, o aviso de manutenção e as falhas de boot.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -423,6 +427,10 @@ abas:
   - tipo: terminal
     titulo: terminal · frontend-react
     comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
     - entrada: npx vitest run src/app/mfe
       condicao:
       - teste_manifesto
@@ -507,7 +515,7 @@ abas:
       explicacao: A lista é calculada pelos que não entraram na ordem, e um microfrontend sem relação com o ciclo entraria.
     - texto: O `emprestimo` depende de `endereco`, que está no ciclo, e por isso também nunca chega a grau 0.
       correta: true
-      explicacao: O erro lista todos os que sobraram fora da ordem, e não só os que formam o ciclo.
+      explicacao: O erro lista todos os que sobraram fora da ordem, inclusive os que apenas dependem de um microfrontend do ciclo.
     - texto: O `emprestimo` também depende de `minimo`.
       correta: false
       explicacao: O `emprestimo` só declara `endereco` no `dependsOn`.
@@ -553,7 +561,7 @@ abas:
     rotulo_saida: arquivo
     saida: "src/app/router/index.tsx:22-24\n  const mfeRoutes = mfes\n    .filter((m) => m.state !== 'disabled')\n    .map((m) => ({ path: m.route, element: <MfeHost entry={m} /> }))\n\nsrc/app/mfe/MfeHost.tsx:25\n    loadMfeModule(entry.url, entry.integrity, entry.id)"
     pergunta: O `emprestimo` declara dependência de `endereco`. Ao abrir `/emprestimos` direto, o shell baixa o bundle do endereço?
-    correcao: Tratar o `dependsOn` como ordem de registro e validação de referências, e não como pré-carga, ou implementar a pré-carga e registrar a mudança na ADR-010.
+    correcao: Tratar o `dependsOn` como ordem de registro e validação de referências. Se a pré-carga for necessária, implementá-la e registrar a mudança na ADR-010.
     alternativas:
     - texto: Sim, porque os dois compartilham o mesmo React.
       correta: false

@@ -155,7 +155,7 @@ test('oda-07: o teste da falha interna falha antes do boundary e passa depois', 
   const painel = page.locator('#painel-laboratorio');
   const campo = painel.getByLabel('Digite um comando');
   const tela = painel.locator('.terminal__tela');
-  const rodar = async () => { await campo.fill('cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx'); await campo.press('Enter'); };
+  const rodar = async () => { await campo.fill('(cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx)'); await campo.press('Enter'); };
   await painel.getByLabel('Passo 5 concluído').check();
   await rodar();
   await expect(tela).toContainText('Errors  1 error');
@@ -174,7 +174,7 @@ test('oda-08: o hash do manifesto só acompanha o bundle depois do deploy da rai
   const rodar = async (c) => { await campo.fill(c); await campo.press('Enter'); };
   const grep = `grep -A4 '"id": "endereco"' public/mfe-manifest.json`;
   await painel.getByLabel('Passo 5 concluído').check();
-  await rodar('cd mfes/endereco && npm run build && npm run deploy');
+  await rodar('(cd mfes/endereco && npm run build && npm run deploy)');
   await limpar(); await rodar(grep);
   await expect(tela).toContainText('sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=');
   await rodar('npm run deploy');
@@ -187,7 +187,7 @@ test('oda-09: o teste do tema falha sem o CSS bruto configurado e passa depois',
   const painel = page.locator('#painel-laboratorio');
   const campo = painel.getByLabel('Digite um comando');
   const tela = painel.locator('.terminal__tela');
-  const rodar = async () => { await campo.fill('cd mfes/endereco && npx vitest run src/theme'); await campo.press('Enter'); };
+  const rodar = async () => { await campo.fill('(cd mfes/endereco && npx vitest run src/theme)'); await campo.press('Enter'); };
   await painel.getByLabel('Passo 4 concluído').check();
   await painel.getByLabel('Passo 8 concluído').check();
   await rodar();

@@ -16,7 +16,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 04, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas. O laboratório usa `openssl`, disponível no macOS, no Linux e no Git Bash do Windows.
+    texto: As ODAs 00 e 02, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas. O laboratório usa `openssl`, disponível no macOS, no Linux e no Git Bash do Windows. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -45,7 +45,7 @@ abas:
       - Nenhuma, com estilos isolados por Shadow DOM
     - dimensao: Tamanho do bundle
       valores:
-      - Maior, com cerca de 800 kB não comprimidos no `endereco.js`, segundo a ADR
+      - Maior, porque cada bundle traz o próprio React. A ADR cita cerca de 800 kB para o `endereco.js`, e o build do commit gera menos de 300 kB, como mostra a ODA 08
       - Menor
       - Depende do framework interno
     - dimensao: Passagem de contexto
@@ -358,7 +358,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. O microfrontend mínimo é um único arquivo JavaScript, sem React e sem build, testado pelo carregador real do shell. Os passos 8 e 9 provocam as duas falhas que o carregador detecta.
+    texto: Execute os passos no repositório clonado na ODA 00. O microfrontend mínimo é um único arquivo JavaScript, sem React e sem build, testado pelas funções de validação do carregador do shell. Os passos 8 e 9 provocam as duas falhas que o carregador detecta.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -505,6 +509,10 @@ abas:
   - tipo: terminal
     titulo: terminal · frontend-react
     comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
     - entrada: printf 'sha256-%s\n' "$(openssl dgst -sha256 -binary mfes/minimo/index.js | openssl base64 -A)" | tee mfes/minimo/integrity.txt
       condicao: modulo
       saida: sha256-0gkcEL1G2JvJqf1d5Eiu017gUNftn9rgI9A35CytriM=
@@ -767,7 +775,7 @@ abas:
         explicacao: O shell não compartilha React com os microfrontends.
       - texto: Porque o teste simula o React.
         correta: false
-        explicacao: O teste usa o módulo real e o carregador real do shell.
+        explicacao: O teste usa o módulo real e as funções `assertMfeModule` e `verifyBundleIntegrity` do carregador do shell.
       - texto: Porque o contrato só exige duas funções que recebem um elemento do DOM.
         correta: true
         explicacao: A ADR-009 define um contrato independente de framework.

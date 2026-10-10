@@ -319,6 +319,7 @@ abas:
   - tipo: passos
     itens:
     - titulo: Clonar o repositório e instalar as dependências do shell
+      texto: 'Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o `package-lock.json` não traz pacotes exigidos nessa plataforma. Nesse caso, rode `npm install` no lugar do `npm ci`, que instala as dependências e atualiza o `package-lock.json` localmente.'
       editor:
         rotulo: terminal
         linhas:

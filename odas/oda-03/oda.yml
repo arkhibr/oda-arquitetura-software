@@ -433,6 +433,10 @@ abas:
   blocos:
   - tipo: legenda
     texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 6 acrescentam o campo `densidade` à `uiSlice` com o teste escrito antes da implementação, e os passos 7 a 9 caracterizam o cache do `queryClient` com dois testes.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -551,6 +555,10 @@ abas:
   - tipo: terminal
     titulo: terminal · frontend-react
     comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
     - entrada: npx vitest run src/shared/lib/store
       condicao: densidade_implementada
       saida: " RUN  v4.1.7 .\n\n\n Test Files  2 passed (2)\n      Tests  8 passed (8)"

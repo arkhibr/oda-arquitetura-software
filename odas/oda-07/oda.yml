@@ -10,14 +10,14 @@ abas:
     titulo: Objetivos desta ODA
     itens:
     - 'Classificar as falhas de carga por quem as detecta: validação do manifesto, carregador ou error boundary.'
-    - Ler no console e na tela as mensagens de hash inválido, de bucket inacessível e de contrato quebrado.
+    - Ler no console e na tela as mensagens de hash inválido e de bucket inacessível.
     - Demonstrar com teste que o error boundary do shell não alcança a árvore própria do microfrontend.
     - Acrescentar um boundary interno ao microfrontend de endereço com o teste escrito e rodado antes.
     - Relacionar as fases medidas em `perf.ts` com o caminho atual do carregador.
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: 'As ODAs 05 e 06, com o repositório clonado no commit `2179313`. O laboratório roda testes no shell e em `mfes/endereco`, que precisa das próprias dependências: se a pasta `mfes/endereco/node_modules` não existir, rode `npm ci` dentro dela antes do passo 4.'
+    texto: 'As ODAs 05 e 06, com o repositório clonado no commit `2179313`. O laboratório roda testes no shell e em `mfes/endereco`, que precisa das próprias dependências: se a pasta `mfes/endereco/node_modules` não existir, rode `npm ci` dentro dela antes do passo 4. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -74,7 +74,7 @@ abas:
     texto: Um error boundary do React captura erros de renderização dos componentes da mesma árvore. O microfrontend chama `createRoot` com o próprio React embutido, e a árvore dele não é filha do `MfeErrorBoundary`, que só recebe os erros que o `MfeHost` relança ao renderizar depois de uma falha de carga ou de `mount`.
   - tipo: conceito
     titulo: Fases medidas pelo shell
-    texto: O `perf.ts` registra as medidas `mfe:<id>:fetchEval`, `validate`, `mount` e `total` com a Performance API. O relatório de 30/06/2026 em `docs/performance/` mediu o `emprestimo` com mediana total de 13 ms sem limite de rede e de 7 247 ms em Slow 3G, e concluiu que o custo está na transferência do bundle.
+    texto: As funções de `perf.ts`, chamadas pelo carregador e pelo `MfeHost`, registram as medidas `mfe:<id>:fetchEval`, `validate` e `mount`, e o `MfeHost` registra também `total`, com a Performance API. O relatório de 30/06/2026 em `docs/performance/` mediu o `emprestimo` com mediana total de 13 ms sem limite de rede e de 7 247 ms em Slow 3G, e concluiu que o custo está na transferência do bundle.
 - id: codigo
   titulo: No código
   blocos:
@@ -316,6 +316,10 @@ abas:
   blocos:
   - tipo: legenda
     texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 3 demonstram no shell o limite do error boundary, e os passos 4 a 9 corrigem o microfrontend de endereço com o teste escrito antes.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base do shell
@@ -400,7 +404,7 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - cd mfes/endereco && npx vitest run
+        - (cd mfes/endereco && npx vitest run)
       sucesso: '`Test Files 4 passed (4)` e `Tests 11 passed (11)`.'
     - titulo: Escrever o teste da falha interna
       texto: Crie o arquivo abaixo em `mfes/endereco`. O `vi.mock` troca o `EnderecoApp` por um componente que lança erro ao renderizar.
@@ -434,7 +438,7 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx
+        - (cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx)
       sucesso: '`Tests 1 failed (1)` e `Errors 1 error`, com o erro de renderização fora de qualquer boundary.'
     - titulo: Criar o boundary interno
       texto: Crie o componente abaixo e, em `mfes/endereco/src/index.tsx`, importe `FalhaInterna` de `./FalhaInterna` e envolva o `<EnderecoApp ctx={ctx} />` com `<FalhaInterna>`.
@@ -467,9 +471,9 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx
-        - cd mfes/endereco && npx vitest run
-        - cd mfes/endereco && npx tsc --noEmit
+        - (cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx)
+        - (cd mfes/endereco && npx vitest run)
+        - (cd mfes/endereco && npx tsc --noEmit)
       sucesso: '`Tests 1 passed (1)`, a suíte do microfrontend com `Tests 12 passed (12)` e o `tsc` sem mensagens.'
     - titulo: Conferir tipos e fronteiras do shell
       editor:
@@ -480,6 +484,10 @@ abas:
   - tipo: terminal
     titulo: terminal · frontend-react
     comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
     - entrada: npx vitest run src/app/mfe
       condicao: teste_iso
       saida: " RUN  v4.1.7 .\n\n\n Test Files  9 passed (9)\n      Tests  33 passed (33)"
@@ -506,18 +514,18 @@ abas:
         exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
       origem: executado
       dica: O arquivo de teste ainda não existe. Crie-o no passo 2.
-    - entrada: cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx
+    - entrada: (cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx)
       condicao:
       - teste_falha
       - falha_interna
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)"
       origem: executado
-    - entrada: cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx
+    - entrada: (cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx)
       condicao: teste_falha
       saida: " RUN  v4.1.8 ./mfes/endereco\n\nstderr | src/__tests__/falhaInterna.test.tsx > falha dentro da árvore do microfrontend > mostra um aviso do próprio microfrontend no elemento recebido\nAn error occurred in the <EnderecoApp> component.\n\nConsider adding an error boundary to your tree to customize error handling behavior.\nVisit https://react.dev/link/error-boundaries to learn more about error boundaries.\n\n\n ❯ src/__tests__/falhaInterna.test.tsx (1 test | 1 failed) 1011ms\n     × mostra um aviso do próprio microfrontend no elemento recebido 1010ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/falhaInterna.test.tsx > falha dentro da árvore do microfrontend > mostra um aviso do próprio microfrontend no elemento recebido\nAssertionError: expected undefined to be 'O módulo de endereço encontrou um err…' // Object.is equality\n\n- Expected:\n\"O módulo de endereço encontrou um erro.\"\n\n+ Received:\nundefined\n\n ❯ src/__tests__/falhaInterna.test.tsx:17:84\n     15|     const el = document.createElement('div')\n     16|     mount(el, ctx)\n     17|     await vi.waitFor(() => expect(el.querySelector('[role=\"alert\"]')?.…\n       |                                                                                    ^\n     18|     unmount(el)\n     19|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯\n\nVitest caught 1 unhandled error during the test run.\nThis might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.\n\n⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯\nError: falha de renderização no EnderecoApp\n ❯ EnderecoApp src/__tests__/falhaInterna.test.tsx:6:11\n      4| vi.mock('../EnderecoApp', () => ({\n      5|   EnderecoApp: () => {\n      6|     throw new Error('falha de renderização no EnderecoApp')\n       |           ^\n      7|   },\n      8| }))\n ❯ Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25904:20\n ❯ renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:7662:22\n ❯ updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:10166:19\n ❯ beginWork node_modules/react-dom/cjs/react-dom-client.development.js:11778:18\n ❯ runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:874:13\n ❯ performUnitOfWork node_modules/react-dom/cjs/react-dom-client.development.js:17641:22\n ❯ workLoopSync node_modules/react-dom/cjs/react-dom-client.development.js:17469:41\n ❯ renderRootSync node_modules/react-dom/cjs/react-dom-client.development.js:17450:11\n ❯ performWorkOnRoot node_modules/react-dom/cjs/react-dom-client.development.js:16583:35\n\nThis error originated in \"src/__tests__/falhaInterna.test.tsx\" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.\nThe latest test that might've caused the error is \"mostra um aviso do próprio microfrontend no elemento recebido\". It might mean one of the following:\n- The error was thrown, while Vitest was running this test.\n- If the error occurred after the test had been completed, this was the last documented test before it was thrown.\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed (1)\n     Errors  1 error"
       origem: executado
       dica: 'A falha é a esperada: o erro sai da árvore do microfrontend sem aviso. Crie o boundary interno no passo 7.'
-    - entrada: cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx
+    - entrada: (cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx)
       saida: ' RUN  v4.1.8 ./mfes/endereco
 
 
@@ -531,21 +539,21 @@ abas:
         exclude:  **/node_modules/**, **/.git/**'
       origem: executado
       dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
-    - entrada: cd mfes/endereco && npx vitest run
+    - entrada: (cd mfes/endereco && npx vitest run)
       condicao:
       - teste_falha
       - falha_interna
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  5 passed (5)\n      Tests  12 passed (12)"
       origem: executado
-    - entrada: cd mfes/endereco && npx vitest run
+    - entrada: (cd mfes/endereco && npx vitest run)
       condicao: teste_falha
       saida: " RUN  v4.1.8 ./mfes/endereco\n\nstderr | src/__tests__/falhaInterna.test.tsx > falha dentro da árvore do microfrontend > mostra um aviso do próprio microfrontend no elemento recebido\nAn error occurred in the <EnderecoApp> component.\n\nConsider adding an error boundary to your tree to customize error handling behavior.\nVisit https://react.dev/link/error-boundaries to learn more about error boundaries.\n\n\n ❯ src/__tests__/falhaInterna.test.tsx (1 test | 1 failed) 1011ms\n     × mostra um aviso do próprio microfrontend no elemento recebido 1010ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/falhaInterna.test.tsx > falha dentro da árvore do microfrontend > mostra um aviso do próprio microfrontend no elemento recebido\nAssertionError: expected undefined to be 'O módulo de endereço encontrou um err…' // Object.is equality\n\n- Expected:\n\"O módulo de endereço encontrou um erro.\"\n\n+ Received:\nundefined\n\n ❯ src/__tests__/falhaInterna.test.tsx:17:84\n     15|     const el = document.createElement('div')\n     16|     mount(el, ctx)\n     17|     await vi.waitFor(() => expect(el.querySelector('[role=\"alert\"]')?.…\n       |                                                                                    ^\n     18|     unmount(el)\n     19|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯\n\nVitest caught 1 unhandled error during the test run.\nThis might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.\n\n⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯\nError: falha de renderização no EnderecoApp\n ❯ EnderecoApp src/__tests__/falhaInterna.test.tsx:6:11\n      4| vi.mock('../EnderecoApp', () => ({\n      5|   EnderecoApp: () => {\n      6|     throw new Error('falha de renderização no EnderecoApp')\n       |           ^\n      7|   },\n      8| }))\n ❯ Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:25904:20\n ❯ renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:7662:22\n ❯ updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:10166:19\n ❯ beginWork node_modules/react-dom/cjs/react-dom-client.development.js:11778:18\n ❯ runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:874:13\n ❯ performUnitOfWork node_modules/react-dom/cjs/react-dom-client.development.js:17641:22\n ❯ workLoopSync node_modules/react-dom/cjs/react-dom-client.development.js:17469:41\n ❯ renderRootSync node_modules/react-dom/cjs/react-dom-client.development.js:17450:11\n ❯ performWorkOnRoot node_modules/react-dom/cjs/react-dom-client.development.js:16583:35\n\nThis error originated in \"src/__tests__/falhaInterna.test.tsx\" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.\nThe latest test that might've caused the error is \"mostra um aviso do próprio microfrontend no elemento recebido\". It might mean one of the following:\n- The error was thrown, while Vitest was running this test.\n- If the error occurred after the test had been completed, this was the last documented test before it was thrown.\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n\n Test Files  1 failed | 4 passed (5)\n      Tests  1 failed | 11 passed (12)\n     Errors  1 error"
       origem: executado
-    - entrada: cd mfes/endereco && npx vitest run
+    - entrada: (cd mfes/endereco && npx vitest run)
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
       origem: executado
       dica: São os 11 testes do microfrontend de endereço no commit de referência.
-    - entrada: cd mfes/endereco && npx tsc --noEmit
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
       saida: ''
       origem: executado
       dica: Sem mensagens, o TypeScript não encontrou erros nos arquivos de `mfes/endereco/src`.
@@ -558,9 +566,9 @@ abas:
     - rotulo: Teste de isolamento
       comando: npx vitest run src/app/mfe/__tests__/isolamento.test.tsx
     - rotulo: Teste da falha interna
-      comando: cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx
+      comando: (cd mfes/endereco && npx vitest run src/__tests__/falhaInterna.test.tsx)
     - rotulo: Suíte do microfrontend
-      comando: cd mfes/endereco && npx vitest run
+      comando: (cd mfes/endereco && npx vitest run)
     - rotulo: Tipos do shell
       comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
   - tipo: faixa
@@ -589,7 +597,7 @@ abas:
       explicacao: A mensagem `integridade do bundle inválida` vem de `verifyBundleIntegrity`.
     - texto: O bucket foi apagado.
       correta: false
-      explicacao: Bucket inexistente gera erro de HTTP ou de `fetch`, e não de integridade.
+      explicacao: Bucket inexistente gera erro de HTTP ou de `fetch`, antes de qualquer comparação de hash.
   - tipo: incidente
     titulo: Módulo indisponível com o LocalStack parado
     origem: executado
@@ -608,9 +616,9 @@ abas:
     - texto: O CSP bloqueou o React do microfrontend.
       correta: false
       explicacao: O erro aconteceu no download, antes de executar o bundle.
-    - texto: O navegador não conseguiu conexão com a origem do bundle, e a falha aconteceu antes de qualquer resposta HTTP.
+    - texto: O navegador não obteve resposta utilizável da origem do bundle, e a falha aconteceu antes de qualquer status HTTP.
       correta: true
-      explicacao: Sem resposta, o `fetch` rejeita a promessa, e o `MfeHost` relança o erro ao boundary.
+      explicacao: Com o LocalStack parado não há conexão, e o `fetch` rejeita a promessa, o que também ocorre num bloqueio de CORS ou de CSP. O `MfeHost` relança o erro ao boundary.
   - tipo: incidente
     titulo: Tela em branco na rota do endereço
     origem: executado
@@ -676,7 +684,7 @@ abas:
       alternativas:
       - texto: Porque o contrato proíbe o shell de capturar erros.
         correta: false
-        explicacao: O contrato não trata de erros, e o shell captura os de carga e de `mount`.
+        explicacao: Nada na ADR-009 proíbe isso, e o boundary do shell já captura as falhas de carga e de `mount`.
       - texto: Porque só um componente da mesma árvore React captura os erros de renderização dessa árvore.
         correta: true
         explicacao: A raiz do microfrontend é criada por ele, com o React embutido no bundle.
@@ -704,7 +712,7 @@ abas:
         explicacao: O shell não muda, como prevê a ADR-008.
       - texto: Nada, porque o Vite recarrega o microfrontend.
         correta: false
-        explicacao: O portal baixa o bundle publicado no bucket, e não o código-fonte.
+        explicacao: O portal baixa o bundle publicado no bucket, que só muda com novo build e deploy.
   - tipo: resumo
   - tipo: checklist
     titulo: Checklist final

@@ -16,7 +16,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: As ODAs 07 e 08, com as dependências de `mfes/endereco` instaladas e o LocalStack acessível para o deploy do passo 13. O passo 2 move a pasta `mfes/` temporariamente e a devolve no mesmo comando.
+    texto: A ODA 05 e o ambiente da ODA 08, com as dependências de `mfes/endereco` instaladas e o LocalStack acessível para o deploy do passo 13. O passo 2 move a pasta `mfes/` temporariamente e a devolve no mesmo comando. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · CSS gerado para o shell
     comandos:
@@ -164,7 +164,7 @@ abas:
     inicio: 11
   - tipo: faixa
     estilo: dica
-    texto: O `mfes/endereco/package.json` não tem Tailwind entre as dependências, e o `src/app/styles/globals.css` do shell importa o Tailwind, que gera classes a partir dos arquivos que encontra no repositório, inclusive em `mfes/`.
+    texto: O `mfes/endereco/package.json` não tem Tailwind entre as dependências, e o `src/app/styles/globals.css` do shell importa o Tailwind, que gera classes a partir dos arquivos que encontra no repositório, inclusive em `mfes/`. As classes também usadas pelo shell, como `rounded` e `flex`, continuam disponíveis, e as exclusivas do endereço, como `bg-blue-600`, `text-green-700` e `max-w-md`, dependem dessa varredura.
 - id: simulacao
   titulo: Simulação
   blocos:
@@ -211,6 +211,10 @@ abas:
   blocos:
   - tipo: legenda
     texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 3 mostram a dependência do endereço em relação ao CSS do shell, os passos 4 a 12 aplicam o contrato com o teste escrito antes, e o passo 13 confere o resultado no portal.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Procurar a classe no CSS do shell
@@ -220,17 +224,17 @@ abas:
         - npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
       sucesso: '`1`: a classe `bg-blue-600` está no CSS gerado para o shell.'
     - titulo: Repetir sem a pasta mfes
-      texto: O comando move `mfes/` para fora do repositório, refaz o build, conta a classe e devolve a pasta.
+      texto: 'O comando só age se `../mfes-fora` ainda não existir: move `mfes/` para fora do repositório, apaga o `dist/` anterior, refaz o build, conta a classe e devolve a pasta. Se ele for interrompido, devolva a pasta com `mv ../mfes-fora mfes`.'
       editor:
         rotulo: terminal
         linhas:
-        - mv mfes ../mfes-fora && npm run build > /dev/null; grep -o '\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes
+        - test ! -e ../mfes-fora && mv mfes ../mfes-fora && { rm -rf dist; npm run build > /dev/null; grep -o '\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes; }
       sucesso: '`0`: sem os microfrontends, o shell não gera a classe que o botão do endereço usa.'
     - titulo: Rodar a linha de base do endereço
       editor:
         rotulo: terminal
         linhas:
-        - cd mfes/endereco && npx vitest run
+        - (cd mfes/endereco && npx vitest run)
       sucesso: '`Test Files 4 passed (4)` e `Tests 11 passed (11)`.'
     - titulo: Escrever o teste do contrato visual
       texto: Crie o arquivo abaixo em `mfes/endereco`. Ele confere o namespace dos seletores, o token com fallback, a injeção do tema e as classes usadas na tela.
@@ -288,7 +292,7 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - cd mfes/endereco && npx vitest run src/theme
+        - (cd mfes/endereco && npx vitest run src/theme)
       sucesso: '`Failed to resolve import "../theme.css?raw"`, porque o tema ainda não existe.'
     - titulo: Criar o tema do endereço
       editor:
@@ -416,8 +420,8 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - cd mfes/endereco && npx vitest run src/theme
-        - cd mfes/endereco && npx tsc --noEmit
+        - (cd mfes/endereco && npx vitest run src/theme)
+        - (cd mfes/endereco && npx tsc --noEmit)
       sucesso: '`Tests 2 failed | 2 passed (4)`, com o CSS lido como texto vazio nos testes do namespace e do token, e `TS2307` para `theme.css?raw` no TypeScript.'
     - titulo: Configurar o CSS bruto nos testes e nos tipos
       texto: No `mfes/endereco/vitest.config.ts`, acrescente a linha `css` depois de `setupFiles`, e copie `mfes/emprestimo/src/vite-env.d.ts` para `mfes/endereco/src/`, que declara o tipo de `*.css?raw`. O empréstimo já usa as duas configurações.
@@ -442,9 +446,9 @@ abas:
       editor:
         rotulo: terminal
         linhas:
-        - cd mfes/endereco && npx vitest run src/theme
-        - cd mfes/endereco && npx vitest run
-        - cd mfes/endereco && npx tsc --noEmit
+        - (cd mfes/endereco && npx vitest run src/theme)
+        - (cd mfes/endereco && npx vitest run)
+        - (cd mfes/endereco && npx tsc --noEmit)
       sucesso: '`Tests 4 passed (4)`, a suíte do endereço com `Tests 15 passed (15)` e o `tsc` sem mensagens.'
     - titulo: Procurar a classe de novo
       editor:
@@ -458,6 +462,10 @@ abas:
   - tipo: terminal
     titulo: terminal · frontend-react
     comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
     - entrada: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
       condicao: tema_criado
       saida: '       0'
@@ -467,30 +475,30 @@ abas:
       saida: '       1'
       origem: executado
       dica: O valor 1 indica que a classe está no CSS gerado para o shell.
-    - entrada: mv mfes ../mfes-fora && npm run build > /dev/null; grep -o '\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes
+    - entrada: test ! -e ../mfes-fora && mv mfes ../mfes-fora && { rm -rf dist; npm run build > /dev/null; grep -o '\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes; }
       saida: '       0'
       origem: executado
       dica: Sem a pasta `mfes/`, o Tailwind do shell não encontra a classe e não a gera.
-    - entrada: cd mfes/endereco && npx vitest run src/theme
+    - entrada: (cd mfes/endereco && npx vitest run src/theme)
       condicao:
       - teste_tema
       - tema_criado
       - raw_configurado
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)"
       origem: executado
-    - entrada: cd mfes/endereco && npx vitest run src/theme
+    - entrada: (cd mfes/endereco && npx vitest run src/theme)
       condicao:
       - teste_tema
       - tema_criado
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (4 tests | 2 failed) 117ms\n     × mantém todos os seletores no namespace endereco- 2ms\n     × consome a cor primária do shell com fallback local 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > mantém todos os seletores no namespace endereco-\nAssertionError: expected 0 to be greater than 0\n ❯ src/theme/__tests__/contratoVisual.test.tsx:17:32\n     15| describe('ADR-014 contrato visual do MFE endereço', () => {\n     16|   it('mantém todos os seletores no namespace endereco-', () => {\n     17|     expect(seletores().length).toBeGreaterThan(0)\n       |                                ^\n     18|     expect(seletores().filter((s) => !s.startsWith('.endereco-'))).toE…\n     19|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > consome a cor primária do shell com fallback local\nAssertionError: expected '' to match /var\\(--color-primary,\\s*#[0-9a-fA-F]{…/\n\n- Expected:\n/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/\n\n+ Received:\n\"\"\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx:22:17\n     20|\n     21|   it('consome a cor primária do shell com fallback local', () => {\n     22|     expect(css).toMatch(/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/)\n       |                 ^\n     23|   })\n     24|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed (1)\n      Tests  2 failed | 2 passed (4)"
       origem: executado
       dica: 'Os testes de injeção e de classes passam, e os dois que leem o CSS recebem texto vazio: o Vitest não entrega o conteúdo de `?raw` de CSS sem configuração. Siga para o passo 10.'
-    - entrada: cd mfes/endereco && npx vitest run src/theme
+    - entrada: (cd mfes/endereco && npx vitest run src/theme)
       condicao: teste_tema
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (0 test)\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx [ src/theme/__tests__/contratoVisual.test.tsx ]\nError: Failed to resolve import \"../theme.css?raw\" from \"src/theme/__tests__/contratoVisual.test.tsx\". Does the file exist?\n  Plugin: vite:import-analysis\n  File: ./mfes/endereco/src/theme/__tests__/contratoVisual.test.tsx:2:16\n  1  |  import { describe, it, expect, vi, afterEach } from \"vitest\";\n  2  |  import css from \"../theme.css?raw\";\n     |                   ^\n  3  |  import { mount, unmount } from \"../../index\";\n  4  |  afterEach(() => vi.unstubAllGlobals());\n ❯ TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:30602:39\n ❯ TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:30599:14\n ❯ normalizeUrl node_modules/vite/dist/node/chunks/node.js:27842:18\n ❯ node_modules/vite/dist/node/chunks/node.js:27905:30\n ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:27873:4\n ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:30387:14\n ❯ loadAndTransform node_modules/vite/dist/node/chunks/node.js:24646:26\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  no tests"
       origem: executado
       dica: 'A falha é a esperada: o `theme.css` ainda não existe.'
-    - entrada: cd mfes/endereco && npx vitest run src/theme
+    - entrada: (cd mfes/endereco && npx vitest run src/theme)
       saida: ' RUN  v4.1.8 ./mfes/endereco
 
 
@@ -504,34 +512,34 @@ abas:
         exclude:  **/node_modules/**, **/.git/**'
       origem: executado
       dica: O arquivo de teste ainda não existe. Crie-o no passo 4.
-    - entrada: cd mfes/endereco && npx vitest run
+    - entrada: (cd mfes/endereco && npx vitest run)
       condicao:
       - teste_tema
       - tema_criado
       - raw_configurado
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  5 passed (5)\n      Tests  15 passed (15)"
       origem: executado
-    - entrada: cd mfes/endereco && npx vitest run
+    - entrada: (cd mfes/endereco && npx vitest run)
       condicao:
       - teste_tema
       - tema_criado
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (4 tests | 2 failed) 116ms\n     × mantém todos os seletores no namespace endereco- 2ms\n     × consome a cor primária do shell com fallback local 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > mantém todos os seletores no namespace endereco-\nAssertionError: expected 0 to be greater than 0\n ❯ src/theme/__tests__/contratoVisual.test.tsx:17:32\n     15| describe('ADR-014 contrato visual do MFE endereço', () => {\n     16|   it('mantém todos os seletores no namespace endereco-', () => {\n     17|     expect(seletores().length).toBeGreaterThan(0)\n       |                                ^\n     18|     expect(seletores().filter((s) => !s.startsWith('.endereco-'))).toE…\n     19|   })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx > ADR-014 contrato visual do MFE endereço > consome a cor primária do shell com fallback local\nAssertionError: expected '' to match /var\\(--color-primary,\\s*#[0-9a-fA-F]{…/\n\n- Expected:\n/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/\n\n+ Received:\n\"\"\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx:22:17\n     20|\n     21|   it('consome a cor primária do shell com fallback local', () => {\n     22|     expect(css).toMatch(/var\\(--color-primary,\\s*#[0-9a-fA-F]{6}\\)/)\n       |                 ^\n     23|   })\n     24|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n\n Test Files  1 failed | 4 passed (5)\n      Tests  2 failed | 13 passed (15)"
       origem: executado
-    - entrada: cd mfes/endereco && npx vitest run
+    - entrada: (cd mfes/endereco && npx vitest run)
       condicao: teste_tema
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n ❯ src/theme/__tests__/contratoVisual.test.tsx (0 test)\n\n⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/theme/__tests__/contratoVisual.test.tsx [ src/theme/__tests__/contratoVisual.test.tsx ]\nError: Failed to resolve import \"../theme.css?raw\" from \"src/theme/__tests__/contratoVisual.test.tsx\". Does the file exist?\n  Plugin: vite:import-analysis\n  File: ./mfes/endereco/src/theme/__tests__/contratoVisual.test.tsx:2:16\n  1  |  import { describe, it, expect, vi, afterEach } from \"vitest\";\n  2  |  import css from \"../theme.css?raw\";\n     |                   ^\n  3  |  import { mount, unmount } from \"../../index\";\n  4  |  afterEach(() => vi.unstubAllGlobals());\n ❯ TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/node.js:30602:39\n ❯ TransformPluginContext.error node_modules/vite/dist/node/chunks/node.js:30599:14\n ❯ normalizeUrl node_modules/vite/dist/node/chunks/node.js:27842:18\n ❯ node_modules/vite/dist/node/chunks/node.js:27905:30\n ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:27873:4\n ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:30387:14\n ❯ loadAndTransform node_modules/vite/dist/node/chunks/node.js:24646:26\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 4 passed (5)\n      Tests  11 passed (11)"
       origem: executado
-    - entrada: cd mfes/endereco && npx vitest run
+    - entrada: (cd mfes/endereco && npx vitest run)
       saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
       origem: executado
-    - entrada: cd mfes/endereco && npx tsc --noEmit
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
       condicao:
       - teste_tema
       - tema_criado
       - raw_configurado
       saida: ''
       origem: executado
-    - entrada: cd mfes/endereco && npx tsc --noEmit
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
       condicao:
       - teste_tema
       - tema_criado
@@ -542,25 +550,25 @@ abas:
         src/theme/inject.ts(1,17): error TS2307: Cannot find module ''./theme.css?raw'' or its corresponding type declarations.'
       origem: executado
       dica: O TypeScript não conhece o tipo de `?raw`, declarado pelo `vite-env.d.ts` do passo 10.
-    - entrada: cd mfes/endereco && npx tsc --noEmit
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
       condicao: teste_tema
       saida: 'src/theme/__tests__/contratoVisual.test.tsx(2,17): error TS2307: Cannot find module ''../theme.css?raw'' or its corresponding type declarations.
 
         src/theme/__tests__/contratoVisual.test.tsx(11,50): error TS7006: Parameter ''s'' implicitly has an ''any'' type.'
       origem: executado
       dica: O TypeScript não conhece o tipo de `?raw`, declarado pelo `vite-env.d.ts` do passo 10.
-    - entrada: cd mfes/endereco && npx tsc --noEmit
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
       saida: ''
       origem: executado
     cenarios:
     - rotulo: Classe no CSS do shell
       comando: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
     - rotulo: Teste do tema
-      comando: cd mfes/endereco && npx vitest run src/theme
+      comando: (cd mfes/endereco && npx vitest run src/theme)
     - rotulo: Suíte do endereço
-      comando: cd mfes/endereco && npx vitest run
+      comando: (cd mfes/endereco && npx vitest run)
     - rotulo: Tipos do endereço
-      comando: cd mfes/endereco && npx tsc --noEmit
+      comando: (cd mfes/endereco && npx tsc --noEmit)
 - id: diagnostico
   titulo: Diagnóstico
   blocos:
@@ -570,14 +578,14 @@ abas:
     titulo: Botão sem estilo depois da separação dos repositórios
     origem: executado
     rotulo_saida: log
-    saida: "$ npm run build > /dev/null && grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l\n       1\n\n$ mv mfes ../mfes-fora && npm run build > /dev/null; grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes\n       0"
+    saida: "$ npm run build > /dev/null && grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l\n       1\n\n$ test ! -e ../mfes-fora && mv mfes ../mfes-fora && { rm -rf dist; npm run build > /dev/null; grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes; }\n       0"
     pergunta: A ADR-011 recomenda um repositório por microfrontend em produção. O que acontece com o botão do endereço nesse cenário?
     correcao: Levar o endereço ao contrato da ADR-014, com CSS próprio no bundle e tokens do shell com fallback, como no laboratório.
     alternativas:
     - texto: O shell deixa de iniciar.
       correta: false
       explicacao: CSS ausente não interrompe o boot, só a aparência.
-    - texto: O botão perde o estilo, porque o build do shell deixa de encontrar as classes do endereço e não as gera.
+    - texto: O botão perde a cor de fundo, a mensagem de sucesso perde o verde e o formulário perde a largura máxima, porque o build do shell deixa de encontrar essas classes e não as gera.
       correta: true
       explicacao: A contagem cai de 1 para 0 sem a pasta `mfes/`.
     - texto: Nada muda, porque o Tailwind gera todas as classes possíveis.

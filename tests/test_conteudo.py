@@ -34,5 +34,29 @@ class TestTextoDoAluno(unittest.TestCase):
         self.assertEqual(achados, [])
 
 
+
+def comandos(no):
+    if isinstance(no, dict):
+        if isinstance(no.get("entrada"), str):
+            yield no["entrada"]
+        if no.get("rotulo") == "terminal" and isinstance(no.get("linhas"), list):
+            yield from no["linhas"]
+        for valor in no.values():
+            yield from comandos(valor)
+    elif isinstance(no, list):
+        for item in no:
+            yield from comandos(item)
+
+
+class TestComandosDoAluno(unittest.TestCase):
+    def test_cd_fica_em_subshell(self):
+        """Um `cd` solto muda o diretório do terminal do aluno e quebra os comandos seguintes."""
+        achados = []
+        for arquivo in sorted((ROOT / "odas").glob("*/oda.yml")):
+            for cmd in comandos(yaml.safe_load(arquivo.read_text(encoding="utf-8"))):
+                if re.match(r"\s*cd\s+\S+\s*&&", cmd):
+                    achados.append(f"{arquivo.parent.name}: {cmd}")
+        self.assertEqual(sorted(set(achados)), [])
+
 if __name__ == "__main__":
     unittest.main()
