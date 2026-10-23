@@ -11,6 +11,7 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
 | `odas/<oda>/oda.yml` | Conteúdo de cada ODA, organizado em sete abas de blocos |
 | `motor/` | Aplicação em JavaScript, sem dependências, que monta a ODA a partir dos dados |
 | `scripts/gerar_odas.py` | Valida cada `oda.yml` e gera `site/<oda>/index.html` |
+| `docs/sobre/` | Seção "Sobre" do portal: racional, pilha, arquitetura, decisões e guia para compreender e estender o código |
 
 ## Trabalhar localmente
 

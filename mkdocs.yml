@@ -57,3 +57,11 @@ markdown_extensions:
 
 nav:
   - Catálogo de ODAs: index.md
+  - Sobre:
+      - sobre/index.md
+      - Racional: sobre/racional.md
+      - Pilha tecnológica: sobre/pilha.md
+      - Arquitetura e componentes: sobre/arquitetura.md
+      - Decisões técnicas: sobre/decisoes.md
+      - Compreender o código: sobre/compreender.md
+      - Estender a aplicação: sobre/estender.md
