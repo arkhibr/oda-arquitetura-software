@@ -292,3 +292,41 @@ test('o aluno não vê etiquetas internas de origem, só a marca de saída ilust
     }
   }
 });
+
+
+test('guia de autoria: acesso pela seção Sobre e componentes renderizados', async ({ page }) => {
+  const erros = vigiarErros(page);
+  await page.goto('/sobre/');
+  await page.getByRole('link', { name: 'ODA Como criar uma ODA' }).click();
+  await expect(page).toHaveURL(/\/oda-criar\//);
+  await expect(page.getByRole('tab')).toHaveCount(7);
+  for (const aba of ABAS) {
+    await page.getByRole('tab', { name: new RegExp(aba === 'missao' ? 'Missão' : aba === 'conceito' ? 'Estrutura' : aba === 'codigo' ? 'Código' : aba === 'simulacao' ? 'Simulações' : aba === 'laboratorio' ? 'Crie sua ODA' : aba === 'diagnostico' ? 'Diagnóstico' : 'Verificação') }).click();
+    await expect(page.locator('.bloco-erro')).toHaveCount(0);
+  }
+  expect(erros).toEqual([]);
+});
+
+test('editor: explicação aparece junto à linha selecionada', async ({ page }) => {
+  await page.goto('/oda-20/#codigo');
+  const editor = page.locator('.editor').filter({ has: page.locator('.editor__marcador') }).first();
+  const marcador = editor.locator('.editor__marcador').first();
+  await marcador.click();
+  const linha = marcador.locator('..');
+  const explicacao = linha.locator('.editor__explicacao');
+  await expect(explicacao).toBeVisible();
+  await expect(explicacao).toContainText('linha');
+  const distancias = await page.evaluate(([botao, texto]) => {
+    const b = botao.getBoundingClientRect();
+    const t = texto.getBoundingClientRect();
+    return { distancia: t.top - b.bottom, altura: t.height };
+  }, [await marcador.elementHandle(), await explicacao.elementHandle()]);
+  expect(distancias.distancia).toBeLessThan(40);
+  expect(distancias.altura).toBeGreaterThan(0);
+  const outro = editor.locator('.editor__marcador').nth(1);
+  if (await outro.count()) {
+    await outro.click();
+    await expect(outro.locator('..').locator('.editor__explicacao')).toBeVisible();
+    await expect(linha.locator('.editor__explicacao')).toHaveCount(0);
+  }
+});

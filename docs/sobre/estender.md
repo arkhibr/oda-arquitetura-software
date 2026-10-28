@@ -4,7 +4,7 @@ Cada receita abaixo lista os arquivos que mudam, na ordem em que convém alterá
 
 ## Criar uma nova ODA
 
-Esta é a extensão mais frequente, e não exige alterar código.
+Esta é a extensão mais frequente, e não exige alterar código. Para praticar com exemplos interativos de todos os componentes, acesse a <a href="../../oda-criar/">ODA Como criar uma ODA</a>.
 
 1. **Registre a ODA no catálogo**, em `catalogo/odas.yml`, sob `odas:`:
 

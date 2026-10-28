@@ -26,16 +26,17 @@ async function copiar(ctx, texto) {
 
 registrarBloco('editor', (casca, b, ctx) => {
   const { doc } = ctx;
-  const explicacao = h(doc, 'div', { class: 'editor__explicacao', 'aria-live': 'polite', hidden: true });
+  const explicacao = h(doc, 'span', { class: 'editor__explicacao', 'aria-live': 'polite' });
   const linhas = prepararLinhas(b.linhas, b.destaque, b.anotacoes, b.inicio ?? 1).map((l) => h(doc, 'span', { class: `editor__linha${l.destacada ? ' editor__linha--destaque' : ''}` }, [
     h(doc, 'span', { class: 'editor__num', 'aria-hidden': 'true', texto: String(l.numero) }),
     h(doc, 'span', { class: 'editor__codigo', texto: l.texto }),
     l.anotacao ? h(doc, 'button', {
       type: 'button', class: 'editor__marcador', texto: String(l.anotacao), 'aria-label': `Explicação ${l.anotacao}`,
-      onclick: () => {
+      onclick: (evento) => {
         const a = b.anotacoes[l.anotacao - 1];
         explicacao.replaceChildren(h(doc, 'strong', { texto: `${l.anotacao} · linha ${a.linha}: ` }), textoRico(doc, a.texto));
-        explicacao.hidden = false;
+        evento.currentTarget.parentElement.append(explicacao);
+        explicacao.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       },
     }) : null,
   ]));
@@ -46,7 +47,6 @@ registrarBloco('editor', (casca, b, ctx) => {
       h(doc, 'button', { type: 'button', class: 'botao editor__copiar', texto: '📋 Copiar', onclick: () => copiar(ctx, b.linhas.join('\n')) }),
     ]),
     h(doc, 'pre', { class: 'editor__corpo', tabindex: '0' }, linhas),
-    explicacao,
   ]));
 });
 

@@ -4,6 +4,10 @@ Esta seção documenta o código-fonte do portal de ODAs: o motivo de cada escol
 
 O portal tem duas partes que compartilham o mesmo repositório e a mesma publicação. A página mestre, com o catálogo das 36 ODAs, é um site MkDocs Material. Cada ODA disponível (hoje 12) é uma aplicação de página única, gerada a partir de um arquivo `oda.yml` e executada por um motor em JavaScript sem dependências.
 
+## Aprenda a criar uma ODA
+
+A <a href="../../oda-criar/">ODA Como criar uma ODA</a> apresenta o fluxo de autoria e exemplos interativos de todos os componentes disponíveis, acompanhados de suas configurações YAML.
+
 ## Mapa da seção
 
 | Página | Pergunta que responde |

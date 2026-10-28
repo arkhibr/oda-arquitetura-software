@@ -232,7 +232,15 @@ def html_da_oda(dados: dict) -> str:
 def gerar(raiz: Path, destino: Path) -> list[str]:
     catalogo = carregar_catalogo(raiz / "catalogo" / "odas.yml")
     erros: list[str] = []
-    for arquivo in sorted((raiz / "odas").glob("*/oda.yml")):
+    arquivos = sorted((raiz / "odas").glob("*/oda.yml"))
+    guia = raiz / "guia-autoria" / "oda.yml"
+    if guia.exists():
+        arquivos.append(guia)
+        catalogo = dict(catalogo, odas=[*catalogo["odas"], {
+            "id": "autoria", "titulo": "Como criar uma ODA",
+            "repositorio": "frontend-react", "minutos": 60,
+        }])
+    for arquivo in arquivos:
         dados = yaml.safe_load(arquivo.read_text(encoding="utf-8"))
         problemas = validar_oda(dados, catalogo)
         if problemas:
@@ -240,7 +248,7 @@ def gerar(raiz: Path, destino: Path) -> list[str]:
             continue
         oda = oda_por_id(catalogo, str(dados["id"]))
         dados.update(repositorio=oda["repositorio"], commit=catalogo["repositorios"][oda["repositorio"]]["commit"], minutos=oda["minutos"])
-        pasta = destino / arquivo.parent.name
+        pasta = destino / ("oda-criar" if arquivo == guia else arquivo.parent.name)
         pasta.mkdir(parents=True, exist_ok=True)
         (pasta / "index.html").write_text(html_da_oda(preparar(dados)), encoding="utf-8")
     if not erros:
