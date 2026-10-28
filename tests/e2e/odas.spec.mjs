@@ -307,26 +307,26 @@ test('guia de autoria: acesso pela seção Sobre e componentes renderizados', as
   expect(erros).toEqual([]);
 });
 
-test('editor: explicação aparece junto à linha selecionada', async ({ page }) => {
+test('editor: anotação flutuante abre e fecha pelo marcador', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 });
   await page.goto('/oda-20/#codigo');
   const editor = page.locator('.editor').filter({ has: page.locator('.editor__marcador') }).first();
   const marcador = editor.locator('.editor__marcador').first();
+  const antes = await editor.boundingBox();
   await marcador.click();
-  const linha = marcador.locator('..');
-  const explicacao = linha.locator('.editor__explicacao');
+  const explicacao = page.locator('.editor__explicacao:popover-open');
   await expect(explicacao).toBeVisible();
-  await expect(explicacao).toContainText('linha');
-  const distancias = await page.evaluate(([botao, texto]) => {
-    const b = botao.getBoundingClientRect();
-    const t = texto.getBoundingClientRect();
-    return { distancia: t.top - b.bottom, altura: t.height };
-  }, [await marcador.elementHandle(), await explicacao.elementHandle()]);
-  expect(distancias.distancia).toBeLessThan(40);
-  expect(distancias.altura).toBeGreaterThan(0);
-  const outro = editor.locator('.editor__marcador').nth(1);
-  if (await outro.count()) {
-    await outro.click();
-    await expect(outro.locator('..').locator('.editor__explicacao')).toBeVisible();
-    await expect(linha.locator('.editor__explicacao')).toHaveCount(0);
-  }
+  await expect(marcador).toHaveAttribute('aria-expanded', 'true');
+  const caixa = await explicacao.boundingBox();
+  const depois = await editor.boundingBox();
+  expect(depois.height).toBe(antes.height);
+  expect(caixa.x).toBeGreaterThanOrEqual(0);
+  expect(caixa.x + caixa.width).toBeLessThanOrEqual(360);
+  await marcador.click();
+  await expect(explicacao).toHaveCount(0);
+  await expect(marcador).toHaveAttribute('aria-expanded', 'false');
+  await marcador.click();
+  await page.keyboard.press('Escape');
+  await expect(explicacao).toHaveCount(0);
+  await expect(marcador).toHaveAttribute('aria-expanded', 'false');
 });

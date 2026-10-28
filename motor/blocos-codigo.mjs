@@ -1,5 +1,7 @@
 import { registrarBloco, h, textoRico, marcaOrigem } from './nucleo.mjs';
 
+let proximoEditor = 0;
+
 const MERMAID = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
 
 export function prepararLinhas(linhas, destaque = [], anotacoes = [], inicio = 1) {
@@ -26,20 +28,50 @@ async function copiar(ctx, texto) {
 
 registrarBloco('editor', (casca, b, ctx) => {
   const { doc } = ctx;
-  const explicacao = h(doc, 'span', { class: 'editor__explicacao', 'aria-live': 'polite' });
-  const linhas = prepararLinhas(b.linhas, b.destaque, b.anotacoes, b.inicio ?? 1).map((l) => h(doc, 'span', { class: `editor__linha${l.destacada ? ' editor__linha--destaque' : ''}` }, [
-    h(doc, 'span', { class: 'editor__num', 'aria-hidden': 'true', texto: String(l.numero) }),
-    h(doc, 'span', { class: 'editor__codigo', texto: l.texto }),
-    l.anotacao ? h(doc, 'button', {
-      type: 'button', class: 'editor__marcador', texto: String(l.anotacao), 'aria-label': `Explicação ${l.anotacao}`,
-      onclick: (evento) => {
-        const a = b.anotacoes[l.anotacao - 1];
-        explicacao.replaceChildren(h(doc, 'strong', { texto: `${l.anotacao} · linha ${a.linha}: ` }), textoRico(doc, a.texto));
-        evento.currentTarget.parentElement.append(explicacao);
-        explicacao.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      },
-    }) : null,
-  ]));
+  const editorId = ++proximoEditor;
+  const linhas = prepararLinhas(b.linhas, b.destaque, b.anotacoes, b.inicio ?? 1).map((l) => {
+    let marcador = null;
+    let explicacao = null;
+    if (l.anotacao) {
+      const a = b.anotacoes[l.anotacao - 1];
+      const id = `editor-anotacao-${editorId}-${l.anotacao}`;
+      marcador = h(doc, 'button', {
+        type: 'button', class: 'editor__marcador', texto: String(l.anotacao),
+        'aria-label': `Explicação ${l.anotacao}`, 'aria-expanded': 'false',
+        'aria-controls': id, popovertarget: id,
+      });
+      explicacao = h(doc, 'span', { id, class: 'editor__explicacao', popover: 'auto' }, [
+        h(doc, 'strong', { texto: `${l.anotacao} · linha ${a.linha}: ` }), textoRico(doc, a.texto),
+      ]);
+      const fechar = (evento) => {
+        if (evento.type === 'scroll' && explicacao.contains(evento.target)) return;
+        explicacao.hidePopover();
+      };
+      explicacao.addEventListener('toggle', (evento) => {
+        const aberto = evento.newState === 'open';
+        marcador.setAttribute('aria-expanded', String(aberto));
+        if (aberto) {
+          const botao = marcador.getBoundingClientRect();
+          const caixa = explicacao.getBoundingClientRect();
+          const largura = ctx.win.innerWidth;
+          const altura = ctx.win.innerHeight;
+          explicacao.style.left = `${Math.max(8, Math.min(botao.left, largura - caixa.width - 8))}px`;
+          const abaixo = botao.bottom + 8;
+          const acima = botao.top - caixa.height - 8;
+          explicacao.style.top = `${Math.max(8, abaixo + caixa.height <= altura - 8 ? abaixo : acima)}px`;
+          doc.addEventListener('scroll', fechar, true);
+          ctx.win.addEventListener('resize', fechar);
+        } else {
+          doc.removeEventListener('scroll', fechar, true);
+          ctx.win.removeEventListener('resize', fechar);
+        }
+      });
+    }
+    return h(doc, 'span', { class: `editor__linha${l.destacada ? ' editor__linha--destaque' : ''}` }, [
+      h(doc, 'span', { class: 'editor__num', 'aria-hidden': 'true', texto: String(l.numero) }),
+      h(doc, 'span', { class: 'editor__codigo', texto: l.texto }), marcador, explicacao,
+    ]);
+  });
   casca.append(h(doc, 'div', { class: `editor editor--${b.rotulo}${b.numeros === false ? ' editor--sem-numeros' : ''}` }, [
     h(doc, 'div', { class: 'editor__barra' }, [
       h(doc, 'span', { class: 'editor__rotulo', texto: rotuloEditor(b) }),

@@ -95,7 +95,7 @@ button { cursor: pointer; }
 .editor__linha--destaque { background: rgba(56, 189, 248, .14); }
 .editor__num { display: inline-block; width: 3.5em; padding-right: 1em; text-align: right; color: #64748b; user-select: none; }
 .editor__marcador { margin-left: 10px; width: 1.6em; height: 1.6em; border-radius: 50%; border: 0; background: var(--alerta); color: var(--terminal); font-weight: 700; font-size: .75rem; }
-.editor__explicacao { display: block; position: sticky; left: 0; width: 100%; box-sizing: border-box; border-top: 1px solid var(--borda); padding: 10px 14px; background: var(--interno); color: var(--texto); white-space: normal; overflow-wrap: anywhere; }
+.editor__explicacao { position: fixed; inset: auto; margin: 0; box-sizing: border-box; width: min(320px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; border: 1px solid var(--borda); border-radius: 8px; padding: 10px 14px; background: var(--interno); color: var(--texto); white-space: normal; overflow-wrap: anywhere; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); }
 .diagrama__titulo { color: var(--acento); font-weight: 700; margin: 0 0 6px; }
 .diagrama { border: 1px solid var(--borda); border-radius: 10px; background: var(--interno); }
 .diagrama__barra { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; border-bottom: 1px solid var(--borda); }
