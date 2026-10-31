@@ -161,7 +161,8 @@ odas:
     minutos: 90
     pre_requisitos: ["00"]
     objetivo: "Escolher o nível de teste adequado e escrever um teste com MSW e um benchmark."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-14
   - id: "15"
     titulo: "Conteinerização e esteira de entrega"
     trilha: 5

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -270,6 +270,22 @@ test('oda-13: o teste de Trusted Types falha com o MSW e passa com a política d
   await painel.getByLabel('Passo 6 concluído').check();
   await rodar(teste);
   await expect(tela).toContainText('3 passed');
+});
+
+test('oda-14: o teste do config.json falha com HTML e o benchmark mostra o ganho depois da correção', async ({ page }) => {
+  await page.goto('/oda-14/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  await painel.getByLabel('Passo 2 concluído').check();
+  await rodar('npx vitest run src/shared/config');
+  await expect(tela).toContainText('Tests  1 failed | 3 passed (4)');
+  await rodar('npx tsc --noEmit -p tsconfig.app.json && npm run lint');
+  await expect(tela).toContainText('boundaries/dependencies');
+  for (const passo of [8, 10]) await painel.getByLabel(`Passo ${passo} concluído`).check();
+  await rodar('npx vitest bench --run src/app/mfe --compare /tmp/bench-ordem.json');
+  await expect(tela).toContainText('[3.56x]');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

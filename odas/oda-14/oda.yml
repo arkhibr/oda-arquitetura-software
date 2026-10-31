@@ -1,0 +1,694 @@
+id: '14'
+titulo: Estratégia de testes e medição de desempenho
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: A ADR-005 combina Vitest, Playwright e MSW, e cada nível de teste responde a uma pergunta diferente. Esta ODA escreve um teste com MSW para o carregamento do `config.json`, que revela uma falha atrás do Nginx, e um benchmark para a ordenação dos microfrontends, que revela um custo que cresce mais rápido que o manifesto.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Escolher entre teste unitário, de integração com MSW, ponta a ponta e benchmark para cada pergunta.
+    - Variar a resposta de rede num teste com `server.use`, sem substituir o `fetch`.
+    - Corrigir o `loadConfig` para o caso do `index.html` devolvido no lugar do `config.json`, com o teste escrito antes.
+    - Escrever um benchmark com tamanhos crescentes e reconhecer custo superlinear.
+    - Comparar medições com `--compare` e separar ganho real de ruído.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 00, com as dependências da raiz instaladas, e nenhum serviço no ar, porque o laboratório roda só testes, lint e benchmarks em processo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · testes do shell
+    comandos:
+    - entrada: npx vitest run
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
+      origem: executado
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    cenarios:
+    - rotulo: Suíte do shell
+      comando: npx vitest run
+    - rotulo: Tipos e lint
+      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: O MSW intercepta a rede tanto no Node, nos testes do Vitest, quanto no navegador, em desenvolvimento e no Playwright. O benchmark do Vitest mede a vazão de funções puras e não mede rede, renderização nem carga.
+  - tipo: comparativo
+    colunas:
+    - Pergunta
+    - Nível e ferramenta
+    linhas:
+    - dimensao: A regra de negócio está certa?
+      valores:
+      - Uma função pura dá o resultado esperado
+      - Unitário, com Vitest
+    - dimensao: O código reage bem a cada resposta da rede?
+      valores:
+      - O `loadConfig` com 200, 404, JSON inválido e HTML
+      - Integração em Node, com Vitest e MSW
+    - dimensao: O fluxo funciona no navegador?
+      valores:
+      - Login, carga de microfrontend e cabeçalhos de CSP
+      - Ponta a ponta, com Playwright
+    - dimensao: Quanto custa e como escala?
+      valores:
+      - Vazão do `resolveLoadOrder` com 10, 100 e 1000 itens
+      - Micro-benchmark, com `vitest bench`
+  - tipo: conceito
+    titulo: server.use
+    texto: O `src/test-setup.ts` inicia o servidor do MSW antes de cada arquivo e chama `resetHandlers` depois de cada teste. Um teste acrescenta handlers próprios com `server.use`, que valem só até o fim daquele teste.
+  - tipo: conceito
+    titulo: Escala de um benchmark
+    texto: Medir a mesma função com entradas de tamanho 10, 100 e 1000 mostra como o custo cresce. Se a vazão cai cerca de dez vezes a cada passo, o custo é linear, e uma queda bem maior indica trabalho repetido proporcional ao tamanho da entrada.
+  - tipo: adr
+    id: ADR-005
+    titulo: Tática de testes
+    status: Proposed
+    contexto: O projeto precisa de testes unitários e de integração, de ponta a ponta e com API simulada, e o Vite dificulta o uso do Jest.
+    decisao: Vitest para unidade e integração, Playwright para ponta a ponta, MSW para a rede e `vitest bench` para micro-benchmarks.
+    alternativas: Jest com Cypress e MSW, que exige transpilação extra e é mais lento em CI, e não testar.
+    consequencias: Três ferramentas para aprender, com o mesmo código de produção exercitado sob respostas controladas.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, o setup do MSW, o carregamento da configuração, a ordenação dos microfrontends e um benchmark existente. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/test-setup.ts
+    commit: '2179313'
+    linhas:
+    - import '@testing-library/jest-dom'
+    - import { beforeAll, afterEach, afterAll } from 'vitest'
+    - import { server } from './mocks/server'
+    - ''
+    - 'beforeAll(() => server.listen({ onUnhandledRequest: ''warn'' }))'
+    - afterEach(() => server.resetHandlers())
+    - afterAll(() => server.close())
+    anotacoes:
+    - linha: 5
+      texto: Requisições sem handler geram aviso, e não falha.
+    - linha: 6
+      texto: Remove os handlers acrescentados com `server.use`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/config/index.ts
+    commit: '2179313'
+    linhas:
+    - 'export async function loadConfig(): Promise<void> {'
+    - '  let data: AppConfig'
+    - ''
+    - '  try {'
+    - '    const res = await fetch(''/config.json'')'
+    - '    if (!res.ok) return'
+    - '    data = (await res.json()) as AppConfig'
+    - '  } catch (err) {'
+    - '    if (err instanceof SyntaxError) {'
+    - '      throw new Error(`[config] /config.json inválido: ${String(err)}`, { cause: err })'
+    - '    }'
+    - '    // Arquivo ausente ou erro de rede — usa variáveis de ambiente como fallback'
+    - '    return'
+    - '  }'
+    - ''
+    - '  _config = data'
+    - ''
+    - '  const root = document.documentElement'
+    - '  if (data.primaryColor) root.style.setProperty(''--color-primary'', data.primaryColor)'
+    - '  if (data.secondaryColor) root.style.setProperty(''--color-secondary'', data.secondaryColor)'
+    - '}'
+    anotacoes:
+    - linha: 45
+      texto: URL relativa, resolvida contra o `location` do `jsdom` nos testes.
+    - linha: 46
+      texto: 'Status de erro: segue com as variáveis de ambiente.'
+    - linha: 47
+      texto: Qualquer corpo com status 200 é lido como JSON.
+    - linha: 50
+      texto: JSON inválido derruba o boot com a tela de falha do `main.tsx`.
+    inicio: 41
+  - tipo: editor
+    rotulo: arquivo
+    caminho: nginx.conf.template
+    commit: '2179313'
+    linhas:
+    - '    location / {'
+    - '        try_files $uri $uri/ /index.html;'
+    anotacoes:
+    - linha: 45
+      texto: Caminho sem arquivo recebe o `index.html` com status 200.
+    inicio: 44
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/dependencyResolver.ts
+    commit: '2179313'
+    linhas:
+    - 'export function resolveLoadOrder(mfes: MfeEntry[]): MfeEntry[] {'
+    - '  const byId = new Map(mfes.map((m) => [m.id, m]))'
+    - '  const indegree = new Map(mfes.map((m) => [m.id, m.dependsOn.length]))'
+    - '  const dependents = new Map<string, string[]>()'
+    - ''
+    - '  for (const m of mfes) {'
+    - '    for (const dep of m.dependsOn) {'
+    - '      dependents.set(dep, [...(dependents.get(dep) ?? []), m.id])'
+    - '    }'
+    - '  }'
+    - ''
+    - '  const queue = mfes.filter((m) => indegree.get(m.id) === 0).map((m) => m.id)'
+    - '  const ordered: MfeEntry[] = []'
+    - ''
+    - '  while (queue.length > 0) {'
+    - '    const id = queue.shift() as string'
+    - '    ordered.push(byId.get(id) as MfeEntry)'
+    - '    for (const dependent of dependents.get(id) ?? []) {'
+    - '      const next = (indegree.get(dependent) as number) - 1'
+    - '      indegree.set(dependent, next)'
+    - '      if (next === 0) queue.push(dependent)'
+    - '    }'
+    - '  }'
+    - ''
+    - '  if (ordered.length !== mfes.length) {'
+    - '    const remaining = mfes.filter((m) => !ordered.includes(m)).map((m) => m.id)'
+    - '    throw new Error(`[mfe-manifest] ciclo de dependência detectado entre: ${remaining.join('', '')}`)'
+    - '  }'
+    - ''
+    - '  return ordered'
+    - '}'
+    anotacoes:
+    - linha: 14
+      texto: Copia a lista inteira a cada dependente acrescentado.
+    - linha: 22
+      texto: O `shift` também percorre o array a cada retirada.
+    inicio: 7
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/shared/lib/validators/validators.bench.ts
+    commit: '2179313'
+    linhas:
+    - // src/shared/lib/validators/validators.bench.ts
+    - // Micro-benchmarks de desempenho das funções puras de validação.
+    - '// Rode com: npm run bench (na raiz). Ver ADR-005.'
+    - import { bench, describe } from 'vitest'
+    - import { isValidCPF } from './cpf'
+    - import { isValidEmail } from './email'
+    - ''
+    - describe('isValidCPF', () => {
+    - '  bench(''CPF válido'', () => {'
+    - '    isValidCPF(''529.982.247-25'')'
+    - '  })'
+    - '  bench(''CPF inválido (dígito verificador errado)'', () => {'
+    - '    isValidCPF(''529.982.247-24'')'
+    - '  })'
+    - '  bench(''CPF malformado (tamanho errado)'', () => {'
+    - '    isValidCPF(''123'')'
+    - '  })'
+    - '})'
+    anotacoes:
+    - linha: 9
+      texto: Cada `bench` mede uma chamada isolada, repetida até a vazão estabilizar.
+  - tipo: faixa
+    estilo: dica
+    texto: 'Nenhum teste de unidade do commit varia respostas com `server.use`: os testes de `shared` e `features` substituem o `fetch` com `vi.stubGlobal`. A regra `boundaries/dependencies` do `eslint.config.ts` não deixa essas camadas importar `src/mocks`, e o passo 6 do laboratório trata disso.'
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Acompanhe o boot quando o `config.json` falta atrás do Nginx e classifique o nível de teste adequado para cada pergunta.
+  - tipo: fluxo
+    titulo: Boot do shell sem config.json atrás do Nginx
+    etapas:
+    - titulo: Requisição
+      descricao: O `main.tsx` chama `loadConfig`, que pede `/config.json` ao Nginx.
+    - titulo: Fallback
+      descricao: O arquivo não existe, e o `location /` aplica `try_files`, que devolve o `index.html` com status 200.
+    - titulo: Leitura
+      descricao: O `res.ok` é verdadeiro, e o `res.json()` encontra `<!doctype` e lança `SyntaxError`.
+    - titulo: Falha de boot
+      descricao: O `loadConfig` transforma o erro em `[config] /config.json inválido`, e o `main.tsx` mostra a tela de falha.
+    - titulo: Depois da correção
+      descricao: O `content-type` `text/html` faz o `loadConfig` seguir com as variáveis de ambiente, como o comentário do arquivo promete.
+  - tipo: classificador
+    enunciado: Qual é o nível de teste adequado para cada pergunta?
+    categorias:
+    - id: unit
+      rotulo: Unitário
+    - id: msw
+      rotulo: Integração com MSW
+    - id: e2e
+      rotulo: Ponta a ponta
+    - id: bench
+      rotulo: Benchmark
+    itens:
+    - texto: O `isValidCPF` recusa o dígito verificador errado?
+      categoria: unit
+      explicacao: Função pura, sem rede nem DOM.
+    - texto: O `loadConfig` segue sem erro quando recebe HTML?
+      categoria: msw
+      explicacao: A resposta de rede varia, e o código de produção faz o `fetch` de verdade.
+    - texto: O Nginx envia a CSP com o nonce gravado no HTML?
+      categoria: e2e
+      explicacao: Depende do servidor e do navegador reais.
+    - texto: O `resolveLoadOrder` aguenta 1000 microfrontends?
+      categoria: bench
+      explicacao: A pergunta é de custo e de escala.
+    - texto: A ordem devolvida respeita o `dependsOn`?
+      categoria: unit
+      explicacao: O `dependencyResolver.test.ts` já cobre ordem e ciclo.
+    - texto: O login redireciona para o painel?
+      categoria: e2e
+      explicacao: O `tests/e2e/auth/login.spec.ts` percorre o fluxo no navegador.
+    - texto: O `parseToken` ficou mais lento depois de uma mudança?
+      categoria: bench
+      explicacao: O `tokenParser.bench.ts` já existe e aceita `--compare`.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 7 cobrem o teste com MSW e a regra de fronteiras, e os passos 8 a 11 cobrem o benchmark e a correção da ordenação.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+  - tipo: passos
+    itens:
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run
+      sucesso: '`Tests 99 passed (99)`.'
+    - titulo: Escrever o teste do loadConfig
+      texto: Crie o arquivo abaixo. Cada teste troca a resposta de `/config.json` com `server.use`, e o último devolve HTML com status 200, como o `try_files` do Nginx.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/config/__tests__/config.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, expect, it } from 'vitest'
+        - import { http, HttpResponse } from 'msw'
+        - import { server } from '@/mocks/server'
+        - import { getApiUrl, getMfeAllowedOrigins, loadConfig } from '../index'
+        - ''
+        - describe('loadConfig', () => {
+        - '  it(''aplica a URL da API, as origens de microfrontend e a cor do config.json'', async () => {'
+        - '    server.use(http.get(''/config.json'', () => HttpResponse.json({'
+        - '      apiUrl: ''http://localhost:4000'', primaryColor: ''#047857'', mfeAllowedOrigins: [''http://localhost:4566''],'
+        - '    })))'
+        - ''
+        - '    await loadConfig()'
+        - ''
+        - '    expect(getApiUrl()).toBe(''http://localhost:4000'')'
+        - '    expect(getMfeAllowedOrigins()).toEqual([''http://localhost:4566''])'
+        - '    expect(document.documentElement.style.getPropertyValue(''--color-primary'')).toBe(''#047857'')'
+        - '  })'
+        - ''
+        - '  it(''falha rápido quando o config.json não é JSON válido'', async () => {'
+        - '    server.use(http.get(''/config.json'', () => new HttpResponse(''{ apiUrl:'', { headers: { ''Content-Type'': ''application/json'' } })))'
+        - ''
+        - '    await expect(loadConfig()).rejects.toThrow(''[config] /config.json inválido'')'
+        - '  })'
+        - ''
+        - '  it(''segue sem erro quando o config.json não existe'', async () => {'
+        - '    server.use(http.get(''/config.json'', () => new HttpResponse(null, { status: 404 })))'
+        - ''
+        - '    await expect(loadConfig()).resolves.toBeUndefined()'
+        - '  })'
+        - ''
+        - '  it(''segue sem erro quando o servidor devolve o index.html no lugar do config.json'', async () => {'
+        - '    server.use(http.get(''/config.json'', () => HttpResponse.html(''<!doctype html><div id="root"></div>'')))'
+        - ''
+        - '    await expect(loadConfig()).resolves.toBeUndefined()'
+        - '  })'
+        - '})'
+      efeito: teste_config
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/config
+      sucesso: '`Tests 1 failed | 3 passed (4)`, com `Unexpected token ''<'', "<!doctype "... is not valid JSON`.'
+    - titulo: Conferir o tipo do conteúdo
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/config/index.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '// src/shared/config/index.ts: depois de if (!res.ok) return'
+        - '    // Atrás do try_files do Nginx, um config.json ausente chega como index.html com 200.'
+        - '    if (!res.headers.get(''content-type'')?.includes(''json'')) return'
+      efeito: config_corrigido
+    - titulo: Ver o teste passar e rodar o lint
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest run src/shared/config
+        - npx vitest run
+        - npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      sucesso: '`Tests 4 passed (4)`, a suíte com `Tests 103 passed (103)` e um erro `boundaries/dependencies` no import de `@/mocks/server`.'
+    - titulo: Declarar os testes como elemento próprio
+      texto: Os arquivos de `__tests__` não vão para o bundle, e o elemento `tests` permite que importem os handlers do MSW. O elemento entra primeiro, porque o plugin usa o primeiro padrão que casa com o arquivo.
+      editor:
+        rotulo: arquivo
+        caminho: eslint.config.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '// eslint.config.ts: primeiro item de boundaries/elements'
+        - '        { type: ''tests'',    pattern: ''src/**/__tests__/**'' },'
+        - ''
+        - '// eslint.config.ts: primeira regra de boundaries/dependencies'
+        - '          { from: { type: ''tests'' },    allow: { to: { type: ''*'' } } },'
+      efeito: fronteira_testes
+    - titulo: Rodar o lint de novo
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      sucesso: O `tsc` e o `eslint src/` terminam sem mensagens.
+    - titulo: Escrever o benchmark da ordenação
+      texto: Crie o arquivo abaixo, ao lado do código. Ele mede o mesmo manifesto em estrela com 10, 100 e 1000 microfrontends.
+      editor:
+        rotulo: arquivo
+        caminho: src/app/mfe/dependencyResolver.bench.ts (novo)
+        commit: '2179313'
+        linhas:
+        - // src/app/mfe/dependencyResolver.bench.ts
+        - // Micro-benchmark da ordenação dos microfrontends no boot do shell.
+        - '// Rode com: npm run bench (na raiz). Ver ADR-005.'
+        - import { bench, describe } from 'vitest'
+        - import { resolveLoadOrder } from './dependencyResolver'
+        - import type { MfeEntry } from './types'
+        - ''
+        - 'function manifestoEmEstrela(total: number): MfeEntry[] {'
+        - '  const base = { name: ''MFE'', state: ''active'' as const, url: ''http://localhost:4566/mfes/x.js'', integrity: ''sha256-x'', route: ''/x'' }'
+        - '  const nucleo = { ...base, id: ''nucleo'', dependsOn: [] }'
+        - '  const demais = Array.from({ length: total - 1 }, (_, i) => ({ ...base, id: `mfe-${i}`, dependsOn: [''nucleo''] }))'
+        - '  return [nucleo, ...demais]'
+        - '}'
+        - ''
+        - const pequeno = manifestoEmEstrela(10)
+        - const medio = manifestoEmEstrela(100)
+        - const grande = manifestoEmEstrela(1000)
+        - ''
+        - describe('resolveLoadOrder', () => {
+        - '  bench(''10 microfrontends dependentes de um núcleo'', () => {'
+        - '    resolveLoadOrder(pequeno)'
+        - '  })'
+        - '  bench(''100 microfrontends dependentes de um núcleo'', () => {'
+        - '    resolveLoadOrder(medio)'
+        - '  })'
+        - '  bench(''1000 microfrontends dependentes de um núcleo'', () => {'
+        - '    resolveLoadOrder(grande)'
+        - '  })'
+        - '})'
+      efeito: bench_criado
+    - titulo: Medir e guardar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest bench --run src/app/mfe --outputJson /tmp/bench-ordem.json
+        - npx vitest bench --run src/app/mfe --compare /tmp/bench-ordem.json
+      sucesso: A vazão cai cerca de 13 vezes de 10 para 100 e cerca de 35 vezes de 100 para 1000, e a comparação sem mudança fica perto de `1.00x`.
+    - titulo: Acrescentar sem copiar a lista
+      editor:
+        rotulo: arquivo
+        caminho: src/app/mfe/dependencyResolver.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '// src/app/mfe/dependencyResolver.ts: no lugar da linha com o spread'
+        - '      const lista = dependents.get(dep)'
+        - '      if (lista) lista.push(m.id)'
+        - '      else dependents.set(dep, [m.id])'
+      efeito: resolver_corrigido
+    - titulo: Comparar e conferir o comportamento
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx vitest bench --run src/app/mfe --compare /tmp/bench-ordem.json
+        - npx vitest run src/app/mfe
+        - npx vitest run
+      sucesso: '`[3.56x]` na linha de 1000 microfrontends, `Tests 31 passed (31)` em `src/app/mfe` e a suíte com `Tests 103 passed (103)`.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: npx vitest run
+      condicao:
+      - config_corrigido
+      - resolver_corrigido
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  103 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao: config_corrigido
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  24 passed (24)\n      Tests  103 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      condicao: teste_config
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/config/__tests__/config.test.ts (4 tests | 1 failed) 39ms\n     × segue sem erro quando o servidor devolve o index.html no lugar do config.json 6ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/config/__tests__/config.test.ts > loadConfig > segue sem erro quando o servidor devolve o index.html no lugar do config.json\nAssertionError: promise rejected \"Error: [config] /config.json inválido: Sy…\" instead of resolving\n ❯ src/shared/config/__tests__/config.test.ts:34:31\n     32|     server.use(http.get('/config.json', () => HttpResponse.html('<!doc…\n     33|\n     34|     await expect(loadConfig()).resolves.toBeUndefined()\n       |                               ^\n     35|   })\n     36| })\n\nCaused by: Error: [config] /config.json inválido: SyntaxError: Unexpected token '<', \"<!doctype \"... is not valid JSON\n ❯ loadConfig src/shared/config/index.ts:50:13\n ❯ src/shared/config/__tests__/config.test.ts:34:5\n\nCaused by: SyntaxError: Unexpected token '<', \"<!doctype \"... is not valid JSON\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 23 passed (24)\n      Tests  1 failed | 102 passed (103)"
+      origem: executado
+    - entrada: npx vitest run
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
+      origem: executado
+    - entrada: npx vitest run src/shared/config
+      condicao:
+      - teste_config
+      - config_corrigido
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)"
+      origem: executado
+    - entrada: npx vitest run src/shared/config
+      condicao: teste_config
+      saida: " RUN  v4.1.7 .\n\n ❯ src/shared/config/__tests__/config.test.ts (4 tests | 1 failed) 15ms\n     × segue sem erro quando o servidor devolve o index.html no lugar do config.json 2ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/shared/config/__tests__/config.test.ts > loadConfig > segue sem erro quando o servidor devolve o index.html no lugar do config.json\nAssertionError: promise rejected \"Error: [config] /config.json inválido: Sy…\" instead of resolving\n ❯ src/shared/config/__tests__/config.test.ts:34:31\n     32|     server.use(http.get('/config.json', () => HttpResponse.html('<!doc…\n     33|\n     34|     await expect(loadConfig()).resolves.toBeUndefined()\n       |                               ^\n     35|   })\n     36| })\n\nCaused by: Error: [config] /config.json inválido: SyntaxError: Unexpected token '<', \"<!doctype \"... is not valid JSON\n ❯ loadConfig src/shared/config/index.ts:50:13\n ❯ src/shared/config/__tests__/config.test.ts:34:5\n\nCaused by: SyntaxError: Unexpected token '<', \"<!doctype \"... is not valid JSON\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 3 passed (4)"
+      origem: executado
+      dica: 'A falha é a esperada: o `loadConfig` tenta ler o HTML como JSON.'
+    - entrada: npx vitest run src/shared/config
+      saida: ' RUN  v4.1.7 .
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/shared/config
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, tests/e2e/**, mfes/**, gateway/**, bffs/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 2.
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      condicao: fronteira_testes
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+      dica: Os tipos e o ESLint terminaram sem erro.
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      condicao: teste_config
+      saida: "> frontend-react@0.0.0 lint\n> eslint src/\n\n\n./src/shared/config/__tests__/config.test.ts\n  3:24  error  Dependencies to elements of type \"mocks\" are not allowed in elements of type \"shared\". Denied by rule at index 0  boundaries/dependencies\n\n✖ 1 problem (1 error, 0 warnings)"
+      origem: executado
+      dica: A regra de fronteiras da ODA 02 vale também para os arquivos de teste. O passo 6 trata disso.
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+      dica: Os tipos e o ESLint terminaram sem erro.
+    - entrada: npx vitest bench --run src/app/mfe --outputJson /tmp/bench-ordem.json
+      condicao: bench_criado
+      saida: " RUN  v4.1.7 .\n\n\n ✓ src/app/mfe/dependencyResolver.bench.ts > resolveLoadOrder 1915ms\n     name                                                  hz     min     max    mean     p75     p99    p995    p999     rme  samples\n   · 10 microfrontends dependentes de um núcleo    881,414.88  0.0010  0.1121  0.0011  0.0011  0.0014  0.0015  0.0019  ±0.17%   440708\n   · 100 microfrontends dependentes de um núcleo    65,432.44  0.0141  0.1245  0.0153  0.0153  0.0174  0.0211  0.0712  ±0.23%    32717\n   · 1000 microfrontends dependentes de um núcleo    1,847.53  0.5080  0.8579  0.5413  0.5420  0.6787  0.7472  0.8579  ±0.48%      924\n\n BENCH  Summary\n\n  10 microfrontends dependentes de um núcleo - src/app/mfe/dependencyResolver.bench.ts > resolveLoadOrder\n    13.47x faster than 100 microfrontends dependentes de um núcleo\n    477.08x faster than 1000 microfrontends dependentes de um núcleo\n\nBenchmark report written to /tmp/bench-ordem.json"
+      origem: executado
+      dica: Compare a queda de vazão de 10 para 100 e de 100 para 1000 microfrontends.
+    - entrada: npx vitest bench --run src/app/mfe --outputJson /tmp/bench-ordem.json
+      saida: ' RUN  v4.1.7 .
+
+
+        No benchmark files found, exiting with code 1
+
+
+        filter: src/app/mfe
+
+        include: src/**/*.bench.ts
+
+        exclude:  **/node_modules/**, **/.git/**
+
+
+        Benchmark report written to /tmp/bench-ordem-x.json'
+      origem: executado
+      dica: O benchmark ainda não existe. Crie-o no passo 8.
+    - entrada: npx vitest bench --run src/app/mfe --compare /tmp/bench-ordem.json
+      condicao:
+      - bench_criado
+      - resolver_corrigido
+      saida: " RUN  v4.1.7 .\n\n\n ✓ src/app/mfe/dependencyResolver.bench.ts > resolveLoadOrder 1935ms\n     name                                                  hz     min     max    mean     p75     p99    p995    p999     rme  samples\n   · 10 microfrontends dependentes de um núcleo    996,677.76  0.0009  0.1830  0.0010  0.0010  0.0013  0.0016  0.0021  ±0.22%   498339  [1.13x] ⇑\n     10 microfrontends dependentes de um núcleo    881,414.88  0.0010  0.1121  0.0011  0.0011  0.0014  0.0015  0.0019  ±0.17%   440708  (baseline)\n   · 100 microfrontends dependentes de um núcleo    97,096.65  0.0094  0.1777  0.0103  0.0103  0.0117  0.0135  0.0653  ±0.23%    48549  [1.48x] ⇑\n     100 microfrontends dependentes de um núcleo    65,432.44  0.0141  0.1245  0.0153  0.0153  0.0174  0.0211  0.0712  ±0.23%    32717  (baseline)\n   · 1000 microfrontends dependentes de um núcleo    6,586.38  0.1388  1.5565  0.1518  0.1473  0.3953  0.4255  0.7154  ±1.07%     3294  [3.56x] ⇑\n     1000 microfrontends dependentes de um núcleo    1,847.53  0.5080  0.8579  0.5413  0.5420  0.6787  0.7472  0.8579  ±0.48%      924  (baseline)\n\n BENCH  Summary\n\n  10 microfrontends dependentes de um núcleo - src/app/mfe/dependencyResolver.bench.ts > resolveLoadOrder\n    10.26x faster than 100 microfrontends dependentes de um núcleo\n    151.32x faster than 1000 microfrontends dependentes de um núcleo"
+      origem: executado
+    - entrada: npx vitest bench --run src/app/mfe --compare /tmp/bench-ordem.json
+      condicao: bench_criado
+      saida: " RUN  v4.1.7 .\n\n\n ✓ src/app/mfe/dependencyResolver.bench.ts > resolveLoadOrder 1924ms\n     name                                                  hz     min     max    mean     p75     p99    p995    p999     rme  samples\n   · 10 microfrontends dependentes de um núcleo    841,873.89  0.0010  0.1321  0.0012  0.0012  0.0015  0.0016  0.0024  ±0.20%   420937  [0.96x] ⇓\n     10 microfrontends dependentes de um núcleo    881,414.88  0.0010  0.1121  0.0011  0.0011  0.0014  0.0015  0.0019  ±0.17%   440708  (baseline)\n   · 100 microfrontends dependentes de um núcleo    68,514.86  0.0136  0.1253  0.0146  0.0146  0.0165  0.0183  0.0662  ±0.21%    34258  [1.05x] ⇑\n     100 microfrontends dependentes de um núcleo    65,432.44  0.0141  0.1245  0.0153  0.0153  0.0174  0.0211  0.0712  ±0.23%    32717  (baseline)\n   · 1000 microfrontends dependentes de um núcleo    1,879.65  0.5015  0.7785  0.5320  0.5293  0.6388  0.6636  0.7785  ±0.41%      940  [1.02x] ⇑\n     1000 microfrontends dependentes de um núcleo    1,847.53  0.5080  0.8579  0.5413  0.5420  0.6787  0.7472  0.8579  ±0.48%      924  (baseline)\n\n BENCH  Summary\n\n  10 microfrontends dependentes de um núcleo - src/app/mfe/dependencyResolver.bench.ts > resolveLoadOrder\n    12.29x faster than 100 microfrontends dependentes de um núcleo\n    447.89x faster than 1000 microfrontends dependentes de um núcleo"
+      origem: executado
+      dica: Sem mudança no código, as razões ficam perto de `1.00x`. Esse é o ruído da medição nesta máquina.
+    - entrada: npx vitest run src/app/mfe
+      condicao: resolver_corrigido
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
+      origem: executado
+    - entrada: npx vitest run src/app/mfe
+      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
+      origem: executado
+    cenarios:
+    - rotulo: Teste do loadConfig
+      comando: npx vitest run src/shared/config
+    - rotulo: Suíte do shell
+      comando: npx vitest run
+    - rotulo: Tipos e lint
+      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+    - rotulo: Benchmark da ordenação
+      comando: npx vitest bench --run src/app/mfe --outputJson /tmp/bench-ordem.json
+    - rotulo: Comparar o benchmark
+      comando: npx vitest bench --run src/app/mfe --compare /tmp/bench-ordem.json
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os quatro incidentes partem de saídas do laboratório e de uma verificação feita depois da mudança no ESLint.
+  - tipo: incidente
+    titulo: Portal que não inicia num ambiente novo
+    origem: executado
+    rotulo_saida: log
+    saida: "     × segue sem erro quando o servidor devolve o index.html no lugar do config.json 2ms\nAssertionError: promise rejected \"Error: [config] /config.json inválido: Sy…\" instead of resolving\nCaused by: Error: [config] /config.json inválido: SyntaxError: Unexpected token '<', \"<!doctype \"... is not valid JSON\nCaused by: SyntaxError: Unexpected token '<', \"<!doctype \"... is not valid JSON\n      Tests  1 failed | 3 passed (4)"
+    pergunta: A imagem foi publicada sem `config.json`, e o portal mostra a tela de falha de boot. O que aconteceu?
+    correcao: Conferir o `content-type` antes de ler o corpo, como no passo 4, ou servir `config.json` com um `location` próprio que responda 404 quando o arquivo falta.
+    alternativas:
+    - texto: O `config.json` estava com vírgula sobrando.
+      correta: false
+      explicacao: O arquivo não existia no ambiente.
+    - texto: O Nginx devolveu o `index.html` com status 200, e o `loadConfig` tentou lê-lo como JSON.
+      correta: true
+      explicacao: O teste reproduz a resposta do `try_files` com `HttpResponse.html`.
+    - texto: O navegador bloqueou o `fetch` pela CSP.
+      correta: false
+      explicacao: O `connect-src 'self'` permite a própria origem.
+  - tipo: incidente
+    titulo: Lint recusando o teste com MSW
+    origem: executado
+    rotulo_saida: log
+    saida: "> frontend-react@0.0.0 lint\n> eslint src/\n\n\n./src/shared/config/__tests__/config.test.ts\n  3:24  error  Dependencies to elements of type \"mocks\" are not allowed in elements of type \"shared\". Denied by rule at index 0  boundaries/dependencies\n\n✖ 1 problem (1 error, 0 warnings)"
+    pergunta: Por que a regra de fronteiras recusa um arquivo de teste?
+    correcao: Declarar os arquivos de `__tests__` como um elemento próprio, como no passo 6, e manter a regra para o código de produção.
+    alternativas:
+    - texto: O MSW não pode ser usado em testes de unidade.
+      correta: false
+      explicacao: O `test-setup.ts` inicia o MSW para todos os testes.
+    - texto: O alias `@` não funciona no ESLint.
+      correta: false
+      explicacao: O erro cita o tipo de elemento, que o plugin resolveu pelo alias.
+    - texto: O padrão `src/shared/**` também casa com `src/shared/config/__tests__`, e `shared` não pode importar nada.
+      correta: true
+      explicacao: A regra de índice 0 é a de `shared`, com `disallow` para todos os tipos.
+  - tipo: incidente
+    titulo: Fronteira aberta para todo o shared
+    origem: executado
+    rotulo_saida: log
+    saida: "# src/shared/lib/vazamento.ts, arquivo de produção criado só para a verificação\nimport { server } from '@/mocks/server'\n\n$ npm run lint\n  1:24  error  Dependencies to elements of type \"mocks\" are not allowed in elements of type \"shared\". Denied by rule at index 1  boundaries/dependencies\n✖ 1 problem (1 error, 0 warnings)"
+    pergunta: Depois do passo 6, um arquivo de produção em `shared` consegue importar os mocks?
+    correcao: Manter o padrão do elemento `tests` restrito a `__tests__`, que deixa o código de produção sob a regra de `shared`.
+    alternativas:
+    - texto: Não. Só os arquivos dentro de `__tests__` casam com o elemento `tests`, e o arquivo de produção continua classificado como `shared`.
+      correta: true
+      explicacao: O erro agora cita a regra de índice 1, porque a regra de `tests` entrou na posição 0.
+    - texto: Sim, porque a regra de `tests` permite tudo.
+      correta: false
+      explicacao: A regra vale só para o elemento `tests`.
+    - texto: Sim, porque o `src/mocks` virou parte de `shared`.
+      correta: false
+      explicacao: Os elementos não mudaram de tipo.
+  - tipo: incidente
+    titulo: Vazão que cai mais que o tamanho cresce
+    origem: executado
+    rotulo_saida: log
+    saida: "   · 10 microfrontends dependentes de um núcleo    881,414.88  0.0010  0.1121  0.0011  0.0011  0.0014  0.0015  0.0019  ±0.17%   440708\n   · 100 microfrontends dependentes de um núcleo    65,432.44  0.0141  0.1245  0.0153  0.0153  0.0174  0.0211  0.0712  ±0.23%    32717\n   · 1000 microfrontends dependentes de um núcleo    1,847.53  0.5080  0.8579  0.5413  0.5420  0.6787  0.7472  0.8579  ±0.48%      924"
+    pergunta: De 100 para 1000 microfrontends, a vazão caiu cerca de 35 vezes. O que indica essa queda?
+    correcao: Acrescentar o dependente à lista existente com `push`, como no passo 10. O `queue.shift()` é o próximo candidato, com um índice de leitura no lugar da remoção.
+    alternativas:
+    - texto: O Vitest limita o número de amostras para entradas grandes.
+      correta: false
+      explicacao: A vazão é medida por tempo, e o número de amostras acompanha a vazão.
+    - texto: 'Trabalho repetido proporcional ao tamanho: o spread copia a lista de dependentes do núcleo a cada microfrontend acrescentado.'
+      correta: true
+      explicacao: Com `push`, a linha de 1000 ficou `3.56x` mais rápida.
+    - texto: Ruído da medição.
+      correta: false
+      explicacao: A comparação sem mudança ficou entre `0.96x` e `1.05x`.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que o teste do `loadConfig` usa MSW e não `vi.stubGlobal('fetch')`?
+      alternativas:
+      - texto: Porque `vi.stubGlobal` não funciona com `jsdom`.
+        correta: false
+        explicacao: Os testes de `loginRequest` usam `vi.stubGlobal` no mesmo ambiente.
+      - texto: Porque o MSW deixa o teste mais rápido.
+        correta: false
+        explicacao: A escolha é de fidelidade, e não de tempo.
+      - texto: Para que o `fetch` real do código rode, com URL, status, cabeçalhos e corpo controlados na camada de rede.
+        correta: true
+        explicacao: O `content-type` do `HttpResponse.html` é o que o passo 4 confere.
+    - enunciado: O que o `afterEach(() => server.resetHandlers())` garante?
+      alternativas:
+      - texto: Que um handler acrescentado com `server.use` não vaze para o teste seguinte.
+        correta: true
+        explicacao: Cada teste do laboratório define a própria resposta.
+      - texto: Que o servidor seja reiniciado a cada teste.
+        correta: false
+        explicacao: O servidor fica no ar do `beforeAll` ao `afterAll`.
+      - texto: Que as requisições sem handler falhem.
+        correta: false
+        explicacao: Isso depende de `onUnhandledRequest`, configurado como `warn`.
+    - enunciado: Por que o elemento `tests` precisa vir primeiro em `boundaries/elements`?
+      alternativas:
+      - texto: Porque o ESLint lê os testes antes do código.
+        correta: false
+        explicacao: A classificação vale por arquivo.
+      - texto: Porque o plugin usa o primeiro padrão que casa, e `src/shared/**` também casaria com o teste.
+        correta: true
+        explicacao: Na última posição, o teste continuaria classificado como `shared`.
+      - texto: Porque a ordem é alfabética.
+        correta: false
+        explicacao: A ordem é a da lista.
+    - enunciado: Como ler `[3.56x] ⇑` na comparação?
+      alternativas:
+      - texto: A função ficou 3,56 vezes mais lenta.
+        correta: false
+        explicacao: A seta para baixo indicaria perda.
+      - texto: O erro relativo foi de 3,56%.
+        correta: false
+        explicacao: O erro relativo aparece na coluna `rme`.
+      - texto: A medição nova teve 3,56 vezes a vazão da linha de base.
+        correta: true
+        explicacao: A seta para cima indica ganho.
+    - enunciado: O que o benchmark do laboratório não responde?
+      alternativas:
+      - texto: Quanto tempo o boot leva no navegador sob rede lenta.
+        correta: true
+        explicacao: Essa pergunta cabe ao projeto `perf` do Playwright, descrito em `docs/performance/`.
+      - texto: Como a ordenação escala com o tamanho do manifesto.
+        correta: false
+        explicacao: É exatamente o que os três tamanhos medem.
+      - texto: Se a mudança melhorou a vazão.
+        correta: false
+        explicacao: O `--compare` mostra a razão.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - Cada pergunta do classificador tem um nível de teste justificado.
+    - O teste com MSW falhou com o HTML e passou depois da correção.
+    - O lint aceita os testes e continua a barrar o código de produção.
+    - O benchmark mostrou custo superlinear antes da correção.
+    - A comparação depois da correção foi lida contra o ruído medido sem mudança.
