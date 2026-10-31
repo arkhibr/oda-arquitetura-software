@@ -36,7 +36,7 @@ Portal de Objetos Digitais de Aprendizagem sobre os repositórios `frontend-reac
 | Onda | Escopo | Situação |
 | --- | --- | --- |
 | 1 | Página mestre com as 36 ODAs, motor das aplicações, gerador e as ODAs 02, 20 e 30 | Concluída |
-| 2 | ODAs restantes das trilhas 1 a 6 | Pendente |
+| 2 | ODAs restantes das trilhas 1 a 6 | Em andamento |
 | 3 | ODAs da trilha 7, sobre nuvem local | Pendente |
 
-As ODAs disponíveis são a 02 (Feature-Sliced Design e fronteiras impostas pelo ESLint), a 20 (Vertical Slice e comparativo com Clean Architecture) e a 30 (Mensageria com SQS e SNS), publicadas em `/oda-02/`, `/oda-20/` e `/oda-30/`.
+As ODAs disponíveis são as que constam de `catalogo/odas.yml` com `situacao: disponivel`, cada uma publicada em `/oda-<id>/`.

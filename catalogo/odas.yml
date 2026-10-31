@@ -121,7 +121,8 @@ odas:
     minutos: 75
     pre_requisitos: ["00", "04"]
     objetivo: "Explicar a cadeia de middlewares do Gateway e acrescentar uma rota com rate limit testado."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-10
   - id: "11"
     titulo: "BFF e adaptação do contrato legado"
     trilha: 4

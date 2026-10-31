@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -196,6 +196,26 @@ test('oda-09: o teste do tema falha sem o CSS bruto configurado e passa depois',
   await painel.getByRole('button', { name: 'Limpar' }).click();
   await rodar();
   await expect(tela).toContainText('Tests  4 passed (4)');
+});
+
+test('oda-10: o teste no servidor do Node falha antes da cópia da resposta e o limite barra a terceira proposta', async ({ page }) => {
+  await page.goto('/oda-10/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  await painel.getByLabel('Passo 5 concluído').check();
+  await rodar('(cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)');
+  await expect(tela).toContainText('expected 500 to be 200');
+  await painel.getByLabel('Passo 7 concluído').check();
+  await rodar('(cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)');
+  await expect(tela).toContainText('Tests  1 passed (1)');
+  await painel.getByLabel('Passo 9 concluído').check();
+  await painel.getByLabel('Passo 11 concluído').check();
+  await rodar("for i in 1 2 3; do curl -s -w ' %{http_code}\\n' -X POST -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' -d '{\"valorLiquido\":10000,\"numeroParcelas\":24,\"linhaCredito\":205,\"dataLiberacao\":\"2026-06-30\"}' http://localhost:4000/bff/emprestimo/propostas; done");
+  await expect(tela).toContainText('rate_limit_exceeded');
+  await rodar('(cd gateway && npx tsc --noEmit)');
+  await expect(tela).toContainText('TS2741');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

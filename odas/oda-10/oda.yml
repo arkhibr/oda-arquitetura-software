@@ -1,0 +1,1095 @@
+id: '10'
+titulo: Gateway de API
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O Gateway é a porta única entre os microfrontends e os BFFs, e cada requisição atravessa uma cadeia de seis middlewares antes do proxy. Esta ODA percorre essa cadeia, revela que o Gateway entrega 500 para respostas que o BFF devolveu com sucesso, embora os 19 testes passem, e acrescenta um limite próprio para o envio de propostas, com o teste escrito antes.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar a ordem dos middlewares do Gateway e o que cada um faz antes e depois do `next()`.
+    - Distinguir as respostas 401, 404 e 429 produzidas no Gateway das respostas vindas do BFF.
+    - Reproduzir num teste com o servidor HTTP do Node uma falha que o `app.request()` não reproduz, e corrigi-la no proxy.
+    - Acrescentar um limite por usuário para `POST /bff/emprestimo/propostas`, com o teste escrito e rodado antes.
+    - Reconhecer as requisições que escapam da auditoria e do controle de tráfego.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: 'As ODAs 00 e 04. O laboratório usa três terminais na raiz do repositório: um para o BFF de empréstimo, um para o Gateway e um para os comandos. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+  - tipo: terminal
+    titulo: terminal · Gateway e BFF no ar
+    comandos:
+    - entrada: 'TOKEN=$(cd gateway && node --input-type=module -e "import { SignJWT } from ''jose''; console.log(await new SignJWT({ roles: [''cliente''] }).setProtectedHeader({ alg: ''HS256'' }).setSubject(''cliente-1'').setIssuer(''portal-dev'').setAudience(''portal-api'').setExpirationTime(''15m'').sign(new TextEncoder().encode(''segredo-local'')))")'
+      saida: ''
+      origem: executado
+      dica: O comando grava na variável `TOKEN` um JWT HS256 assinado com o segredo de desenvolvimento, sem imprimir nada.
+    - entrada: 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
+      saida: 'HTTP/1.1 500 Internal Server Error
+
+        access-control-allow-origin: http://localhost:5173
+
+        content-type: text/plain; charset=UTF-8
+
+        vary: Origin
+
+        x-correlation-id: …
+
+        content-length: 21
+
+        Date: …
+
+        Connection: keep-alive
+
+        Keep-Alive: timeout=5
+
+
+        Internal Server Error'
+      origem: executado
+    - entrada: (cd gateway && npx vitest run)
+      saida: " RUN  v4.1.9 ./gateway\n\n\n Test Files  6 passed (6)\n      Tests  19 passed (19)"
+      origem: executado
+    cenarios:
+    - rotulo: Contratos pelo Gateway
+      comando: 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
+    - rotulo: Testes do Gateway
+      comando: (cd gateway && npx vitest run)
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-015 coloca no Gateway a correlação, a autenticação, a auditoria e o controle de tráfego, e deixa a adaptação de contrato para os BFFs. A ADR-016 troca o Express pelo Hono, e com isso o proxy e o limitador passaram a ser código próprio.
+  - tipo: diagrama
+    id: D-01
+    tipo_diagrama: Sequência
+    titulo: Cadeia de middlewares de gateway/src/app.ts
+    mermaid: "sequenceDiagram\n    participant MFE as Microfrontend\n    participant C as correlationId\n    participant O as cors\n    participant A as auth\n    participant L as auditLog\n    participant R as limites\n    participant P as proxy\n    participant B as BFF\n    MFE->>C: requisição\n    C->>O: next()\n    O->>A: next()\n    alt token ausente ou inválido\n        A-->>MFE: 401, sem auditoria e sem limite\n    end\n    A->>L: next()\n    L->>R: next()\n    alt limite excedido\n        R-->>L: 429\n    end\n    R->>P: next()\n    alt nome de BFF desconhecido\n        P-->>L: 404\n    end\n    P->>B: fetch com identidade interna\n    B-->>P: resposta\n    P-->>L: resposta do BFF\n    L-->>MFE: auditoria gravada depois do next()"
+  - tipo: conceito
+    titulo: Antes e depois do next()
+    texto: Cada middleware recebe o contexto e chama `await next()` para passar a vez. O código antes do `next()` age na ida, como a autenticação, e o código depois age na volta, como a auditoria e o cabeçalho `Vary` do CORS. O `auth` responde 401 sem chamar `next()`, e por isso a auditoria e os limites não executam para essa requisição.
+  - tipo: conceito
+    titulo: Janela fixa em memória
+    texto: O limitador guarda, para cada chave, um contador e o instante em que a janela de 60 segundos termina, e recomeça a contagem quando esse instante passa. A chave junta um prefixo, como `global`, `mutating` ou `proposal`, ao `sub` do token autenticado. O contador vive na memória do processo, e por isso duas instâncias do Gateway mantêm contadores separados para o mesmo usuário.
+  - tipo: comparativo
+    colunas:
+    - Gateway
+    - BFF
+    linhas:
+    - dimensao: Responde por
+      valores:
+      - Correlação, CORS, autenticação, auditoria, limites e roteamento por `/bff/<nome>`
+      - Contrato do microfrontend, validação de payload e autorização por recurso
+    - dimensao: Conhece
+      valores:
+      - Nomes e URLs dos BFFs, sem nenhum campo de contrato
+      - Formato do back-end legado e do microfrontend
+    - dimensao: Exposição
+      valores:
+      - Porta 4000, pública
+      - Portas 4001 e 4002, acessíveis com `X-Internal-Gateway-Key`
+    - dimensao: Respostas próprias
+      valores:
+      - 401, 404 e 429
+      - 400, 404, 413 e as respostas de negócio
+  - tipo: adr
+    id: ADR-015
+    titulo: Gateway de API com BFFs
+    status: Proposed
+    contexto: Cada microfrontend falava direto com o back-end legado, sem ponto único de auditoria nem controle de taxa de requisições.
+    decisao: Um Gateway faz correlação, controle de tráfego e auditoria e roteia por `/bff/<nome>` para BFFs que adaptam o contrato.
+    alternativas: Gateway como proxy fino com as três responsabilidades em cada BFF, BFFs expostos diretamente e manter a chamada direta ao legado.
+    consequencias: Toda requisição ganha um salto de rede, e a plataforma passa a operar três serviços novos, com auditoria e limites num único lugar.
+  - tipo: adr
+    id: ADR-016
+    titulo: Hono como framework web de Gateway e BFFs
+    status: Proposed
+    contexto: O Gateway dependia de `express-rate-limit` e `http-proxy-middleware`, que só existiam para adaptar o modelo do Express.
+    decisao: Hono sobre `@hono/node-server`, com limitador em memória próprio e proxy por `fetch()` nativo.
+    alternativas: Fastify com plugins oficiais de proxy e de limite, e manter o Express.
+    consequencias: Menos dependências e Web Standards nativos, e o proxy e o limitador passam a ser código próprio, coberto apenas pelos testes da equipe.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, a montagem da cadeia e os middlewares que respondem sem chamar o BFF. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/app.ts
+    commit: '2179313'
+    linhas:
+    - 'export function createApp(config: GatewayConfig): Hono<GatewayEnv> {'
+    - '  const app = new Hono<GatewayEnv>()'
+    - ''
+    - '  app.use(correlationId)'
+    - '  app.use(cors({ origin: config.corsOrigin }))'
+    - '  app.use(createAuthentication(config.auth))'
+    - '  app.use(createAuditLog(config.auditLogPath, config.bffs))'
+    - ''
+    - '  const { global, mutating } = createRateLimiters(config.rateLimit)'
+    - '  app.use(global)'
+    - '  app.use(mutating)'
+    - ''
+    - '  app.all(''*'', createProxyRouter(config.bffs, config.internalGatewayKey))'
+    - ''
+    - '  return app'
+    - '}'
+    anotacoes:
+    - linha: 14
+      texto: 'Primeiro da cadeia: toda resposta, inclusive 401 e 429, leva o `X-Correlation-Id`.'
+    - linha: 16
+      texto: A autenticação vem antes da auditoria e dos limites.
+    - linha: 17
+      texto: A auditoria só vê requisições que passaram pela autenticação.
+    - linha: 23
+      texto: O proxy é o último elo e atende qualquer método e caminho.
+    inicio: 11
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/correlationId.ts
+    commit: '2179313'
+    linhas:
+    - 'export const correlationId: MiddlewareHandler<GatewayEnv> = async (c, next) => {'
+    - '  const incoming = c.req.header(''x-correlation-id'')'
+    - '  const id = incoming && /^[A-Za-z0-9_-]{1,128}$/.test(incoming) ? incoming : randomUUID()'
+    - '  c.set(''correlationId'', id)'
+    - '  c.header(''X-Correlation-Id'', id)'
+    - '  await next()'
+    - '}'
+    anotacoes:
+    - linha: 7
+      texto: Aceita o identificador recebido só se ele tiver formato seguro.
+    - linha: 9
+      texto: O cabeçalho é preparado antes do `next()` e copiado para a resposta final.
+    inicio: 5
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/auth.ts
+    commit: '2179313'
+    linhas:
+    - '  return async (c, next) => {'
+    - '    const authorization = c.req.header(''authorization'')'
+    - '    const match = authorization?.match(/^Bearer ([A-Za-z0-9._~-]+)$/)'
+    - '    if (!match) {'
+    - '      return c.json({ error: ''unauthorized'', message: ''Token Bearer ausente ou inválido.'' }, 401)'
+    - '    }'
+    anotacoes:
+    - linha: 25
+      texto: Exige o formato `Bearer <token>`.
+    - linha: 27
+      texto: 'Responde sem chamar `next()`: os middlewares seguintes não executam.'
+    inicio: 23
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/rateLimit.ts
+    commit: '2179313'
+    linhas:
+    - '  return async (c, next) => {'
+    - '    if (!opts.applies(c.req.method)) {'
+    - '      await next()'
+    - '      return'
+    - '    }'
+    - ''
+    - '    const now = Date.now()'
+    - '    const identity = c.get(''auth'')?.sub ?? c.req.header(''x-forwarded-for'') ?? ''unknown'''
+    - '    const key = `${opts.keyPrefix}:${identity}`'
+    - '    const bucket = buckets.get(key)'
+    - ''
+    - '    if (!bucket || bucket.resetAt <= now) {'
+    - '      buckets.set(key, { count: 1, resetAt: now + opts.windowMs })'
+    - '      await next()'
+    - '      return'
+    - '    }'
+    - ''
+    - '    if (bucket.count >= opts.max) {'
+    - '      return c.json({'
+    - '        error: ''rate_limit_exceeded'','
+    - '        message: ''Limite de requisições excedido.'','
+    - '        correlationId: c.get(''correlationId'') ?? ''unknown'','
+    - '      }, 429)'
+    - '    }'
+    - ''
+    - '    bucket.count += 1'
+    - '    await next()'
+    - '  }'
+    anotacoes:
+    - linha: 26
+      texto: O limitador de mutação usa esta saída para ignorar GET e HEAD.
+    - linha: 32
+      texto: A chave é o `sub` do token, sempre presente porque a autenticação vem antes.
+    - linha: 36
+      texto: 'Janela fixa: ao vencer, o contador recomeça em 1.'
+    - linha: 47
+      texto: A resposta 429 sai do Gateway, sem chamar o BFF.
+    inicio: 25
+  - tipo: editor
+    rotulo: arquivo
+    caminho: gateway/src/proxy.ts
+    commit: '2179313'
+    linhas:
+    - '    const remainder = pathname.slice(`/bff/${target.name}`.length)'
+    - '    const url = new URL(remainder === '''' ? ''/'' : remainder, target.baseUrl)'
+    - '    url.search = new URL(c.req.url).search'
+    - ''
+    - '    const headers = new Headers(c.req.raw.headers)'
+    - '    headers.delete(''authorization'')'
+    - '    headers.delete(''host'')'
+    - '    const auth = c.get(''auth'')'
+    - '    headers.set(''X-Correlation-Id'', c.get(''correlationId'') ?? ''unknown'')'
+    - '    headers.set(''X-Internal-Gateway-Key'', internalGatewayKey)'
+    - '    headers.set(''X-Authenticated-Subject'', auth.sub)'
+    - '    headers.set(''X-Authenticated-Roles'', auth.roles.join('',''))'
+    - ''
+    - '    const hasBody = c.req.method !== ''GET'' && c.req.method !== ''HEAD'''
+    - '    const init: RequestInit & { duplex?: ''half'' } = { method: c.req.method, headers }'
+    - '    if (hasBody) {'
+    - '      init.body = c.req.raw.body'
+    - '      init.duplex = ''half'''
+    - '    }'
+    - ''
+    - '    return fetch(url, init)'
+    - '  }'
+    anotacoes:
+    - linha: 17
+      texto: Remove o prefixo `/bff/<nome>` antes de encaminhar.
+    - linha: 22
+      texto: O Bearer não segue para o BFF.
+    - linha: 26
+      texto: A chave interna prova ao BFF que a chamada veio do Gateway.
+    - linha: 37
+      texto: Devolve a resposta do `fetch` sem cópia, e os middlewares da volta tentam gravar cabeçalhos nela.
+    inicio: 17
+  - tipo: faixa
+    estilo: dica
+    texto: Os testes de `app.test.ts` chamam `createApp(config).request(...)`, o cliente de teste do Hono, que não abre porta nem passa pelo `@hono/node-server`. O `index.ts` usa o `serve` desse pacote, que substitui o `Request` e o `Response` globais por versões próprias.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Envie ao Gateway as requisições abaixo, com respostas capturadas antes e depois do laboratório, e depois classifique onde cada requisição termina.
+  - tipo: console-api
+    cenarios:
+    - rotulo: Antes · contratos com token válido
+      requisicao:
+        metodo: GET
+        url: http://localhost:4000/bff/emprestimo/contratos
+        cabecalhos:
+          Authorization: Bearer <token HS256 de cliente-1>
+          Origin: http://localhost:5173
+      resposta:
+        status: 500
+        corpo: Internal Server Error
+      origem: executado
+      nota: O BFF respondeu 200, e o Gateway falhou ao gravar cabeçalhos na resposta do `fetch`.
+    - rotulo: Depois · contratos com token válido
+      requisicao:
+        metodo: GET
+        url: http://localhost:4000/bff/emprestimo/contratos
+        cabecalhos:
+          Authorization: Bearer <token HS256 de cliente-1>
+          Origin: http://localhost:5173
+      resposta:
+        status: 200
+        corpo: []
+      origem: executado
+      nota: 'Com a cópia da resposta no proxy, chegam também `access-control-allow-origin`, `vary: Origin` e `x-correlation-id`.'
+    - rotulo: Depois · terceira proposta no minuto
+      requisicao:
+        metodo: POST
+        url: http://localhost:4000/bff/emprestimo/propostas
+        cabecalhos:
+          Authorization: Bearer <token HS256 de cliente-1>
+        corpo:
+          valorLiquido: 10000
+          numeroParcelas: 24
+          linhaCredito: 205
+          dataLiberacao: '2026-06-30'
+      resposta:
+        status: 429
+        corpo:
+          error: rate_limit_exceeded
+          message: Limite de requisições excedido.
+          correlationId: fdb0d1ff-2e6c-493c-83d8-d5055cba2e22
+      origem: executado
+      nota: Com `RATE_LIMIT_PROPOSAL_MAX=2`, a terceira proposta para no Gateway, e o BFF não recebe a chamada.
+    - rotulo: Token inválido
+      requisicao:
+        metodo: GET
+        url: http://localhost:4000/bff/emprestimo/contratos
+        cabecalhos:
+          Authorization: Bearer invalido
+      resposta:
+        status: 401
+        corpo:
+          error: unauthorized
+          message: Token Bearer ausente ou inválido.
+      origem: executado
+      nota: Em 120 tentativas seguidas, todas receberam 401, nenhuma recebeu 429, e nenhuma entrou na auditoria.
+    - rotulo: BFF desconhecido
+      requisicao:
+        metodo: GET
+        url: http://localhost:4000/bff/inexistente/foo
+        cabecalhos:
+          Authorization: Bearer <token válido>
+      resposta:
+        status: 404
+        corpo:
+          error: not_found
+          message: Rota não encontrada.
+          correlationId: <uuid>
+      origem: codigo
+      nota: Resposta montada pelo `createProxyRouter` quando `resolveTarget` devolve `null`, conferida pelo teste `responde 404 para um BFF desconhecido`.
+  - tipo: fluxo
+    titulo: Uma proposta atravessa o Gateway depois do laboratório
+    etapas:
+    - titulo: correlationId
+      descricao: Gera um UUID, guarda no contexto e prepara o cabeçalho `X-Correlation-Id`.
+    - titulo: cors
+      descricao: 'Na ida, responde ao preflight `OPTIONS`. Na volta, acrescenta `Vary: Origin` à resposta.'
+    - titulo: auth
+      descricao: Valida algoritmo, assinatura, emissor, audiência, expiração e `sub`, e guarda `{ sub, roles }` no contexto.
+    - titulo: auditLog
+      descricao: Registra o início e, depois do `next()`, grava uma linha JSON com status e duração, sem esperar a escrita.
+    - titulo: limites
+      descricao: O global conta toda requisição, o de mutação conta POST, PUT, PATCH e DELETE, e o de propostas conta só o `POST` dessa rota.
+    - titulo: proxy
+      descricao: Troca o Bearer pela identidade interna, chama o BFF e devolve uma cópia da resposta, que os middlewares da volta podem alterar.
+  - tipo: classificador
+    enunciado: Com o laboratório aplicado e `RATE_LIMIT_PROPOSAL_MAX=2`, onde cada requisição termina?
+    categorias:
+    - id: auth
+      rotulo: 401 no auth
+    - id: limite
+      rotulo: 429 num limite
+    - id: proxy
+      rotulo: 404 no proxy
+    - id: bff
+      rotulo: Resposta do BFF
+    itens:
+    - texto: '`GET /bff/emprestimo/contratos` sem o cabeçalho `Authorization`'
+      categoria: auth
+      explicacao: O `auth` responde sem chamar `next()`.
+    - texto: Terceiro `POST /bff/emprestimo/propostas` do mesmo usuário em um minuto
+      categoria: limite
+      explicacao: O limitador de propostas já contou dois envios na janela.
+    - texto: '`GET /bff/inexistente/x` com token válido'
+      categoria: proxy
+      explicacao: O `resolveTarget` não encontra o nome no mapa de BFFs.
+    - texto: Token assinado com outro segredo
+      categoria: auth
+      explicacao: A verificação da assinatura falha e o `auth` devolve 401.
+    - texto: Centésima primeira requisição `GET` do mesmo usuário em um minuto
+      categoria: limite
+      explicacao: O limite global padrão é de 100 requisições por janela.
+    - texto: '`GET /bff/emprestimo/propostas` repetido quatro vezes'
+      categoria: bff
+      explicacao: O limitador de propostas ignora métodos diferentes de `POST`.
+    - texto: '`GET /saude` com token válido'
+      categoria: proxy
+      explicacao: O Gateway não tem rota de saúde, e o caminho fora de `/bff/*` recebe 404.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 8 reproduzem e corrigem a falha do proxy, os passos 9 a 14 acrescentam o limite de propostas com o teste escrito antes, e o passo 15 confere o resultado com os serviços no ar.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+  - tipo: passos
+    itens:
+    - titulo: Instalar as dependências
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd gateway && npm ci)
+        - (cd bffs/emprestimo && npm ci)
+      sucesso: '`added 72 packages` no Gateway e `added 69 packages` no BFF de empréstimo.'
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd gateway && npx vitest run)
+        - (cd gateway && npx tsc --noEmit)
+      sucesso: '`Test Files 6 passed (6)` e `Tests 19 passed (19)`, e o `tsc` sem mensagens.'
+    - titulo: Subir o BFF e o Gateway
+      texto: Rode cada comando num terminal próprio e deixe os dois abertos. A variável `RATE_LIMIT_PROPOSAL_MAX` ainda não tem efeito e passa a valer no passo 11.
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npm start)
+        - (cd gateway && JWT_SHARED_SECRET=segredo-local RATE_LIMIT_PROPOSAL_MAX=2 npm start)
+      sucesso: '`BFF-emprestimo ouvindo em http://localhost:4001` e `Gateway ouvindo em http://localhost:4000`.'
+    - titulo: Chamar o Gateway com um token válido
+      texto: No terceiro terminal, gere o token e peça os contratos. Depois, olhe o terminal do Gateway.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'TOKEN=$(cd gateway && node --input-type=module -e "import { SignJWT } from ''jose''; console.log(await new SignJWT({ roles: [''cliente''] }).setProtectedHeader({ alg: ''HS256'' }).setSubject(''cliente-1'').setIssuer(''portal-dev'').setAudience(''portal-api'').setExpirationTime(''15m'').sign(new TextEncoder().encode(''segredo-local'')))")'
+        - 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
+      sucesso: '`HTTP/1.1 500 Internal Server Error`, e o terminal do Gateway mostra `TypeError: immutable`.'
+    - titulo: Escrever o teste no servidor do Node
+      texto: Crie o arquivo abaixo. Ele sobe um BFF falso e o Gateway com o `serve` do `@hono/node-server`, o mesmo do `index.ts`, e faz a chamada por HTTP.
+      editor:
+        rotulo: arquivo
+        caminho: gateway/src/__tests__/servidorNode.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { afterEach, describe, expect, it } from 'vitest'
+        - import { createServer } from 'node:http'
+        - import type { Server } from 'node:http'
+        - import type { AddressInfo } from 'node:net'
+        - import { once } from 'node:events'
+        - import { mkdtempSync, rmSync } from 'node:fs'
+        - import { tmpdir } from 'node:os'
+        - import { join } from 'node:path'
+        - import { serve } from '@hono/node-server'
+        - import { SignJWT } from 'jose'
+        - import { createApp } from '../app.ts'
+        - import type { GatewayConfig } from '../config.ts'
+        - ''
+        - 'const servidores: { close: (fim: () => void) => unknown }[] = []'
+        - 'let pasta: string | undefined'
+        - ''
+        - afterEach(async () => {
+        - '  for (const s of servidores.splice(0)) await new Promise<void>((resolve) => s.close(() => resolve()))'
+        - '  if (pasta) rmSync(pasta, { recursive: true, force: true, maxRetries: 3 })'
+        - '  pasta = undefined'
+        - '})'
+        - ''
+        - 'async function porta(servidor: Server): Promise<number> {'
+        - '  servidores.push(servidor)'
+        - '  if (!servidor.listening) await once(servidor, ''listening'')'
+        - '  return (servidor.address() as AddressInfo).port'
+        - '}'
+        - ''
+        - 'async function iniciarBff(): Promise<string> {'
+        - '  const bff = createServer((_req, res) => {'
+        - '    res.writeHead(200, { ''Content-Type'': ''application/json'' })'
+        - '    res.end(''[]'')'
+        - '  }).listen(0)'
+        - '  return `http://127.0.0.1:${await porta(bff)}`'
+        - '}'
+        - ''
+        - 'function configurar(bffUrl: string): GatewayConfig {'
+        - '  pasta = mkdtempSync(join(tmpdir(), ''gateway-node-''))'
+        - '  return {'
+        - '    port: 0,'
+        - '    corsOrigin: ''http://localhost:5173'','
+        - '    bffs: { emprestimo: bffUrl },'
+        - '    auth: { issuer: ''portal-test'', audience: ''portal-api'', sharedSecret: ''test-shared-secret'' },'
+        - '    internalGatewayKey: ''test-gateway-key'','
+        - '    rateLimit: { windowMs: 60_000, globalMax: 100, mutatingMax: 20 },'
+        - '    auditLogPath: join(pasta, ''audit.log''),'
+        - '  }'
+        - '}'
+        - ''
+        - 'async function token(): Promise<string> {'
+        - '  return new SignJWT({ roles: [''cliente''] })'
+        - '    .setProtectedHeader({ alg: ''HS256'' })'
+        - '    .setSubject(''cliente-1'')'
+        - '    .setIssuer(''portal-test'')'
+        - '    .setAudience(''portal-api'')'
+        - '    .setExpirationTime(''5m'')'
+        - '    .sign(new TextEncoder().encode(''test-shared-secret''))'
+        - '}'
+        - ''
+        - describe('Gateway no servidor HTTP do Node', () => {
+        - '  it(''entrega a resposta do BFF com os cabeçalhos de CORS'', async () => {'
+        - '    const app = createApp(configurar(await iniciarBff()))'
+        - '    const gateway = serve({ fetch: app.fetch, port: 0 }) as Server'
+        - ''
+        - '    const res = await fetch(`http://127.0.0.1:${await porta(gateway)}/bff/emprestimo/contratos`, {'
+        - '      headers: { Authorization: `Bearer ${await token()}`, Origin: ''http://localhost:5173'' },'
+        - '    })'
+        - ''
+        - '    expect(res.status).toBe(200)'
+        - '    expect(await res.json()).toEqual([])'
+        - '    expect(res.headers.get(''access-control-allow-origin'')).toBe(''http://localhost:5173'')'
+        - '    expect(res.headers.get(''vary'')).toContain(''Origin'')'
+        - '  })'
+        - '})'
+      efeito: teste_node
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)
+      sucesso: '`expected 500 to be 200`, com `TypeError: immutable` no `stderr`.'
+    - titulo: Copiar a resposta do BFF no proxy
+      texto: Em `gateway/src/proxy.ts`, troque a última linha do handler, `return fetch(url, init)`, pelas três linhas abaixo.
+      editor:
+        rotulo: arquivo
+        caminho: gateway/src/proxy.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '    const upstream = await fetch(url, init)'
+        - '    // A resposta do fetch tem cabeçalhos imutáveis; a cópia permite que CORS e correlação gravem os seus.'
+        - '    return new Response(upstream.body, upstream)'
+        inicio: 37
+      efeito: proxy_corrigido
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)
+        - (cd gateway && npx vitest run)
+      sucesso: '`Tests 1 passed (1)` e a suíte com `Tests 20 passed (20)`.'
+    - titulo: Escrever o teste do limite de propostas
+      texto: Crie o arquivo abaixo. Ele conta as chamadas que chegam ao BFF falso e confere o limite por usuário, a listagem livre e as outras rotas de mutação.
+      editor:
+        rotulo: arquivo
+        caminho: gateway/src/__tests__/limitePropostas.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { afterEach, describe, expect, it } from 'vitest'
+        - import { createServer } from 'node:http'
+        - import type { Server } from 'node:http'
+        - import type { AddressInfo } from 'node:net'
+        - import { mkdtempSync, rmSync } from 'node:fs'
+        - import { tmpdir } from 'node:os'
+        - import { join } from 'node:path'
+        - import { SignJWT } from 'jose'
+        - import { createApp } from '../app.ts'
+        - import type { GatewayConfig } from '../config.ts'
+        - ''
+        - 'let bff: Server | undefined'
+        - 'let pasta: string | undefined'
+        - let chamadas = 0
+        - ''
+        - afterEach(async () => {
+        - '  if (bff) await new Promise<void>((resolve) => bff!.close(() => resolve()))'
+        - '  if (pasta) rmSync(pasta, { recursive: true, force: true, maxRetries: 3 })'
+        - '  bff = undefined'
+        - '  pasta = undefined'
+        - '  chamadas = 0'
+        - '})'
+        - ''
+        - 'function iniciarBff(): Promise<string> {'
+        - '  return new Promise((resolve) => {'
+        - '    bff = createServer((req, res) => {'
+        - '      chamadas += 1'
+        - '      res.writeHead(req.method === ''POST'' ? 201 : 200, { ''Content-Type'': ''application/json'' })'
+        - '      res.end(''{}'')'
+        - '    })'
+        - '    bff.listen(0, () => resolve(`http://127.0.0.1:${(bff!.address() as AddressInfo).port}`))'
+        - '  })'
+        - '}'
+        - ''
+        - 'function configurar(bffUrl: string): GatewayConfig {'
+        - '  pasta = mkdtempSync(join(tmpdir(), ''gateway-propostas-''))'
+        - '  return {'
+        - '    port: 0,'
+        - '    corsOrigin: ''http://localhost:5173'','
+        - '    bffs: { emprestimo: bffUrl },'
+        - '    auth: { issuer: ''portal-test'', audience: ''portal-api'', sharedSecret: ''test-shared-secret'' },'
+        - '    internalGatewayKey: ''test-gateway-key'','
+        - '    rateLimit: { windowMs: 60_000, globalMax: 100, mutatingMax: 20, proposalMax: 2 },'
+        - '    auditLogPath: join(pasta, ''audit.log''),'
+        - '  }'
+        - '}'
+        - ''
+        - 'async function token(sub: string): Promise<string> {'
+        - '  return new SignJWT({ roles: [''cliente''] })'
+        - '    .setProtectedHeader({ alg: ''HS256'' })'
+        - '    .setSubject(sub)'
+        - '    .setIssuer(''portal-test'')'
+        - '    .setAudience(''portal-api'')'
+        - '    .setExpirationTime(''5m'')'
+        - '    .sign(new TextEncoder().encode(''test-shared-secret''))'
+        - '}'
+        - ''
+        - 'async function enviar(app: ReturnType<typeof createApp>, metodo: string, caminho: string, sub = ''cliente-1'') {'
+        - '  return app.request(caminho, { method: metodo, headers: { Authorization: `Bearer ${await token(sub)}` } })'
+        - '}'
+        - ''
+        - describe('limite de envio de propostas', () => {
+        - '  it(''responde 429 na terceira proposta do mesmo usuário sem chamar o BFF'', async () => {'
+        - '    const app = createApp(configurar(await iniciarBff()))'
+        - ''
+        - '    expect((await enviar(app, ''POST'', ''/bff/emprestimo/propostas'')).status).toBe(201)'
+        - '    expect((await enviar(app, ''POST'', ''/bff/emprestimo/propostas'')).status).toBe(201)'
+        - '    const res = await enviar(app, ''POST'', ''/bff/emprestimo/propostas'')'
+        - ''
+        - '    expect(res.status).toBe(429)'
+        - '    expect(((await res.json()) as { error: string }).error).toBe(''rate_limit_exceeded'')'
+        - '    expect(chamadas).toBe(2)'
+        - '  })'
+        - ''
+        - '  it(''não limita a listagem de propostas'', async () => {'
+        - '    const app = createApp(configurar(await iniciarBff()))'
+        - ''
+        - '    for (let i = 0; i < 4; i += 1) {'
+        - '      expect((await enviar(app, ''GET'', ''/bff/emprestimo/propostas'')).status).toBe(200)'
+        - '    }'
+        - '  })'
+        - ''
+        - '  it(''conta as propostas de cada usuário separadamente'', async () => {'
+        - '    const app = createApp(configurar(await iniciarBff()))'
+        - ''
+        - '    await enviar(app, ''POST'', ''/bff/emprestimo/propostas'', ''cliente-1'')'
+        - '    await enviar(app, ''POST'', ''/bff/emprestimo/propostas'', ''cliente-1'')'
+        - ''
+        - '    expect((await enviar(app, ''POST'', ''/bff/emprestimo/propostas'', ''cliente-2'')).status).toBe(201)'
+        - '  })'
+        - ''
+        - '  it(''não aplica o limite de propostas a outras rotas de mutação'', async () => {'
+        - '    const app = createApp(configurar(await iniciarBff()))'
+        - ''
+        - '    for (let i = 0; i < 3; i += 1) {'
+        - '      expect((await enviar(app, ''POST'', ''/bff/emprestimo/simulacao'')).status).toBe(201)'
+        - '    }'
+        - '  })'
+        - '})'
+      efeito: teste_limite
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd gateway && npx vitest run src/__tests__/limitePropostas.test.ts)
+        - (cd gateway && npx tsc --noEmit)
+      sucesso: '`Tests 1 failed | 3 passed (4)`, com `expected 201 to be 429`, e `TS2353` porque `proposalMax` ainda não existe no tipo.'
+    - titulo: Criar o limitador da rota
+      texto: Faça as três alterações abaixo. O limitador reaproveita o `createLimiter` do arquivo e é registrado só para o caminho exato de envio de propostas.
+      editor:
+        rotulo: arquivo
+        caminho: gateway/src/config.ts, rateLimit.ts e app.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '// gateway/src/config.ts: na interface GatewayConfig, dentro de rateLimit'
+        - '    proposalMax: number'
+        - '// gateway/src/config.ts: no loadConfig, depois de mutatingMax'
+        - '      proposalMax: numberEnv(env.RATE_LIMIT_PROPOSAL_MAX, 5),'
+        - ''
+        - '// gateway/src/rateLimit.ts: no fim do arquivo'
+        - 'export function createProposalLimiter(opts: { windowMs: number; max: number }): MiddlewareHandler<GatewayEnv> {'
+        - '  return createLimiter({ windowMs: opts.windowMs, max: opts.max, keyPrefix: ''proposal'', applies: (method) => method === ''POST'' })'
+        - '}'
+        - ''
+        - '// gateway/src/app.ts: no import e depois de app.use(mutating)'
+        - import { createProposalLimiter, createRateLimiters } from './rateLimit.ts'
+        - '  app.use(''/bff/emprestimo/propostas'', createProposalLimiter({'
+        - '    windowMs: config.rateLimit.windowMs,'
+        - '    max: config.rateLimit.proposalMax,'
+        - '  }))'
+      efeito: limite_criado
+    - titulo: Rodar o teste e os tipos
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd gateway && npx vitest run src/__tests__/limitePropostas.test.ts)
+        - (cd gateway && npx tsc --noEmit)
+      sucesso: '`Tests 4 passed (4)` e duas mensagens `TS2741`, uma em `app.test.ts` e outra em `servidorNode.test.ts`.'
+    - titulo: Completar a configuração dos testes e o README
+      texto: 'Acrescente `proposalMax: 5` ao `rateLimit` das configurações dos dois testes e documente a variável nova na tabela do `gateway/README.md`.'
+      editor:
+        rotulo: arquivo
+        caminho: gateway/src/__tests__/*.test.ts e gateway/README.md (alteração)
+        commit: '2179313'
+        linhas:
+        - // gateway/src/__tests__/app.test.ts e servidorNode.test.ts
+        - '    rateLimit: { windowMs: 60_000, globalMax: 100, mutatingMax: 20, proposalMax: 5 },'
+        - ''
+        - '// gateway/README.md: nova linha na tabela de variáveis de ambiente'
+        - '| `RATE_LIMIT_PROPOSAL_MAX` | Propostas/minuto por usuário em POST /bff/emprestimo/propostas | `5` |'
+      efeito: tipos_ajustados
+    - titulo: Rodar a suíte e os tipos
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd gateway && npx vitest run)
+        - (cd gateway && npx tsc --noEmit)
+      sucesso: '`Test Files 8 passed (8)` e `Tests 24 passed (24)`, e o `tsc` sem mensagens. Uma falha eventual com `ENOTEMPTY` no `app.test.ts` é tratada no Diagnóstico.'
+    - titulo: Conferir com os serviços no ar
+      texto: Reinicie o Gateway com Ctrl+C e o mesmo comando do passo 3. No terceiro terminal, repita os contratos, envie três propostas e mande 120 requisições com token inválido.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
+        - 'for i in 1 2 3; do curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"valorLiquido":10000,"numeroParcelas":24,"linhaCredito":205,"dataLiberacao":"2026-06-30"}'' http://localhost:4000/bff/emprestimo/propostas; done'
+        - 'for i in $(seq 1 120); do curl -s -o /dev/null -w ''%{http_code}\n'' -H "Authorization: Bearer invalido" http://localhost:4000/bff/emprestimo/contratos; done | sort | uniq -c'
+        - grep -c '"status":401' gateway/logs/audit.log
+      sucesso: '`HTTP/1.1 200 OK` nos contratos, `201`, `201` e `429` nas propostas, `120 401` nas tentativas inválidas e `0` linhas de auditoria com status 401.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: (cd gateway && npm ci)
+      saida: "added 72 packages, and audited 73 packages in 1s\n\n20 packages are looking for funding\n  run `npm fund` for details\n\n9 vulnerabilities (5 moderate, 4 high)\n\nTo address all issues, run:\n  npm audit fix\n\nRun `npm audit` for details."
+      origem: executado
+      dica: As vulnerabilidades do `npm audit` são das dependências do commit e não afetam este laboratório.
+    - entrada: (cd bffs/emprestimo && npm ci)
+      saida: "added 69 packages, and audited 70 packages in 784ms\n\n19 packages are looking for funding\n  run `npm fund` for details\n\n9 vulnerabilities (5 moderate, 4 high)\n\nTo address all issues, run:\n  npm audit fix\n\nRun `npm audit` for details."
+      origem: executado
+    - entrada: (cd bffs/emprestimo && npm start)
+      saida: '> bff-emprestimo@0.0.0 start
+
+        > node --experimental-strip-types src/index.ts
+
+
+        BFF-emprestimo ouvindo em http://localhost:4001'
+      origem: executado
+      dica: O comando ocupa o terminal. Abra outro para o Gateway.
+    - entrada: (cd gateway && JWT_SHARED_SECRET=segredo-local RATE_LIMIT_PROPOSAL_MAX=2 npm start)
+      saida: '> gateway@0.0.0 start
+
+        > node --experimental-strip-types src/index.ts
+
+
+        Gateway ouvindo em http://localhost:4000'
+      origem: executado
+      dica: Sem o `--watch`, o Gateway só lê o código novo quando é reiniciado com Ctrl+C e o mesmo comando.
+    - entrada: 'TOKEN=$(cd gateway && node --input-type=module -e "import { SignJWT } from ''jose''; console.log(await new SignJWT({ roles: [''cliente''] }).setProtectedHeader({ alg: ''HS256'' }).setSubject(''cliente-1'').setIssuer(''portal-dev'').setAudience(''portal-api'').setExpirationTime(''15m'').sign(new TextEncoder().encode(''segredo-local'')))")'
+      saida: ''
+      origem: executado
+      dica: O comando grava na variável `TOKEN` um JWT HS256 assinado com o segredo de desenvolvimento, sem imprimir nada.
+    - entrada: 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
+      condicao: proxy_corrigido
+      saida: 'HTTP/1.1 200 OK
+
+        access-control-allow-origin: http://localhost:5173
+
+        connection: keep-alive
+
+        content-length: 2
+
+        content-type: application/json
+
+        date: …
+
+        keep-alive: timeout=5
+
+        vary: Origin
+
+        x-correlation-id: …
+
+
+        []'
+      origem: executado
+    - entrada: 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
+      saida: 'HTTP/1.1 500 Internal Server Error
+
+        access-control-allow-origin: http://localhost:5173
+
+        content-type: text/plain; charset=UTF-8
+
+        vary: Origin
+
+        x-correlation-id: …
+
+        content-length: 21
+
+        Date: …
+
+        Connection: keep-alive
+
+        Keep-Alive: timeout=5
+
+
+        Internal Server Error'
+      origem: executado
+      dica: 'O terminal do Gateway mostra `TypeError: immutable`. O BFF respondeu, e a falha acontece no caminho de volta.'
+    - entrada: 'for i in 1 2 3; do curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"valorLiquido":10000,"numeroParcelas":24,"linhaCredito":205,"dataLiberacao":"2026-06-30"}'' http://localhost:4000/bff/emprestimo/propostas; done'
+      condicao:
+      - proxy_corrigido
+      - limite_criado
+      saida: '{"numeroDoContrato":"PRP-2026-0102"} 201
+
+        {"numeroDoContrato":"PRP-2026-0103"} 201
+
+        {"error":"rate_limit_exceeded","message":"Limite de requisições excedido.","correlationId":"fdb0d1ff-2e6c-493c-83d8-d5055cba2e22"} 429'
+      origem: executado
+      dica: Os números das propostas crescem a cada proposta criada desde que o BFF subiu.
+    - entrada: 'for i in 1 2 3; do curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"valorLiquido":10000,"numeroParcelas":24,"linhaCredito":205,"dataLiberacao":"2026-06-30"}'' http://localhost:4000/bff/emprestimo/propostas; done'
+      condicao: proxy_corrigido
+      saida: '{"numeroDoContrato":"PRP-2026-0102"} 201
+
+        {"numeroDoContrato":"PRP-2026-0103"} 201
+
+        {"numeroDoContrato":"PRP-2026-0104"} 201'
+      origem: executado
+    - entrada: 'for i in 1 2 3; do curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"valorLiquido":10000,"numeroParcelas":24,"linhaCredito":205,"dataLiberacao":"2026-06-30"}'' http://localhost:4000/bff/emprestimo/propostas; done'
+      condicao: limite_criado
+      saida: 'Internal Server Error 500
+
+        Internal Server Error 500
+
+        {"error":"rate_limit_exceeded","message":"Limite de requisições excedido.","correlationId":"8778fc57-7807-439a-8f9d-7863c60f6aa2"} 429'
+      origem: executado
+    - entrada: 'for i in 1 2 3; do curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"valorLiquido":10000,"numeroParcelas":24,"linhaCredito":205,"dataLiberacao":"2026-06-30"}'' http://localhost:4000/bff/emprestimo/propostas; done'
+      saida: 'Internal Server Error 500
+
+        Internal Server Error 500
+
+        Internal Server Error 500'
+      origem: executado
+      dica: Confira no Diagnóstico o que o BFF e a auditoria registraram para essas três respostas.
+    - entrada: 'for i in $(seq 1 120); do curl -s -o /dev/null -w ''%{http_code}\n'' -H "Authorization: Bearer invalido" http://localhost:4000/bff/emprestimo/contratos; done | sort | uniq -c'
+      saida: ' 120 401'
+      origem: executado
+    - entrada: grep -c '"status":401' gateway/logs/audit.log
+      saida: '0'
+      origem: executado
+      dica: Nenhuma das respostas 401 chegou ao arquivo de auditoria.
+    - entrada: (cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)
+      condicao:
+      - teste_node
+      - proxy_corrigido
+      saida: " RUN  v4.1.9 ./gateway\n\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)"
+      origem: executado
+    - entrada: (cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)
+      condicao: teste_node
+      saida: " RUN  v4.1.9 ./gateway\n\nstderr | src/__tests__/servidorNode.test.ts > Gateway no servidor HTTP do Node > entrega a resposta do BFF com os cabeçalhos de CORS\nTypeError: immutable\n    at _Headers.set (node:internal/deps/undici/undici:11233:17)\n    at Context.set res [as res] (file://./gateway/node_modules/hono/dist/context.js:133:24)\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:38:21)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at ./gateway/src/rateLimit.ts:27:7\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:22:17)\n    at ./gateway/src/rateLimit.ts:38:7\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:22:17)\n    at ./gateway/src/auditLog.ts:27:5\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:22:17)\n\n ❯ src/__tests__/servidorNode.test.ts (1 test | 1 failed) 20ms\n     × entrega a resposta do BFF com os cabeçalhos de CORS 19ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/servidorNode.test.ts > Gateway no servidor HTTP do Node > entrega a resposta do BFF com os cabeçalhos de CORS\nAssertionError: expected 500 to be 200 // Object.is equality\n\n- Expected\n+ Received\n\n- 200\n+ 500\n\n ❯ src/__tests__/servidorNode.test.ts:69:24\n     67|     })\n     68|\n     69|     expect(res.status).toBe(200)\n       |                        ^\n     70|     expect(await res.json()).toEqual([])\n     71|     expect(res.headers.get('access-control-allow-origin')).toBe('http:…\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed (1)"
+      origem: executado
+      dica: 'A falha é a esperada: o BFF respondeu 200 e o Gateway entregou 500.'
+    - entrada: (cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)
+      saida: ' RUN  v4.1.9 ./gateway
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/__tests__/servidorNode.test.ts
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, **/.git/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
+    - entrada: (cd gateway && npx vitest run src/__tests__/limitePropostas.test.ts)
+      condicao:
+      - teste_limite
+      - limite_criado
+      saida: " RUN  v4.1.9 ./gateway\n\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)"
+      origem: executado
+    - entrada: (cd gateway && npx vitest run src/__tests__/limitePropostas.test.ts)
+      condicao: teste_limite
+      saida: " RUN  v4.1.9 ./gateway\n\n ❯ src/__tests__/limitePropostas.test.ts (4 tests | 1 failed) 29ms\n     × responde 429 na terceira proposta do mesmo usuário sem chamar o BFF 18ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/limitePropostas.test.ts > limite de envio de propostas > responde 429 na terceira proposta do mesmo usuário sem chamar o BFF\nAssertionError: expected 201 to be 429 // Object.is equality\n\n- Expected\n+ Received\n\n- 429\n+ 201\n\n ❯ src/__tests__/limitePropostas.test.ts:70:24\n     68|     const res = await enviar(app, 'POST', '/bff/emprestimo/propostas')\n     69|\n     70|     expect(res.status).toBe(429)\n       |                        ^\n     71|     expect(((await res.json()) as { error: string }).error).toBe('rate…\n     72|     expect(chamadas).toBe(2)\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed (1)\n      Tests  1 failed | 3 passed (4)"
+      origem: executado
+      dica: A terceira proposta chegou ao BFF, porque nenhum limite olha para essa rota.
+    - entrada: (cd gateway && npx vitest run src/__tests__/limitePropostas.test.ts)
+      saida: ' RUN  v4.1.9 ./gateway
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/__tests__/limitePropostas.test.ts
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, **/.git/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 9.
+    - entrada: (cd gateway && npx vitest run)
+      condicao:
+      - teste_node
+      - proxy_corrigido
+      - teste_limite
+      - limite_criado
+      saida: " RUN  v4.1.9 ./gateway\n\n\n Test Files  8 passed (8)\n      Tests  24 passed (24)"
+      origem: executado
+    - entrada: (cd gateway && npx vitest run)
+      condicao:
+      - teste_node
+      - proxy_corrigido
+      - teste_limite
+      saida: " RUN  v4.1.9 ./gateway\n\n ❯ src/__tests__/limitePropostas.test.ts (4 tests | 1 failed) 32ms\n     × responde 429 na terceira proposta do mesmo usuário sem chamar o BFF 19ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/limitePropostas.test.ts > limite de envio de propostas > responde 429 na terceira proposta do mesmo usuário sem chamar o BFF\nAssertionError: expected 201 to be 429 // Object.is equality\n\n- Expected\n+ Received\n\n- 429\n+ 201\n\n ❯ src/__tests__/limitePropostas.test.ts:70:24\n     68|     const res = await enviar(app, 'POST', '/bff/emprestimo/propostas')\n     69|\n     70|     expect(res.status).toBe(429)\n       |                        ^\n     71|     expect(((await res.json()) as { error: string }).error).toBe('rate…\n     72|     expect(chamadas).toBe(2)\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 7 passed (8)\n      Tests  1 failed | 23 passed (24)"
+      origem: executado
+    - entrada: (cd gateway && npx vitest run)
+      condicao:
+      - teste_node
+      - proxy_corrigido
+      saida: " RUN  v4.1.9 ./gateway\n\n\n Test Files  7 passed (7)\n      Tests  20 passed (20)"
+      origem: executado
+    - entrada: (cd gateway && npx vitest run)
+      condicao: teste_node
+      saida: " RUN  v4.1.9 ./gateway\n\nstderr | src/__tests__/servidorNode.test.ts > Gateway no servidor HTTP do Node > entrega a resposta do BFF com os cabeçalhos de CORS\nTypeError: immutable\n    at _Headers.set (node:internal/deps/undici/undici:11233:17)\n    at Context.set res [as res] (file://./gateway/node_modules/hono/dist/context.js:133:24)\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:38:21)\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at ./gateway/src/rateLimit.ts:27:7\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:22:17)\n    at ./gateway/src/rateLimit.ts:38:7\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:22:17)\n    at ./gateway/src/auditLog.ts:27:5\n    at dispatch (file://./gateway/node_modules/hono/dist/compose.js:22:17)\n\n ❯ src/__tests__/servidorNode.test.ts (1 test | 1 failed) 21ms\n     × entrega a resposta do BFF com os cabeçalhos de CORS 20ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/servidorNode.test.ts > Gateway no servidor HTTP do Node > entrega a resposta do BFF com os cabeçalhos de CORS\nAssertionError: expected 500 to be 200 // Object.is equality\n\n- Expected\n+ Received\n\n- 200\n+ 500\n\n ❯ src/__tests__/servidorNode.test.ts:69:24\n     67|     })\n     68|\n     69|     expect(res.status).toBe(200)\n       |                        ^\n     70|     expect(await res.json()).toEqual([])\n     71|     expect(res.headers.get('access-control-allow-origin')).toBe('http:…\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 6 passed (7)\n      Tests  1 failed | 19 passed (20)"
+      origem: executado
+    - entrada: (cd gateway && npx vitest run)
+      saida: " RUN  v4.1.9 ./gateway\n\n\n Test Files  6 passed (6)\n      Tests  19 passed (19)"
+      origem: executado
+    - entrada: (cd gateway && npx tsc --noEmit)
+      condicao:
+      - teste_limite
+      - limite_criado
+      - tipos_ajustados
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd gateway && npx tsc --noEmit)
+      condicao:
+      - teste_limite
+      - limite_criado
+      saida: 'src/__tests__/app.test.ts(49,5): error TS2741: Property ''proposalMax'' is missing in type ''{ windowMs: number; globalMax: number; mutatingMax: number; }'' but required in type ''{ windowMs: number; globalMax: number; mutatingMax: number; proposalMax: number; }''.
+
+        src/__tests__/servidorNode.test.ts(45,5): error TS2741: Property ''proposalMax'' is missing in type ''{ windowMs: number; globalMax: number; mutatingMax: number; }'' but required in type ''{ windowMs: number; globalMax: number; mutatingMax: number; proposalMax: number; }''.'
+      origem: executado
+      dica: O campo novo é obrigatório, e as configurações dos dois testes antigos precisam dele. Siga para o passo 13.
+    - entrada: (cd gateway && npx tsc --noEmit)
+      condicao: teste_limite
+      saida: 'src/__tests__/limitePropostas.test.ts(43,69): error TS2353: Object literal may only specify known properties, and ''proposalMax'' does not exist in type ''{ windowMs: number; globalMax: number; mutatingMax: number; }''.'
+      origem: executado
+      dica: O tipo de `rateLimit` ainda não tem `proposalMax`. O passo 11 acrescenta o campo.
+    - entrada: (cd gateway && npx tsc --noEmit)
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    cenarios:
+    - rotulo: Contratos pelo Gateway
+      comando: 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
+    - rotulo: Três propostas
+      comando: 'for i in 1 2 3; do curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"valorLiquido":10000,"numeroParcelas":24,"linhaCredito":205,"dataLiberacao":"2026-06-30"}'' http://localhost:4000/bff/emprestimo/propostas; done'
+    - rotulo: Teste no servidor do Node
+      comando: (cd gateway && npx vitest run src/__tests__/servidorNode.test.ts)
+    - rotulo: Teste do limite
+      comando: (cd gateway && npx vitest run src/__tests__/limitePropostas.test.ts)
+    - rotulo: Suíte do Gateway
+      comando: (cd gateway && npx vitest run)
+    - rotulo: Tipos do Gateway
+      comando: (cd gateway && npx tsc --noEmit)
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os três primeiros incidentes partem de saídas do laboratório, e o último, de um trecho do README do Gateway.
+  - tipo: incidente
+    titulo: Propostas criadas com resposta 500
+    origem: executado
+    rotulo_saida: log
+    saida: "$ for i in 1 2 3; do curl -s -w ' %{http_code}\\n' -X POST -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' -d '{\"valorLiquido\":10000,\"numeroParcelas\":24,\"linhaCredito\":205,\"dataLiberacao\":\"2026-06-30\"}' http://localhost:4000/bff/emprestimo/propostas; done\nInternal Server Error 500\nInternal Server Error 500\nInternal Server Error 500\n\n$ grep -o '\"status\":[0-9]*' gateway/logs/audit.log | sort | uniq -c\n   3 \"status\":201\n   1 \"status\":500"
+    pergunta: Antes da correção do proxy, o cliente recebeu 500 nas três propostas. O que aconteceu com elas no BFF?
+    correcao: Copiar a resposta do `fetch` no proxy, como no passo 7. Enquanto a falha existir, uma nova tentativa do cliente cria outra proposta.
+    alternativas:
+    - texto: O Gateway bloqueou as propostas antes do proxy.
+      correta: false
+      explicacao: Antes do laboratório não existe limite para essa rota, e o limite de mutação padrão é de 20 por minuto.
+    - texto: O BFF criou as três propostas e respondeu 201, que a auditoria registrou. A falha aconteceu na volta, quando o Gateway tentou gravar cabeçalhos na resposta.
+      correta: true
+      explicacao: A auditoria lê o status depois do `next()`, antes de o CORS gravar o `Vary` e derrubar a resposta.
+    - texto: O BFF recusou as propostas por falta da chave interna.
+      correta: false
+      explicacao: Sem a chave, o BFF responderia 401, e a auditoria mostra 201.
+  - tipo: incidente
+    titulo: Tentativas com token inválido sem limite nem auditoria
+    origem: executado
+    rotulo_saida: log
+    saida: "$ for i in $(seq 1 120); do curl -s -o /dev/null -w '%{http_code}\\n' -H \"Authorization: Bearer invalido\" http://localhost:4000/bff/emprestimo/contratos; done | sort | uniq -c\n 120 401\n\n$ grep -c '\"status\":401' gateway/logs/audit.log\n0"
+    pergunta: Por que nenhuma das 120 tentativas recebeu 429 nem entrou na auditoria?
+    correcao: Registrar a auditoria antes da autenticação e aplicar às requisições sem identidade um limite próprio, com chave de origem confiável, e não o `x-forwarded-for` informado pelo cliente.
+    alternativas:
+    - texto: O limite global só conta requisições com status 200.
+      correta: false
+      explicacao: O limitador conta antes do `next()`, sem olhar o status.
+    - texto: A auditoria descarta respostas de erro.
+      correta: false
+      explicacao: A auditoria registra 429 e 500, como mostra o incidente anterior.
+    - texto: O `auth` responde 401 sem chamar `next()`, e a auditoria e os limites estão depois dele na cadeia.
+      correta: true
+      explicacao: A ordem está em `app.ts`, linhas 16 a 21.
+  - tipo: incidente
+    titulo: Falha eventual no app.test.ts
+    origem: executado
+    rotulo_saida: log
+    saida: " FAIL  src/__tests__/app.test.ts > createApp > libera CORS para a origem configurada\nError: ENOTEMPTY, Directory not empty: $TMPDIR/gateway-app-pLIKVw '$TMPDIR/gateway-app-pLIKVw'\n ❯ src/__tests__/app.test.ts:17:16\n     17|   if (tempDir) rmSync(tempDir, { recursive: true, force: true })"
+    pergunta: O teste falha em algumas execuções e passa nas seguintes, sem mudança de código. Qual é a causa?
+    correcao: 'Usar `rmSync(tempDir, { recursive: true, force: true, maxRetries: 3 })` no `afterEach`, como fazem os testes do laboratório.'
+    alternativas:
+    - texto: A auditoria grava com `appendFile` sem esperar, e o `afterEach` apaga a pasta temporária enquanto a gravação ainda cria o arquivo.
+      correta: true
+      explicacao: Em 60 execuções da suíte final, o `app.test.ts` falhou 4 vezes com `ENOTEMPTY`, e os dois testes novos não falharam.
+    - texto: Dois testes usam a mesma pasta temporária.
+      correta: false
+      explicacao: O `mkdtempSync` cria uma pasta com nome único a cada configuração.
+    - texto: O BFF falso continua no ar depois do teste.
+      correta: false
+      explicacao: O `afterEach` fecha o servidor antes de apagar a pasta, e a mensagem cita a pasta, e não a porta.
+  - tipo: incidente
+    titulo: Limite documentado por IP
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "gateway/README.md\n| `RATE_LIMIT_GLOBAL_MAX` | Requisições/minuto por IP (todas as rotas) | `100` |\n| `RATE_LIMIT_MUTATING_MAX` | Requisições/minuto por IP para POST/PUT/DELETE/PATCH | `20` |\n\ngateway/src/rateLimit.ts:32\n    const identity = c.get('auth')?.sub ?? c.req.header('x-forwarded-for') ?? 'unknown'"
+    pergunta: Em `createApp`, qual valor identifica quem está sendo limitado?
+    correcao: Corrigir o README para "por usuário autenticado (`sub`)", como já diz a tabela de estrutura do mesmo arquivo.
+    alternativas:
+    - texto: O `X-Correlation-Id`.
+      correta: false
+      explicacao: O identificador de correlação muda a cada requisição e não serve de chave.
+    - texto: O `sub` do token, porque o `auth` sempre grava a identidade antes dos limitadores.
+      correta: true
+      explicacao: O `x-forwarded-for` só seria usado sem autenticação antes do limitador, como no `rateLimit.test.ts`.
+    - texto: O IP do cliente, como diz o README.
+      correta: false
+      explicacao: O IP é a segunda opção do operador `??` e não chega a ser lido.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Pela ADR-015, o que fica no Gateway e o que fica no BFF?
+      alternativas:
+      - texto: O Gateway converte PascalCase em camelCase.
+        correta: false
+        explicacao: A transformação de mensagem fica no BFF de empréstimo.
+      - texto: Cada BFF aplica os próprios limites de tráfego.
+        correta: false
+        explicacao: Essa é a Opção 2, descartada pela duplicação.
+      - texto: O Gateway cuida de correlação, autenticação, auditoria e tráfego, e o BFF adapta o contrato do microfrontend.
+        correta: true
+        explicacao: O Gateway não conhece nenhum campo de contrato.
+    - enunciado: Por que os 19 testes passavam com o Gateway entregando 500?
+      alternativas:
+      - texto: O `app.request()` não passa pelo `@hono/node-server`, e a falha só aparece com o servidor que o `index.ts` usa.
+        correta: true
+        explicacao: O teste do passo 5 sobe o mesmo `serve` e reproduz a falha.
+      - texto: Os testes não usam CORS.
+        correta: false
+        explicacao: O `app.test.ts` confere o `access-control-allow-origin`.
+      - texto: Os testes não chamam um BFF.
+        correta: false
+        explicacao: O primeiro teste do `app.test.ts` sobe um BFF falso.
+    - enunciado: Que requisições o limitador de propostas conta?
+      alternativas:
+      - texto: Também o `DELETE /bff/emprestimo/propostas/:id`.
+        correta: false
+        explicacao: O caminho e o método são outros.
+      - texto: Só `POST /bff/emprestimo/propostas`, por usuário.
+        correta: true
+        explicacao: O `app.use` recebe o caminho exato, e o `applies` aceita só `POST`.
+      - texto: Todo `POST` do BFF de empréstimo.
+        correta: false
+        explicacao: O teste do passo 9 confere que a simulação não é limitada.
+    - enunciado: Com duas instâncias do Gateway atrás de um balanceador e `RATE_LIMIT_PROPOSAL_MAX=5`, quantas propostas por minuto um usuário consegue enviar?
+      alternativas:
+      - texto: Exatamente 5, porque o limite segue o `sub`.
+        correta: false
+        explicacao: A chave é a mesma, mas os mapas são de processos diferentes.
+      - texto: Nenhuma, porque as instâncias entram em conflito.
+        correta: false
+        explicacao: As instâncias não trocam informação.
+      - texto: Até 10, porque cada instância mantém os contadores na própria memória.
+        correta: true
+        explicacao: A ADR-016 lista o limite distribuído como gatilho de revisão.
+    - enunciado: Qual middleware age depois do `next()`?
+      alternativas:
+      - texto: A auditoria, que grava status e duração depois que a resposta existe.
+        correta: true
+        explicacao: 'O CORS também age na volta, ao acrescentar `Vary: Origin`.'
+      - texto: A autenticação.
+        correta: false
+        explicacao: Ela decide na ida e encerra a cadeia com 401.
+      - texto: O proxy.
+        correta: false
+        explicacao: O proxy é o último elo e não chama `next()`.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A ordem dos middlewares de `app.ts` e o papel de cada um na ida e na volta estão claros.
+    - O teste com o servidor do Node falhou com 500 antes da cópia da resposta e passou depois.
+    - O teste do limite de propostas falhou antes do limitador e passou depois, com os tipos conferidos.
+    - Com os serviços no ar, a terceira proposta recebeu 429 sem chegar ao BFF.
+    - As requisições que escapam da auditoria e dos limites foram identificadas.
