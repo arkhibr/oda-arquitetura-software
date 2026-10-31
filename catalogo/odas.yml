@@ -131,7 +131,8 @@ odas:
     minutos: 75
     pre_requisitos: ["10"]
     objetivo: "Mapear um campo do contrato legado para o contrato do microfrontend, com teste e benchmark."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-11
   - id: "12"
     titulo: "Contrato de tipos via Hono RPC"
     trilha: 4

@@ -1,0 +1,782 @@
+id: '11'
+titulo: BFF e adaptação do contrato legado
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O BFF de empréstimo lê o legado em PascalCase e devolve ao microfrontend um contrato próprio em camelCase, escolhendo campo a campo o que passa, o que muda de nome e o que fica de fora. Esta ODA percorre essa adaptação, acrescenta ao contrato a data de término do empréstimo, com o teste escrito antes, e mede o efeito com o benchmark do próprio BFF.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar por que a ADR-015 coloca a transformação de mensagem no BFF, e não no Gateway nem no microfrontend.
+    - Ler um mapeamento do `transform.ts` e reconhecer renomeação, achatamento, valor padrão e descarte.
+    - Mapear `VencimentoDoContrato` para `vencimentoFinal`, com o teste escrito e rodado antes.
+    - Comparar o benchmark antes e depois da mudança e separar diferença real de ruído de medição.
+    - Reconhecer dados que o legado entrega de forma diferente na lista e no detalhe.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 10. O laboratório chama o BFF diretamente na porta 4001, com os cabeçalhos internos que o Gateway enviaria, e usa dois terminais na raiz do repositório. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · legado e contrato
+    comandos:
+    - entrada: grep -o '"[A-Za-z]*":' bffs/emprestimo/src/fixtures/contratos.list.json | sort | uniq -c
+      saida: "   2 \"CodigoDaLinha\":\n   2 \"Conta\":\n   2 \"Contrato\":\n   1 \"DataDeLiberacaoDoContrato\":\n   1 \"DataDeVencimentoInicial\":\n   1 \"DataDoProximoVencimento\":\n   2 \"DescricaoDaLinha\":\n   2 \"FormaDePagamento\":\n   1 \"LinhaDeEmprestimo\":\n   2 \"NumeroDeParcelas\":\n   1 \"NumeroDoContrato\":\n   2 \"ParcelasEmAtraso\":\n   2 \"ParcelasRestantes\":\n   2 \"ProximaParcela\":\n   1 \"Quitado\":\n   2 \"SaldoAtual\":\n   2 \"TaxaDaCETAnual\":\n   2 \"TaxaDaCETMensal\":\n   2 \"TaxaDeJuros\":\n   2 \"TemParcelasEmAtraso\":\n   2 \"Valor\":\n   2 \"ValorBruto\":\n   1 \"ValorDaPrestacao\":\n   1 \"ValorDoSaldoAtual\":\n   2 \"ValorLiberado\":\n   1 \"ValorNoProximoVencimento\":\n   2 \"Vencimento\":\n   1 \"VencimentoDaParcela\":\n   2 \"VencimentoDoContrato\":"
+      origem: executado
+      dica: Os campos com contagem 1 aparecem num só contrato ou dentro de `ParcelasEmAtraso`.
+    - entrada: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+      saida: '[{"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3}},{"numero":"654321-0","linhaDeCredito":"Refinanciamento Consignado","valorLiberado":8300,"saldoAtual":4132.99,"parcelas":18,"parcelasRestantes":8,"taxaDeJuros":1.49,"cetMensal":1.72,"cetAnual":22.8,"temAtraso":true,"proximaParcela":{"vencimento":"2026-07-05","valor":615.8}}]'
+      origem: executado
+    cenarios:
+    - rotulo: Campos do legado
+      comando: grep -o '"[A-Za-z]*":' bffs/emprestimo/src/fixtures/contratos.list.json | sort | uniq -c
+    - rotulo: Contratos no BFF
+      comando: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Na ADR-015, o Gateway é genérico e não conhece campo de nenhum contrato, e cada BFF adapta o formato do legado ao microfrontend que atende. O BFF de empréstimo transforma o contrato, e o de endereço apenas repassa um formato que já é limpo.
+  - tipo: comparativo
+    colunas:
+    - Legado
+    - Contrato do BFF
+    linhas:
+    - dimensao: Convenção
+      valores:
+      - PascalCase, com nomes como `TaxaDaCETMensal` e `TemParcelasEmAtraso`
+      - camelCase, com nomes curtos como `cetMensal` e `temAtraso`
+    - dimensao: Campos opcionais
+      valores:
+      - Ausentes quando não há valor
+      - Sempre presentes, com `0`, `false`, `null` ou `'—'`
+    - dimensao: Estrutura
+      valores:
+      - Objetos aninhados, como `StatusDaProposta.Value`
+      - Valores achatados, como `status`
+    - dimensao: Escopo
+      valores:
+      - Tudo que o sistema de origem tem, inclusive `Conta` e `CpfDoCliente`
+      - Só o que a tela usa
+  - tipo: conceito
+    titulo: Anticorruption layer
+    texto: O `transform.ts` isola o microfrontend do vocabulário do legado. Quando o legado muda um nome, a correção fica num mapeamento do BFF, e o microfrontend continua a ler o mesmo contrato.
+  - tipo: conceito
+    titulo: Ausente, null e valor padrão
+    texto: O contrato do BFF escolhe, campo a campo, o que fazer quando o legado não envia o dado. `cetMensal` vira `0` e `temAtraso` vira `false`, o que esconde a ausência, e `proximaParcela` vira `null`, o que obriga a tela a tratar a falta do dado.
+  - tipo: conceito
+    titulo: Micro-benchmark
+    texto: O `vitest bench` repete uma função milhões de vezes e informa a vazão em `hz` e o erro relativo em `rme`. A ADR-005 registra que os números absolutos dependem da máquina e que o uso do benchmark está na comparação entre medições do mesmo ambiente.
+  - tipo: adr
+    id: ADR-015
+    titulo: Gateway de API com BFFs
+    status: Proposed
+    contexto: O microfrontend de empréstimo lia o contrato `.svc` em PascalCase, que espelha o payload do servidor.
+    decisao: Um BFF por microfrontend na topologia inicial, responsável por transformar a mensagem do legado no contrato do microfrontend.
+    alternativas: Transformação no Gateway, descartada para mantê-lo genérico, e microfrontend falando direto com o legado.
+    consequencias: O microfrontend deixa de conhecer o formato legado, e as fixtures do MSW do shell e as do BFF podem divergir com o tempo.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, o contrato do legado, o contrato do BFF, a transformação, a rota e o benchmark. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/emprestimo/src/legacyBackend.ts
+    commit: '2179313'
+    linhas:
+    - export interface ContratoLegacy {
+    - '  Contrato: string'
+    - '  DescricaoDaLinha: string'
+    - '  ValorLiberado: number'
+    - '  SaldoAtual: number'
+    - '  NumeroDeParcelas: number'
+    - '  ParcelasRestantes: number'
+    - '  TaxaDeJuros: number'
+    - '  TaxaDaCETMensal?: number'
+    - '  TaxaDaCETAnual?: number'
+    - '  TemParcelasEmAtraso?: boolean'
+    - '  ProximaParcela?: { Vencimento?: string; Valor?: number }'
+    - '}'
+    anotacoes:
+    - linha: 19
+      texto: 'Opcional no legado: o contrato pode chegar sem CET.'
+    - linha: 22
+      texto: Objeto aninhado com campos opcionais.
+    inicio: 11
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/emprestimo/src/transform.ts
+    commit: '2179313'
+    linhas:
+    - 'export function toContrato(d: ContratoLegacy): Contrato {'
+    - '  const p = d.ProximaParcela'
+    - '  return {'
+    - '    numero: d.Contrato,'
+    - '    linhaDeCredito: d.DescricaoDaLinha,'
+    - '    valorLiberado: d.ValorLiberado,'
+    - '    saldoAtual: d.SaldoAtual,'
+    - '    parcelas: d.NumeroDeParcelas,'
+    - '    parcelasRestantes: d.ParcelasRestantes,'
+    - '    taxaDeJuros: d.TaxaDeJuros,'
+    - '    cetMensal: d.TaxaDaCETMensal ?? 0,'
+    - '    cetAnual: d.TaxaDaCETAnual ?? 0,'
+    - '    temAtraso: d.TemParcelasEmAtraso ?? false,'
+    - '    proximaParcela: p?.Vencimento != null && p.Valor != null'
+    - '      ? { vencimento: p.Vencimento, valor: p.Valor }'
+    - '      : null,'
+    - '  }'
+    - '}'
+    anotacoes:
+    - linha: 16
+      texto: 'Renomeação: `Contrato` vira `numero`.'
+    - linha: 23
+      texto: 'Valor padrão: sem CET, o contrato informa `0`.'
+    - linha: 25
+      texto: 'Valor padrão: sem o dado, o contrato informa que não há atraso.'
+    - linha: 26
+      texto: 'Achatamento: só os dois campos que a tela usa, ou `null`.'
+    inicio: 13
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/emprestimo/src/routes/contratos.ts
+    commit: '2179313'
+    linhas:
+    - '  router.get(''/contratos'', (c) => {'
+    - '    return c.json(listarContratos(authenticatedSubject(c)).map(toContrato))'
+    - '  })'
+    - ''
+    - '  router.get(''/contratos/:id'', (c) => {'
+    - '    const owner = authenticatedSubject(c)'
+    - '    const id = c.req.param(''id'')'
+    - '    if (!isResourceId(id)) {'
+    - '      return c.json({ error: ''invalid_request'', message: ''Identificador de contrato inválido.'' }, 400)'
+    - '    }'
+    - '    const contrato = obterContrato(owner, id)'
+    - '    if (!contrato) {'
+    - '      return c.json({ error: ''not_found'', message: ''Contrato não encontrado.'' }, 404)'
+    - '    }'
+    - '    return c.json(toContrato(contrato))'
+    - '  })'
+    anotacoes:
+    - linha: 12
+      texto: A lista aplica o mesmo `toContrato` a cada item do legado.
+    - linha: 21
+      texto: O detalhe vem de outra fonte do legado, com outro conjunto de campos.
+    inicio: 11
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/emprestimo/src/legacyBackend.ts
+    commit: '2179313'
+    linhas:
+    - 'export function obterContrato(owner: string, id: string): ContratoLegacy | undefined {'
+    - '  if (owner !== FIXTURE_OWNER || !contratosList.some((contrato) => contrato.Contrato === id)) return undefined'
+    - '  return id === contratosDetail.Contrato ? contratosDetail : contratosList.find((contrato) => contrato.Contrato === id)'
+    - '}'
+    anotacoes:
+    - linha: 163
+      texto: Para `123456-7`, o detalhe usa `contratos.detail.json`, e não o item da lista.
+    inicio: 161
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/emprestimo/src/transform.bench.ts
+    commit: '2179313'
+    linhas:
+    - describe('transform', () => {
+    - '  bench(''toContrato (um item)'', () => {'
+    - '    toContrato(contratoLegacy)'
+    - '  })'
+    - '  bench(''toProposta (um item)'', () => {'
+    - '    toProposta(propostaLegacy)'
+    - '  })'
+    - '  bench(''toContrato — lista de 100'', () => {'
+    - '    for (let i = 0; i < 100; i++) toContrato(contratoLegacy)'
+    - '  })'
+    - '})'
+    anotacoes:
+    - linha: 22
+      texto: Cada `bench` mede a função isolada, repetida milhares de vezes.
+    - linha: 29
+      texto: Cem transformações por iteração, como numa lista grande.
+    inicio: 21
+  - tipo: faixa
+    estilo: dica
+    texto: O microfrontend declara a própria cópia do contrato em `mfes/emprestimo/src/domain/index.ts`. Um campo novo no BFF chega ao navegador, mas o TypeScript do microfrontend só o conhece quando essa cópia é atualizada à mão, e a ODA 12 trata dessa duplicação.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Envie ao BFF as requisições abaixo, capturadas antes e depois do laboratório, acompanhe um contrato da fixture até a resposta e classifique o que o BFF faz com cada campo do legado.
+  - tipo: console-api
+    cenarios:
+    - rotulo: Antes · lista de contratos
+      requisicao:
+        metodo: GET
+        url: http://localhost:4001/contratos
+        cabecalhos:
+          X-Internal-Gateway-Key: development-only-gateway-key
+          X-Authenticated-Subject: user1
+      resposta:
+        status: 200
+        corpo:
+        - numero: 123456-7
+          linhaDeCredito: Crédito Pessoal
+          valorLiberado: 15000
+          saldoAtual: 9245.5
+          parcelas: 24
+          parcelasRestantes: 14
+          taxaDeJuros: 1.89
+          cetMensal: 2.11
+          cetAnual: 28.7
+          temAtraso: false
+          proximaParcela:
+            vencimento: '2026-07-10'
+            valor: 944.3
+      origem: executado
+      nota: Primeiro dos dois contratos. O legado tem `VencimentoDoContrato`, e o contrato não tem campo equivalente.
+    - rotulo: Depois · lista de contratos
+      requisicao:
+        metodo: GET
+        url: http://localhost:4001/contratos
+        cabecalhos:
+          X-Internal-Gateway-Key: development-only-gateway-key
+          X-Authenticated-Subject: user1
+      resposta:
+        status: 200
+        corpo:
+        - numero: 123456-7
+          linhaDeCredito: Crédito Pessoal
+          valorLiberado: 15000
+          saldoAtual: 9245.5
+          parcelas: 24
+          parcelasRestantes: 14
+          taxaDeJuros: 1.89
+          cetMensal: 2.11
+          cetAnual: 28.7
+          temAtraso: false
+          proximaParcela:
+            vencimento: '2026-07-10'
+            valor: 944.3
+          vencimentoFinal: '2027-08-10'
+      origem: executado
+      nota: Primeiro dos dois contratos, agora com `vencimentoFinal`.
+    - rotulo: Depois · detalhe do contrato
+      requisicao:
+        metodo: GET
+        url: http://localhost:4001/contratos/123456-7
+        cabecalhos:
+          X-Internal-Gateway-Key: development-only-gateway-key
+          X-Authenticated-Subject: user1
+      resposta:
+        status: 200
+        corpo:
+          numero: 123456-7
+          linhaDeCredito: Crédito Pessoal
+          valorLiberado: 15000
+          saldoAtual: 9245.5
+          parcelas: 24
+          parcelasRestantes: 14
+          taxaDeJuros: 1.89
+          cetMensal: 2.11
+          cetAnual: 28.7
+          temAtraso: false
+          proximaParcela:
+            vencimento: '2026-07-10'
+            valor: 944.3
+          vencimentoFinal: null
+      origem: executado
+      nota: 'O mesmo contrato, lido de `contratos.detail.json`, chega com `vencimentoFinal: null`.'
+    - rotulo: Sem a chave interna
+      requisicao:
+        metodo: GET
+        url: http://localhost:4001/contratos
+      resposta:
+        status: 401
+        corpo:
+          error: unauthorized
+          message: Requisição interna não autenticada.
+      origem: codigo
+      nota: Resposta do `createInternalAuthentication` de `bffs/emprestimo/src/auth.ts` quando falta `X-Internal-Gateway-Key` ou `X-Authenticated-Subject`.
+  - tipo: fluxo
+    titulo: Do arquivo do legado à resposta do BFF
+    etapas:
+    - titulo: Leitura da fixture
+      descricao: Ao importar `legacyBackend.ts`, o BFF lê `contratos.list.json` e `contratos.detail.json` uma única vez.
+    - titulo: Autenticação interna
+      descricao: O BFF confere `X-Internal-Gateway-Key` com comparação em tempo constante e grava o `sub` recebido no contexto.
+    - titulo: Filtro por dono
+      descricao: '`listarContratos` devolve os contratos só para `user1`, o dono das fixtures, e uma lista vazia para os demais.'
+    - titulo: Transformação
+      descricao: '`toContrato` renomeia, achata e completa os campos, e descarta `Conta`, `CodigoDaLinha`, `ValorBruto` e `Quitado`.'
+    - titulo: Resposta
+      descricao: '`c.json` serializa o contrato em camelCase, que o Gateway repassa ao microfrontend sem alterar o corpo.'
+  - tipo: classificador
+    enunciado: O que o `toContrato` faz com cada campo do legado?
+    categorias:
+    - id: renomeia
+      rotulo: Renomeia
+    - id: padrao
+      rotulo: Completa com valor padrão
+    - id: achata
+      rotulo: Achata ou reduz
+    - id: descarta
+      rotulo: Descarta
+    itens:
+    - texto: '`Contrato`'
+      categoria: renomeia
+      explicacao: Vira `numero`.
+    - texto: '`TaxaDaCETAnual` ausente'
+      categoria: padrao
+      explicacao: 'Vira `cetAnual: 0`.'
+    - texto: '`ProximaParcela.FormaDePagamento`'
+      categoria: achata
+      explicacao: A próxima parcela chega com `vencimento` e `valor`, e a forma de pagamento fica de fora.
+    - texto: '`Conta`'
+      categoria: descarta
+      explicacao: A tela não usa a conta, e o contrato não tem campo para ela.
+    - texto: '`TemParcelasEmAtraso` ausente'
+      categoria: padrao
+      explicacao: 'Vira `temAtraso: false`.'
+    - texto: '`DescricaoDaLinha`'
+      categoria: renomeia
+      explicacao: Vira `linhaDeCredito`.
+    - texto: '`CodigoDaLinha`'
+      categoria: descarta
+      explicacao: O teste de rotas confere que `CodigoDaLinha` não aparece na resposta.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 4 medem o ponto de partida, os passos 5 a 10 acrescentam o campo com o teste escrito antes, e os passos 11 e 12 comparam o benchmark e conferem a resposta do BFF.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+  - tipo: passos
+    itens:
+    - titulo: Instalar as dependências do BFF
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npm ci)
+      sucesso: '`added 69 packages`.'
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npx vitest run)
+        - (cd bffs/emprestimo && npx tsc --noEmit)
+      sucesso: '`Test Files 9 passed (9)` e `Tests 62 passed (62)`, e o `tsc` sem mensagens.'
+    - titulo: Subir o BFF e comparar o legado com o contrato
+      texto: Suba o BFF num terminal próprio e, no outro, liste os campos da fixture e chame a lista de contratos.
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npm start)
+        - grep -o '"[A-Za-z]*":' bffs/emprestimo/src/fixtures/contratos.list.json | sort | uniq -c
+        - 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+      sucesso: '`2 "VencimentoDoContrato":` na fixture e nenhum campo de vencimento final na resposta.'
+    - titulo: Medir o benchmark antes da mudança
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npx vitest bench --run --outputJson /tmp/bench-antes.json)
+      sucesso: Três linhas de resultado, com `toContrato (um item)` na casa de dezenas de milhões de operações por segundo, e `Benchmark report written to /tmp/bench-antes.json`.
+    - titulo: Escrever o teste do campo novo
+      texto: Crie o arquivo abaixo. Ele confere o mapeamento, o `null` na ausência, a lista e o detalhe.
+      editor:
+        rotulo: arquivo
+        caminho: bffs/emprestimo/src/__tests__/vencimentoFinal.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { describe, expect, it } from 'vitest'
+        - import { Hono } from 'hono'
+        - import { toContrato } from '../transform.ts'
+        - import { createContratosRouter } from '../routes/contratos.ts'
+        - import type { ContratoLegacy } from '../legacyBackend.ts'
+        - import type { BffEnv } from '../types.ts'
+        - ''
+        - 'const legado: ContratoLegacy = {'
+        - '  Contrato: ''123456-7'', DescricaoDaLinha: ''Crédito Pessoal'', ValorLiberado: 15000,'
+        - '  SaldoAtual: 9245.5, NumeroDeParcelas: 24, ParcelasRestantes: 14, TaxaDeJuros: 1.89,'
+        - '  VencimentoDoContrato: ''2027-08-10'','
+        - '}'
+        - ''
+        - function app() {
+        - '  const app = new Hono<BffEnv>()'
+        - '  app.use(async (c, next) => {'
+        - '    c.set(''auth'', { sub: ''user1'', roles: [] })'
+        - '    await next()'
+        - '  })'
+        - '  app.route(''/'', createContratosRouter())'
+        - '  return app'
+        - '}'
+        - ''
+        - describe('vencimento final do contrato', () => {
+        - '  it(''mapeia VencimentoDoContrato para vencimentoFinal'', () => {'
+        - '    expect(toContrato(legado).vencimentoFinal).toBe(''2027-08-10'')'
+        - '  })'
+        - ''
+        - '  it(''usa null quando o legado não informa o vencimento'', () => {'
+        - '    const { VencimentoDoContrato: _ausente, ...semVencimento } = legado'
+        - '    expect(toContrato(semVencimento).vencimentoFinal).toBeNull()'
+        - '  })'
+        - ''
+        - '  it(''expõe o vencimento na lista de contratos'', async () => {'
+        - '    const lista = (await (await app().request(''/contratos'')).json()) as { vencimentoFinal: string | null }[]'
+        - '    expect(lista.map((c) => c.vencimentoFinal)).toEqual([''2027-08-10'', ''2027-02-05''])'
+        - '  })'
+        - ''
+        - '  it(''devolve null no detalhe, que o legado entrega sem o vencimento'', async () => {'
+        - '    const detalhe = (await (await app().request(''/contratos/123456-7'')).json()) as { vencimentoFinal: string | null }'
+        - '    expect(detalhe.vencimentoFinal).toBeNull()'
+        - '  })'
+        - '})'
+      efeito: teste_criado
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npx vitest run src/__tests__/vencimentoFinal.test.ts)
+        - (cd bffs/emprestimo && npx tsc --noEmit)
+      sucesso: '`Tests 4 failed (4)` e quatro mensagens do `tsc`, duas `TS2339` para `vencimentoFinal` e as demais para `VencimentoDoContrato`.'
+    - titulo: Declarar e mapear o campo
+      texto: Faça as três alterações abaixo. O campo é opcional no legado e obrigatório no contrato, com `null` quando o legado não o envia.
+      editor:
+        rotulo: arquivo
+        caminho: bffs/emprestimo/src/legacyBackend.ts, domain.ts e transform.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '// bffs/emprestimo/src/legacyBackend.ts: na interface ContratoLegacy'
+        - '  VencimentoDoContrato?: string'
+        - ''
+        - '// bffs/emprestimo/src/domain.ts: na interface Contrato'
+        - '  vencimentoFinal: string | null'
+        - ''
+        - '// bffs/emprestimo/src/transform.ts: no fim do objeto devolvido por toContrato'
+        - '    vencimentoFinal: d.VencimentoDoContrato ?? null,'
+      efeito: campo_mapeado
+    - titulo: Rodar o teste e a suíte
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npx vitest run src/__tests__/vencimentoFinal.test.ts)
+        - (cd bffs/emprestimo && npx vitest run)
+      sucesso: '`Tests 4 passed (4)` no teste novo e `Tests 1 failed | 65 passed (66)` na suíte, com a falha no `toEqual` de `transform.test.ts`.'
+    - titulo: Atualizar o teste de contrato antigo
+      texto: No primeiro teste de `transform.test.ts`, acrescente o campo ao objeto do legado e ao resultado esperado. O teste passa a cobrir o mapeamento completo do contrato.
+      editor:
+        rotulo: arquivo
+        caminho: bffs/emprestimo/src/__tests__/transform.test.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '// bffs/emprestimo/src/__tests__/transform.test.ts: no primeiro teste'
+        - '      ProximaParcela: { Vencimento: ''2026-07-10'', Valor: 944.3 }, VencimentoDoContrato: ''2027-08-10'','
+        - '      proximaParcela: { vencimento: ''2026-07-10'', valor: 944.3 }, vencimentoFinal: ''2027-08-10'','
+      efeito: teste_antigo_ajustado
+    - titulo: Rodar a suíte e os tipos
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npx vitest run)
+        - (cd bffs/emprestimo && npx tsc --noEmit)
+      sucesso: '`Test Files 10 passed (10)` e `Tests 66 passed (66)`, e o `tsc` sem mensagens.'
+    - titulo: Comparar o benchmark
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/emprestimo && npx vitest bench --run --compare /tmp/bench-antes.json)
+      sucesso: Cada linha nova aparece acima da linha `(baseline)`, com a razão entre colchetes, e as razões ficam perto de `1.00x`.
+    - titulo: Conferir a resposta do BFF
+      texto: Reinicie o BFF com Ctrl+C e `npm start` e repita as duas chamadas.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+        - 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos/123456-7'
+      sucesso: '`"vencimentoFinal":"2027-08-10"` e `"vencimentoFinal":"2027-02-05"` na lista, e `"vencimentoFinal":null` no detalhe.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: (cd bffs/emprestimo && npm ci)
+      saida: "added 69 packages, and audited 70 packages in 784ms\n\n19 packages are looking for funding\n  run `npm fund` for details\n\n9 vulnerabilities (5 moderate, 4 high)\n\nTo address all issues, run:\n  npm audit fix\n\nRun `npm audit` for details."
+      origem: executado
+      dica: As vulnerabilidades do `npm audit` são das dependências do commit e não afetam este laboratório.
+    - entrada: (cd bffs/emprestimo && npm start)
+      saida: '> bff-emprestimo@0.0.0 start
+
+        > node --experimental-strip-types src/index.ts
+
+
+        BFF-emprestimo ouvindo em http://localhost:4001'
+      origem: executado
+      dica: O comando ocupa o terminal. Rode os demais comandos noutro terminal, na raiz do repositório.
+    - entrada: grep -o '"[A-Za-z]*":' bffs/emprestimo/src/fixtures/contratos.list.json | sort | uniq -c
+      saida: "   2 \"CodigoDaLinha\":\n   2 \"Conta\":\n   2 \"Contrato\":\n   1 \"DataDeLiberacaoDoContrato\":\n   1 \"DataDeVencimentoInicial\":\n   1 \"DataDoProximoVencimento\":\n   2 \"DescricaoDaLinha\":\n   2 \"FormaDePagamento\":\n   1 \"LinhaDeEmprestimo\":\n   2 \"NumeroDeParcelas\":\n   1 \"NumeroDoContrato\":\n   2 \"ParcelasEmAtraso\":\n   2 \"ParcelasRestantes\":\n   2 \"ProximaParcela\":\n   1 \"Quitado\":\n   2 \"SaldoAtual\":\n   2 \"TaxaDaCETAnual\":\n   2 \"TaxaDaCETMensal\":\n   2 \"TaxaDeJuros\":\n   2 \"TemParcelasEmAtraso\":\n   2 \"Valor\":\n   2 \"ValorBruto\":\n   1 \"ValorDaPrestacao\":\n   1 \"ValorDoSaldoAtual\":\n   2 \"ValorLiberado\":\n   1 \"ValorNoProximoVencimento\":\n   2 \"Vencimento\":\n   1 \"VencimentoDaParcela\":\n   2 \"VencimentoDoContrato\":"
+      origem: executado
+      dica: Os campos com contagem 1 aparecem num só contrato ou dentro de `ParcelasEmAtraso`.
+    - entrada: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+      condicao: campo_mapeado
+      saida: '[{"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3},"vencimentoFinal":"2027-08-10"},{"numero":"654321-0","linhaDeCredito":"Refinanciamento Consignado","valorLiberado":8300,"saldoAtual":4132.99,"parcelas":18,"parcelasRestantes":8,"taxaDeJuros":1.49,"cetMensal":1.72,"cetAnual":22.8,"temAtraso":true,"proximaParcela":{"vencimento":"2026-07-05","valor":615.8},"vencimentoFinal":"2027-02-05"}]'
+      origem: executado
+      dica: O BFF só lê o código novo depois de reiniciado com Ctrl+C e `npm start`.
+    - entrada: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+      saida: '[{"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3}},{"numero":"654321-0","linhaDeCredito":"Refinanciamento Consignado","valorLiberado":8300,"saldoAtual":4132.99,"parcelas":18,"parcelasRestantes":8,"taxaDeJuros":1.49,"cetMensal":1.72,"cetAnual":22.8,"temAtraso":true,"proximaParcela":{"vencimento":"2026-07-05","valor":615.8}}]'
+      origem: executado
+    - entrada: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos/123456-7'
+      condicao: campo_mapeado
+      saida: '{"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3},"vencimentoFinal":null}'
+      origem: executado
+      dica: O detalhe vem de `contratos.detail.json`, que não tem `VencimentoDoContrato`.
+    - entrada: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos/123456-7'
+      saida: '{"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3}}'
+      origem: executado
+    - entrada: (cd bffs/emprestimo && npx vitest run src/__tests__/vencimentoFinal.test.ts)
+      condicao:
+      - teste_criado
+      - campo_mapeado
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)"
+      origem: executado
+    - entrada: (cd bffs/emprestimo && npx vitest run src/__tests__/vencimentoFinal.test.ts)
+      condicao: teste_criado
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n ❯ src/__tests__/vencimentoFinal.test.ts (4 tests | 4 failed) 13ms\n     × mapeia VencimentoDoContrato para vencimentoFinal 2ms\n     × usa null quando o legado não informa o vencimento 0ms\n     × expõe o vencimento na lista de contratos 10ms\n     × devolve null no detalhe, que o legado entrega sem o vencimento 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > mapeia VencimentoDoContrato para vencimentoFinal\nAssertionError: expected undefined to be '2027-08-10' // Object.is equality\n\n- Expected:\n\"2027-08-10\"\n\n+ Received:\nundefined\n\n ❯ src/__tests__/vencimentoFinal.test.ts:26:48\n     24| describe('vencimento final do contrato', () => {\n     25|   it('mapeia VencimentoDoContrato para vencimentoFinal', () => {\n     26|     expect(toContrato(legado).vencimentoFinal).toBe('2027-08-10')\n       |                                                ^\n     27|   })\n     28|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > usa null quando o legado não informa o vencimento\nAssertionError: expected undefined to be null\n\n- Expected:\nnull\n\n+ Received:\nundefined\n\n ❯ src/__tests__/vencimentoFinal.test.ts:31:55\n     29|   it('usa null quando o legado não informa o vencimento', () => {\n     30|     const { VencimentoDoContrato: _ausente, ...semVencimento } = legado\n     31|     expect(toContrato(semVencimento).vencimentoFinal).toBeNull()\n       |                                                       ^\n     32|   })\n     33|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > expõe o vencimento na lista de contratos\nAssertionError: expected [ undefined, undefined ] to deeply equal [ '2027-08-10', '2027-02-05' ]\n\n- Expected\n+ Received\n\n  [\n-   \"2027-08-10\",\n-   \"2027-02-05\",\n+   undefined,\n+   undefined,\n  ]\n\n ❯ src/__tests__/vencimentoFinal.test.ts:36:49\n     34|   it('expõe o vencimento na lista de contratos', async () => {\n     35|     const lista = (await (await app().request('/contratos')).json()) a…\n     36|     expect(lista.map((c) => c.vencimentoFinal)).toEqual(['2027-08-10',…\n       |                                                 ^\n     37|   })\n     38|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > devolve null no detalhe, que o legado entrega sem o vencimento\nAssertionError: expected undefined to be null\n\n- Expected:\nnull\n\n+ Received:\nundefined\n\n ❯ src/__tests__/vencimentoFinal.test.ts:41:37\n     39|   it('devolve null no detalhe, que o legado entrega sem o vencimento',…\n     40|     const detalhe = (await (await app().request('/contratos/123456-7')…\n     41|     expect(detalhe.vencimentoFinal).toBeNull()\n       |                                     ^\n     42|   })\n     43| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed (1)\n      Tests  4 failed (4)"
+      origem: executado
+      dica: 'As quatro falhas são as esperadas: o campo ainda não existe no contrato.'
+    - entrada: (cd bffs/emprestimo && npx vitest run src/__tests__/vencimentoFinal.test.ts)
+      saida: ' RUN  v4.1.9 ./bffs/emprestimo
+
+
+        No test files found, exiting with code 1
+
+
+        filter: src/__tests__/vencimentoFinal.test.ts
+
+        include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+
+        exclude:  **/node_modules/**, **/.git/**'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
+    - entrada: (cd bffs/emprestimo && npx vitest run)
+      condicao:
+      - teste_criado
+      - campo_mapeado
+      - teste_antigo_ajustado
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n\n Test Files  10 passed (10)\n      Tests  66 passed (66)"
+      origem: executado
+    - entrada: (cd bffs/emprestimo && npx vitest run)
+      condicao:
+      - teste_criado
+      - campo_mapeado
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n ❯ src/__tests__/transform.test.ts (15 tests | 1 failed) 5ms\n     × toContrato mapeia PascalCase → camelCase e achata proximaParcela 4ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/transform.test.ts > transform > toContrato mapeia PascalCase → camelCase e achata proximaParcela\nAssertionError: expected { numero: '123456-7', …(11) } to deeply equal { numero: '123456-7', …(10) }\n\n- Expected\n+ Received\n\n@@ -11,6 +11,7 @@\n    },\n    \"saldoAtual\": 9245.5,\n    \"taxaDeJuros\": 1.89,\n    \"temAtraso\": false,\n    \"valorLiberado\": 15000,\n+   \"vencimentoFinal\": null,\n  }\n\n ❯ src/__tests__/transform.test.ts:17:29\n     15|       ProximaParcela: { Vencimento: '2026-07-10', Valor: 944.3 },\n     16|     }\n     17|     expect(toContrato(dto)).toEqual({\n       |                             ^\n     18|       numero: '123456-7', linhaDeCredito: 'Crédito Pessoal', valorLibe…\n     19|       saldoAtual: 9245.5, parcelas: 24, parcelasRestantes: 14, taxaDeJ…\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n\n Test Files  1 failed | 9 passed (10)\n      Tests  1 failed | 65 passed (66)"
+      origem: executado
+      dica: 'O `toEqual` do teste antigo compara o objeto inteiro e passou a receber `vencimentoFinal: null`. Siga para o passo 9.'
+    - entrada: (cd bffs/emprestimo && npx vitest run)
+      condicao: teste_criado
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n ❯ src/__tests__/vencimentoFinal.test.ts (4 tests | 4 failed) 25ms\n     × mapeia VencimentoDoContrato para vencimentoFinal 5ms\n     × usa null quando o legado não informa o vencimento 1ms\n     × expõe o vencimento na lista de contratos 17ms\n     × devolve null no detalhe, que o legado entrega sem o vencimento 1ms\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > mapeia VencimentoDoContrato para vencimentoFinal\nAssertionError: expected undefined to be '2027-08-10' // Object.is equality\n\n- Expected:\n\"2027-08-10\"\n\n+ Received:\nundefined\n\n ❯ src/__tests__/vencimentoFinal.test.ts:26:48\n     24| describe('vencimento final do contrato', () => {\n     25|   it('mapeia VencimentoDoContrato para vencimentoFinal', () => {\n     26|     expect(toContrato(legado).vencimentoFinal).toBe('2027-08-10')\n       |                                                ^\n     27|   })\n     28|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > usa null quando o legado não informa o vencimento\nAssertionError: expected undefined to be null\n\n- Expected:\nnull\n\n+ Received:\nundefined\n\n ❯ src/__tests__/vencimentoFinal.test.ts:31:55\n     29|   it('usa null quando o legado não informa o vencimento', () => {\n     30|     const { VencimentoDoContrato: _ausente, ...semVencimento } = legado\n     31|     expect(toContrato(semVencimento).vencimentoFinal).toBeNull()\n       |                                                       ^\n     32|   })\n     33|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > expõe o vencimento na lista de contratos\nAssertionError: expected [ undefined, undefined ] to deeply equal [ '2027-08-10', '2027-02-05' ]\n\n- Expected\n+ Received\n\n  [\n-   \"2027-08-10\",\n-   \"2027-02-05\",\n+   undefined,\n+   undefined,\n  ]\n\n ❯ src/__tests__/vencimentoFinal.test.ts:36:49\n     34|   it('expõe o vencimento na lista de contratos', async () => {\n     35|     const lista = (await (await app().request('/contratos')).json()) a…\n     36|     expect(lista.map((c) => c.vencimentoFinal)).toEqual(['2027-08-10',…\n       |                                                 ^\n     37|   })\n     38|\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯\n\n FAIL  src/__tests__/vencimentoFinal.test.ts > vencimento final do contrato > devolve null no detalhe, que o legado entrega sem o vencimento\nAssertionError: expected undefined to be null\n\n- Expected:\nnull\n\n+ Received:\nundefined\n\n ❯ src/__tests__/vencimentoFinal.test.ts:41:37\n     39|   it('devolve null no detalhe, que o legado entrega sem o vencimento',…\n     40|     const detalhe = (await (await app().request('/contratos/123456-7')…\n     41|     expect(detalhe.vencimentoFinal).toBeNull()\n       |                                     ^\n     42|   })\n     43| })\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯\n\n\n Test Files  1 failed | 9 passed (10)\n      Tests  4 failed | 62 passed (66)"
+      origem: executado
+    - entrada: (cd bffs/emprestimo && npx vitest run)
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n\n Test Files  9 passed (9)\n      Tests  62 passed (62)"
+      origem: executado
+    - entrada: (cd bffs/emprestimo && npx tsc --noEmit)
+      condicao: campo_mapeado
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd bffs/emprestimo && npx tsc --noEmit)
+      condicao: teste_criado
+      saida: 'src/__tests__/vencimentoFinal.test.ts(11,3): error TS2353: Object literal may only specify known properties, and ''VencimentoDoContrato'' does not exist in type ''ContratoLegacy''.
+
+        src/__tests__/vencimentoFinal.test.ts(26,31): error TS2339: Property ''vencimentoFinal'' does not exist on type ''Contrato''.
+
+        src/__tests__/vencimentoFinal.test.ts(30,13): error TS2339: Property ''VencimentoDoContrato'' does not exist on type ''ContratoLegacy''.
+
+        src/__tests__/vencimentoFinal.test.ts(31,38): error TS2339: Property ''vencimentoFinal'' does not exist on type ''Contrato''.'
+      origem: executado
+      dica: O teste usa campos que os tipos ainda não declaram. O passo 7 acrescenta os dois.
+    - entrada: (cd bffs/emprestimo && npx tsc --noEmit)
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd bffs/emprestimo && npx vitest bench --run --outputJson /tmp/bench-antes.json)
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n\n ✓ src/transform.bench.ts > transform 10507ms\n     name                                  hz     min     max    mean     p75     p99    p995    p999     rme   samples\n   · toContrato (um item)       44,725,201.46  0.0000  0.0508  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.09%  22362601\n   · toProposta (um item)       44,302,379.20  0.0000  2.0433  0.0000  0.0000  0.0000  0.0000  0.0001  ±1.01%  22151190\n   · toContrato — lista de 100   1,815,419.73  0.0005  0.3755  0.0006  0.0005  0.0007  0.0007  0.0009  ±0.28%    907710\n\n BENCH  Summary\n\n  toContrato (um item) - src/transform.bench.ts > transform\n    1.01x faster than toProposta (um item)\n    24.64x faster than toContrato — lista de 100\n\nBenchmark report written to /tmp/bench-antes.json"
+      origem: executado
+      dica: Os valores absolutos dependem da máquina. O arquivo `/tmp/bench-antes.json` guarda a medição para a comparação do passo 11.
+    - entrada: (cd bffs/emprestimo && npx vitest bench --run --compare /tmp/bench-antes.json)
+      condicao: campo_mapeado
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n\n ✓ src/transform.bench.ts > transform 10613ms\n     name                                  hz     min      max    mean     p75     p99    p995    p999     rme   samples\n   · toContrato (um item)       44,697,459.11  0.0000   0.0681  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.08%  22348730  [1.00x] ⇓\n     toContrato (um item)       44,725,201.46  0.0000   0.0508  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.09%  22362601  (baseline)\n   · toProposta (um item)       45,189,048.73  0.0000   0.3899  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.18%  22594525  [1.02x] ⇑\n     toProposta (um item)       44,302,379.20  0.0000   2.0433  0.0000  0.0000  0.0000  0.0000  0.0001  ±1.01%  22151190  (baseline)\n   · toContrato — lista de 100   1,749,556.36  0.0005  16.6634  0.0006  0.0005  0.0007  0.0007  0.0009  ±6.53%    874779  [0.96x] ⇓\n     toContrato — lista de 100   1,815,419.73  0.0005   0.3755  0.0006  0.0005  0.0007  0.0007  0.0009  ±0.28%    907710  (baseline)\n\n BENCH  Summary\n\n  toProposta (um item) - src/transform.bench.ts > transform\n    1.01x faster than toContrato (um item)\n    25.83x faster than toContrato — lista de 100"
+      origem: executado
+    - entrada: (cd bffs/emprestimo && npx vitest bench --run --compare /tmp/bench-antes.json)
+      saida: " RUN  v4.1.9 ./bffs/emprestimo\n\n\n ✓ src/transform.bench.ts > transform 10557ms\n     name                                  hz     min     max    mean     p75     p99    p995    p999     rme   samples\n   · toContrato (um item)       44,401,140.98  0.0000  0.0518  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.09%  22200572  [1.00x] ⇓\n     toContrato (um item)       44,455,911.96  0.0000  1.4830  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.59%  22227957  (baseline)\n   · toProposta (um item)       45,237,998.73  0.0000  0.0598  0.0000  0.0000  0.0000  0.0000  0.0000  ±0.09%  22619000  [1.01x] ⇑\n     toProposta (um item)       44,986,051.46  0.0000  0.3590  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.20%  22493026  (baseline)\n   · toContrato — lista de 100   1,729,829.14  0.0005  0.2777  0.0006  0.0006  0.0008  0.0011  0.0020  ±0.27%    864915  [0.98x] ⇓\n     toContrato — lista de 100   1,759,207.13  0.0005  0.1821  0.0006  0.0006  0.0007  0.0007  0.0009  ±0.21%    879604  (baseline)\n\n BENCH  Summary\n\n  toProposta (um item) - src/transform.bench.ts > transform\n    1.02x faster than toContrato (um item)\n    26.15x faster than toContrato — lista de 100"
+      origem: executado
+      dica: Sem nenhuma mudança no código, a comparação já registra diferenças de alguns por cento. Veja o Diagnóstico.
+    cenarios:
+    - rotulo: Lista de contratos
+      comando: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+    - rotulo: Detalhe do contrato
+      comando: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos/123456-7'
+    - rotulo: Teste do campo
+      comando: (cd bffs/emprestimo && npx vitest run src/__tests__/vencimentoFinal.test.ts)
+    - rotulo: Suíte do BFF
+      comando: (cd bffs/emprestimo && npx vitest run)
+    - rotulo: Comparar o benchmark
+      comando: (cd bffs/emprestimo && npx vitest bench --run --compare /tmp/bench-antes.json)
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os quatro incidentes partem de saídas do laboratório e de chamadas aos dois BFFs.
+  - tipo: incidente
+    titulo: Vencimento presente na lista e ausente no detalhe
+    origem: executado
+    rotulo_saida: log
+    saida: '$ curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos
+
+      [{"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3},"vencimentoFinal":"2027-08-10"},{"numero":"654321-0","linhaDeCredito":"Refinanciamento Consignado","valorLiberado":8300,"saldoAtual":4132.99,"parcelas":18,"parcelasRestantes":8,"taxaDeJuros":1.49,"cetMensal":1.72,"cetAnual":22.8,"temAtraso":true,"proximaParcela":{"vencimento":"2026-07-05","valor":615.8},"vencimentoFinal":"2027-02-05"}]
+
+
+      $ curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos/123456-7
+
+      {"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3},"vencimentoFinal":null}'
+    pergunta: A tela de detalhe vai mostrar o vencimento final do contrato `123456-7`?
+    correcao: Tratar `null` na tela, e decidir com o dono do legado se o detalhe passa a enviar o campo ou se o BFF o completa com a lista.
+    alternativas:
+    - texto: Não, porque o mapeamento só vale para listas.
+      correta: false
+      explicacao: A rota de detalhe usa o mesmo `toContrato`.
+    - texto: Não, porque o detalhe vem de `contratos.detail.json`, que não tem `VencimentoDoContrato`, e o BFF devolve `null`.
+      correta: true
+      explicacao: O mesmo vale para `TemParcelasEmAtraso`, que também falta no detalhe e vira `false`.
+    - texto: Sim, porque o BFF reaproveita o item da lista.
+      correta: false
+      explicacao: '`obterContrato` devolve o detalhe para esse contrato, e o item da lista só para os demais.'
+  - tipo: incidente
+    titulo: Benchmark mais lento depois do campo novo
+    origem: executado
+    rotulo_saida: log
+    saida: "# depois do campo novo\n   · toContrato — lista de 100   1,749,556.36  0.0005  16.6634  0.0006  0.0005  0.0007  0.0007  0.0009  ±6.53%    874779  [0.96x] ⇓\n     toContrato — lista de 100   1,815,419.73  0.0005   0.3755  0.0006  0.0005  0.0007  0.0007  0.0009  ±0.28%    907710  (baseline)\n\n# sem nenhuma mudança no código\n   · toContrato — lista de 100   1,729,829.14  0.0005  0.2777  0.0006  0.0006  0.0008  0.0011  0.0020  ±0.27%    864915  [0.98x] ⇓\n     toContrato — lista de 100   1,759,207.13  0.0005  0.1821  0.0006  0.0006  0.0007  0.0007  0.0009  ±0.21%    879604  (baseline)"
+    pergunta: A lista de 100 caiu para `0.96x` depois da mudança. O campo novo deixou a transformação mais lenta?
+    correcao: Repetir a medição algumas vezes no mesmo ambiente e só tratar como regressão uma diferença que se mantém acima da variação observada sem mudança.
+    alternativas:
+    - texto: Sim, a queda de 4% mostra o custo do campo novo.
+      correta: false
+      explicacao: A variação entre duas medições do mesmo código é da mesma ordem.
+    - texto: Não, porque `toContrato (um item)` ficou em `1.00x`.
+      correta: false
+      explicacao: 'Uma linha estável não anula a dúvida sobre a outra: as duas sofrem o mesmo ruído.'
+    - texto: A medição não permite concluir, porque sem nenhuma mudança a mesma linha registrou `0.98x`, e a execução com o campo novo teve `rme` de `±6.53%`.
+      correta: true
+      explicacao: Numa rodada anterior sem mudança, a mesma linha chegou a `0.93x`.
+  - tipo: incidente
+    titulo: Lista de 100 mais barata por item que a chamada isolada
+    origem: executado
+    rotulo_saida: log
+    saida: "   · toContrato (um item)       44,725,201.46  0.0000  0.0508  0.0000  0.0000  0.0000  0.0000  0.0001  ±0.09%  22362601\n   · toContrato — lista de 100   1,815,419.73  0.0005  0.3755  0.0006  0.0005  0.0007  0.0007  0.0009  ±0.28%    907710"
+    pergunta: Uma chamada isolada leva cerca de 22 ns, e cem chamadas no laço levam cerca de 550 ns, ou 5,5 ns por item. Como ler essa diferença?
+    correcao: Usar o resultado da função no benchmark, por exemplo acumulando um valor que é lido no fim, e medir com dados variados, mais próximos de uma lista real.
+    alternativas:
+    - texto: 'Os dois casos não medem o mesmo trabalho: o resultado nunca é lido, e o otimizador do V8 pode eliminar parte de um trabalho cujo resultado ninguém usa.'
+      correta: true
+      explicacao: A ADR-005 registra números parecidos, com 46,2 M e 1,7 M de operações por segundo.
+    - texto: Transformar cem itens é quatro vezes mais barato por item, e o BFF deveria agrupar as chamadas.
+      correta: false
+      explicacao: O laço repete o mesmo objeto, e a diferença vem da forma de medir.
+    - texto: O `vitest bench` divide o tempo pelo número de itens.
+      correta: false
+      explicacao: O `hz` conta execuções da função de benchmark inteira, com as cem chamadas.
+  - tipo: incidente
+    titulo: Endereço que volta ao valor anterior
+    origem: executado
+    rotulo_saida: log
+    saida: '$ curl -s -X PUT … -d {"cep":"30130010","logradouro":"Avenida Afonso Pena","numero":"1000"} http://localhost:4002/usuario/endereco
+
+      {"cep":"30130010","logradouro":"Avenida Afonso Pena","numero":"1000"}
+
+      $ curl -s … http://localhost:4002/usuario/endereco
+
+      {"cep":"01001000","logradouro":"Praça da Sé","numero":"1"}'
+    pergunta: Por que o `GET` seguinte não mostra o endereço gravado pelo `PUT`?
+    correcao: Guardar o endereço por `sub` no BFF de endereço, como o de empréstimo faz com as propostas, e cobrir o `PUT` seguido de `GET` num teste.
+    alternativas:
+    - texto: O `PUT` falhou na validação.
+      correta: false
+      explicacao: A validação falhando daria 400, e a resposta foi o endereço enviado.
+    - texto: '`putEndereco` devolve uma cópia do corpo recebido sem guardá-la, e `getEndereco` sempre devolve o endereço fixo.'
+      correta: true
+      explicacao: As duas funções estão em `bffs/endereco/src/legacyBackend.ts`, linhas 13 a 19.
+    - texto: O Gateway guarda a resposta do `GET` em cache.
+      correta: false
+      explicacao: As chamadas foram feitas direto ao BFF, na porta 4002.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que a transformação do contrato fica no BFF?
+      alternativas:
+      - texto: Porque o Gateway não consegue ler JSON.
+        correta: false
+        explicacao: O Gateway poderia ler, e a ADR decide não fazer isso.
+      - texto: Porque o microfrontend não roda TypeScript.
+        correta: false
+        explicacao: O microfrontend é escrito em TypeScript.
+      - texto: Para manter o Gateway genérico e isolar o microfrontend do formato do legado.
+        correta: true
+        explicacao: É a justificativa da ADR-015.
+    - enunciado: Por que o campo novo é `string | null`, e não `string` opcional?
+      alternativas:
+      - texto: Para que a ausência do dado apareça na resposta e no tipo, e a tela tenha de tratá-la.
+        correta: true
+        explicacao: Um campo omitido no JSON some sem aviso para quem lê a resposta.
+      - texto: Porque o JSON não aceita campos opcionais.
+        correta: false
+        explicacao: O JSON aceita omitir campos.
+      - texto: Porque `null` ocupa menos bytes.
+        correta: false
+        explicacao: A escolha é de contrato, e não de tamanho.
+    - enunciado: O que quebrou o `transform.test.ts` depois do mapeamento?
+      alternativas:
+      - texto: A fixture foi alterada.
+        correta: false
+        explicacao: O laboratório não altera as fixtures.
+      - texto: 'O `toEqual` compara o objeto inteiro e passou a receber `vencimentoFinal: null`.'
+        correta: true
+        explicacao: O teste protege o contrato completo, e a mudança de contrato exige a atualização dele.
+      - texto: O tipo `ContratoLegacy` ficou inválido.
+        correta: false
+        explicacao: O `tsc` não acusou erro no estado do passo 8.
+    - enunciado: Que leitura do benchmark a ADR-005 recomenda?
+      alternativas:
+      - texto: Exigir pelo menos 40 milhões de operações por segundo.
+        correta: false
+        explicacao: A ADR não fixa um valor mínimo.
+      - texto: Rodar o benchmark com carga HTTP.
+        correta: false
+        explicacao: A ADR descarta ferramentas de carga para unidade.
+      - texto: Comparar medições do mesmo ambiente ao longo do tempo, e não os valores absolutos.
+        correta: true
+        explicacao: Os números dependem da máquina.
+    - enunciado: Depois do laboratório, o que falta para a tela do microfrontend usar `vencimentoFinal` com tipos?
+      alternativas:
+      - texto: Atualizar a cópia do contrato em `mfes/emprestimo/src/domain/index.ts`.
+        correta: true
+        explicacao: A ODA 12 substitui essa cópia por tipos derivados do BFF.
+      - texto: Nada, porque o TypeScript lê o BFF em tempo de execução.
+        correta: false
+        explicacao: Os tipos do microfrontend são declarados à mão.
+      - texto: Mudar o Gateway.
+        correta: false
+        explicacao: O Gateway repassa o corpo sem conhecer os campos.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O papel do `transform.ts` como camada de isolamento do legado está claro.
+    - O teste do campo novo falhou antes do mapeamento e passou depois.
+    - O teste de contrato antigo foi atualizado para o campo novo.
+    - A comparação do benchmark foi lida à luz da variação sem mudança.
+    - A diferença entre a lista e o detalhe do legado foi identificada.
