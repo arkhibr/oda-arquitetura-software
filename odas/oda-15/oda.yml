@@ -1,0 +1,768 @@
+id: '15'
+titulo: Conteinerização e esteira de entrega
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: A esteira do shell roda cinco verificações e depois gera uma imagem Nginx com os arquivos estáticos. Esta ODA executa localmente cada etapa no commit de referência, encontra três que falham ou não conferem o que prometem, corrige cada uma e termina com a imagem saudável servindo a CSP com nonce por requisição.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Executar localmente cada etapa do Quality Gate de `.github/workflows/ci.yml`.
+    - Diagnosticar o `npm ci` que falha na esteira e no `docker build` e sincronizar o lock.
+    - Levar a cobertura de branches acima do limite com um teste do `loadConfig`.
+    - Demonstrar que a etapa de tipos não confere nenhum arquivo e corrigi-la.
+    - Construir a imagem do shell, corrigir o healthcheck e conferir os cabeçalhos servidos.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 14 e o Docker em execução, com a porta 8080 livre no host. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o Docker Desktop integrado.
+  - tipo: terminal
+    titulo: terminal · esteira no commit de referência
+    comandos:
+    - entrada: npm run test:coverage
+      saida: " Test Files  23 passed (23)\n      Tests  99 passed (99)\nFile               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s \nAll files          |   86.03 |     78.8 |   88.33 |   90.09 |                   \nERROR: Coverage for branches (78.8%) does not meet global threshold (80%)"
+      origem: executado
+    - entrada: docker build --progress=plain -t portal-web:oda15 .
+      saida: "#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#8 [build 2/6] WORKDIR /app\n#9 [build 3/6] COPY package*.json ./\n#10 [build 4/6] RUN npm ci --prefer-offline\n#10 0.852 npm error code EUSAGE\n#10 0.852 npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.\n#10 0.852 npm error Missing: @emnapi/core@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/runtime@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/wasi-threads@1.2.3 from lock file\n#10 ERROR: process \"/bin/sh -c npm ci --prefer-offline\" did not complete successfully: exit code: 1\n > [build 4/6] RUN npm ci --prefer-offline:"
+      origem: executado
+    cenarios:
+    - rotulo: Cobertura
+      comando: npm run test:coverage
+    - rotulo: Imagem do shell
+      comando: docker build --progress=plain -t portal-web:oda15 .
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'A ADR-006 serve o shell com Nginx numa imagem de dois estágios: o primeiro compila com Node e o segundo copia só o `dist/`. A Atualização da ADR-012 transformou o `nginx.conf` em template, com `envsubst` restrito às variáveis `CSP_*` no boot do contêiner.'
+  - tipo: comparativo
+    colunas:
+    - Variáveis de build
+    - Variáveis de execução
+    linhas:
+    - dimensao: Exemplos
+      valores:
+      - '`VITE_ENV` e `VITE_API_BASE_URL`'
+      - '`CSP_CONNECT_SRC` e `CSP_REPORT_URI`'
+    - dimensao: Onde entram
+      valores:
+      - '`--build-arg` do `docker build`, gravadas no bundle'
+      - '`-e` do `docker run`, aplicadas pelo `envsubst` no template'
+    - dimensao: Mudar exige
+      valores:
+      - Nova imagem
+      - Só reiniciar o contêiner
+    - dimensao: Preservado
+      valores:
+      - O `config.json`, lido em tempo de execução
+      - '`$request_id` e `$csp_nonce`, pelo `NGINX_ENVSUBST_FILTER=^CSP_`'
+  - tipo: conceito
+    titulo: npm ci e o lock
+    texto: O `npm ci` instala exatamente o que o `package-lock.json` descreve e recusa a instalação quando o lock não corresponde ao `package.json`. Isso torna a esteira reprodutível e exige que o lock seja atualizado e versionado sempre que as dependências mudam.
+  - tipo: conceito
+    titulo: Healthcheck
+    texto: O Docker roda o comando do `HEALTHCHECK` a cada 30 segundos e marca o contêiner como `unhealthy` depois de três falhas seguidas. Orquestradores e balanceadores usam esse estado para tirar a instância do tráfego.
+  - tipo: adr
+    id: ADR-006
+    titulo: Tática de conteinerização
+    status: Proposed
+    contexto: O portal é uma SPA compilada em arquivos estáticos, e a infraestrutura de destino exige contêineres.
+    decisao: Docker com Nginx, em build de dois estágios, com `try_files` para as rotas da SPA.
+    alternativas: Docker com Node servindo os arquivos, com custo de execução e pouco controle de cabeçalhos, e não conteinerizar.
+    consequencias: Imagem pequena e auditável, com variáveis do front-end fixadas no build e parâmetros de CSP resolvidos no boot.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, a esteira de qualidade, o Dockerfile e a configuração de tipos da raiz. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: .github/workflows/ci.yml
+    commit: '2179313'
+    linhas:
+    - '  quality:'
+    - '    name: Quality Gate'
+    - '    runs-on: ubuntu-latest'
+    - ''
+    - '    steps:'
+    - '      - uses: actions/checkout@v4'
+    - ''
+    - '      - uses: actions/setup-node@v4'
+    - '        with:'
+    - '          node-version: ''20'''
+    - '          cache: ''npm'''
+    - ''
+    - '      - name: Instalar dependências'
+    - '        run: npm ci'
+    - ''
+    - '      - name: TypeScript — análise estática'
+    - '        run: npx tsc --noEmit'
+    - ''
+    - '      - name: ESLint — fronteiras FSD + regras'
+    - '        run: npx eslint src/'
+    - ''
+    - '      - name: Stylelint — lint CSS'
+    - '        run: npm run lint:css'
+    - ''
+    - '      - name: Vitest — testes unitários e de integração'
+    - '        run: npm run test:coverage'
+    - ''
+    - '      - name: Vite build — verificar que compila'
+    - '        run: npm run build'
+    - '        env:'
+    - '          VITE_ENV: production'
+    anotacoes:
+    - linha: 19
+      texto: A esteira usa Node 20, e a imagem também.
+    - linha: 23
+      texto: 'Primeira etapa: falha se o lock não corresponder ao `package.json`.'
+    - linha: 26
+      texto: Usa o `tsconfig.json` da raiz.
+    - linha: 35
+      texto: Reprova a esteira se a cobertura ficar abaixo dos limites do `vitest.config.ts`.
+    inicio: 10
+  - tipo: editor
+    rotulo: arquivo
+    caminho: tsconfig.json
+    commit: '2179313'
+    linhas:
+    - '{'
+    - '  "files": [],'
+    - '  "references": ['
+    - '    { "path": "./tsconfig.app.json" },'
+    - '    { "path": "./tsconfig.node.json" }'
+    - '  ]'
+    - '}'
+    anotacoes:
+    - linha: 2
+      texto: 'Nenhum arquivo próprio: o arquivo só aponta para os outros dois.'
+    - linha: 4
+      texto: As referências só são seguidas com `tsc -b`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Dockerfile
+    commit: '2179313'
+    linhas:
+    - '# ── Stage 1: Build ──────────────────────────────────────'
+    - FROM node:20-alpine AS build
+    - WORKDIR /app
+    - ''
+    - COPY package*.json ./
+    - RUN npm ci --prefer-offline
+    - ''
+    - COPY . .
+    - ARG VITE_ENV=production
+    - ARG VITE_API_BASE_URL
+    - ENV VITE_ENV=$VITE_ENV
+    - ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+    - ''
+    - RUN npm run build
+    - ''
+    - '# ── Stage 2: Runtime ────────────────────────────────────'
+    - FROM nginx:1.27-alpine AS runtime
+    - ''
+    - COPY --from=build /app/dist /usr/share/nginx/html
+    - '# CSP/baseline parametrizados por ambiente: o entrypoint do nginx roda envsubst'
+    - '# nos templates. NGINX_ENVSUBST_FILTER restringe a substituição às vars CSP_*,'
+    - '# preservando variáveis de runtime do Nginx ($request_id, $csp_nonce, $uri...).'
+    - COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+    - ENV NGINX_ENVSUBST_FILTER="^CSP_"
+    - ENV CSP_CONNECT_SRC=""
+    - ENV CSP_REPORT_URI="https://csp-report.example/collect"
+    - ''
+    - EXPOSE 80
+    - ''
+    - HEALTHCHECK --interval=30s --timeout=3s \
+    - '  CMD wget -qO- http://localhost/index.html || exit 1'
+    anotacoes:
+    - linha: 2
+      texto: Estágio de compilação, descartado na imagem final.
+    - linha: 6
+      texto: Mesmo `npm ci` da esteira.
+    - linha: 19
+      texto: Só o resultado do build chega à imagem final.
+    - linha: 24
+      texto: O `envsubst` só toca as variáveis `CSP_*`.
+    - linha: 31
+      texto: O healthcheck chama `localhost` dentro do contêiner.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: nginx.conf.template
+    commit: '2179313'
+    linhas:
+    - server {
+    - '    listen 80;'
+    anotacoes:
+    - linha: 2
+      texto: 'Só IPv4: sem a linha `listen [::]:80;`.'
+  - tipo: faixa
+    estilo: dica
+    texto: O `npm run build` roda `tsc -b && vite build`, e por isso a etapa de build da esteira acusa erros de tipo mesmo com a etapa de TypeScript vazia. A etapa própria existe para dar um sinal separado e mais rápido, e no commit de referência esse sinal é sempre verde.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Envie ao contêiner as requisições abaixo, capturadas com a imagem do laboratório, e classifique em que etapa cada problema é encontrado.
+  - tipo: console-api
+    cenarios:
+    - rotulo: Página inicial
+      requisicao:
+        metodo: GET
+        url: http://localhost:8080/
+      resposta:
+        status: 200
+        corpo: 'HTTP/1.1 200 OK
+
+          Cache-Control: no-cache, no-store, must-revalidate
+
+          Content-Security-Policy: default-src ''none''; script-src ''nonce-5c1ba816335c82716b1e8859c972b0e4'' ''strict-dynamic'' blob: https: ''unsafe-inline''; style-src ''self'' ''nonce-5c1ba816335c82716b1e8859c972b0e4''; img-src ''self'' data: blob:; font-src ''self''; connect-src ''self'' http://localhost:4000 http://localhost:4566; worker-src ''self''; manifest-src ''self''; base-uri ''self''; form-action ''self''; frame-ancestors ''none''; object-src ''none''; upgrade-insecure-requests; report-to csp-endpoint
+
+          Content-Security-Policy-Report-Only: require-trusted-types-for ''script''; trusted-types default; report-to csp-endpoint
+
+          Reporting-Endpoints: csp-endpoint="https://csp-report.example/collect"'
+      origem: executado
+      nota: Cabeçalhos da resposta, com o nonce no `script-src` e no `style-src` e o coletor padrão do Dockerfile.
+    - rotulo: config.json
+      requisicao:
+        metodo: GET
+        url: http://localhost:8080/config.json
+      resposta:
+        status: 200
+        corpo: 'Content-Type: application/json'
+      origem: executado
+      nota: O arquivo de `public/` foi copiado para a imagem pelo build.
+    - rotulo: Arquivo inexistente
+      requisicao:
+        metodo: GET
+        url: http://localhost:8080/nao-existe.json
+      resposta:
+        status: 200
+        corpo: 'Content-Type: text/html'
+      origem: executado
+      nota: O `try_files` do `location /` entrega o `index.html` para qualquer caminho sem arquivo.
+  - tipo: fluxo
+    titulo: Do push à imagem saudável
+    etapas:
+    - titulo: npm ci
+      descricao: Instala as dependências descritas no lock. No commit de referência, para com `EUSAGE`.
+    - titulo: Tipos, ESLint e Stylelint
+      descricao: Conferem tipos, fronteiras do FSD e CSS. A etapa de tipos lê o `tsconfig.json` da raiz, que não tem arquivos.
+    - titulo: Cobertura
+      descricao: Roda o Vitest com V8 e compara as porcentagens com os limites de 80%.
+    - titulo: Build
+      descricao: '`tsc -b` e `vite build`, com o `cspNoncePlugin` gravando o marcador de nonce no HTML.'
+    - titulo: Imagem
+      descricao: O workflow de staging roda `docker build` com `--build-arg`, envia ao registry e reinicia o contêiner no servidor.
+    - titulo: Healthcheck
+      descricao: O Docker chama o `index.html` a cada 30 segundos e publica o estado do contêiner.
+  - tipo: classificador
+    enunciado: No commit de referência, em que ponto cada problema aparece?
+    categorias:
+    - id: ci
+      rotulo: Na esteira, antes da imagem
+    - id: imagem
+      rotulo: No contêiner em execução
+    - id: nenhum
+      rotulo: Em nenhuma verificação
+    itens:
+    - texto: Lock sem os pacotes `@emnapi/*`
+      categoria: ci
+      explicacao: O `npm ci` para na primeira etapa.
+    - texto: Cobertura de branches em 78,8%
+      categoria: ci
+      explicacao: O `test:coverage` termina com código 1.
+    - texto: Erro de tipo num arquivo de `src/` com o `npx tsc --noEmit` da raiz
+      categoria: ci
+      explicacao: A etapa de tipos não percebe, e o `tsc -b` do build acusa o erro.
+    - texto: Healthcheck chamando `localhost`
+      categoria: imagem
+      explicacao: O contêiner sobe, serve páginas e fica `unhealthy`.
+    - texto: Microfrontend com URL `http:` no manifesto
+      categoria: imagem
+      explicacao: O build de produção recusa a URL no boot, com `mfes[0].url deve usar HTTPS`.
+    - texto: '`config.json` ausente atrás do `try_files`'
+      categoria: imagem
+      explicacao: O boot falha no navegador, como a ODA 14 mostrou.
+    - texto: Os cinco `PARSE_ERROR` dos `README.md` na cobertura
+      categoria: nenhum
+      explicacao: Não reprovam a etapa e só poluem a saída.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do repositório clonado na ODA 00, com o Docker em execução. Os passos 1 a 5 levam a esteira ao verde, e os passos 6 a 8 constroem a imagem, corrigem o healthcheck e conferem os cabeçalhos.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+  - tipo: passos
+    itens:
+    - titulo: Rodar o Quality Gate localmente
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx tsc --noEmit
+        - npx eslint src/
+        - npm run lint:css
+        - npm run test:coverage
+        - VITE_ENV=production VITE_API_BASE_URL=https://api.clientes.placeholder.com npm run build
+      sucesso: 'Todas as etapas terminam sem erro, exceto a cobertura, com `ERROR: Coverage for branches (78.8%) does not meet global threshold (80%)`.'
+    - titulo: Construir a imagem
+      editor:
+        rotulo: terminal
+        linhas:
+        - docker build --progress=plain -t portal-web:oda15 .
+      sucesso: '`npm error code EUSAGE` e `Missing: @emnapi/core@1.11.3 from lock file` no passo `[build 4/6]`.'
+    - titulo: Sincronizar o lock
+      texto: O comando atualiza só o `package-lock.json`, sem mexer no `node_modules`. Depois, o `npm ci` reinstala tudo a partir do lock.
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --package-lock-only
+        - git diff --stat package-lock.json
+        - npm ci
+      efeito: lock_sincronizado
+      sucesso: '`113 insertions(+), 29 deletions(-)` no lock e o `npm ci` terminando sem erro.'
+    - titulo: Cobrir o loadConfig
+      texto: Crie o arquivo abaixo, no padrão dos testes do repositório, que substituem o `fetch` com `vi.stubGlobal`. Os quatro testes percorrem os ramos do `loadConfig`.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/config/__tests__/config.test.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { afterEach, describe, expect, it, vi } from 'vitest'
+        - import { getMfeAllowedOrigins, getApiUrl, loadConfig } from '../index'
+        - ''
+        - 'function responder(corpo: string, status = 200) {'
+        - '  vi.stubGlobal(''fetch'', vi.fn(async () => new Response(corpo, { status, headers: { ''Content-Type'': ''application/json'' } })))'
+        - '}'
+        - ''
+        - afterEach(() => vi.unstubAllGlobals())
+        - ''
+        - describe('loadConfig', () => {
+        - '  it(''aplica a URL da API, as origens de microfrontend e as duas cores'', async () => {'
+        - '    responder(JSON.stringify({'
+        - '      apiUrl: ''http://localhost:4000'', primaryColor: ''#047857'', secondaryColor: ''#334155'', mfeAllowedOrigins: [''http://localhost:4566''],'
+        - '    }))'
+        - ''
+        - '    await loadConfig()'
+        - ''
+        - '    expect(getApiUrl()).toBe(''http://localhost:4000'')'
+        - '    expect(getMfeAllowedOrigins()).toEqual([''http://localhost:4566''])'
+        - '    expect(document.documentElement.style.getPropertyValue(''--color-primary'')).toBe(''#047857'')'
+        - '    expect(document.documentElement.style.getPropertyValue(''--color-secondary'')).toBe(''#334155'')'
+        - '  })'
+        - ''
+        - '  it(''ignora origens que não formam uma lista'', async () => {'
+        - '    responder(JSON.stringify({ mfeAllowedOrigins: ''http://localhost:4566'' }))'
+        - ''
+        - '    await loadConfig()'
+        - ''
+        - '    expect(getMfeAllowedOrigins()).toEqual([])'
+        - '  })'
+        - ''
+        - '  it(''segue sem erro quando o arquivo não existe ou a rede falha'', async () => {'
+        - '    responder('''', 404)'
+        - '    await expect(loadConfig()).resolves.toBeUndefined()'
+        - ''
+        - '    vi.stubGlobal(''fetch'', vi.fn(async () => { throw new TypeError(''Failed to fetch'') }))'
+        - '    await expect(loadConfig()).resolves.toBeUndefined()'
+        - '  })'
+        - ''
+        - '  it(''falha rápido quando o config.json não é JSON válido'', async () => {'
+        - '    responder(''{ apiUrl:'')'
+        - ''
+        - '    await expect(loadConfig()).rejects.toThrow(''[config] /config.json inválido'')'
+        - '  })'
+        - '})'
+      efeito: teste_config
+    - titulo: Rodar a cobertura de novo
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run test:coverage
+      sucesso: '`Tests 103 passed (103)` e a linha `All files` com 85,43% de branches, sem a mensagem `ERROR`.'
+    - titulo: Provar que a etapa de tipos está vazia
+      texto: Crie um arquivo com erro de tipo, rode as duas formas do `tsc` e apague o arquivo.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'printf "export const porta: number = ''oitenta''
+
+          " > src/shared/lib/erroDeTipo.ts'
+        - npx tsc --noEmit
+        - npx tsc -b
+        - rm src/shared/lib/erroDeTipo.ts
+      sucesso: O `npx tsc --noEmit` termina sem mensagens, e o `npx tsc -b` acusa `TS2322` em `erroDeTipo.ts`.
+    - titulo: Corrigir a etapa de tipos e o healthcheck
+      editor:
+        rotulo: arquivo
+        caminho: .github/workflows/ci.yml e Dockerfile (alteração)
+        commit: '2179313'
+        linhas:
+        - '# .github/workflows/ci.yml: etapa de TypeScript'
+        - '      - name: TypeScript — análise estática'
+        - '        # O tsconfig.json da raiz só tem referências; o -b confere tsconfig.app.json e tsconfig.node.json.'
+        - '        run: npx tsc -b'
+        - ''
+        - '# Dockerfile: healthcheck'
+        - HEALTHCHECK --interval=30s --timeout=3s \
+        - '  CMD wget -qO- http://127.0.0.1/index.html || exit 1'
+      efeito: ci_corrigido
+    - titulo: Construir, subir e conferir
+      texto: Espere cerca de 35 segundos entre o `docker run` e o `docker inspect`, o tempo da primeira verificação do healthcheck. No fim, remova o contêiner.
+      editor:
+        rotulo: terminal
+        linhas:
+        - docker build --progress=plain -t portal-web:oda15 .
+        - docker run -d --name portal-oda15 -p 8080:80 -e CSP_CONNECT_SRC='http://localhost:4000 http://localhost:4566' portal-web:oda15
+        - docker inspect --format '{{.State.Health.Status}}' portal-oda15
+        - curl -s -D - -o /tmp/oda15-index.html http://localhost:8080/ | tr -d '\r' | grep -i -E '^(HTTP|content-security-policy|reporting-endpoints|cache-control)'
+        - grep -o 'nonce="[^"]*"' /tmp/oda15-index.html | sort | uniq -c
+        - for i in 1 2; do curl -s -D - -o /dev/null http://localhost:8080/ | tr -d '\r' | grep -i '^content-security-policy:' | grep -o "nonce-[^']*"; done
+        - curl -s -o /dev/null -w '%{http_code} %{content_type}\n' http://localhost:8080/config.json; curl -s -o /dev/null -w '%{http_code} %{content_type}\n' http://localhost:8080/nao-existe.json
+        - docker rm -f portal-oda15
+      sucesso: '`naming to docker.io/library/portal-web:oda15 done`, `healthy`, o mesmo nonce no HTML e no cabeçalho, um nonce diferente a cada requisição e `200 text/html` para o arquivo inexistente.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: npx eslint src/
+      saida: ''
+      origem: executado
+      dica: Sem mensagens.
+    - entrada: npm run lint:css
+      saida: '> frontend-react@0.0.0 lint:css
+
+        > stylelint ''src/**/*.css'''
+      origem: executado
+    - entrada: VITE_ENV=production VITE_API_BASE_URL=https://api.clientes.placeholder.com npm run build
+      saida: 'dist/assets/state-S-IPW_Gy.js              22.81 kB │ gzip:  8.76 kB
+
+        dist/assets/forms-pP_t8XPo.js              32.50 kB │ gzip: 12.01 kB
+
+        dist/assets/index-DR6xpl8R.js             130.37 kB │ gzip: 42.41 kB
+
+        dist/assets/vendor-Bz1ui-aB.js            181.78 kB │ gzip: 57.19 kB
+
+
+        ✓ built in 178ms'
+      origem: executado
+    - entrada: npm install --package-lock-only
+      saida: "up to date, audited 449 packages in 3s\n\n123 packages are looking for funding\n  run `npm fund` for details\n\n33 vulnerabilities (19 moderate, 11 high, 3 critical)\n\nTo address issues that do not require attention, run:\n  npm audit fix\n\nTo address all issues possible (including breaking changes), run:\n  npm audit fix --force\n\nSome issues need review, and may require choosing\na different dependency.\n\nRun `npm audit` for details."
+      origem: executado
+      efeito: lock_sincronizado
+      dica: O npm acrescenta ao lock os pacotes opcionais `@emnapi/*` que faltavam.
+    - entrada: git diff --stat package-lock.json
+      condicao: lock_sincronizado
+      saida: " package-lock.json | 142 +++++++++++++++++++++++++++++++++++++++++++-----------\n 1 file changed, 113 insertions(+), 29 deletions(-)"
+      origem: executado
+    - entrada: npm ci
+      condicao: lock_sincronizado
+      saida: "added 448 packages, and audited 449 packages in 3s\n\n123 packages are looking for funding\n  run `npm fund` for details\n\n33 vulnerabilities (19 moderate, 11 high, 3 critical)\n\nTo address issues that do not require attention, run:\n  npm audit fix\n\nTo address all issues possible (including breaking changes), run:\n  npm audit fix --force\n\nSome issues need review, and may require choosing\na different dependency.\n\nRun `npm audit` for details."
+      origem: executado
+    - entrada: npm ci
+      saida: 'npm error code EUSAGE
+
+        npm error
+
+        npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+
+        npm error
+
+        npm error Missing: @emnapi/core@1.11.3 from lock file
+
+        npm error Missing: @emnapi/runtime@1.11.3 from lock file
+
+        npm error Missing: @emnapi/wasi-threads@1.2.3 from lock file'
+      origem: executado
+      dica: O mesmo erro para a esteira do GitHub Actions e o `docker build`.
+    - entrada: 'printf "export const porta: number = ''oitenta''
+
+        " > src/shared/lib/erroDeTipo.ts'
+      saida: ''
+      origem: executado
+      efeito: erro_tipo
+    - entrada: rm src/shared/lib/erroDeTipo.ts
+      saida: ''
+      origem: executado
+      efeito: '!erro_tipo'
+    - entrada: docker run -d --name portal-oda15 -p 8080:80 -e CSP_CONNECT_SRC='http://localhost:4000 http://localhost:4566' portal-web:oda15
+      saida: <identificador do contêiner>
+      origem: exemplo
+      dica: Se o nome já existir, remova o contêiner anterior com `docker rm -f portal-oda15`.
+    - entrada: docker rm -f portal-oda15
+      saida: portal-oda15
+      origem: executado
+    - entrada: curl -s -D - -o /tmp/oda15-index.html http://localhost:8080/ | tr -d '\r' | grep -i -E '^(HTTP|content-security-policy|reporting-endpoints|cache-control)'
+      saida: 'HTTP/1.1 200 OK
+
+        Cache-Control: no-cache, no-store, must-revalidate
+
+        Content-Security-Policy: default-src ''none''; script-src ''nonce-5c1ba816335c82716b1e8859c972b0e4'' ''strict-dynamic'' blob: https: ''unsafe-inline''; style-src ''self'' ''nonce-5c1ba816335c82716b1e8859c972b0e4''; img-src ''self'' data: blob:; font-src ''self''; connect-src ''self'' http://localhost:4000 http://localhost:4566; worker-src ''self''; manifest-src ''self''; base-uri ''self''; form-action ''self''; frame-ancestors ''none''; object-src ''none''; upgrade-insecure-requests; report-to csp-endpoint
+
+        Content-Security-Policy-Report-Only: require-trusted-types-for ''script''; trusted-types default; report-to csp-endpoint
+
+        Reporting-Endpoints: csp-endpoint="https://csp-report.example/collect"'
+      origem: executado
+    - entrada: grep -o 'nonce="[^"]*"' /tmp/oda15-index.html | sort | uniq -c
+      saida: '   1 nonce="5c1ba816335c82716b1e8859c972b0e4"'
+      origem: executado
+      dica: O valor é o mesmo do `script-src` da resposta anterior.
+    - entrada: for i in 1 2; do curl -s -D - -o /dev/null http://localhost:8080/ | tr -d '\r' | grep -i '^content-security-policy:' | grep -o "nonce-[^']*"; done
+      saida: 'nonce-3fcb36178abf200731b9cc4dc436f45c
+
+        nonce-3fcb36178abf200731b9cc4dc436f45c
+
+        nonce-de897d12b3f9076bd7750055a56692c7
+
+        nonce-de897d12b3f9076bd7750055a56692c7'
+      origem: executado
+      dica: Cada requisição tem um nonce, repetido no `script-src` e no `style-src`.
+    - entrada: curl -s -o /dev/null -w '%{http_code} %{content_type}\n' http://localhost:8080/config.json; curl -s -o /dev/null -w '%{http_code} %{content_type}\n' http://localhost:8080/nao-existe.json
+      saida: '200 application/json
+
+        200 text/html'
+      origem: executado
+      dica: O arquivo inexistente recebe o `index.html`, pelo `try_files` do `location /`.
+    - entrada: npx tsc --noEmit
+      condicao: erro_tipo
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens, mesmo com o erro de tipo: o `tsconfig.json` da raiz tem `files: []`.'
+    - entrada: npx tsc --noEmit
+      saida: ''
+      origem: executado
+      dica: Sem mensagens.
+    - entrada: npx tsc -b
+      condicao: erro_tipo
+      saida: 'src/shared/lib/erroDeTipo.ts(1,14): error TS2322: Type ''string'' is not assignable to type ''number''.'
+      origem: executado
+    - entrada: npx tsc -b
+      saida: ''
+      origem: executado
+      dica: Sem mensagens.
+    - entrada: npm run test:coverage
+      condicao: teste_config
+      saida: " Test Files  24 passed (24)\n      Tests  103 passed (103)\nFile               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s \nAll files          |   91.69 |    85.43 |   91.66 |   95.75 |                   "
+      origem: executado
+      dica: A saída completa também traz cinco `PARSE_ERROR` dos `README.md` de `src/`, que o `coverage.include` alcança.
+    - entrada: npm run test:coverage
+      saida: " Test Files  23 passed (23)\n      Tests  99 passed (99)\nFile               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s \nAll files          |   86.03 |     78.8 |   88.33 |   90.09 |                   \nERROR: Coverage for branches (78.8%) does not meet global threshold (80%)"
+      origem: executado
+      dica: O limite de 80% de branches no `vitest.config.ts` reprova a suíte, e o `src/shared/config/index.ts` tem 23,07%.
+    - entrada: docker build --progress=plain -t portal-web:oda15 .
+      condicao: lock_sincronizado
+      saida: '#6 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+
+        #8 [build 2/6] WORKDIR /app
+
+        #9 [build 3/6] COPY package*.json ./
+
+        #10 [build 4/6] RUN npm ci --prefer-offline
+
+        #11 [build 5/6] COPY . .
+
+        #12 [build 6/6] RUN npm run build
+
+        #12 2.674 ✓ built in 381ms
+
+        #15 naming to docker.io/library/portal-web:oda15 done'
+      origem: executado
+    - entrada: docker build --progress=plain -t portal-web:oda15 .
+      saida: "#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#8 [build 2/6] WORKDIR /app\n#9 [build 3/6] COPY package*.json ./\n#10 [build 4/6] RUN npm ci --prefer-offline\n#10 0.852 npm error code EUSAGE\n#10 0.852 npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.\n#10 0.852 npm error Missing: @emnapi/core@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/runtime@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/wasi-threads@1.2.3 from lock file\n#10 ERROR: process \"/bin/sh -c npm ci --prefer-offline\" did not complete successfully: exit code: 1\n > [build 4/6] RUN npm ci --prefer-offline:"
+      origem: executado
+    - entrada: docker inspect --format '{{.State.Health.Status}}' portal-oda15
+      condicao:
+      - lock_sincronizado
+      - ci_corrigido
+      saida: healthy
+      origem: executado
+      dica: Na primeira verificação, 30 segundos depois do `docker run`.
+    - entrada: docker inspect --format '{{.State.Health.Status}}' portal-oda15
+      condicao: lock_sincronizado
+      saida: unhealthy
+      origem: executado
+      dica: Depois de três falhas seguidas do healthcheck. Veja o Diagnóstico.
+    cenarios:
+    - rotulo: Cobertura
+      comando: npm run test:coverage
+    - rotulo: Imagem do shell
+      comando: docker build --progress=plain -t portal-web:oda15 .
+    - rotulo: Estado do contêiner
+      comando: docker inspect --format '{{.State.Health.Status}}' portal-oda15
+    - rotulo: Cabeçalhos
+      comando: curl -s -D - -o /tmp/oda15-index.html http://localhost:8080/ | tr -d '\r' | grep -i -E '^(HTTP|content-security-policy|reporting-endpoints|cache-control)'
+    - rotulo: Nonce por requisição
+      comando: for i in 1 2; do curl -s -D - -o /dev/null http://localhost:8080/ | tr -d '\r' | grep -i '^content-security-policy:' | grep -o "nonce-[^']*"; done
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os quatro incidentes partem de saídas do laboratório e de uma execução do shell no navegador contra a imagem.
+  - tipo: incidente
+    titulo: Contêiner que serve páginas e fica unhealthy
+    origem: executado
+    rotulo_saida: log
+    saida: '$ docker inspect --format ''{{.State.Health.Status}}'' portal-oda15
+
+      unhealthy
+
+
+      $ docker exec portal-oda15 sh -c ''getent hosts localhost; wget …''
+
+      ::1               localhost  localhost
+
+      localhost: código 1
+
+      wget: can''t connect to remote host: Connection refused
+
+      127.0.0.1: código 0'
+    pergunta: O `curl` do host recebe as páginas, e o Docker marca o contêiner como `unhealthy`. Por quê?
+    correcao: Chamar `127.0.0.1` no healthcheck, como no passo 7, ou acrescentar `listen [::]:80;` ao template do Nginx.
+    alternativas:
+    - texto: O healthcheck roda antes de o Nginx subir.
+      correta: false
+      explicacao: As falhas continuam a cada 30 segundos.
+    - texto: Dentro da imagem Alpine, `localhost` resolve para `::1`, e o Nginx só escuta em IPv4.
+      correta: true
+      explicacao: O mesmo `wget` com `127.0.0.1` termina com código 0.
+    - texto: O `index.html` não existe na imagem.
+      correta: false
+      explicacao: O `curl` do host recebe a página.
+  - tipo: incidente
+    titulo: Esteira verde com erro de tipo
+    origem: executado
+    rotulo_saida: log
+    saida: '$ printf "export const porta: number = ''oitenta''
+
+      " > src/shared/lib/erroDeTipo.ts
+
+      $ npx tsc --noEmit
+
+
+      $ npx tsc -b
+
+      src/shared/lib/erroDeTipo.ts(1,14): error TS2322: Type ''string'' is not assignable to type ''number''.'
+    pergunta: Por que a etapa de TypeScript da esteira não acusa o erro?
+    correcao: Trocar a etapa por `npx tsc -b`, que segue as referências, ou por `npx tsc --noEmit -p tsconfig.app.json`.
+    alternativas:
+    - texto: O arquivo novo está fora de `include`.
+      correta: false
+      explicacao: O `tsc -b` encontrou o arquivo em `src/`.
+    - texto: O `skipLibCheck` ignora erros em `src/`.
+      correta: false
+      explicacao: A opção vale só para arquivos `.d.ts`.
+    - texto: 'O `tsconfig.json` da raiz tem `files: []` e só referências, que o `tsc` sem `-b` não segue.'
+      correta: true
+      explicacao: O `npm run build` usa `tsc -b` e acusa o mesmo erro.
+  - tipo: incidente
+    titulo: Imagem de produção que não inicia com o manifesto local
+    origem: executado
+    rotulo_saida: log
+    saida: 'Falha ao iniciar o portal:
+
+      Error: [mfe-manifest] mfes[0].url deve usar HTTPS'
+    pergunta: A imagem roda localmente, e o portal mostra a tela de falha de boot. O que aconteceu?
+    correcao: Testar a imagem com um manifesto de URLs HTTPS, ou validar localmente com o servidor de desenvolvimento, em que `localhost` com HTTP é aceito.
+    alternativas:
+    - texto: O build de produção exige HTTPS nas URLs dos microfrontends, e o manifesto aponta para `http://localhost:4566`.
+      correta: true
+      explicacao: A regra está descrita no item (c) da seção 4 do `SECURITY.md`.
+    - texto: A CSP bloqueou o `main.tsx`.
+      correta: false
+      explicacao: O navegador não registrou nenhuma violação na carga.
+    - texto: O `config.json` não foi copiado.
+      correta: false
+      explicacao: O `config.json` responde 200 com `application/json`.
+  - tipo: incidente
+    titulo: Lock que funciona numa máquina e falha na esteira
+    origem: executado
+    rotulo_saida: log
+    saida: "#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#8 [build 2/6] WORKDIR /app\n#9 [build 3/6] COPY package*.json ./\n#10 [build 4/6] RUN npm ci --prefer-offline\n#10 0.852 npm error code EUSAGE\n#10 0.852 npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.\n#10 0.852 npm error Missing: @emnapi/core@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/runtime@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/wasi-threads@1.2.3 from lock file\n#10 ERROR: process \"/bin/sh -c npm ci --prefer-offline\" did not complete successfully: exit code: 1\n > [build 4/6] RUN npm ci --prefer-offline:"
+    pergunta: Quem tinha `node_modules` instalado continuava a trabalhar normalmente. Por que a esteira e a imagem param?
+    correcao: Rodar `npm install --package-lock-only`, conferir o diff e versionar o lock, como no passo 3.
+    alternativas:
+    - texto: O Docker não tem acesso à internet.
+      correta: false
+      explicacao: O erro é de validação do lock, antes de qualquer download.
+    - texto: O `npm ci` instala a partir do lock e recusa um lock sem os pacotes opcionais que o `package.json` atual exige.
+      correta: true
+      explicacao: O `npm install` local não falha, porque reescreve o lock quando ele diverge do `package.json`.
+    - texto: O Node 20 da imagem não roda o Vite.
+      correta: false
+      explicacao: Com o lock corrigido, o mesmo Node 20 compila o shell.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que a imagem do shell tem dois estágios?
+      alternativas:
+      - texto: Para rodar os testes dentro da imagem.
+        correta: false
+        explicacao: Os testes ficam na esteira.
+      - texto: Para ter duas versões do Nginx.
+        correta: false
+        explicacao: Só o segundo estágio tem Nginx.
+      - texto: Para compilar com Node e entregar só o `dist/` numa imagem Nginx enxuta.
+        correta: true
+        explicacao: A imagem final tem 76,5 MB, sem Node nem `node_modules`.
+    - enunciado: Como mudar o `connect-src` de um ambiente sem gerar outra imagem?
+      alternativas:
+      - texto: Passando `CSP_CONNECT_SRC` no `docker run`, que o `envsubst` aplica ao template no boot.
+        correta: true
+        explicacao: O laboratório passa duas origens com `-e`.
+      - texto: Mudando `VITE_API_BASE_URL`.
+        correta: false
+        explicacao: Essa variável é de build.
+      - texto: Editando o `index.html` no contêiner.
+        correta: false
+        explicacao: A CSP vem do cabeçalho do Nginx.
+    - enunciado: Por que o nonce muda a cada requisição?
+      alternativas:
+      - texto: Porque o navegador sorteia o nonce.
+        correta: false
+        explicacao: O navegador só confere o nonce.
+      - texto: Porque vem de `$request_id`, gravado no HTML pelo `sub_filter` e no cabeçalho pelo `add_header`.
+        correta: true
+        explicacao: As duas requisições do passo 8 tiveram nonces diferentes.
+      - texto: Porque o build gera um nonce novo a cada deploy.
+        correta: false
+        explicacao: O build grava só o marcador `**CSP_NONCE**`.
+    - enunciado: O que o `npm ci` garante que o `npm install` não garante?
+      alternativas:
+      - texto: Que as dependências estejam sem vulnerabilidades.
+        correta: false
+        explicacao: O `npm audit` continua a listar vulnerabilidades.
+      - texto: Que a instalação seja mais rápida.
+        correta: false
+        explicacao: A diferença é de reprodutibilidade.
+      - texto: Que a instalação corresponda exatamente ao lock, sem alterá-lo.
+        correta: true
+        explicacao: Por isso o lock precisa estar versionado e sincronizado.
+    - enunciado: Que estado o orquestrador vê com o healthcheck original?
+      alternativas:
+      - texto: '`unhealthy`, depois de três falhas, embora o Nginx sirva as páginas.'
+        correta: true
+        explicacao: Um orquestrador tiraria a instância do tráfego.
+      - texto: '`healthy`, porque o `curl` do host funciona.'
+        correta: false
+        explicacao: O healthcheck roda dentro do contêiner.
+      - texto: Nenhum, porque o Dockerfile não declara healthcheck.
+        correta: false
+        explicacao: O Dockerfile declara `HEALTHCHECK`.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - Cada etapa do Quality Gate foi executada localmente.
+    - O lock foi sincronizado e o `npm ci` e o `docker build` passaram.
+    - A cobertura de branches passou do limite com o teste do `loadConfig`.
+    - A etapa de tipos passou a conferir os arquivos com `tsc -b`.
+    - A imagem ficou `healthy` e serviu a CSP com nonce por requisição.

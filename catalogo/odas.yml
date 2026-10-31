@@ -171,7 +171,8 @@ odas:
     minutos: 60
     pre_requisitos: ["14"]
     objetivo: "Executar localmente o Quality Gate da esteira e construir a imagem do shell."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-15
   - id: "16"
     titulo: "Ambiente .NET 10 e os três bounded contexts"
     trilha: 6
