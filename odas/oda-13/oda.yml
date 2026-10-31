@@ -1,0 +1,602 @@
+id: '13'
+titulo: Segurança no navegador
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O portal executa código de outras origens, e a CSP decide o que pode rodar e para onde o navegador pode se conectar. Esta ODA lê a política de produção diretiva por diretiva, interpreta o único relatório de Trusted Types que o portal gera em desenvolvimento e o elimina com uma política `default` restrita, escrita depois do teste.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar o papel do nonce, do `strict-dynamic` e de `default-src 'none'` na política de produção.
+    - Separar a CSP de recursos, em enforcement, da política de Trusted Types, em Report-Only.
+    - Ler um relatório de violação e localizar o código que o produziu.
+    - Registrar uma política `default` de Trusted Types com lista fechada de URLs, com o teste escrito antes.
+    - Verificar se o relatório chega ao coletor configurado.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 07 e as dependências da raiz instaladas na ODA 00. Se o `npm ci` falhar por falta de pacotes no lock, use `npm install --no-save`. Os testes usam o Chromium do Playwright, instalado com `npx playwright install chromium`, e os comandos usam a sintaxe do bash ou do zsh, no Git Bash ou no WSL no Windows.
+  - tipo: terminal
+    titulo: terminal · relatório de Trusted Types
+    comandos:
+    - entrada: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      saida: "Running 3 tests using 3 workers\n\n  ✓  3 [chromium] › tests/e2e/trustedTypes.spec.ts:24:1 › URL de script fora da lista continua reportada (1.1s)\n  ✓  2 [chromium] › tests/e2e/trustedTypes.spec.ts:19:1 › HTML cru num sink do DOM continua reportado (1.1s)\n  ✘  1 [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types (1.2s)\n\n\n  1) [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types ───\n\n    Error: expect(received).toEqual(expected) // deep equality\n\n    - Expected  - 1\n    + Received  + 3\n\n    - Array []\n    + Array [\n    +   \"require-trusted-types-for ServiceWorkerContainer register|/mockServiceWorker.js\",\n    + ]\n\n      14 |\n      15 | test('o boot do portal não viola Trusted Types', async ({ page }) => {\n    > 16 |   expect(await violacoes(page)).toEqual([])\n         |                                 ^\n      17 | })\n      18 |\n      19 | test('HTML cru num sink do DOM continua reportado', async ({ page }) => {\n        at ./tests/e2e/trustedTypes.spec.ts:16:33\n\n\n  1 failed\n    [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types ────\n  2 passed (1.7s)"
+      origem: executado
+      dica: Este é o teste do passo 3. A violação vem do MSW, que só roda em desenvolvimento.
+    - entrada: 'curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1'
+      saida: HTTP/1.1 404 Not Found
+      origem: executado
+      dica: O Vite não tem rota para o coletor, e o handler do MSW só vê requisições feitas pela página.
+    cenarios:
+    - rotulo: Teste de Trusted Types
+      comando: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+    - rotulo: Coletor de relatórios
+      comando: 'curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-012 aplica uma CSP estrita de recursos em enforcement, e a ADR-013 acrescenta Trusted Types em Report-Only, que reporta sem bloquear. O Nginx de produção e o Vite de desenvolvimento enviam políticas diferentes.
+  - tipo: comparativo
+    colunas:
+    - Produção (Nginx)
+    - Desenvolvimento (Vite)
+    linhas:
+    - dimensao: CSP de recursos
+      valores:
+      - Enforcement, com nonce por requisição e `strict-dynamic`
+      - Report-Only, com `'unsafe-inline'` e `'unsafe-eval'` para o HMR
+    - dimensao: Trusted Types
+      valores:
+      - Cabeçalho Report-Only separado
+      - Na mesma política Report-Only
+    - dimensao: Coletor
+      valores:
+      - '`${CSP_REPORT_URI}`, injetado pelo envsubst'
+      - '`/__csp-report`, que o Vite não atende'
+    - dimensao: Arquivo
+      valores:
+      - '`nginx.conf.template`, repetido em três blocos `location`'
+      - '`vite.config.ts`, em `server.headers`'
+  - tipo: conceito
+    titulo: Nonce e strict-dynamic
+    texto: O Nginx gera um nonce por requisição e o grava no HTML e no cabeçalho, e só scripts com esse nonce executam. Com `strict-dynamic`, os scripts carregados por um script confiável herdam a confiança, e o navegador ignora as listas de origem e o `'unsafe-inline'` da mesma diretiva.
+  - tipo: conceito
+    titulo: Política default de Trusted Types
+    texto: Com `require-trusted-types-for 'script'`, um sink como `innerHTML` ou `script.src` passa a exigir um objeto confiável no lugar de uma string. Uma política chamada `default` é aplicada pelo navegador a cada string atribuída, e devolver `null` recusa a atribuição.
+  - tipo: adr
+    id: ADR-012
+    titulo: Content Security Policy estrito e baseline de segurança
+    status: Proposed
+    contexto: O shell importa microfrontends de buckets de outra origem em tempo de execução, e listar cada bucket no `script-src` daria uma lista frágil e crescente.
+    decisao: '`strict-dynamic` com nonce por requisição, aplicado pelo Nginx em produção, e política Report-Only no Vite em desenvolvimento.'
+    alternativas: Lista de origens de bucket no `script-src` e hashes de script, inviáveis com bundles carregados dinamicamente.
+    consequencias: Só o que o shell originou executa, e as origens de API continuam a exigir `connect-src` explícito.
+  - tipo: adr
+    id: ADR-013
+    titulo: Trusted Types e Reporting API em Report-Only
+    status: Proposed
+    contexto: A CSP de recursos não impede que código autorizado escreva dados não confiáveis em sinks como `innerHTML`, `script.src` ou `eval`.
+    decisao: Trusted Types em Report-Only, com relatórios enviados pela Reporting API ao endpoint `csp-endpoint`.
+    alternativas: Enforcement imediato, que derrubaria microfrontends com HTML cru, e nenhuma defesa contra DOM-XSS.
+    consequencias: Visibilidade das violações antes de bloquear, ao custo de manter um coletor e de migrar cada microfrontend antes do enforcement.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, a política de produção, a de desenvolvimento, o coletor simulado e o carregamento de microfrontends. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: nginx.conf.template
+    commit: '2179313'
+    linhas:
+    - server {
+    - '    listen 80;'
+    - '    root /usr/share/nginx/html;'
+    - '    index index.html;'
+    - ''
+    - '    # Nonce único por requisição (fonte: $request_id). Ver SECURITY.md / risco R4.'
+    - '    set $csp_nonce $request_id;'
+    - ''
+    - '    gzip on;'
+    - '    gzip_vary on;'
+    - '    gzip_types text/plain text/css application/javascript application/json image/svg+xml;'
+    - ''
+    - '    # Bloco de cabeçalhos de segurança — repetido em cada location (sem herança no add_header).'
+    - '    # $csp_nonce é variável de runtime do Nginx (NÃO sofre envsubst, pois o filtro é ^CSP_).'
+    - '    # ${CSP_CONNECT_SRC} e ${CSP_REPORT_URI} são substituídos por envsubst no boot do container.'
+    anotacoes:
+    - linha: 7
+      texto: O nonce é o identificador da requisição, diferente a cada `GET`.
+    - linha: 14
+      texto: O filtro do envsubst preserva as variáveis do próprio Nginx.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: nginx.conf.template
+    commit: '2179313'
+    linhas:
+    - '    location = /index.html {'
+    - '        add_header Cache-Control "no-cache, no-store, must-revalidate" always;'
+    - '        add_header Content-Security-Policy "default-src ''none''; script-src ''nonce-$csp_nonce'' ''strict-dynamic'' blob: https: ''unsafe-inline''; style-src ''self'' ''nonce-$csp_nonce''; img-src ''self'' data: blob:; font-src ''self''; connect-src ''self'' ${CSP_CONNECT_SRC}; worker-src ''self''; manifest-src ''self''; base-uri ''self''; form-action ''self''; frame-ancestors ''none''; object-src ''none''; upgrade-insecure-requests; report-to csp-endpoint" always;'
+    - '        add_header Content-Security-Policy-Report-Only "require-trusted-types-for ''script''; trusted-types default; report-to csp-endpoint" always;'
+    - '        add_header Reporting-Endpoints "csp-endpoint=\"${CSP_REPORT_URI}\"" always;'
+    - '        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;'
+    - '        add_header X-Content-Type-Options "nosniff" always;'
+    - '        add_header Referrer-Policy "strict-origin-when-cross-origin" always;'
+    - '        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), browsing-topics=()" always;'
+    - '        add_header Cross-Origin-Opener-Policy "same-origin" always;'
+    - '        sub_filter_once off;'
+    - '        sub_filter ''**CSP_NONCE**'' $csp_nonce;'
+    - '    }'
+    anotacoes:
+    - linha: 30
+      texto: Só o HTML recebe o `sub_filter` que grava o nonce.
+    - linha: 41
+      texto: Troca o marcador gravado pelo build pelo nonce da requisição.
+    inicio: 30
+  - tipo: editor
+    rotulo: arquivo
+    caminho: vite.config.ts
+    commit: '2179313'
+    linhas:
+    - '  server: {'
+    - '    headers: {'
+    - '      ''Content-Security-Policy-Report-Only'': ['
+    - '        "default-src ''none''",'
+    - '        "script-src ''self'' ''unsafe-inline'' ''unsafe-eval''",'
+    - '        "style-src ''self'' ''unsafe-inline''",'
+    - '        "img-src ''self'' data: blob:",'
+    - '        "font-src ''self''",'
+    - '        "connect-src ''self'' ws: http://localhost:4566",'
+    - '        "worker-src ''self'' blob:",'
+    - '        "manifest-src ''self''",'
+    - '        "base-uri ''self''",'
+    - '        "form-action ''self''",'
+    - '        "frame-ancestors ''none''",'
+    - '        "object-src ''none''",'
+    - '        "require-trusted-types-for ''script''",'
+    - '        "trusted-types default",'
+    - '        "report-to csp-endpoint",'
+    - '      ].join(''; ''),'
+    - '      ''Reporting-Endpoints'': ''csp-endpoint="/__csp-report"'','
+    - '    },'
+    anotacoes:
+    - linha: 32
+      texto: Em desenvolvimento, toda a política é Report-Only.
+    - linha: 34
+      texto: O HMR do Vite precisa de script inline e de `eval`.
+    - linha: 45
+      texto: Exige objetos confiáveis nos sinks de script.
+    - linha: 49
+      texto: 'Endpoint relativo: o relatório vai para o próprio servidor do Vite.'
+    inicio: 30
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/mocks/handlers.ts
+    commit: '2179313'
+    linhas:
+    - '  ),'
+    - '  // Coletor de violações de CSP em dev: o navegador faz POST para o'
+    - '  // endpoint de Reporting-Endpoints (/__csp-report). Loga e responde 204.'
+    - '  http.post(''/__csp-report'', async ({ request }) => {'
+    - '    const body = await request.text()'
+    - '    console.warn(''[csp-report]'', body)'
+    - '    return new HttpResponse(null, { status: 204 })'
+    - '  }),'
+    anotacoes:
+    - linha: 23
+      texto: O handler do MSW só intercepta requisições feitas pela página.
+    - linha: 25
+      texto: Prefixo que o `SECURITY.md` manda procurar no console.
+    inicio: 20
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/app/mfe/loadMfeModule.ts
+    commit: '2179313'
+    linhas:
+    - '  const response = await fetch(url, { credentials: ''omit'', cache: ''no-store'' })'
+    - '  if (!response.ok) throw new Error(`[mfe] bundle ${url} respondeu HTTP ${response.status}`)'
+    - '  const bytes = await response.arrayBuffer()'
+    - '  await verifyBundleIntegrity(bytes, integrity)'
+    - '  const blobUrl = URL.createObjectURL(new Blob([bytes], { type: ''text/javascript'' }))'
+    - '  let mod: unknown'
+    - '  try {'
+    - '    mod = await import(/* @vite-ignore */ blobUrl)'
+    - '  } finally {'
+    - '    URL.revokeObjectURL(blobUrl)'
+    - '  }'
+    anotacoes:
+    - linha: 28
+      texto: O hash SHA-256 é conferido antes da execução.
+    - linha: 32
+      texto: Importação feita por um script confiável, coberta pelo `strict-dynamic`.
+    inicio: 25
+  - tipo: faixa
+    estilo: dica
+    texto: O `src/main.tsx` monta o aviso de falha de boot com `createElement` e `textContent`, e não com `innerHTML`, para que a tela de erro continue a funcionar quando Trusted Types passar a enforcement.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Acompanhe o caminho do relatório real do portal até o coletor e classifique o efeito de cada diretiva da política de produção.
+  - tipo: fluxo
+    titulo: Da atribuição ao coletor
+    etapas:
+    - titulo: Atribuição
+      descricao: O MSW registra o Service Worker passando a string `/mockServiceWorker.js` ao método `register`, na linha 2657 do bundle pré-processado pelo Vite.
+    - titulo: Verificação
+      descricao: O navegador procura uma política `default` para converter a string e, como ela não existe, registra a violação `require-trusted-types-for`.
+    - titulo: Disposição
+      descricao: 'Com `disposition: report`, o registro do Service Worker continua e o evento `securitypolicyviolation` é disparado na página.'
+    - titulo: Fila
+      descricao: A Reporting API põe o relatório na fila do destino `csp-endpoint` e o envia em lote, fora do JavaScript da página.
+    - titulo: Entrega
+      descricao: O `POST` vai para `/__csp-report` no Vite, que responde 404, e o relatório volta à fila com zero tentativas concluídas.
+  - tipo: classificador
+    enunciado: Na política de produção, o que acontece em cada caso?
+    categorias:
+    - id: bloqueia
+      rotulo: Bloqueia
+    - id: reporta
+      rotulo: Só reporta
+    - id: permite
+      rotulo: Permite
+    itens:
+    - texto: '`<script>` inline injetado sem nonce'
+      categoria: bloqueia
+      explicacao: Com nonce e `strict-dynamic`, o navegador ignora o `'unsafe-inline'` da diretiva.
+    - texto: '`import()` de uma URL `blob:` feito por `main.tsx`'
+      categoria: permite
+      explicacao: O `strict-dynamic` cobre scripts carregados por um script confiável.
+    - texto: '`element.innerHTML = dadosDoUsuario`'
+      categoria: reporta
+      explicacao: Trusted Types está no cabeçalho Report-Only.
+    - texto: '`fetch` para uma origem fora de `${CSP_CONNECT_SRC}`'
+      categoria: bloqueia
+      explicacao: '`connect-src` está em enforcement, e o `strict-dynamic` não vale para conexões.'
+    - texto: Portal embutido num `<iframe>` de outro site
+      categoria: bloqueia
+      explicacao: '`frame-ancestors ''none''`.'
+    - texto: Imagem `data:` no shell
+      categoria: permite
+      explicacao: '`img-src ''self'' data: blob:`.'
+    - texto: '`<base href>` apontando para outro domínio'
+      categoria: bloqueia
+      explicacao: '`base-uri ''self''`.'
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do repositório clonado na ODA 00, com o servidor de desenvolvimento no ar. Os passos 1 e 2 conferem o coletor, os passos 3 a 7 eliminam a violação com o teste escrito antes, e o passo 8 confere tipos e lint.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+  - tipo: passos
+    itens:
+    - titulo: Subir o servidor de desenvolvimento
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm run dev
+      sucesso: '`Local: http://localhost:5173/`.'
+    - titulo: Conferir o coletor de relatórios
+      texto: Envie ao coletor um `POST` igual ao que a Reporting API faria.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1'
+      sucesso: '`HTTP/1.1 404 Not Found`: o servidor não tem rota para o coletor.'
+    - titulo: Escrever o teste de Trusted Types
+      texto: Crie o arquivo abaixo. Ele registra as violações desde o início da página e confere o boot, um `innerHTML` e um `script.src` de outra origem.
+      editor:
+        rotulo: arquivo
+        caminho: tests/e2e/trustedTypes.spec.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import { test, expect, type Page } from '@playwright/test'
+        - ''
+        - test.beforeEach(async ({ page }) => {
+        - '  await page.addInitScript(() => {'
+        - '    const registro: string[] = []'
+        - '    Object.assign(window, { __violacoes: registro })'
+        - '    document.addEventListener(''securitypolicyviolation'', (e) => registro.push(`${e.effectiveDirective} ${e.sample}`))'
+        - '  })'
+        - '  await page.goto(''/'')'
+        - '  await page.waitForLoadState(''networkidle'')'
+        - '})'
+        - ''
+        - 'const violacoes = (page: Page) => page.evaluate(() => (window as unknown as { __violacoes: string[] }).__violacoes)'
+        - ''
+        - test('o boot do portal não viola Trusted Types', async ({ page }) => {
+        - '  expect(await violacoes(page)).toEqual([])'
+        - '})'
+        - ''
+        - test('HTML cru num sink do DOM continua reportado', async ({ page }) => {
+        - '  await page.evaluate(() => { document.createElement(''div'').innerHTML = ''<b>oi</b>'' })'
+        - '  expect(await violacoes(page)).toContain(''require-trusted-types-for Element innerHTML|<b>oi</b>'')'
+        - '})'
+        - ''
+        - test('URL de script fora da lista continua reportada', async ({ page }) => {
+        - '  await page.evaluate(() => { document.createElement(''script'').src = ''https://cdn.exemplo.com/a.js'' })'
+        - '  expect(await violacoes(page)).toContain(''require-trusted-types-for HTMLScriptElement src|https://cdn.exemplo.com/a.js'')'
+        - '})'
+      efeito: teste_tt
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      sucesso: '`1 failed` e `2 passed`, com `ServiceWorkerContainer register|/mockServiceWorker.js` na lista de violações do boot.'
+    - titulo: Criar a política default
+      texto: Crie o arquivo abaixo. A política aprova só a URL do Service Worker do MSW, na mesma origem, e recusa as demais devolvendo `null`.
+      editor:
+        rotulo: arquivo
+        caminho: src/shared/lib/trustedTypes.ts (novo)
+        commit: '2179313'
+        linhas:
+        - // Política "default" de Trusted Types (SECURITY.md, seção 5). O cabeçalho só
+        - // aceita esse nome, e o navegador a aplica às strings atribuídas aos sinks.
+        - const SCRIPTS_PERMITIDOS = ['/mockServiceWorker.js']
+        - ''
+        - interface FabricaDePoliticas {
+        - '  createPolicy(nome: string, regras: { createScriptURL: (url: string) => string | null }): unknown'
+        - '}'
+        - ''
+        - 'export function registrarPoliticaDefault(): void {'
+        - '  const fabrica = (globalThis as { trustedTypes?: FabricaDePoliticas }).trustedTypes'
+        - '  if (!fabrica) return'
+        - '  fabrica.createPolicy(''default'', {'
+        - '    createScriptURL: (url) => {'
+        - '      const destino = new URL(url, location.href)'
+        - '      return destino.origin === location.origin && SCRIPTS_PERMITIDOS.includes(destino.pathname) ? url : null'
+        - '    },'
+        - '  })'
+        - '}'
+    - titulo: Registrar a política no boot
+      texto: A política precisa existir antes de `prepare()`, que inicia o MSW.
+      editor:
+        rotulo: arquivo
+        caminho: src/main.tsx (alteração)
+        commit: '2179313'
+        linhas:
+        - '// src/main.tsx: junto aos imports'
+        - import { registrarPoliticaDefault } from '@/shared/lib/trustedTypes'
+        - ''
+        - '// src/main.tsx: antes de async function prepare()'
+        - registrarPoliticaDefault()
+      efeito: politica_criada
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+        - npx playwright test tests/e2e/csp.spec.ts tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      sucesso: '`3 passed` no teste novo e `4 passed` com o `csp.spec.ts` existente.'
+    - titulo: Conferir tipos e lint
+      editor:
+        rotulo: terminal
+        linhas:
+        - npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      sucesso: O `tsc` e o `eslint src/` terminam sem mensagens.
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: npm run dev
+      saida: "  VITE v8.1.4  ready in 274 ms\n\n  ➜  Local:   http://localhost:5173/\n  ➜  Network: use --host to expose"
+      origem: executado
+      dica: O comando ocupa o terminal. Rode os demais noutro terminal, na raiz do repositório.
+    - entrada: 'curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1'
+      saida: HTTP/1.1 404 Not Found
+      origem: executado
+      dica: O Vite não tem rota para o coletor, e o handler do MSW só vê requisições feitas pela página.
+    - entrada: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      condicao:
+      - teste_tt
+      - politica_criada
+      saida: "Running 3 tests using 3 workers\n\n  ✓  2 [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types (884ms)\n  ✓  3 [chromium] › tests/e2e/trustedTypes.spec.ts:24:1 › URL de script fora da lista continua reportada (891ms)\n  ✓  1 [chromium] › tests/e2e/trustedTypes.spec.ts:19:1 › HTML cru num sink do DOM continua reportado (893ms)\n\n  3 passed (1.3s)"
+      origem: executado
+    - entrada: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      condicao: teste_tt
+      saida: "Running 3 tests using 3 workers\n\n  ✓  3 [chromium] › tests/e2e/trustedTypes.spec.ts:24:1 › URL de script fora da lista continua reportada (1.1s)\n  ✓  2 [chromium] › tests/e2e/trustedTypes.spec.ts:19:1 › HTML cru num sink do DOM continua reportado (1.1s)\n  ✘  1 [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types (1.2s)\n\n\n  1) [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types ───\n\n    Error: expect(received).toEqual(expected) // deep equality\n\n    - Expected  - 1\n    + Received  + 3\n\n    - Array []\n    + Array [\n    +   \"require-trusted-types-for ServiceWorkerContainer register|/mockServiceWorker.js\",\n    + ]\n\n      14 |\n      15 | test('o boot do portal não viola Trusted Types', async ({ page }) => {\n    > 16 |   expect(await violacoes(page)).toEqual([])\n         |                                 ^\n      17 | })\n      18 |\n      19 | test('HTML cru num sink do DOM continua reportado', async ({ page }) => {\n        at ./tests/e2e/trustedTypes.spec.ts:16:33\n\n\n  1 failed\n    [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types ────\n  2 passed (1.7s)"
+      origem: executado
+      dica: 'A falha é a esperada: o MSW registra o Service Worker com uma string, e nenhuma política a aprova.'
+    - entrada: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      saida: 'Error: No tests found.
+
+        Make sure that arguments are regular expressions matching test files.
+
+        You may need to escape symbols like "$" or "*" and quote the arguments.'
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 3.
+    - entrada: npx playwright test tests/e2e/csp.spec.ts tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      condicao:
+      - teste_tt
+      - politica_criada
+      saida: "Running 4 tests using 4 workers\n\n  ✓  3 [chromium] › tests/e2e/csp.spec.ts:3:1 › dev serve CSP Report-Only com Trusted Types e diretivas-chave (269ms)\n  ✓  4 [chromium] › tests/e2e/trustedTypes.spec.ts:19:1 › HTML cru num sink do DOM continua reportado (915ms)\n  ✓  1 [chromium] › tests/e2e/trustedTypes.spec.ts:24:1 › URL de script fora da lista continua reportada (911ms)\n  ✓  2 [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types (910ms)\n\n  4 passed (1.4s)"
+      origem: executado
+    - entrada: npx playwright test tests/e2e/csp.spec.ts tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+      saida: "Running 1 test using 1 worker\n\n  ✓  1 [chromium] › tests/e2e/csp.spec.ts:3:1 › dev serve CSP Report-Only com Trusted Types e diretivas-chave (124ms)\n\n  1 passed (451ms)"
+      origem: executado
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      condicao: politica_criada
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+      dica: Os tipos e o ESLint terminaram sem erro.
+    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+      saida: '> frontend-react@0.0.0 lint
+
+        > eslint src/'
+      origem: executado
+    cenarios:
+    - rotulo: Teste de Trusted Types
+      comando: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+    - rotulo: Testes de segurança
+      comando: npx playwright test tests/e2e/csp.spec.ts tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
+    - rotulo: Coletor de relatórios
+      comando: 'curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1'
+    - rotulo: Tipos e lint
+      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os incidentes partem do relatório real do portal, da entrega ao coletor e de duas páginas de teste servidas com variantes da política de produção.
+  - tipo: incidente
+    titulo: Coletor que nunca registra relatórios
+    origem: executado
+    rotulo_saida: log
+    saida: 'adicionado {"type":"csp-violation","destination":"csp-endpoint","status":"Queued","body":{"effectiveDirective":"require-trusted-types-for","disposition":"report","sample":"ServiceWorkerContainer register|/mockServiceWorker.js","sourceFile":"http://localhost:5173/node_modules/.vite/deps/msw_browser.js","lineNumber":2657}}
+
+      atualizado Pending tentativas concluídas: 0
+
+      atualizado Queued tentativas concluídas: 0
+
+
+      $ curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1
+
+      HTTP/1.1 404 Not Found'
+    pergunta: O `SECURITY.md` diz que o handler do MSW registra os relatórios com `[csp-report]`. Por que o prefixo nunca aparece no console?
+    correcao: Atender `/__csp-report` no próprio servidor do Vite, com um plugin que registre o corpo e responda 204, ou apontar `Reporting-Endpoints` para um coletor real.
+    alternativas:
+    - texto: O MSW não foi iniciado.
+      correta: false
+      explicacao: A própria violação vem do registro do Service Worker do MSW.
+    - texto: O navegador envia o relatório pela Reporting API, fora do `fetch` da página, e o Service Worker do MSW não intercepta esse envio. O Vite responde 404.
+      correta: true
+      explicacao: O relatório voltou à fila com zero tentativas concluídas.
+    - texto: O relatório só é enviado em produção.
+      correta: false
+      explicacao: O navegador enfileirou e tentou enviar o relatório em desenvolvimento.
+  - tipo: incidente
+    titulo: 'Origem blob: dada como indispensável'
+    origem: executado
+    rotulo_saida: log
+    saida: '# script-src com e sem blob:, ambos com nonce e strict-dynamic
+
+      /com-blob {"inlineSemNonce":"não executou","violacoes":["script-src-elem inline"],"importBlob":"carregou 1"}
+
+      /sem-blob {"inlineSemNonce":"não executou","violacoes":["script-src-elem inline"],"importBlob":"carregou 1"}'
+    pergunta: O `SECURITY.md` diz que `blob:` não pode sair do `script-src`. O que mostra a página de teste no Chromium?
+    correcao: Registrar no `SECURITY.md` que, nos navegadores com `strict-dynamic`, `blob:` é ignorado e serve de reserva para navegadores sem suporte a essa diretiva.
+    alternativas:
+    - texto: Sem `blob:`, o microfrontend não carrega.
+      correta: false
+      explicacao: A importação carregou nas duas variantes.
+    - texto: Com `blob:`, o script inline também executa.
+      correta: false
+      explicacao: O script inline foi bloqueado nas duas variantes.
+    - texto: O `import()` do `Blob` carregou nas duas políticas, porque o `strict-dynamic` faz o navegador ignorar as origens listadas, `blob:` incluída.
+      correta: true
+      explicacao: O script inline sem nonce foi bloqueado nas duas, apesar do `'unsafe-inline'`.
+  - tipo: incidente
+    titulo: Relatório com a linha 2657 de um arquivo do Vite
+    origem: executado
+    rotulo_saida: log
+    saida: adicionado {"type":"csp-violation","destination":"csp-endpoint","status":"Queued","body":{"effectiveDirective":"require-trusted-types-for","disposition":"report","sample":"ServiceWorkerContainer register|/mockServiceWorker.js","sourceFile":"http://localhost:5173/node_modules/.vite/deps/msw_browser.js","lineNumber":2657}}
+    pergunta: O relatório aponta `msw_browser.js`, linha 2657. Onde fica o código responsável?
+    correcao: Ler o `sourceFile` como pista e localizar a chamada no pacote original, aqui o `worker.start()` de `src/main.tsx`, que registra o Service Worker do MSW.
+    alternativas:
+    - texto: No pacote `msw`, pré-processado pelo Vite em `node_modules/.vite/deps`, chamado pelo `worker.start()` do boot de desenvolvimento.
+      correta: true
+      explicacao: A amostra `ServiceWorkerContainer register|/mockServiceWorker.js` identifica o sink e a URL.
+    - texto: Num microfrontend carregado do LocalStack.
+      correta: false
+      explicacao: O arquivo é servido pelo Vite na origem do shell.
+    - texto: No `nginx.conf.template`.
+      correta: false
+      explicacao: O Nginx só envia o cabeçalho e não executa JavaScript.
+  - tipo: incidente
+    titulo: Política default que aprova qualquer URL
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'createScriptURL: (url) => url'
+    pergunta: Uma equipe propõe esta política `default` para acabar com os relatórios. Qual é o problema?
+    correcao: Manter uma lista fechada de URLs na mesma origem e devolver `null` para as demais, como no laboratório.
+    alternativas:
+    - texto: O nome `default` é proibido pelo cabeçalho.
+      correta: false
+      explicacao: '`trusted-types default` permite exatamente esse nome.'
+    - texto: Ela aprova toda string atribuída a `script.src`, inclusive de outra origem, e o terceiro teste do laboratório deixaria de ver a violação de `cdn.exemplo.com`.
+      correta: true
+      explicacao: A política `default` é aplicada a todas as atribuições sem objeto confiável.
+    - texto: Ela quebra o MSW.
+      correta: false
+      explicacao: O MSW receberia a URL aprovada.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Que problema o `strict-dynamic` resolve na política de produção?
+      alternativas:
+      - texto: Porque os buckets não têm HTTPS.
+        correta: false
+        explicacao: A validação do manifesto exige HTTPS em produção.
+      - texto: Porque o `strict-dynamic` libera também as conexões de API.
+        correta: false
+        explicacao: O `connect-src` continua explícito.
+      - texto: Porque os scripts carregados por um script com nonce herdam a confiança, e a lista de buckets cresceria a cada microfrontend.
+        correta: true
+        explicacao: É o argumento da ADR-012.
+    - enunciado: 'O que significa `disposition: report` num relatório?'
+      alternativas:
+      - texto: Que a política estava em Report-Only e a ação continuou.
+        correta: true
+        explicacao: Com enforcement, a disposição seria `enforce` e a ação seria bloqueada.
+      - texto: Que o relatório já foi entregue.
+        correta: false
+        explicacao: A entrega aparece no `status` da Reporting API.
+      - texto: Que a violação é de CSP de recursos.
+        correta: false
+        explicacao: A diretiva aparece em `effectiveDirective`.
+    - enunciado: Por que a política do laboratório se chama `default`?
+      alternativas:
+      - texto: Porque o Vite exige.
+        correta: false
+        explicacao: O Vite só envia o cabeçalho.
+      - texto: Porque o cabeçalho só permite esse nome, e o navegador a aplica às strings atribuídas aos sinks.
+        correta: true
+        explicacao: Políticas com outros nomes exigiriam mudar `trusted-types`.
+      - texto: Porque é o nome usado pelo MSW.
+        correta: false
+        explicacao: O MSW não cria políticas.
+    - enunciado: O que acontecerá com `element.innerHTML = texto` quando Trusted Types passar a enforcement?
+      alternativas:
+      - texto: O texto será sanitizado automaticamente.
+        correta: false
+        explicacao: A sanitização exige uma política com `createHTML`.
+      - texto: Nada muda.
+        correta: false
+        explicacao: Enforcement bloqueia o que hoje é reportado.
+      - texto: A atribuição lançará exceção, porque a política do laboratório não converte HTML.
+        correta: true
+        explicacao: O segundo teste confere que essa atribuição continua reportada.
+    - enunciado: Por que o relatório nunca chegou ao handler do MSW?
+      alternativas:
+      - texto: A Reporting API envia o relatório fora da página, e o Service Worker não o intercepta.
+        correta: true
+        explicacao: O Vite respondeu 404.
+      - texto: O handler tem um erro de sintaxe.
+        correta: false
+        explicacao: O handler nunca é chamado.
+      - texto: O relatório foi descartado pelo `strict-dynamic`.
+        correta: false
+        explicacao: A política de desenvolvimento nem usa `strict-dynamic`.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O efeito de nonce, `strict-dynamic` e `default-src 'none'` está claro.
+    - O relatório do MSW foi lido e ligado ao código que o produziu.
+    - O teste de Trusted Types falhou antes da política `default` e passou depois.
+    - A política aprova só a URL do Service Worker na mesma origem.
+    - A falha de entrega dos relatórios em desenvolvimento foi identificada.

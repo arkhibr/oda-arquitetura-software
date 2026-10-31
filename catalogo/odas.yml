@@ -151,7 +151,8 @@ odas:
     minutos: 75
     pre_requisitos: ["07"]
     objetivo: "Avaliar código contra uma política CSP estrita e interpretar relatórios de violação."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-13
   - id: "14"
     titulo: "Estratégia de testes e medição de desempenho"
     trilha: 5

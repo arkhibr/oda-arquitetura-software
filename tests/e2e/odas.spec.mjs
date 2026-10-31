@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -255,6 +255,21 @@ test('oda-12: a renomeação passa sem o contrato e para o tsc do microfrontend 
   await rodar(renomear);
   await rodar('(cd mfes/endereco && npx tsc --noEmit)');
   await expect(tela).toContainText('"cep" | "logradouro" | "numeroDoImovel"');
+});
+
+test('oda-13: o teste de Trusted Types falha com o MSW e passa com a política default', async ({ page }) => {
+  await page.goto('/oda-13/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  const teste = 'npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list';
+  await painel.getByLabel('Passo 3 concluído').check();
+  await rodar(teste);
+  await expect(tela).toContainText('ServiceWorkerContainer register|/mockServiceWorker.js');
+  await painel.getByLabel('Passo 6 concluído').check();
+  await rodar(teste);
+  await expect(tela).toContainText('3 passed');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {
