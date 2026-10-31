@@ -1,0 +1,787 @@
+id: '12'
+titulo: Contrato de tipos via Hono RPC
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O microfrontend de endereço declara à mão o formato da resposta do BFF, e nenhum compilador compara as duas declarações. Esta ODA mostra que uma renomeação no BFF passa por todos os testes e pelo `tsc` dos dois lados, e então aplica a prova de conceito que a ADR-017 propõe, até que a mesma renomeação pare o build do microfrontend.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar a dessincronia silenciosa descrita na ADR-017 e por que a ADR-009 duplica tipos entre microfrontend e BFF.
+    - Expor o tipo das rotas do BFF num `contract.ts` e consumi-lo no microfrontend com `import type` e alias de caminho.
+    - 'Explicar por que a anotação `: Hono<BffEnv>` apaga o tipo das rotas e por que o encadeamento o preserva.'
+    - Detectar na compilação do microfrontend a renomeação de um campo no BFF.
+    - Reconhecer a nova dependência de build entre microfrontend e BFF e o que fica fora do bundle.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 11. O laboratório altera o BFF e o microfrontend de endereço e não precisa de nenhum serviço no ar. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o `perl` que acompanha o Git.
+  - tipo: terminal
+    titulo: terminal · renomeação no BFF
+    comandos:
+    - entrada: perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
+      saida: ''
+      origem: executado
+      efeito: renomeado
+      dica: O comando troca `numero` por `numeroDoImovel` em todo o BFF de endereço, inclusive nos testes, sem imprimir nada.
+    - entrada: (cd bffs/endereco && npx vitest run)
+      condicao: renomeado
+      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
+      origem: executado
+    - entrada: (cd bffs/endereco && npx vitest run)
+      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
+      origem: executado
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      condicao: renomeado
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: o microfrontend não percebe a mudança no BFF.'
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
+      saida: ''
+      origem: executado
+      efeito: '!renomeado'
+      dica: O comando restaura só os arquivos tocados pela renomeação e mantém o `routes.ts` e o `contract.ts`.
+    cenarios:
+    - rotulo: Renomear numero no BFF
+      comando: perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
+    - rotulo: Testes do BFF
+      comando: (cd bffs/endereco && npx vitest run)
+    - rotulo: Tipos do microfrontend
+      comando: (cd mfes/endereco && npx tsc --noEmit)
+    - rotulo: Desfazer
+      comando: git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-009 mantém cada microfrontend autônomo, com cópias locais dos contratos, e o preço é que nenhuma compilação compara a cópia com o original. A ADR-017 propõe que o BFF publique o tipo das próprias rotas e que o microfrontend o importe só como tipo, sem levar código do BFF ao bundle.
+  - tipo: comparativo
+    colunas:
+    - Cópia manual do tipo
+    - Tipo derivado do BFF
+    linhas:
+    - dimensao: Onde o formato é declarado
+      valores:
+      - 'Duas vezes: no BFF e em `EnderecoForm.tsx`'
+      - Uma vez, no BFF, e inferido das rotas
+    - dimensao: Renomeação no BFF
+      valores:
+      - Passa pela compilação e quebra a tela em execução
+      - Para o `tsc` e o `npm run build` do microfrontend
+    - dimensao: Build do microfrontend
+      valores:
+      - Precisa só do próprio pacote
+      - Precisa do código e das dependências do BFF instaladas
+    - dimensao: Bundle publicado
+      valores:
+      - Só o código do microfrontend
+      - O mesmo, porque o `import type` é apagado
+  - tipo: conceito
+    titulo: Tipo que carrega as rotas
+    texto: 'Cada `.get` e cada `.put` encadeados devolvem uma instância do Hono cujo tipo acumula caminho, método e resposta. Uma anotação de retorno como `: Hono<BffEnv>` troca esse tipo pelo tipo genérico, sem rotas, e o cliente `hc` passa a enxergar `unknown`.'
+  - tipo: conceito
+    titulo: Dependência de build sem dependência de execução
+    texto: O `import type` existe apenas para o compilador e desaparece no JavaScript gerado. O microfrontend continua a ser publicado sozinho no S3, e a esteira passa a precisar do código e do `node_modules` do BFF para checar os tipos.
+  - tipo: adr
+    id: ADR-017
+    titulo: Contrato de tipos entre MFE e BFF via Hono RPC
+    status: Proposta
+    contexto: Cada microfrontend mantém uma cópia manual do contrato de resposta do BFF, e nenhum sinal de compilação avisa quando o BFF muda o formato.
+    decisao: Cada BFF exporta o tipo das rotas num `contract.ts`, consumido pelo microfrontend com `import type` e alias de caminho, sem pacote publicado.
+    alternativas: tRPC, com duas dependências novas e chamadas agrupadas que quebrariam a auditoria por rota do Gateway, e manter os tipos duplicados.
+    consequencias: Erro de compilação quando o BFF muda um campo, ao custo de encadear as rotas dos BFFs e de instalar as dependências do BFF na esteira do microfrontend.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `2179313`, os dois lados do contrato de endereço. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/endereco/src/legacyBackend.ts
+    commit: '2179313'
+    linhas:
+    - export interface Endereco {
+    - '  cep: string'
+    - '  logradouro: string'
+    - '  numero: string'
+    - '}'
+    - ''
+    - 'const ENDERECO_FIXO: Endereco = {'
+    - '  cep: ''01001000'','
+    - '  logradouro: ''Praça da Sé'','
+    - '  numero: ''1'','
+    - '}'
+    anotacoes:
+    - linha: 1
+      texto: Formato declarado no BFF.
+    - linha: 10
+      texto: Valor fixo devolvido pelo `GET`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: bffs/endereco/src/routes.ts
+    commit: '2179313'
+    linhas:
+    - 'export function createRoutes(): Hono<BffEnv> {'
+    - '  const router = new Hono<BffEnv>()'
+    - ''
+    - '  router.get(''/usuario/endereco'', (c) => {'
+    - '    return c.json(getEndereco())'
+    - '  })'
+    - ''
+    - '  router.put(''/usuario/endereco'', async (c) => {'
+    - '    const body = (await c.req.json()) as Endereco'
+    - '    const validation = validateEndereco(body)'
+    - '    if (!validation.ok) {'
+    - '      return c.json({ error: ''invalid_request'', message: validation.message }, 400)'
+    - '    }'
+    - '    return c.json(putEndereco(validation.value))'
+    - '  })'
+    - ''
+    - '  return router'
+    - '}'
+    anotacoes:
+    - linha: 7
+      texto: A anotação de retorno apaga o tipo das rotas registradas abaixo.
+    - linha: 10
+      texto: Rotas registradas por chamadas separadas, sem encadeamento.
+    - linha: 23
+      texto: O objeto devolvido tem as rotas em execução, mas o tipo declarado não as conhece.
+    inicio: 7
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/src/EnderecoForm.tsx
+    commit: '2179313'
+    linhas:
+    - import { useForm } from 'react-hook-form'
+    - ''
+    - export interface Endereco {
+    - '  cep: string'
+    - '  logradouro: string'
+    - '  numero: string'
+    - '}'
+    - ''
+    - 'export function EnderecoForm({ initial, onSubmit }: { initial: Endereco; onSubmit: (e: Endereco) => void }) {'
+    - '  const { register, handleSubmit } = useForm<Endereco>({ defaultValues: initial })'
+    - '  return ('
+    - '    <form onSubmit={handleSubmit((data) => onSubmit(data))} className="flex max-w-md flex-col gap-4">'
+    - '      <label className="flex flex-col gap-1">CEP<input {...register(''cep'')} className="rounded border p-2" /></label>'
+    - '      <label className="flex flex-col gap-1">Logradouro<input {...register(''logradouro'')} className="rounded border p-2" /></label>'
+    - '      <label className="flex flex-col gap-1">Número<input {...register(''numero'')} className="rounded border p-2" /></label>'
+    anotacoes:
+    - linha: 3
+      texto: Cópia manual do formato do BFF, sem ligação com o original.
+    - linha: 15
+      texto: O `register` só aceita chaves de `Endereco`, e por isso acusa uma chave que deixa de existir.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/src/EnderecoApp.tsx
+    commit: '2179313'
+    linhas:
+    - '  useEffect(() => {'
+    - '    client<Endereco>(''/usuario/endereco'').then(setEndereco).catch(() => setEndereco({ cep: '''', logradouro: '''', numero: '''' }))'
+    - '    // eslint-disable-next-line react-hooks/exhaustive-deps'
+    - '  }, [])'
+    anotacoes:
+    - linha: 12
+      texto: O genérico `<Endereco>` afirma o formato da resposta sem conferi-lo.
+    inicio: 11
+  - tipo: editor
+    rotulo: arquivo
+    caminho: mfes/endereco/src/contract.ts
+    commit: '2179313'
+    linhas:
+    - // Contrato publicado pelo shell (ADR-009). Cópia local para manter o MFE autônomo.
+    - export interface MfeMountContext {
+    - '  apiUrl: string'
+    - '  token: string | null'
+    - '  onUnauthorized: () => void'
+    - '  basePath: string'
+    - '}'
+    anotacoes:
+    - linha: 1
+      texto: A mesma estratégia de cópia local vale para o contrato com o shell.
+  - tipo: faixa
+    estilo: dica
+    texto: O cabeçalho da ADR-017 registra que nenhum código foi alterado para ela. O laboratório executa a prova de conceito no BFF de endereço, que a seção de riscos da própria ADR indica como primeiro passo, antes do BFF de empréstimo.
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Acompanhe o caminho do tipo, do BFF ao build do microfrontend, e classifique o resultado de cada mudança no BFF antes e depois da prova de conceito.
+  - tipo: fluxo
+    titulo: Do encadeamento de rotas ao erro no build do microfrontend
+    etapas:
+    - titulo: Rotas encadeadas
+      descricao: '`createRoutes` devolve `new Hono<BffEnv>().get(...).put(...)`, e o TypeScript infere o tipo com as duas rotas e as respostas de cada uma.'
+    - titulo: contract.ts
+      descricao: '`AppType` recebe o tipo de `createRoutes`, e `InferResponseType` extrai a resposta 200 do `GET /usuario/endereco`.'
+    - titulo: Alias no microfrontend
+      descricao: O `paths` do `tsconfig.json` leva `@bff-endereco/contract` ao arquivo do BFF, e o `hono` é resolvido a partir de `bffs/endereco/node_modules`.
+    - titulo: Tipo derivado
+      descricao: '`Endereco` passa a ser `EnderecoResposta`, e o `register(''numero'')` e os objetos montados à mão são conferidos contra o formato do BFF.'
+    - titulo: Build
+      descricao: '`npm run build` roda `tsc --noEmit` antes do `vite build`, e uma divergência para a esteira antes de gerar o bundle.'
+  - tipo: classificador
+    enunciado: O comando indicado termina com erro ou sem erro?
+    categorias:
+    - id: erro
+      rotulo: Termina com erro
+    - id: ok
+      rotulo: Termina sem erro
+    itens:
+    - texto: Sem o contrato, o BFF renomeia `numero`, e o microfrontend roda `npx tsc --noEmit`
+      categoria: ok
+      explicacao: A cópia manual do tipo continua com `numero`.
+    - texto: Com o contrato, o BFF renomeia `numero`, e o microfrontend roda `npx tsc --noEmit`
+      categoria: erro
+      explicacao: Quatro erros, um em `register('numero')` e três em objetos com `numero`.
+    - texto: Com o contrato e a renomeação, o microfrontend roda `npx vitest run`
+      categoria: ok
+      explicacao: O Vitest não confere tipos, e os 11 testes passam.
+    - texto: 'Com o contrato, o BFF acrescenta `complemento: string` ao endereço, e o microfrontend roda `npx tsc --noEmit`'
+      categoria: erro
+      explicacao: Os objetos montados à mão no microfrontend passam a não ter o campo obrigatório, com `TS2741`.
+    - texto: 'Com o contrato, o BFF devolve `consultadoEm: new Date()`, e o microfrontend guarda um `Date` nesse campo'
+      categoria: erro
+      explicacao: O tipo inferido é `string`, porque a resposta JSON serializa a data como texto.
+    - texto: Com o contrato, o microfrontend roda `npx tsc --noEmit` numa esteira sem `bffs/endereco/node_modules`
+      categoria: erro
+      explicacao: O `hono/client` não é encontrado, com `TS2307`.
+    - texto: Com o contrato, o microfrontend roda `npm run build`, sem renomeação no BFF
+      categoria: ok
+      explicacao: O bundle tem os mesmos 296,05 kB do commit de referência.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 4 mostram a quebra silenciosa, os passos 5 a 10 aplicam a prova de conceito acompanhando cada erro de compilação, e os passos 11 e 12 repetem a quebra e conferem o bundle.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+  - tipo: passos
+    itens:
+    - titulo: Instalar as dependências
+      texto: No microfrontend, o `npm ci` deste commit falha porque o `package-lock.json` está fora de sincronia. O `npm install --no-save` instala sem alterar o lock.
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/endereco && npm ci)
+        - (cd mfes/endereco && npm install --no-save)
+      sucesso: '`added 69 packages` no BFF e `added 227 packages` no microfrontend, com `git status` sem alterações.'
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd bffs/endereco && npx vitest run)
+        - (cd mfes/endereco && npx tsc --noEmit)
+        - (cd mfes/endereco && npx vitest run)
+      sucesso: '`Tests 9 passed (9)` no BFF, o `tsc` do microfrontend sem mensagens e `Tests 11 passed (11)` no microfrontend.'
+    - titulo: Renomear o campo no BFF
+      texto: O comando troca `numero` por `numeroDoImovel` no BFF, inclusive nos testes, como faria quem renomeia o campo com cuidado do lado do BFF.
+      editor:
+        rotulo: terminal
+        linhas:
+        - perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
+        - (cd bffs/endereco && npx vitest run)
+        - (cd bffs/endereco && npx tsc --noEmit)
+        - (cd mfes/endereco && npx tsc --noEmit)
+        - (cd mfes/endereco && npx vitest run)
+      efeito: renomeado
+      sucesso: '`Tests 9 passed (9)`, os dois `tsc` sem mensagens e `Tests 11 passed (11)`: nenhum comando acusa a quebra.'
+    - titulo: Desfazer a renomeação
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
+      efeito: '!renomeado'
+      sucesso: '`git status` sem alterações.'
+    - titulo: Apontar o microfrontend para o contrato
+      texto: Acrescente o alias ao `tsconfig.json` do microfrontend e troque a interface `Endereco` de `EnderecoForm.tsx` pelo tipo importado.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/tsconfig.json e src/EnderecoForm.tsx (alteração)
+        commit: '2179313'
+        linhas:
+        - '// mfes/endereco/tsconfig.json: dentro de compilerOptions'
+        - '    "paths": {'
+        - '      "@/*": ["./src/*"],'
+        - '      "@bff-endereco/contract": ["../../bffs/endereco/src/contract.ts"]'
+        - '    }'
+        - ''
+        - '// mfes/endereco/src/EnderecoForm.tsx: no lugar da interface Endereco'
+        - import type { EnderecoResposta } from '@bff-endereco/contract'
+        - ''
+        - export type Endereco = EnderecoResposta
+      efeito: alias_criado
+    - titulo: Ver o tipo faltar
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd mfes/endereco && npx tsc --noEmit)
+      sucesso: '`TS2307`: o módulo `@bff-endereco/contract` ainda não existe.'
+    - titulo: Criar o contrato no BFF
+      texto: 'Crie o arquivo abaixo. Ele não tem código de execução: só tipos derivados de `createRoutes`.'
+      editor:
+        rotulo: arquivo
+        caminho: bffs/endereco/src/contract.ts (novo)
+        commit: '2179313'
+        linhas:
+        - import type { hc, InferResponseType } from 'hono/client'
+        - import type { createRoutes } from './routes.ts'
+        - ''
+        - export type AppType = ReturnType<typeof createRoutes>
+        - ''
+        - type Cliente = ReturnType<typeof hc<AppType>>
+        - ''
+        - export type EnderecoResposta = InferResponseType<Cliente['usuario']['endereco']['$get'], 200>
+      efeito: contrato_criado
+    - titulo: Ler os erros do contrato
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd mfes/endereco && npx tsc --noEmit)
+        - (cd bffs/endereco && npx tsc --noEmit)
+      sucesso: Duas mensagens `TS5097` nos imports `.ts` do BFF e `Property 'usuario' does not exist on type 'unknown'` no microfrontend, e a mesma `TS2339` no BFF.
+    - titulo: Aceitar imports com extensão .ts e encadear as rotas
+      texto: Acrescente a opção abaixo ao `tsconfig.json` do microfrontend, que já tem `noEmit`. Depois, substitua `routes.ts` pela versão encadeada, sem anotação de retorno.
+      editor:
+        rotulo: arquivo
+        caminho: mfes/endereco/tsconfig.json e bffs/endereco/src/routes.ts (alteração)
+        commit: '2179313'
+        linhas:
+        - '// mfes/endereco/tsconfig.json: dentro de compilerOptions, depois de noEmit'
+        - '    "allowImportingTsExtensions": true,'
+        - ''
+        - // bffs/endereco/src/routes.ts
+        - import { Hono } from 'hono'
+        - import { getEndereco, putEndereco } from './legacyBackend.ts'
+        - import type { Endereco } from './legacyBackend.ts'
+        - import { validateEndereco } from './validation.ts'
+        - import type { BffEnv } from './types.ts'
+        - ''
+        - export function createRoutes() {
+        - '  return new Hono<BffEnv>()'
+        - '    .get(''/usuario/endereco'', (c) => {'
+        - '      return c.json(getEndereco())'
+        - '    })'
+        - '    .put(''/usuario/endereco'', async (c) => {'
+        - '      const body = (await c.req.json()) as Endereco'
+        - '      const validation = validateEndereco(body)'
+        - '      if (!validation.ok) {'
+        - '        return c.json({ error: ''invalid_request'', message: validation.message }, 400)'
+        - '      }'
+        - '      return c.json(putEndereco(validation.value))'
+        - '    })'
+        - '}'
+      efeito:
+      - extensoes_ts
+      - rotas_encadeadas
+    - titulo: Conferir os dois lados
+      editor:
+        rotulo: terminal
+        linhas:
+        - (cd mfes/endereco && npx tsc --noEmit)
+        - (cd bffs/endereco && npx tsc --noEmit)
+        - (cd bffs/endereco && npx vitest run)
+        - (cd mfes/endereco && npx vitest run)
+      sucesso: Os dois `tsc` sem mensagens, `Tests 9 passed (9)` no BFF e `Tests 11 passed (11)` no microfrontend.
+    - titulo: Renomear de novo
+      editor:
+        rotulo: terminal
+        linhas:
+        - perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
+        - (cd mfes/endereco && npx tsc --noEmit)
+        - (cd mfes/endereco && npx vitest run)
+        - (cd mfes/endereco && npm run build)
+      efeito: renomeado
+      sucesso: Quatro erros no `tsc` do microfrontend, entre eles `Argument of type '"numero"' is not assignable`, `Tests 11 passed (11)` no Vitest e o `npm run build` interrompido pelo `tsc`.
+    - titulo: Desfazer e conferir o bundle
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
+        - (cd mfes/endereco && npm run build)
+        - grep -c -e validateEndereco -e 'Praça da Sé' mfes/endereco/dist/endereco.js
+      efeito: '!renomeado'
+      sucesso: '`dist/endereco.js  296.05 kB`, o mesmo tamanho do commit de referência, e `0` ocorrências de código do BFF no bundle.'
+  - tipo: terminal
+    titulo: terminal · frontend-react
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: (cd bffs/endereco && npm ci)
+      saida: "added 69 packages, and audited 70 packages in 945ms\n\n19 packages are looking for funding\n  run `npm fund` for details\n\n9 vulnerabilities (5 moderate, 4 high)\n\nTo address all issues, run:\n  npm audit fix\n\nRun `npm audit` for details."
+      origem: executado
+    - entrada: (cd mfes/endereco && npm ci)
+      saida: 'npm error code EUSAGE
+
+        npm error
+
+        npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+
+        npm error
+
+        npm error Missing: @emnapi/core@1.11.3 from lock file
+
+        npm error Missing: @emnapi/runtime@1.11.3 from lock file'
+      origem: executado
+      dica: O `package-lock.json` do microfrontend neste commit não traz todos os pacotes exigidos. Use `npm install --no-save`, que instala sem alterar o lock.
+    - entrada: (cd mfes/endereco && npm install --no-save)
+      saida: "added 227 packages, and audited 228 packages in 2s\n\n43 packages are looking for funding\n  run `npm fund` for details\n\n8 vulnerabilities (3 moderate, 5 high)\n\nTo address all issues, run:\n  npm audit fix\n\nRun `npm audit` for details."
+      origem: executado
+    - entrada: perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
+      saida: ''
+      origem: executado
+      efeito: renomeado
+      dica: O comando troca `numero` por `numeroDoImovel` em todo o BFF de endereço, inclusive nos testes, sem imprimir nada.
+    - entrada: git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
+      saida: ''
+      origem: executado
+      efeito: '!renomeado'
+      dica: O comando restaura só os arquivos tocados pela renomeação e mantém o `routes.ts` e o `contract.ts`.
+    - entrada: (cd bffs/endereco && npx vitest run)
+      condicao:
+      - rotas_encadeadas
+      - renomeado
+      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
+      origem: executado
+    - entrada: (cd bffs/endereco && npx vitest run)
+      condicao: rotas_encadeadas
+      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
+      origem: executado
+    - entrada: (cd bffs/endereco && npx vitest run)
+      condicao: renomeado
+      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
+      origem: executado
+      dica: Os testes do BFF foram renomeados junto, e a suíte continua verde.
+    - entrada: (cd bffs/endereco && npx vitest run)
+      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
+      origem: executado
+    - entrada: (cd bffs/endereco && npx tsc --noEmit)
+      condicao:
+      - rotas_encadeadas
+      - renomeado
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd bffs/endereco && npx tsc --noEmit)
+      condicao:
+      - contrato_criado
+      - rotas_encadeadas
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd bffs/endereco && npx tsc --noEmit)
+      condicao: contrato_criado
+      saida: 'src/contract.ts(8,58): error TS2339: Property ''usuario'' does not exist on type ''unknown''.'
+      origem: executado
+      dica: 'A anotação `: Hono<BffEnv>` de `createRoutes` apaga as rotas do tipo. O passo 9 a remove.'
+    - entrada: (cd bffs/endereco && npx tsc --noEmit)
+      condicao: renomeado
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd bffs/endereco && npx tsc --noEmit)
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      condicao:
+      - renomeado
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      - rotas_encadeadas
+      saida: 'src/__tests__/EnderecoForm.test.tsx(8,81): error TS2353: Object literal may only specify known properties, and ''numero'' does not exist in type ''{ cep: string; logradouro: string; numeroDoImovel: string; }''.
+
+        src/__tests__/EnderecoForm.test.tsx(15,62): error TS2353: Object literal may only specify known properties, and ''numero'' does not exist in type ''{ cep: string; logradouro: string; numeroDoImovel: string; }''.
+
+        src/EnderecoApp.tsx(12,112): error TS2353: Object literal may only specify known properties, and ''numero'' does not exist in type ''{ cep: string; logradouro: string; numeroDoImovel: string; } | ((prevState: { cep: string; logradouro: string; numeroDoImovel: string; } | null) => { cep: string; logradouro: string; numeroDoImovel: string; } | null)''.
+
+        src/EnderecoForm.tsx(12,72): error TS2345: Argument of type ''"numero"'' is not assignable to parameter of type ''"cep" | "logradouro" | "numeroDoImovel"''.'
+      origem: executado
+      dica: A quebra aparece na compilação do microfrontend, em cada lugar que usa `numero`. Desfaça a renomeação no passo 12.
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      condicao:
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      - rotas_encadeadas
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      condicao:
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      saida: '../../bffs/endereco/src/contract.ts(8,58): error TS2339: Property ''usuario'' does not exist on type ''unknown''.'
+      origem: executado
+      dica: Resta o tipo `unknown`, que vem da anotação de retorno de `createRoutes`.
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      condicao:
+      - alias_criado
+      - contrato_criado
+      saida: '../../bffs/endereco/src/contract.ts(8,58): error TS2339: Property ''usuario'' does not exist on type ''unknown''.
+
+        ../../bffs/endereco/src/routes.ts(2,42): error TS5097: An import path can only end with a ''.ts'' extension when ''allowImportingTsExtensions'' is enabled.
+
+        ../../bffs/endereco/src/routes.ts(4,34): error TS5097: An import path can only end with a ''.ts'' extension when ''allowImportingTsExtensions'' is enabled.'
+      origem: executado
+      dica: 'Dois problemas: o microfrontend não aceita imports com extensão `.ts`, e o tipo das rotas chega como `unknown`.'
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      condicao: alias_criado
+      saida: 'src/EnderecoForm.tsx(2,39): error TS2307: Cannot find module ''@bff-endereco/contract'' or its corresponding type declarations.'
+      origem: executado
+      dica: O alias aponta para um arquivo que ainda não existe. O passo 7 o cria.
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      condicao: renomeado
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: o microfrontend declara a própria cópia do tipo e não percebe a mudança no BFF.'
+    - entrada: (cd mfes/endereco && npx tsc --noEmit)
+      saida: ''
+      origem: executado
+      dica: 'Sem mensagens: os tipos conferem.'
+    - entrada: (cd mfes/endereco && npx vitest run)
+      condicao:
+      - renomeado
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      - rotas_encadeadas
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
+      origem: executado
+      dica: O Vitest não confere tipos, e o MSW do microfrontend continua a responder com `numero`.
+    - entrada: (cd mfes/endereco && npx vitest run)
+      condicao:
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      - rotas_encadeadas
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
+      origem: executado
+    - entrada: (cd mfes/endereco && npx vitest run)
+      condicao: alias_criado
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
+      origem: executado
+    - entrada: (cd mfes/endereco && npx vitest run)
+      condicao: renomeado
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
+      origem: executado
+      dica: O MSW do microfrontend simula o contrato antigo, e a suíte não percebe a mudança no BFF.
+    - entrada: (cd mfes/endereco && npx vitest run)
+      saida: " RUN  v4.1.8 ./mfes/endereco\n\n\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
+      origem: executado
+    - entrada: (cd mfes/endereco && npm run build)
+      condicao:
+      - renomeado
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      - rotas_encadeadas
+      saida: '> mfe-endereco@0.0.0 build
+
+        > tsc --noEmit && vite build
+
+
+        src/__tests__/EnderecoForm.test.tsx(8,81): error TS2353: Object literal may only specify known properties, and ''numero'' does not exist in type ''{ cep: string; logradouro: string; numeroDoImovel: string; }''.
+
+        src/__tests__/EnderecoForm.test.tsx(15,62): error TS2353: Object literal may only specify known properties, and ''numero'' does not exist in type ''{ cep: string; logradouro: string; numeroDoImovel: string; }''.
+
+        src/EnderecoApp.tsx(12,112): error TS2353: Object literal may only specify known properties, and ''numero'' does not exist in type ''{ cep: string; logradouro: string; numeroDoImovel: string; } | ((prevState: { cep: string; logradouro: string; numeroDoImovel: string; } | null) => { cep: string; logradouro: string; numeroDoImovel: string; } | null)''.
+
+        src/EnderecoForm.tsx(12,72): error TS2345: Argument of type ''"numero"'' is not assignable to parameter of type ''"cep" | "logradouro" | "numeroDoImovel"''.'
+      origem: executado
+      dica: O `build` roda `tsc --noEmit` antes do Vite, e a esteira para antes de gerar o bundle.
+    - entrada: (cd mfes/endereco && npm run build)
+      condicao:
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      - rotas_encadeadas
+      saida: "> mfe-endereco@0.0.0 build\n> tsc --noEmit && vite build\n\nvite v8.0.16 building client environment for production...\n\n WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.\n\n\ntransforming...✓ 16 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/endereco.js  296.05 kB │ gzip: 78.72 kB\n\n✓ built in 51ms"
+      origem: executado
+    - entrada: (cd mfes/endereco && npm run build)
+      saida: "> mfe-endereco@0.0.0 build\n> tsc --noEmit && vite build\n\nvite v8.0.16 building client environment for production...\n\n WARN  inlineDynamicImports option is deprecated, please use codeSplitting: false instead.\n\n\ntransforming...✓ 16 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/endereco.js  296.05 kB │ gzip: 78.72 kB\n\n✓ built in 49ms"
+      origem: executado
+    - entrada: grep -c -e validateEndereco -e 'Praça da Sé' mfes/endereco/dist/endereco.js
+      condicao:
+      - alias_criado
+      - contrato_criado
+      - extensoes_ts
+      - rotas_encadeadas
+      saida: '0'
+      origem: executado
+      dica: 'Nenhum trecho do BFF entrou no bundle: o `import type` é apagado na compilação.'
+    - entrada: grep -c -e validateEndereco -e 'Praça da Sé' mfes/endereco/dist/endereco.js
+      saida: '0'
+      origem: executado
+    cenarios:
+    - rotulo: Renomear numero no BFF
+      comando: perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
+    - rotulo: Desfazer
+      comando: git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
+    - rotulo: Tipos do microfrontend
+      comando: (cd mfes/endereco && npx tsc --noEmit)
+    - rotulo: Tipos do BFF
+      comando: (cd bffs/endereco && npx tsc --noEmit)
+    - rotulo: Build do microfrontend
+      comando: (cd mfes/endereco && npm run build)
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os quatro incidentes partem de saídas do laboratório e de mudanças no BFF feitas com o contrato aplicado.
+  - tipo: incidente
+    titulo: Campo vazio na tela depois de um deploy do BFF
+    origem: executado
+    rotulo_saida: log
+    saida: "$ perl -pi -e 's/\\bnumero\\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts\n$ (cd bffs/endereco && npx vitest run)\n Test Files  3 passed (3)\n      Tests  9 passed (9)\n$ (cd mfes/endereco && npx tsc --noEmit)\n$ (cd mfes/endereco && npx vitest run)\n Test Files  4 passed (4)\n      Tests  11 passed (11)"
+    pergunta: Sem o contrato, o BFF publica a renomeação e o campo Número da tela aparece vazio. Por que nenhuma verificação acusou a quebra?
+    correcao: Derivar o tipo do microfrontend das rotas do BFF, como no laboratório, para que o `tsc` do build compare os dois lados.
+    alternativas:
+    - texto: O Gateway removeu o campo.
+      correta: false
+      explicacao: O Gateway repassa o corpo sem conhecer os campos.
+    - texto: O microfrontend compara a resposta com a própria cópia do tipo, e o MSW dos testes dele simula o contrato antigo.
+      correta: true
+      explicacao: O `client<Endereco>` afirma o formato sem conferi-lo em execução.
+    - texto: Os testes do BFF não cobrem a rota.
+      correta: false
+      explicacao: O `routes.test.ts` confere o corpo do `GET`, e foi renomeado junto.
+  - tipo: incidente
+    titulo: Rotas que chegam como unknown
+    origem: executado
+    rotulo_saida: log
+    saida: 'src/contract.ts(8,58): error TS2339: Property ''usuario'' does not exist on type ''unknown''.'
+    pergunta: O `contract.ts` está certo e o BFF responde em `/usuario/endereco`. Por que o tipo não tem a propriedade `usuario`?
+    correcao: Remover a anotação de retorno e encadear as rotas, para que o tipo inferido acumule cada `.get` e `.put`.
+    alternativas:
+    - texto: O `hono/client` não foi instalado.
+      correta: false
+      explicacao: Sem o pacote, o erro seria `TS2307`, como no incidente seguinte.
+    - texto: O caminho da rota tem barra no início.
+      correta: false
+      explicacao: O cliente do Hono transforma `/usuario/endereco` em `usuario.endereco`.
+    - texto: '`createRoutes` declara o retorno como `Hono<BffEnv>`, um tipo sem rotas, e as chamadas `router.get` separadas não alteram o tipo de `router`.'
+      correta: true
+      explicacao: O passo 9 resolve o erro sem mudar o comportamento, e os 9 testes do BFF continuam passando.
+  - tipo: incidente
+    titulo: Esteira do microfrontend sem as dependências do BFF
+    origem: executado
+    rotulo_saida: log
+    saida: '../../bffs/endereco/src/contract.ts(1,44): error TS2307: Cannot find module ''hono/client'' or its corresponding type declarations.
+
+      ../../bffs/endereco/src/routes.ts(1,22): error TS2307: Cannot find module ''hono'' or its corresponding type declarations.
+
+      ../../bffs/endereco/src/routes.ts(9,32): error TS7006: Parameter ''c'' implicitly has an ''any'' type.
+
+      ../../bffs/endereco/src/routes.ts(12,38): error TS7006: Parameter ''c'' implicitly has an ''any'' type.'
+    pergunta: A esteira do microfrontend passou a falhar na checagem de tipos, sem nenhuma mudança no código. O que falta?
+    correcao: Acrescentar à esteira do microfrontend a instalação das dependências do BFF, `(cd bffs/endereco && npm ci)`, antes do `npm run build`.
+    alternativas:
+    - texto: O `node_modules` do BFF, de onde o TypeScript resolve `hono` e `hono/client` para os arquivos do BFF.
+      correta: true
+      explicacao: A ADR-017 registra essa dependência de build como risco e como passo permanente de CI.
+    - texto: O `hono` no `package.json` do microfrontend.
+      correta: false
+      explicacao: Os imports partem de arquivos do BFF e são resolvidos a partir da pasta do BFF.
+    - texto: O BFF no ar durante o build.
+      correta: false
+      explicacao: A checagem lê arquivos e não faz chamadas ao BFF.
+  - tipo: incidente
+    titulo: Campo novo que derruba o microfrontend
+    origem: executado
+    rotulo_saida: log
+    saida: "../../bffs/endereco/src/validation.ts(19,22): error TS2741: Property 'complemento' is missing in type '{ cep: string; logradouro: string; numero: string; }' but required in type 'Endereco'.\nsrc/__tests__/EnderecoForm.test.tsx(8,26): error TS2741: Property 'complemento' is missing in type '{ cep: string; logradouro: string; numero: string; }' but required in type '{ cep: string; logradouro: string; numero: string; complemento: string; }'.\nsrc/__tests__/EnderecoForm.test.tsx(15,26): error TS2741: Property 'complemento' is missing in type '{ cep: string; logradouro: string; numero: string; }' but required in type '{ cep: string; logradouro: string; numero: string; complemento: string; }'.\nsrc/EnderecoApp.tsx(12,85): error TS2345: Argument of type '{ cep: string; logradouro: string; numero: string; }' is not assignable to parameter of type 'SetStateAction<{ cep: string; logradouro: string; numero: string; complemento: string; } | null>'.\n  Property 'complemento' is missing in type '{ cep: string; logradouro: string; numero: string; }' but required in type '{ cep: string; logradouro: string; numero: string; complemento: string; }'."
+    pergunta: O BFF acrescentou `complemento` ao endereço, e o microfrontend nem usa o campo. Por que o `tsc` do microfrontend falha?
+    correcao: Separar o tipo da resposta do tipo dos objetos que o microfrontend monta, por exemplo com `Pick<EnderecoResposta, 'cep' | 'logradouro' | 'numero'>` para o formulário e o valor de recuperação.
+    alternativas:
+    - texto: O `register` exige que todo campo tenha um `input`.
+      correta: false
+      explicacao: Os erros apontam objetos literais, e não o formulário.
+    - texto: O microfrontend monta objetos `Endereco` à mão, no valor de recuperação de `EnderecoApp.tsx` e nos testes, e o tipo derivado passou a exigir o campo novo.
+      correta: true
+      explicacao: A mesma mudança também quebra o `validation.ts` do BFF, que monta o endereço validado.
+    - texto: O contrato só aceita campos já existentes no commit de referência.
+      correta: false
+      explicacao: O tipo é inferido a cada compilação.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Que problema a ADR-017 quer resolver?
+      alternativas:
+      - texto: A latência entre microfrontend e BFF.
+        correta: false
+        explicacao: A ADR não muda o transporte HTTP.
+      - texto: O tamanho do bundle.
+        correta: false
+        explicacao: O bundle não muda.
+      - texto: A divergência silenciosa entre o tipo declarado no microfrontend e a resposta real do BFF.
+        correta: true
+        explicacao: Sem o contrato, a quebra só aparece em execução.
+    - enunciado: Por que o encadeamento das rotas é necessário?
+      alternativas:
+      - texto: Porque cada chamada encadeada devolve um tipo que acumula a rota, e a anotação genérica descarta essa informação.
+        correta: true
+        explicacao: Sem isso, o cliente `hc` vê `unknown`.
+      - texto: Porque o Hono não aceita rotas registradas em chamadas separadas.
+        correta: false
+        explicacao: As rotas funcionam nos dois estilos, e só o tipo muda.
+      - texto: Porque o Gateway exige.
+        correta: false
+        explicacao: O Gateway não lê os tipos do BFF.
+    - enunciado: O que o `import type` garante?
+      alternativas:
+      - texto: Que os testes do microfrontend confiram tipos.
+        correta: false
+        explicacao: O Vitest continua sem conferir tipos.
+      - texto: Que nenhum código do BFF entre no bundle do microfrontend.
+        correta: true
+        explicacao: O bundle ficou com os mesmos 296,05 kB e sem trechos do BFF.
+      - texto: Que o BFF esteja no ar no build.
+        correta: false
+        explicacao: O build não chama o BFF.
+    - enunciado: Por que os testes do microfrontend passaram depois da renomeação, mesmo com o contrato?
+      alternativas:
+      - texto: O contrato só vale em produção.
+        correta: false
+        explicacao: O contrato é checado em toda compilação.
+      - texto: A renomeação não chegou ao BFF.
+        correta: false
+        explicacao: O `tsc` do microfrontend acusou a renomeação na mesma execução.
+      - texto: O Vitest não roda o `tsc`, e o MSW do microfrontend responde com o formato antigo.
+        correta: true
+        explicacao: A detecção acontece no `tsc --noEmit` do `npm run build`.
+    - enunciado: Qual custo a ADR-017 aceita?
+      alternativas:
+      - texto: O build do microfrontend passa a depender do código e das dependências instaladas do BFF.
+        correta: true
+        explicacao: A autonomia de execução fica preservada e a de build é cedida em parte.
+      - texto: O microfrontend passa a chamar o BFF sem o Gateway.
+        correta: false
+        explicacao: O caminho das requisições não muda.
+      - texto: Duas dependências novas de RPC.
+        correta: false
+        explicacao: Esse era o custo do tRPC, descartado.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A renomeação no BFF passou por todos os testes e pelo `tsc` antes da prova de conceito.
+    - Cada erro de compilação do caminho até o contrato foi lido e resolvido.
+    - A mesma renomeação parou o `npm run build` do microfrontend depois da prova de conceito.
+    - O bundle continuou sem código do BFF.
+    - A dependência de build entre microfrontend e BFF está clara.

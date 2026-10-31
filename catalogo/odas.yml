@@ -141,7 +141,8 @@ odas:
     minutos: 60
     pre_requisitos: ["11"]
     objetivo: "Detectar na compilação uma quebra de contrato entre BFF e microfrontend."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-12
   - id: "13"
     titulo: "Segurança no navegador"
     trilha: 5

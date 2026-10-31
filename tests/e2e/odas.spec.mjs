@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -235,6 +235,26 @@ test('oda-11: o teste do vencimento falha antes do mapeamento e a suíte acusa o
   await expect(tela).toContainText('Tests  66 passed (66)');
   await rodar('curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos/123456-7');
   await expect(tela).toContainText('"vencimentoFinal":null');
+});
+
+test('oda-12: a renomeação passa sem o contrato e para o tsc do microfrontend com o contrato', async ({ page }) => {
+  await page.goto('/oda-12/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  const renomear = "perl -pi -e 's/\\bnumero\\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts";
+  await rodar(renomear);
+  await rodar('(cd mfes/endereco && npx tsc --noEmit)');
+  await expect(tela).toContainText('não percebe a mudança no BFF');
+  await rodar('git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__');
+  for (const passo of [5, 7]) await painel.getByLabel(`Passo ${passo} concluído`).check();
+  await rodar('(cd mfes/endereco && npx tsc --noEmit)');
+  await expect(tela).toContainText("on type 'unknown'");
+  await painel.getByLabel('Passo 9 concluído').check();
+  await rodar(renomear);
+  await rodar('(cd mfes/endereco && npx tsc --noEmit)');
+  await expect(tela).toContainText('"cep" | "logradouro" | "numeroDoImovel"');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {
