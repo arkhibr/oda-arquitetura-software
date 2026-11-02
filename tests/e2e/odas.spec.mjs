@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -364,6 +364,23 @@ test('oda-19: o teste de arquitetura acusa a Infrastructure na API e passa depoi
   await painel.getByLabel('Passo 6 concluído').check();
   await rodar('dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests');
   await expect(tela).toContainText('Com falha:     0, Aprovado:     4');
+});
+
+test('oda-21: o agregado aceita oito unidades com estoque cinco até a correção', async ({ page }) => {
+  await page.goto('/oda-21/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  const adicionar = `curl -s -w ' %{http_code}\\n' -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"produtoId":1,"quantidade":4}' http://localhost:5000/api/v1/pedidos/1/itens`;
+  await rodar(adicionar);
+  await expect(tela).toContainText('"quantidade":8');
+  await painel.getByLabel('Passo 3 concluído').check();
+  await rodar('dotnet test tests/ProdutosAPI.Tests --filter PedidoInvariantesTests');
+  await expect(tela).toContainText('Quantidade máxima por item é 999.');
+  await painel.getByLabel('Passo 5 concluído').check();
+  await rodar(adicionar);
+  await expect(tela).toContainText('sem estoque suficiente');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

@@ -231,7 +231,8 @@ odas:
     minutos: 75
     pre_requisitos: ["19"]
     objetivo: "Decidir onde o domínio rico compensa e proteger invariantes em agregados e value objects."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-21
   - id: "22"
     titulo: "Erros e validação: Result, FluentValidation e exceções"
     trilha: 6

@@ -1,0 +1,604 @@
+id: '21'
+titulo: 'DDD tático: domínio rico seletivo, value objects e agregado'
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: 'O objetivo desta ODA é aprender a decidir onde vale a pena modelar regras no próprio domínio e a garantir que um agregado proteja essas regras em qualquer sequência de operações. O caso de estudo é o pedido da API `net-minimal-api`: ele aceita oito unidades de um produto com estoque cinco, porque confere cada parcela e não a soma, e você vai reproduzir a falha pela API e corrigi-la com um teste de unidade escrito antes.'
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar por que a ADR-0015 dá domínio rico a Produto, Categoria e Variante e CRUD a Atributo e Mídia.
+    - Reconhecer value object, entidade e agregado no código do Catálogo e dos Pedidos.
+    - Encontrar uma invariante que o agregado não protege e reproduzi-la pela API.
+    - Corrigir a invariante dentro do agregado, com o teste de unidade escrito antes.
+    - Distinguir a regra que o agregado pode garantir da que exige outro agregado.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: O .NET SDK 10, o Git e o `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · oito notebooks com estoque cinco
+    comandos:
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":1,"quantidade":4}]}'' http://localhost:5000/api/v1/pedidos'
+      saida: '201'
+      origem: executado
+    - entrada: curl -s http://localhost:5000/api/v1/catalogo/produtos/1 | grep -o '"estoque":[0-9]*'
+      saida: '"estoque":5'
+      origem: executado
+    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+      saida: '{"id":1,"status":"Rascunho","total":36000.0,"criadoEm":"2026-11-02T00:34:43.790497","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":8,"subtotal":36000.0}]} 200'
+      origem: executado
+    cenarios:
+    - rotulo: Estoque do produto 1
+      comando: curl -s http://localhost:5000/api/v1/catalogo/produtos/1 | grep -o '"estoque":[0-9]*'
+    - rotulo: Mais quatro unidades
+      comando: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta os três blocos do DDD tático usados no código: value object, entidade e agregado, e o critério para decidir quando cada um compensa. No repositório, a ADR-0004 registra o formato dos value objects e a ADR-0015 registra a escolha recurso a recurso.'
+  - tipo: comparativo
+    colunas:
+    - Value object
+    - Entidade
+    - Agregado
+    linhas:
+    - dimensao: Exemplo
+      valores:
+      - '`PrecoProduto`, `EstoqueProduto`'
+      - '`Produto`, `PedidoItem`'
+      - '`Pedido` com os seus `PedidoItem`'
+    - dimensao: Identidade
+      valores:
+      - 'Nenhuma: igualdade pelo valor'
+      - '`Id` próprio'
+      - A raiz, `Pedido`, é a única porta de entrada
+    - dimensao: Mudança
+      valores:
+      - 'Imutável: troca-se o valor'
+      - Métodos com `Result`
+      - Só pelos métodos da raiz, como `AdicionarItem`
+    - dimensao: Regra que protege
+      valores:
+      - Preço maior que zero
+      - Estoque não negativo
+      - Até 20 itens, até 999 por item, estoque e status
+  - tipo: conceito
+    titulo: Invariante
+    texto: Uma invariante é uma regra que precisa valer depois de qualquer operação, e não só na primeira. Quando o agregado confere a parcela nova e esquece o que já tinha, a regra vale na criação e falha na segunda chamada.
+  - tipo: conceito
+    titulo: Fronteira de consistência
+    texto: O `Pedido` recebe o `Produto` para conferir o estoque, mas não muda o estoque do produto. Duas instâncias de `Pedido` podem, cada uma, caber no estoque e juntas ultrapassá-lo, porque essa regra atravessa dois agregados.
+  - tipo: adr
+    id: ADR-0004
+    titulo: Value Objects como Sealed Records
+    status: accepted
+    contexto: Preço, categoria, estoque e descrição têm regras de validade próprias, e repeti-las em validadores, serviços e entidades duplicaria código.
+    decisao: '`sealed record` com construtor privado, `Criar` que devolve `Result<T>` e `Reconstituir` para o EF Core.'
+    alternativas: Tipos primitivos validados no serviço e DTOs com DataAnnotations.
+    consequencias: Não há como criar um `PrecoProduto` inválido, ao custo de conversões explícitas no `AppDbContext`.
+  - tipo: adr
+    id: ADR-0015
+    titulo: 'Domínio Rico Seletivo: Complexidade onde ela Importa'
+    status: accepted
+    contexto: Aplicar DDD completo aos cinco recursos do Catálogo seria complexidade desnecessária.
+    decisao: Produto, Categoria e Variante com domínio rico, e Atributo e Mídia como CRUD.
+    alternativas: DDD completo para todos e CRUD puro para todos.
+    consequencias: Invariantes críticas protegidas no domínio, e regras que dependem do banco, como a hierarquia de categorias, ficam no serviço.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba mostra onde cada regra está escrita, para que você localize a brecha antes do laboratório: um value object, a consulta de estoque do produto e o método `AdicionarItem` do agregado `Pedido`, no commit `702145a`. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.Domain/ValueObjects/PrecoProduto.cs
+    commit: 702145a
+    linhas:
+    - public sealed record PrecoProduto
+    - '{'
+    - '    public const decimal Minimo = 0.01m;'
+    - '    private PrecoProduto(decimal value) => Value = value;'
+    - '    public decimal Value { get; }'
+    - ''
+    - '    public static Result<PrecoProduto> Criar(decimal value)'
+    - '    {'
+    - '        if (value < Minimo)'
+    - '            return Result<PrecoProduto>.Fail("Preço deve ser maior que zero.");'
+    - '        return Result<PrecoProduto>.Ok(new PrecoProduto(value));'
+    - '    }'
+    - ''
+    - '    public static PrecoProduto Reconstituir(decimal value)'
+    - '    {'
+    - '        var result = Criar(value);'
+    - '        if (!result.IsSuccess || result.Value is null)'
+    - '            throw new InvalidOperationException(result.Error);'
+    - '        return result.Value;'
+    - '    }'
+    anotacoes:
+    - linha: 8
+      texto: 'Construtor privado: só `Criar` e `Reconstituir` constroem.'
+    - linha: 11
+      texto: A validação devolve `Result`, sem exceção.
+    - linha: 22
+      texto: Na reidratação, um dado inválido no banco vira exceção.
+    inicio: 5
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.Domain/Produto.cs
+    commit: 702145a
+    linhas:
+    - '    public bool TemEstoqueDisponivel(int qtd) => Ativo && Estoque.Value >= qtd;'
+    anotacoes:
+    - linha: 136
+      texto: Pergunta sobre uma quantidade, sem reservar nada.
+    inicio: 136
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/Domain/Pedido.cs
+    commit: 702145a
+    linhas:
+    - '    public Result AdicionarItem(Produto produto, int quantidade)'
+    - '    {'
+    - '        if (Status != StatusPedido.Rascunho)'
+    - '            return Result.Fail("Itens só podem ser adicionados a pedidos em rascunho.");'
+    - ''
+    - '        if (quantidade < 1 || quantidade > 999)'
+    - '            return Result.Fail("Quantidade deve estar entre 1 e 999.");'
+    - ''
+    - '        if (!produto.TemEstoqueDisponivel(quantidade))'
+    - '            return Result.Fail($"Produto ''{produto.Nome}'' sem estoque suficiente.");'
+    - ''
+    - '        var existente = _itens.FirstOrDefault(i => i.ProdutoId == produto.Id);'
+    - '        if (existente is not null)'
+    - '        {'
+    - '            existente.IncrementarQuantidade(quantidade);'
+    - '        }'
+    - '        else'
+    - '        {'
+    - '            if (_itens.Count >= MaxItensPorPedido)'
+    - '                return Result.Fail($"Pedido não pode ter mais de {MaxItensPorPedido} itens distintos.");'
+    - ''
+    - '            _itens.Add(PedidoItem.Criar(produto, quantidade));'
+    - '        }'
+    - ''
+    - '        RecalcularTotal();'
+    - '        return Result.Ok();'
+    - '    }'
+    anotacoes:
+    - linha: 31
+      texto: Limite conferido só para a parcela nova.
+    - linha: 34
+      texto: Estoque conferido só para a parcela nova.
+    - linha: 40
+      texto: A soma acontece depois das verificações.
+    - linha: 44
+      texto: Limite de itens distintos, protegido pela raiz.
+    inicio: 26
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/Domain/PedidoItem.cs
+    commit: 702145a
+    linhas:
+    - '    internal void IncrementarQuantidade(int adicional)'
+    - '    {'
+    - '        if (adicional <= 0)'
+    - '            throw new InvalidOperationException("Quantidade adicional deve ser positiva.");'
+    - '        if (Quantidade + adicional > 999)'
+    - '            throw new InvalidOperationException("Quantidade máxima por item é 999.");'
+    - '        Quantidade += adicional;'
+    - '    }'
+    anotacoes:
+    - linha: 31
+      texto: O item protege o limite com exceção, e não com `Result`.
+    inicio: 26
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/Domain/Pedido.cs
+    commit: 702145a
+    linhas:
+    - '    public Result Confirmar()'
+    - '    {'
+    - '        if (Status != StatusPedido.Rascunho)'
+    - '            return Result.Fail("Apenas pedidos em rascunho podem ser confirmados.");'
+    - ''
+    - '        if (!_itens.Any())'
+    - '            return Result.Fail("Pedido precisa ter ao menos um item.");'
+    - ''
+    - '        if (Total < ValorMinimoConfirmacao)'
+    - '            return Result.Fail("Valor mínimo para confirmação é R$ 10,00.");'
+    - ''
+    - '        Status = StatusPedido.Confirmado;'
+    - '        ConfirmadoEm = DateTime.UtcNow;'
+    - '        return Result.Ok();'
+    - '    }'
+    anotacoes:
+    - linha: 54
+      texto: Confirmar não toca no estoque do produto.
+    inicio: 54
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba simula, sem executar nada, o caminho de duas chamadas de quatro unidades por dentro do agregado, até o pedido terminar com oito unidades de um produto com estoque cinco. Depois, classifique cada regra do sistema pelo lugar em que ela deve ficar: value object, agregado, serviço com acesso ao banco ou nenhum, no caso dos recursos tratados como CRUD.'
+  - tipo: fluxo
+    titulo: Duas chamadas de quatro unidades, estoque cinco
+    etapas:
+    - titulo: Criação
+      descricao: '`POST /api/v1/pedidos` com quatro unidades: `AdicionarItem` confere `4 ≤ 999` e `TemEstoqueDisponivel(4)`, e cria o item.'
+    - titulo: Segunda chamada
+      descricao: '`POST /api/v1/pedidos/1/itens` com mais quatro: as mesmas verificações valem para 4, e não para 8.'
+    - titulo: Soma
+      descricao: '`IncrementarQuantidade(4)` leva o item a 8, e `RecalcularTotal` dá R$ 36.000,00.'
+    - titulo: Persistência
+      descricao: O repositório grava o pedido com 8 unidades, e a resposta é 200.
+    - titulo: Depois da correção
+      descricao: A raiz calcula a quantidade final antes das regras, e a segunda chamada recebe 400 com `sem estoque suficiente`.
+  - tipo: classificador
+    enunciado: Pela ADR-0015 e pelo código, onde cada regra fica?
+    categorias:
+    - id: vo
+      rotulo: Value object
+    - id: agregado
+      rotulo: Agregado ou entidade
+    - id: servico
+      rotulo: Serviço com banco
+    - id: crud
+      rotulo: 'Sem regra: CRUD'
+    itens:
+    - texto: Preço maior que zero
+      categoria: vo
+      explicacao: '`PrecoProduto.Criar`.'
+    - texto: Até 20 itens distintos por pedido
+      categoria: agregado
+      explicacao: '`Pedido.MaxItensPorPedido`.'
+    - texto: Categoria com no máximo dois níveis
+      categoria: servico
+      explicacao: A ADR-0015 registra que a regra precisa consultar o banco.
+    - texto: Nome e valor de um atributo
+      categoria: crud
+      explicacao: Atributo é CRUD pela ADR-0015.
+    - texto: Só pedidos em rascunho recebem itens
+      categoria: agregado
+      explicacao: Primeira verificação de `AdicionarItem`.
+    - texto: Estoque não negativo
+      categoria: vo
+      explicacao: '`EstoqueProduto`.'
+    - texto: URL e tipo de uma mídia
+      categoria: crud
+      explicacao: Mídia é CRUD pela ADR-0015.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é corrigir a regra de estoque e de limite do pedido dentro do agregado, provando a falha antes e a correção depois. Os passos 1 e 2 sobem a API com o banco de exemplo e reproduzem a brecha por `curl`, os passos 3 a 6 escrevem os testes de unidade e corrigem `Pedido.AdicionarItem`, e o passo 7 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/net-minimal-api`, entre na pasta criada e rode `git checkout 702145a`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Subir a API com o banco do seed
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db && dotnet run --launch-profile http
+      sucesso: '`Now listening on: http://localhost:5000`.'
+    - titulo: Pedir oito unidades em duas chamadas
+      texto: Noutro terminal, obtenha o token, crie um pedido com quatro unidades do produto 1 e acrescente mais quatro.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":1,"quantidade":4}]}'' http://localhost:5000/api/v1/pedidos'
+        - curl -s http://localhost:5000/api/v1/catalogo/produtos/1 | grep -o '"estoque":[0-9]*'
+        - 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+      sucesso: '`201`, `"estoque":5` e `"quantidade":8` com `200`.'
+    - titulo: Escrever os testes das invariantes
+      texto: Crie o arquivo abaixo, ao lado de `PedidoTests.cs`. Os dois testes conferem a soma no estoque e no limite de 999.
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Unit/Domain/PedidoInvariantesTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using FluentAssertions;
+        - using ProdutosAPI.Pedidos.Domain;
+        - using ProdutosAPI.Tests.Builders;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Unit.Domain;
+        - ''
+        - public class PedidoInvariantesTests
+        - '{'
+        - '    [Fact]'
+        - '    public void AdicionarItem_MesmoProdutoDuasVezes_NaoUltrapassaOEstoque()'
+        - '    {'
+        - '        var produto = ProdutoBuilder.Padrao().ComEstoque(5).Build();'
+        - '        var pedido = Pedido.Criar();'
+        - '        pedido.AdicionarItem(produto, 4);'
+        - ''
+        - '        var resultado = pedido.AdicionarItem(produto, 4);'
+        - ''
+        - '        resultado.IsSuccess.Should().BeFalse();'
+        - '        pedido.Itens.Single().Quantidade.Should().Be(4);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public void AdicionarItem_SomaAcimaDe999_DevolveFalhaSemExcecao()'
+        - '    {'
+        - '        var produto = ProdutoBuilder.Padrao().ComEstoque(5000).Build();'
+        - '        var pedido = Pedido.Criar();'
+        - '        pedido.AdicionarItem(produto, 999);'
+        - ''
+        - '        var resultado = pedido.AdicionarItem(produto, 1);'
+        - ''
+        - '        resultado.IsSuccess.Should().BeFalse();'
+        - '        pedido.Itens.Single().Quantidade.Should().Be(999);'
+        - '    }'
+        - '}'
+      efeito: teste_invariantes
+    - titulo: Ver os testes falharem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter PedidoInvariantesTests
+      sucesso: '`Com falha: 2`, com `found True` e `System.InvalidOperationException : Quantidade máxima por item é 999.`'
+    - titulo: Conferir a quantidade final
+      texto: Em `AdicionarItem`, procure o item antes das regras e confira estoque e limite com a soma.
+      editor:
+        rotulo: arquivo
+        caminho: src/Pedidos/Domain/Pedido.cs (alteração)
+        commit: 702145a
+        linhas:
+        - '// src/Pedidos/Domain/Pedido.cs: em AdicionarItem, no lugar da verificação de estoque'
+        - '        var existente = _itens.FirstOrDefault(i => i.ProdutoId == produto.Id);'
+        - '        // As regras valem para a quantidade final do item, e não só para a parcela nova.'
+        - '        var quantidadeFinal = (existente?.Quantidade ?? 0) + quantidade;'
+        - '        if (quantidadeFinal > 999)'
+        - '            return Result.Fail("Quantidade máxima por item é 999.");'
+        - ''
+        - '        if (!produto.TemEstoqueDisponivel(quantidadeFinal))'
+        - '            return Result.Fail($"Produto ''{produto.Nome}'' sem estoque suficiente.");'
+        - ''
+        - '        if (existente is not null)'
+      efeito: invariante_corrigida
+    - titulo: Ver os testes passarem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter PedidoInvariantesTests
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Aprovado: 2` e `Aprovado: 145`.'
+    - titulo: Repetir pela API
+      texto: Reinicie a API e repita as chamadas do passo 2.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":1,"quantidade":4}]}'' http://localhost:5000/api/v1/pedidos'
+        - 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+      sucesso: '`{"error":"Produto ''Notebook Dell XPS 13'' sem estoque suficiente."}` com `400`.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: O banco é recriado com o seed, em que o produto 1 tem estoque 5.
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":1,"quantidade":4}]}'' http://localhost:5000/api/v1/pedidos'
+      saida: '201'
+      origem: executado
+    - entrada: curl -s http://localhost:5000/api/v1/catalogo/produtos/1 | grep -o '"estoque":[0-9]*'
+      saida: '"estoque":5'
+      origem: executado
+    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+      condicao: invariante_corrigida
+      saida: '{"error":"Produto ''Notebook Dell XPS 13'' sem estoque suficiente."} 400'
+      origem: executado
+      dica: Reinicie a API para que ela leia o agregado corrigido.
+    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+      saida: '{"id":1,"status":"Rascunho","total":36000.0,"criadoEm":"2026-11-02T00:34:43.790497","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":8,"subtotal":36000.0}]} 200'
+      origem: executado
+      dica: 'Oito unidades de um produto com estoque 5: cada parcela coube no estoque, e a soma não foi conferida.'
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter PedidoInvariantesTests
+      condicao:
+      - teste_invariantes
+      - invariante_corrigida
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     2, Ignorado:     0, Total:     2, Duração: 6 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter PedidoInvariantesTests
+      condicao: teste_invariantes
+      saida: "  Com falha ProdutosAPI.Tests.Unit.Domain.PedidoInvariantesTests.AdicionarItem_SomaAcimaDe999_DevolveFalhaSemExcecao [2 ms]\n   System.InvalidOperationException : Quantidade máxima por item é 999.\n  Com falha ProdutosAPI.Tests.Unit.Domain.PedidoInvariantesTests.AdicionarItem_MesmoProdutoDuasVezes_NaoUltrapassaOEstoque [22 ms]\n   Expected resultado.IsSuccess to be false, but found True.\nCom falha! – Com falha:     2, Aprovado:     0, Ignorado:     0, Total:     2, Duração: 23 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: Uma falha por regra que não protege a soma e outra por exceção que escapa do `Result`.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter PedidoInvariantesTests
+      saida: Nenhum teste corresponde ao filtro de testcase `PedidoInvariantesTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 3.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_invariantes
+      - invariante_corrigida
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   145, Ignorado:     0, Total:   145, Duração: 960 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_invariantes
+      saida: 'Com falha! – Com falha:     2, Aprovado:   143, Ignorado:     0, Total:   145, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`, ou aplique a correção da ODA 16.
+    cenarios:
+    - rotulo: Mais quatro unidades
+      comando: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+    - rotulo: Testes das invariantes
+      comando: dotnet test tests/ProdutosAPI.Tests --filter PedidoInvariantesTests
+    - rotulo: Suíte
+      comando: dotnet test tests/ProdutosAPI.Tests
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria em produção com esse domínio, cada uma com a saída ou o trecho de código que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Pedido com mais unidades que o estoque
+    origem: executado
+    rotulo_saida: log
+    saida: '$ estoque do produto 1
+
+      "estoque":5
+
+
+      $ mais quatro unidades no pedido 1, que já tinha quatro
+
+      {"id":1,"status":"Rascunho","total":36000.0,"criadoEm":"2026-11-02T00:34:43.790497","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":8,"subtotal":36000.0}]} 200'
+    pergunta: Cada chamada pediu quatro unidades de um produto com cinco. Por que o pedido ficou com oito?
+    correcao: Conferir estoque e limite com a quantidade final do item, dentro do agregado, como no passo 5.
+    alternativas:
+    - texto: O endpoint de itens não passa pelo agregado.
+      correta: false
+      explicacao: O handler chama `AdicionarItem` do `Pedido`.
+    - texto: O agregado conferiu cada parcela contra o estoque, e só depois somou ao item existente.
+      correta: true
+      explicacao: A verificação usava `quantidade`, e não a soma.
+    - texto: O estoque foi reposto entre as chamadas.
+      correta: false
+      explicacao: O produto continuou com estoque 5.
+  - tipo: incidente
+    titulo: Exceção que escapa do Result
+    origem: executado
+    rotulo_saida: log
+    saida: "  Com falha ProdutosAPI.Tests.Unit.Domain.PedidoInvariantesTests.AdicionarItem_SomaAcimaDe999_DevolveFalhaSemExcecao [2 ms]\n   System.InvalidOperationException : Quantidade máxima por item é 999."
+    pergunta: Por que o limite de 999 aparece como exceção, se o agregado usa `Result` em todas as outras regras?
+    correcao: Conferir o limite na raiz antes de chamar o item, e manter a exceção do item só como guarda de programação.
+    alternativas:
+    - texto: O `Result` não suporta números grandes.
+      correta: false
+      explicacao: O `Result` só carrega sucesso e mensagem.
+    - texto: O xUnit transforma falhas em exceção.
+      correta: false
+      explicacao: A exceção vem de `PedidoItem.IncrementarQuantidade`.
+    - texto: A raiz conferiu `1 ≤ 999` para a parcela, e quem descobriu a soma acima do limite foi o item, que lança exceção.
+      correta: true
+      explicacao: Pela API, a exceção chegaria ao middleware como 500.
+  - tipo: incidente
+    titulo: Dois pedidos confirmados com o mesmo estoque
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/Pedidos/Domain/Pedido.cs:54-68\n    public Result Confirmar()\n    {\n        if (Status != StatusPedido.Rascunho)\n            return Result.Fail(\"Apenas pedidos em rascunho podem ser confirmados.\");\n\n        if (!_itens.Any())\n            return Result.Fail(\"Pedido precisa ter ao menos um item.\");\n\n        if (Total < ValorMinimoConfirmacao)\n            return Result.Fail(\"Valor mínimo para confirmação é R$ 10,00.\");\n\n        Status = StatusPedido.Confirmado;\n        ConfirmadoEm = DateTime.UtcNow;\n        return Result.Ok();\n    }"
+    pergunta: Depois da correção, dois clientes criam e confirmam pedidos de cinco notebooks cada. O que impede a venda de dez?
+    correcao: Reservar ou baixar o estoque do `Produto` na confirmação, na mesma transação, ou por um processo que trate a falha de reserva, porque a regra atravessa dois agregados.
+    alternativas:
+    - texto: 'Nada no código: `Confirmar` não altera o estoque, e cada pedido só confere o estoque disponível no momento.'
+      correta: true
+      explicacao: O `Pedido` não é dono do estoque do `Produto`.
+    - texto: O agregado `Pedido`, que recusa o segundo.
+      correta: false
+      explicacao: Cada pedido é uma instância separada e não vê o outro.
+    - texto: O value object `EstoqueProduto`.
+      correta: false
+      explicacao: O estoque não muda, e o valor continua 5.
+  - tipo: incidente
+    titulo: Leitura que falha por dado antigo
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/Catalogo/Catalogo.Domain/ValueObjects/PrecoProduto.cs:18-24\n    public static PrecoProduto Reconstituir(decimal value)\n    {\n        var result = Criar(value);\n        if (!result.IsSuccess || result.Value is null)\n            throw new InvalidOperationException(result.Error);\n        return result.Value;\n    }"
+    pergunta: Um produto antigo foi gravado no banco com preço 0, antes da regra. O que acontece ao listá-lo?
+    correcao: Corrigir os dados com uma migration antes de endurecer a regra, ou fazer `Reconstituir` aceitar o valor gravado e deixar a regra para as mudanças.
+    alternativas:
+    - texto: O produto é ignorado na lista.
+      correta: false
+      explicacao: Não há filtro de produtos inválidos.
+    - texto: A reidratação chama `Criar`, recebe falha e lança `InvalidOperationException`, e a leitura falha.
+      correta: true
+      explicacao: A ADR-0004 diz que `Reconstituir` não revalida, e o código revalida.
+    - texto: O produto aparece com preço 0.
+      correta: false
+      explicacao: '`Reconstituir` recusa o valor.'
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que Atributo e Mídia não têm value objects?
+      alternativas:
+      - texto: Porque o EF Core não mapeia value objects.
+        correta: false
+        explicacao: O `AppDbContext` mapeia os do Produto.
+      - texto: Porque são entidades sem `Id`.
+        correta: false
+        explicacao: Os dois têm `Id`.
+      - texto: Porque a ADR-0015 não encontrou invariantes de negócio que justificassem o custo.
+        correta: true
+        explicacao: São CRUD de nome e valor e de URL e tipo.
+    - enunciado: Onde a correção deve ficar?
+      alternativas:
+      - texto: Na raiz do agregado, `Pedido.AdicionarItem`, que conhece os itens existentes.
+        correta: true
+        explicacao: O handler e o endpoint não precisam mudar.
+      - texto: No validador do endpoint.
+        correta: false
+        explicacao: O validador não conhece os itens já gravados.
+      - texto: No banco, com uma constraint.
+        correta: false
+        explicacao: O estoque fica noutra tabela, e a regra é de domínio.
+    - enunciado: O que caracteriza um value object em C# neste projeto?
+      alternativas:
+      - texto: Uma interface.
+        correta: false
+        explicacao: Value objects carregam valor.
+      - texto: '`sealed record` com construtor privado e `Criar` que devolve `Result`.'
+        correta: true
+        explicacao: É a decisão da ADR-0004.
+      - texto: Uma classe com `Id` e setters públicos.
+        correta: false
+        explicacao: Isso descreve uma entidade anêmica.
+    - enunciado: Por que o agregado `Pedido` não consegue impedir sozinho a venda acima do estoque entre pedidos diferentes?
+      alternativas:
+      - texto: Porque o `Pedido` não tem `Id`.
+        correta: false
+        explicacao: O `Pedido` tem `Id`.
+      - texto: Porque a regra está errada.
+        correta: false
+        explicacao: A regra está certa, e o problema é de fronteira.
+      - texto: Porque o estoque pertence a outro agregado, o `Produto`, e o `Pedido` só o consulta.
+        correta: true
+        explicacao: A regra atravessa a fronteira de consistência.
+    - enunciado: Qual teste falhava por exceção, e não por asserção?
+      alternativas:
+      - texto: O da soma acima de 999.
+        correta: true
+        explicacao: A exceção veio de `IncrementarQuantidade`.
+      - texto: O do estoque.
+        correta: false
+        explicacao: Esse falhou com `found True`.
+      - texto: Os dois.
+        correta: false
+        explicacao: Só um lançou exceção.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A decisão da ADR-0015 para cada recurso do Catálogo está clara.
+    - A brecha de estoque foi reproduzida pela API antes da correção.
+    - Os dois testes falharam antes da correção e passaram depois.
+    - A API passou a recusar o segundo lote com 400.
+    - A regra que atravessa dois agregados foi identificada.
