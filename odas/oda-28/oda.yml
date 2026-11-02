@@ -5,7 +5,73 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é entender como um teste de integração sobe a nuvem emulada e escolher o escopo da fixture, pesando o tempo de cada execução contra o isolamento entre os testes. No repositório `aspire-aws`, cada cenário é um projeto de testes cuja `Fixture` usa o .NET Aspire para subir o LocalStack, que emula serviços da AWS, e cada classe de teste com `IClassFixture` sobe uma cópia nova. Você vai medir o custo de uma classe a mais, compartilhar a fixture entre classes e corrigir o teste que passa a interferir no vizinho.
+    texto: O objetivo desta ODA é reduzir o tempo dos testes de integração do repositório `aspire-aws` sem deixar um teste interferir no outro, escolhendo o escopo da fixture que sobe a nuvem emulada. Cada cenário é um projeto de testes cuja `Fixture` usa o .NET Aspire para subir o LocalStack, que emula serviços da AWS (Amazon Web Services), e cada classe de teste com `IClassFixture` sobe uma cópia nova desse ambiente, o que no cenário 01 acrescenta cerca de 20 s por classe. Você vai medir o custo de uma classe a mais, compartilhar a fixture entre as classes com `ICollectionFixture` e corrigir o teste que passa a interferir no vizinho.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Teste de integração
+      definicao: Teste que exercita o código junto com os serviços reais de que ele depende, aqui os serviços da AWS emulados num contêiner. No repositório, cada cenário é um projeto de testes desse tipo.
+    - termo: Fixture
+      definicao: Objeto que prepara o ambiente de que os testes precisam antes de eles rodarem e o descarta depois. No repositório, a `LocalStackFixture` sobe os contêineres e cria os recursos de cada cenário.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: .NET Aspire e AppHost
+      definicao: O .NET Aspire é um conjunto de ferramentas da Microsoft para declarar e subir os serviços e contêineres de que uma aplicação distribuída depende. O AppHost é o projeto do Aspire em que essa declaração fica, no repositório em `src/AppHost/Program.cs`.
+      referencia:
+        rotulo: 'Aspire: what is Aspire'
+        url: https://aspire.dev/get-started/what-is-aspire/
+    - termo: AWS (Amazon Web Services)
+      definicao: Plataforma de computação em nuvem da Amazon, que oferece serviços como armazenamento de arquivos, filas, bancos de dados e funções. Os cenários do repositório testam integrações com esses serviços.
+      referencia:
+        rotulo: 'AWS: o que é a AWS'
+        url: https://aws.amazon.com/pt/what-is-aws/
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: xUnit, IClassFixture e ICollectionFixture
+      definicao: O xUnit é o framework de testes do repositório. Com `IClassFixture<T>`, cada classe de teste recebe uma fixture própria, criada antes do primeiro teste da classe, e com `ICollectionFixture<T>` todas as classes marcadas com a mesma coleção compartilham uma única fixture.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Docker, contêiner e imagem
+      definicao: O Docker executa aplicações em contêineres, processos isolados que trazem tudo de que precisam para rodar. Cada contêiner nasce de uma imagem, como `localstack/localstack`, que o Docker baixa na primeira execução.
+      referencia:
+        rotulo: 'Docker Docs: what is a container'
+        url: https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/
+    - termo: PostgreSQL
+      definicao: Banco de dados relacional de código aberto. O AppHost do repositório sobe um contêiner do PostgreSQL na porta 5433 em todo cenário, junto com o LocalStack.
+      referencia:
+        rotulo: 'PostgreSQL: about'
+        url: https://www.postgresql.org/about/
+    - termo: Amazon S3 e bucket
+      definicao: O S3 é o serviço de armazenamento de arquivos da AWS, chamados de objetos e identificados por uma chave. Os objetos ficam em buckets, que são recipientes com nome, e o cenário 01 grava e lista objetos em buckets do LocalStack.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/architecture/adrs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
+    - termo: SDK da AWS para .NET
+      definicao: Conjunto de bibliotecas que o código .NET usa para chamar os serviços da AWS, com um cliente por serviço, como o `AmazonS3Client`. No repositório, o `AwsClientFactory` aponta esses clientes para `http://localhost:4566`.
+      referencia:
+        rotulo: 'AWS: guia do desenvolvedor do SDK para .NET'
+        url: https://docs.aws.amazon.com/sdk-for-net/v3/developer-guide/welcome.html
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa funções sob demanda, sem servidor para administrar. O LocalStack executa essas funções em contêineres e por isso precisa acessar o Docker da máquina pelo arquivo `/var/run/docker.sock`.
+      referencia:
+        rotulo: 'AWS: o que é o AWS Lambda'
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: Socket do Docker e Colima
+      definicao: O arquivo `/var/run/docker.sock` é o canal pelo qual programas falam com o Docker da máquina. O Colima é uma forma de rodar o Docker no macOS que, por padrão, cria esse canal noutro caminho, e por isso a montagem do AppHost falha com ele.
+    - termo: Lock de arquivo
+      definicao: Trava obtida ao abrir um arquivo com exclusividade, que faz outro processo esperar até o arquivo ser liberado. A `LocalStackFixture` usa um lock desse tipo para que só um processo de teste ocupe a porta 4566 por vez.
+    - termo: Endpoint de saúde (health check)
+      definicao: Rota que informa se um serviço está pronto para receber chamadas. A fixture consulta `/_localstack/health` até receber 200, com limite de 120 segundos.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,23 +119,21 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · rodar o cenário 01
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
-      saida: 'Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     0, Total:     5, Duração: 501 ms - 01-S3.Basic.dll (net10.0)
-
-        14 s'
-      origem: executado
-      dica: Os testes levam menos de um segundo, e o resto dos 14 s é o Aspire subindo o LocalStack e o PostgreSQL. A primeira execução na máquina demora mais, porque baixa as imagens.
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior, como exige o `global.json`.
     - entrada: docker info --format '{{.ServerVersion}}'
       saida: 29.5.2
-      origem: executado
-      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
     cenarios:
-    - rotulo: Docker em execução
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
-    - rotulo: Rodar o cenário 01
-      comando: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
 - id: conceito
   titulo: Conceito
   blocos:
@@ -268,7 +332,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é medir quanto custa cada `Fixture` e reduzir esse custo sem deixar um teste interferir no outro. Os passos 1 e 2 medem o cenário 01 com uma e com duas classes, os passos 3 e 4 compartilham a fixture e mostram o teste que quebra, e o passo 5 corrige o teste novo. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é cortar o tempo que cada classe de teste gasta subindo o próprio ambiente, compartilhando a fixture entre as classes, e eliminar a interferência entre testes que esse compartilhamento revela, dando a cada teste recursos com nome único. Os passos 1 e 2 medem o cenário 01 com uma e com duas classes, os passos 3 e 4 compartilham a fixture e mostram o teste que quebra, e o passo 5 corrige o teste novo. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: No `S3BasicTests.cs`, a classe de teste declara `IClassFixture<Fixture>`, e a `LocalStackFixture` sobe o AppHost com o LocalStack e o PostgreSQL para cada classe. O teste de listagem grava num bucket de nome fixo, `test-bucket-list`, e espera exatamente dois objetos.
+    impacto: 'No cenário 01, uma segunda classe de teste leva a execução de cerca de 14 s para cerca de 34 s, porque outro LocalStack sobe só para ela. Quando a fixture passa a ser compartilhada, o bucket de nome fixo recebe objetos de outro teste, e a contagem falha com `Expected: 2` e `Actual: 3`.'
+    mecanismo: O laboratório agrupa as classes do cenário numa coleção com `ICollectionFixture`, para que um único LocalStack atenda todas, e dá ao teste novo um bucket com nome único, gerado com `Guid`, para que nenhum vizinho altere a contagem.
+    comprovacao: 'Com a fixture compartilhada e o bucket único, o cenário termina com `Aprovado: 6` em cerca de 19 s, contra cerca de 34 s com uma fixture por classe.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
@@ -278,7 +348,7 @@ abas:
     titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
     sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
     causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
-    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
+    correcao: Depois do `git stash` da faixa Antes de começar, na aba Laboratório, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
   - tipo: passos
     itens:
     - titulo: Medir o cenário 01

@@ -5,7 +5,91 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é praticar a separação entre escrita e leitura de dados e a evolução do esquema do banco com migrations, sem quebrar a exclusão lógica. Na API `net-minimal-api`, qualquer criação de variante de produto recebe 500, e depois de corrigida, o SKU de uma variante excluída não pode ser reaproveitado. Você vai corrigir a consulta de escrita, mudar um índice do banco e gerar a migration, com o teste escrito antes.
+    texto: 'O objetivo desta ODA é corrigir dois defeitos de acesso a dados que impedem o cadastro de variantes de produto na API `net-minimal-api`: toda criação de variante recebe 500, porque o EF Core não consegue traduzir uma consulta LINQ para SQL, e o SKU (Stock Keeping Unit, o código de estoque) de uma variante excluída não pode ser reaproveitado, porque o índice único do banco também conta as linhas desativadas pela exclusão lógica. Os dois defeitos mostram que a escrita com EF Core, a leitura com Dapper, a exclusão lógica e as migrations precisam seguir as mesmas regras. Você vai corrigir a consulta de escrita, filtrar o índice pelas variantes ativas e gerar a migration que leva a mudança ao banco, com o teste escrito antes.'
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, como criar uma tabela ou trocar um índice, com um método `Up` que aplica a mudança e um `Down` que a desfaz. As migrations são aplicadas em ordem, e o histórico delas fica gravado no próprio banco.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Exclusão lógica (soft delete)
+      definicao: Técnica em que excluir um registro apenas marca uma coluna, como `Ativo` ou `Ativa`, com falso, e a linha continua na tabela. Toda consulta e toda regra de unicidade precisa então decidir se considera ou não as linhas marcadas.
+      referencia:
+        rotulo: 'Microsoft Learn: filtros de consulta globais no EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/filters
+    - termo: SKU (Stock Keeping Unit)
+      definicao: Código que identifica de forma única um item de estoque. Na API, cada variante de produto, como uma cor ou um tamanho, tem um SKU próprio, como `MOUSE-ROSA`.
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional (ORM) da Microsoft para .NET, que traduz consultas escritas em C# para SQL e acompanha as mudanças nos objetos para gravá-las no banco. Na API, ela cuida das escritas e das migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: Dapper
+      definicao: Biblioteca .NET que executa SQL escrito à mão e converte as linhas do resultado em objetos, sem rastrear mudanças. Na API, ela atende as consultas de leitura.
+    - termo: LINQ (Language Integrated Query)
+      definicao: Recurso do C# para escrever consultas como expressões da própria linguagem, como `Where` e `AnyAsync`. O EF Core traduz essas expressões para SQL durante a execução, e uma expressão que ele não sabe traduzir gera erro nesse momento.
+      referencia:
+        rotulo: 'Microsoft Learn: avaliação de consultas no cliente e no servidor'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/client-eval
+    - termo: Índice único e índice filtrado
+      definicao: Um índice único impede que duas linhas tenham a mesma combinação de valores nas colunas indexadas. Um índice filtrado, chamado de índice parcial no SQLite, só considera as linhas que atendem a uma condição, como `WHERE Ativa = 1`.
+      referencia:
+        rotulo: 'SQLite: partial indexes'
+        url: https://www.sqlite.org/partialindex.html
+    - termo: dotnet-ef
+      definicao: Ferramenta de linha de comando do EF Core que gera, lista e aplica migrations, instalada como ferramenta local do repositório pelo arquivo `dotnet-tools.json`.
+      referencia:
+        rotulo: 'Microsoft Learn: referência da CLI do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/cli/dotnet
+    - termo: SQLite
+      definicao: Banco de dados relacional que guarda tudo num único arquivo e roda dentro do próprio processo da aplicação, sem servidor separado. A API grava os dados no arquivo `produtos-api.db`.
+      referencia:
+        rotulo: 'SQLite: about SQLite'
+        url: https://www.sqlite.org/about.html
+    - termo: JWT (JSON Web Token) e token Bearer
+      definicao: 'Token assinado que a API emite no login e que o cliente envia no cabeçalho `Authorization: Bearer <token>` para provar quem é. O laboratório obtém esse token antes de criar variantes.'
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
+    - termo: CQRS (Command Query Responsibility Segregation)
+      definicao: Padrão que separa o modelo usado para alterar dados, os comandos, do modelo usado para lê-los, as consultas. Na API, a separação aparece como repositórios de comando com EF Core e repositórios de consulta com Dapper.
+      referencia:
+        rotulo: 'Martin Fowler: CQRS'
+        url: https://martinfowler.com/bliki/CQRS.html
+    - termo: Repositório (padrão Repository)
+      definicao: Classe que concentra o acesso a dados de uma entidade atrás de métodos com nomes do domínio, como `SkuExisteParaProdutoAsync`, e isola o resto do código da forma como o banco é consultado.
+      referencia:
+        rotulo: 'Martin Fowler: Repository'
+        url: https://martinfowler.com/eaaCatalog/repository.html
+    - termo: Value object (objeto de valor)
+      definicao: Objeto do domínio definido apenas pelos seus valores, sem identidade própria, e por isso dois value objects com os mesmos valores são iguais. Na API, o SKU é um value object que o EF Core grava como texto por meio de uma conversão.
+      referencia:
+        rotulo: 'Martin Fowler: Value Object'
+        url: https://martinfowler.com/bliki/ValueObject.html
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros que a aplicação insere num banco novo para que ele já tenha dados de exemplo. Na API, o seed roda depois das migrations e cria, entre outros, o produto 2 usado no laboratório.
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a subir quando o modelo tem mudanças que nenhuma migration descreve, o aviso `PendingModelChangesWarning`.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, serviços e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests` e sobem a API com a classe `ApiFactory`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: Esteira de CI (integração contínua)
+      definicao: Processo automático que compila e testa o código a cada alteração enviada ao repositório, antes de ela ser incorporada. O Diagnóstico sugere incluir nela a verificação de mudanças de modelo sem migration.
+      referencia:
+        rotulo: 'Martin Fowler: Continuous Integration'
+        url: https://martinfowler.com/articles/continuousIntegration.html
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,27 +137,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · criar uma variante
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
-      saida: 'Now listening on: http://localhost:5000
-
-        Application started. Press Ctrl+C to shut down.
-
-        Hosting environment: Development'
-      origem: executado
-    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
-      saida: ''
-      origem: executado
-    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
-      saida: '{"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/variantes","errors":{}} 500'
-      origem: executado
-      dica: 'Qualquer criação de variante recebe 500. Veja o log da API: `The LINQ expression ... could not be translated`.'
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Subir a API
-      comando: rm -f produtos-api.db && dotnet run --launch-profile http
-    - rotulo: Criar variante
-      comando: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -264,7 +341,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer a criação de variantes funcionar e permitir que o SKU de uma variante excluída seja reaproveitado, mudando a consulta de escrita, o modelo e o esquema do banco. Os passos 1 e 2 reproduzem a falha pela API, os passos 3 a 7 escrevem o teste e mudam consulta e modelo, e os passos 8 a 10 geram a migration e conferem o banco. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é fazer a criação de variantes voltar a funcionar e liberar o SKU das variantes excluídas, corrigindo a consulta que o EF Core não traduz e filtrando o índice único pelas variantes ativas por meio de uma migration. Os passos 1 e 2 reproduzem a falha pela API, os passos 3 a 7 escrevem o teste e mudam consulta e modelo, e os passos 8 a 10 geram a migration e conferem o banco. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: Em `EfVarianteCommandRepository.cs`, a consulta `SkuExisteParaProdutoAsync` compara `v.Sku.Valor`, que não é coluna, e o EF Core recusa a tradução com `could not be translated`. Em `AppDbContext.cs`, o índice único `idx_variante_produto_sku` vale para todas as linhas, inclusive as variantes desativadas com `Ativa = 0`.
+    impacto: Nenhuma variante de produto pode ser criada, porque toda tentativa responde 500. Depois da primeira correção, o SKU de uma variante excluída continua bloqueado, e a exclusão lógica passa a impedir um cadastro que o negócio permite.
+    mecanismo: O laboratório aplica três mecanismos, na ordem. A consulta passa a comparar o value object inteiro, `v.Sku == alvo`, que o EF Core traduz pela conversão de valor, o índice ganha o filtro `Ativa = 1`, que restringe a unicidade às variantes ativas, e uma migration gerada com o `dotnet-ef` leva o índice novo ao banco.
+    comprovacao: 'O teste `VarianteSkuTests` falha com três respostas 500 antes da correção e passa com `Aprovado: 3` depois, com a suíte inteira em `Aprovado: 146`. Pela API, criar, desativar e recriar o mesmo SKU responde 201, 204 e 201, e o `sqlite3` mostra o índice com `WHERE Ativa = 1`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

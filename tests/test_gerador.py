@@ -22,7 +22,9 @@ def minima():
     abas = [{"id": a, "titulo": a.title(), "blocos": [{"tipo": "legenda", "texto": "Texto curto."}]} for a in ABAS]
     abas[6]["blocos"].append({"tipo": "quiz", "perguntas": [{"enunciado": "P?", "alternativas": [
         {"texto": "a", "correta": True, "explicacao": "x"}, {"texto": "b", "correta": False, "explicacao": "y"}]}]})
-    abas[0]["blocos"] = [{"tipo": "faixa", "estilo": "dica", "titulo": COMO_OBTER, "texto": "Clone o repositório."}]
+    abas[0]["blocos"] = [{"tipo": "glossario", "itens": [{"termo": "API", "definicao": "Interface de programação."}]},
+                         {"tipo": "faixa", "estilo": "dica", "titulo": COMO_OBTER, "texto": "Clone o repositório."}]
+    abas[4]["blocos"] = [{"tipo": "faixa", "estilo": "objetivo", "problema": "p", "impacto": "i", "mecanismo": "m", "comprovacao": "c"}]
     return {"id": "20", "titulo": "Vertical Slice e comparativo com Clean Architecture", "abas": abas}
 
 
@@ -46,7 +48,7 @@ class TestValidacao(unittest.TestCase):
     def test_tipo_desconhecido(self):
         d = minima()
         d["abas"][0]["blocos"].append({"tipo": "roleta"})
-        self.assertIn("missao[1]: tipo de bloco desconhecido: roleta.", self.erros(d))
+        self.assertIn("missao[2]: tipo de bloco desconhecido: roleta.", self.erros(d))
 
     def test_propriedade_obrigatoria(self):
         d = minima()
@@ -112,7 +114,7 @@ class TestValidacao(unittest.TestCase):
             (5, {"tipo": "incidente", "titulo": "t", "saida": ["x"], "origem": "executado", "pergunta": "p", "correcao": "c",
                  "alternativas": [{"texto": "a", "correta": True, "explicacao": "x"}, {"texto": "b", "correta": False, "explicacao": "y"}]},
              "diagnostico[1]: incidente exige saida como texto."),
-            (0, "texto solto", "missao[1]: bloco deve ser um objeto."),
+            (0, "texto solto", "missao[2]: bloco deve ser um objeto."),
         ]
         for aba, bloco, esperado in casos:
             with self.subTest(esperado=esperado):
@@ -124,6 +126,25 @@ class TestValidacao(unittest.TestCase):
         d = minima()
         d["abas"][2]["blocos"].append({"tipo": "editor", "rotulo": "arquivo", "caminho": "Program.cs", "commit": "702145a", "inicio": 94, "linhas": ["a", "b"], "anotacoes": [{"linha": 95, "texto": "x"}], "contexto": "Arquivo de entrada da API."})
         d["abas"][2]["blocos"].append({"tipo": "faixa", "estilo": "dica", "titulo": ONDE, "texto": "Repositório net-minimal-api."})
+        self.assertEqual(validar_oda(d, CATALOGO), [])
+
+    def test_laboratorio_abre_com_objetivo_completo(self):
+        d = minima()
+        del d["abas"][4]["blocos"][0]["impacto"]
+        self.assertIn("laboratorio[0]: faixa de objetivo exige problema, impacto, mecanismo, comprovacao.", validar_oda(d, CATALOGO))
+        d = minima()
+        d["abas"][4]["blocos"][0]["estilo"] = "dica"
+        d["abas"][4]["blocos"][0]["texto"] = "t"
+        self.assertIn("laboratorio: a faixa de objetivo deve vir logo depois da legenda.", validar_oda(d, CATALOGO))
+
+    def test_glossario_vem_primeiro_e_cita_portal_curado(self):
+        d = minima()
+        d["abas"][0]["blocos"].reverse()
+        self.assertIn("missao: o glossário deve vir logo depois da legenda, antes de qualquer outro bloco.", validar_oda(d, CATALOGO))
+        d = minima()
+        d["abas"][0]["blocos"][0]["itens"].append({"termo": "CSP", "definicao": "Política.", "referencia": {"rotulo": "blog", "url": "https://exemplo.com/csp"}})
+        self.assertIn("missao[0]: referência do termo 2 exige rotulo e url https de um portal curado.", validar_oda(d, CATALOGO))
+        d["abas"][0]["blocos"][0]["itens"][1]["referencia"]["url"] = "https://developer.mozilla.org/pt-BR/docs/Web/HTTP/CSP"
         self.assertEqual(validar_oda(d, CATALOGO), [])
 
     def test_codigo_exige_contexto_e_faixas(self):
@@ -138,11 +159,11 @@ class TestValidacao(unittest.TestCase):
         d["abas"][4]["blocos"].append(dict(editor, contexto="Arquivo de entrada da API."))
         self.assertEqual(validar_oda(d, CATALOGO), [])
         d = minima()
-        d["abas"][0]["blocos"][0]["titulo"] = "Outra"
+        d["abas"][0]["blocos"][1]["titulo"] = "Outra"
         self.assertIn(f"missao: falta a faixa {COMO_OBTER}.", validar_oda(d, CATALOGO))
         d = minima()
-        d["abas"][0]["blocos"][0]["links"] = [{"rotulo": "repo", "url": "javascript:alert(1)"}]
-        self.assertIn("missao[0]: link de faixa exige rotulo e url https.", validar_oda(d, CATALOGO))
+        d["abas"][0]["blocos"][1]["links"] = [{"rotulo": "repo", "url": "javascript:alert(1)"}]
+        self.assertIn("missao[1]: link de faixa exige rotulo e url https.", validar_oda(d, CATALOGO))
 
     def test_resumo_e_um_bloco_valido(self):
         d = minima()

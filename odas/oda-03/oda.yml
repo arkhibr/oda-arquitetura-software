@@ -5,7 +5,147 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é distinguir o estado que pertence ao navegador do estado que é cópia de dados do servidor e estender uma fatia do Redux com o teste escrito antes. O shell do `frontend-react` usa o Redux Toolkit para o primeiro tipo e o React Query para o segundo. Você vai acrescentar um campo de preferência à fatia de interface e escrever testes que protegem a configuração de cache do React Query.
+    texto: O objetivo desta ODA é distinguir o estado que pertence ao navegador do estado que é cópia de dados do servidor e estender uma fatia do Redux com o teste escrito antes, porque misturar os dois tipos leva a cache invalidado à mão e a reducers com efeitos fora da função, como os que o shell já tem. O shell do `frontend-react` usa o Redux Toolkit para o primeiro tipo e o React Query para o segundo. Você vai acrescentar um campo de preferência à fatia de interface e escrever testes que protegem a configuração de cache do React Query, cujo `staleTime` evita chamadas repetidas à API.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Redux e Redux Toolkit
+      definicao: O Redux guarda o estado global de uma aplicação num único objeto, que só muda por meio de ações tratadas por reducers. O Redux Toolkit é o pacote oficial que simplifica esse uso, e o shell o usa em `src/shared/lib/store/`.
+      referencia:
+        rotulo: Redux Toolkit · Primeiros passos
+        url: https://redux-toolkit.js.org/introduction/getting-started
+    - termo: Fatia (slice)
+      definicao: Parte do estado do Redux com o próprio estado inicial, reducers e ações, criada com `createSlice`. O store do shell tem três fatias, `auth`, `ui` e `session`.
+      referencia:
+        rotulo: Redux Toolkit · createSlice
+        url: https://redux-toolkit.js.org/api/createSlice
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: React Query (TanStack Query)
+      definicao: 'Biblioteca que busca dados da API, guarda o resultado em cache e decide quando buscar de novo. O shell a configura em `src/shared/lib/queryClient.ts`, com `staleTime` de 5 minutos, `retry: 1` e `refetchOnWindowFocus: false`.'
+      referencia:
+        rotulo: TanStack Query · Visão geral
+        url: https://tanstack.com/query/latest/docs/framework/react/overview
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+    - termo: Estado do cliente, do servidor e local
+      definicao: O estado do cliente nasce e termina no navegador, como a barra lateral aberta, e o estado do servidor é uma cópia local de dados que pertencem à API e podem mudar sem aviso. O estado local de componente pertence a um único componente, como o texto de um campo, e fica fora do store.
+      referencia:
+        rotulo: TanStack Query · Padrões importantes
+        url: https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults
+    - termo: Store
+      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Reducer e ação
+      definicao: A ação é um objeto que descreve o que aconteceu, com um `type` e um `payload`, e o reducer é a função que recebe o estado atual e a ação e devolve o estado novo. O guia de estilo do Redux exige que o reducer não tenha efeitos fora da função.
+      referencia:
+        rotulo: Redux · Estado, ações e reducers
+        url: https://redux.js.org/tutorials/fundamentals/part-3-state-actions-reducers
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: SPA (Single-Page Application)
+      definicao: Aplicação web que carrega uma única página HTML e troca o conteúdo da tela por JavaScript, sem recarregar a página a cada navegação. O shell é uma SPA.
+      referencia:
+        rotulo: MDN · SPA (Single-page application)
+        url: https://developer.mozilla.org/en-US/docs/Glossary/SPA
+    - termo: Cache, `staleTime` e revalidação
+      definicao: O cache guarda o resultado de uma consulta para reaproveitá-lo, e o `staleTime` diz por quanto tempo esse resultado é considerado atual. Depois desse prazo, o React Query busca o dado de novo, o que se chama revalidação.
+      referencia:
+        rotulo: TanStack Query · Padrões importantes
+        url: https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults
+    - termo: Hooks do React (`useState`, `useEffect`)
+      definicao: Funções que dão a um componente React estado próprio, com `useState`, ou efeitos que rodam depois da renderização, com `useEffect`. Os microfrontends buscam dados com esses dois hooks.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: '`react-hook-form`'
+      definicao: Biblioteca de formulários para React que guarda os valores dos campos e as validações dentro do próprio componente. A página de login do shell a usa para os campos de e-mail e senha.
+    - termo: RTK Query e Zustand
+      definicao: O RTK Query é o módulo de busca de dados do Redux Toolkit, e o Zustand é uma biblioteca de estado global para React. A ADR-003 avaliou os dois e manteve o React Query para o estado do servidor.
+    - termo: Redux DevTools
+      definicao: Extensão de navegador que mostra cada ação despachada e o estado do store antes e depois dela. O `configureStore` habilita essa integração por padrão.
+    - termo: Immer
+      definicao: Biblioteca usada pelo Redux Toolkit que permite escrever o reducer como se alterasse o estado e produz, a partir dessas alterações, um objeto novo. Por isso a atribuição dentro de `createSlice` é permitida.
+      referencia:
+        rotulo: Redux Toolkit · createSlice
+        url: https://redux-toolkit.js.org/api/createSlice
+    - termo: '`sessionStorage`'
+      definicao: Área de armazenamento do navegador isolada por aba, apagada quando a aba é fechada e acessível por JavaScript. O shell guarda nela o token, na chave `portal_access_token`.
+      referencia:
+        rotulo: MDN · Window.sessionStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/sessionStorage
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: '`dispatch`'
+      definicao: Função do store que entrega uma ação aos reducers para atualizar o estado. Uma exceção lançada dentro do reducer chega a quem chamou `dispatch`, e o estado anterior continua intacto.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
+      referencia:
+        rotulo: Mock Service Worker · Introdução
+        url: https://mswjs.io/docs/
+    - termo: Guard de rota (`AuthGuard`)
+      definicao: Componente que decide se uma rota pode ser exibida e redireciona para outra quando a condição falha. O `AuthGuard` do shell lê `isAuthenticated` no store e leva para `/login` quem não está autenticado.
+    - termo: Seletor e `useSelector`
+      definicao: Um seletor é uma função que lê uma parte do estado do store, e o `useSelector` é o hook que um componente React usa para ler esse valor e renderizar de novo quando ele muda.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Provider
+      definicao: Componente React que disponibiliza um recurso, como o store do Redux ou o cliente do React Query, para todos os componentes abaixo dele na árvore. O shell reúne os providers em `src/app/providers/index.tsx`.
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
+      referencia:
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: '`prepare` e `extraReducers`'
+      definicao: O `prepare` monta o payload de uma ação antes de ela chegar ao reducer, e é o lugar indicado para gerar identificadores e horários. O `extraReducers` permite que uma fatia responda a ações de outra fatia.
+      referencia:
+        rotulo: Redux Toolkit · createSlice
+        url: https://redux-toolkit.js.org/api/createSlice
+    - termo: Middleware do Redux
+      definicao: Função que fica entre o `dispatch` e os reducers e pode executar efeitos, como gravar no armazenamento do navegador, a partir das ações despachadas.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Raiz React (`createRoot`)
+      definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: CSP (Content Security Policy)
+      definicao: Cabeçalho HTTP com que o servidor informa ao navegador de quais origens a página pode carregar scripts, estilos e outros recursos e para onde ela pode abrir conexões. O navegador bloqueia o que a política não autoriza, e a ADR-012 do repositório adota uma política estrita.
+      referencia:
+        rotulo: MDN · Políticas de Segurança de Conteúdo (CSP)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,15 +193,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · linha de base das fatias
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npx vitest run src/shared/lib/store
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  2 passed (2)\n      Tests  7 passed (7)"
-      origem: executado
-      dica: Dois arquivos de teste, um para `authSlice` e outro para `uiSlice`, com 7 testes no total.
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Rodar os testes das fatias
-      comando: npx vitest run src/shared/lib/store
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -486,7 +631,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é estender a fatia de interface com uma preferência nova e proteger com testes a configuração de cache do React Query. Os passos 1 a 6 acrescentam o campo `densidade` à `uiSlice` com o teste escrito antes da implementação, e os passos 7 a 10 caracterizam o cache do `queryClient` com dois testes e rodam a suíte. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é estender a fatia de interface com uma preferência nova e proteger com testes a configuração de cache do React Query, porque nenhum teste do commit de referência confere o `staleTime`, e uma troca desse valor passaria despercebida. Os passos 1 a 6 acrescentam o campo `densidade` à `uiSlice` com o teste escrito antes da implementação, e os passos 7 a 10 caracterizam o cache do `queryClient` com dois testes e rodam a suíte. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: 'No commit `2179313`, nenhum teste confere as opções de `src/shared/lib/queryClient.ts`, e trocar `staleTime: 5 * 60 * 1000` por `staleTime: 0` não faz nenhum teste falhar. Os reducers `addToast` e `login` também geram valores fora da função, com `crypto.randomUUID()` e com a gravação no `sessionStorage`.'
+    impacto: Sem teste, uma mudança no `staleTime` faz cada consulta repetida chamar a API de novo, o que aumenta a carga no back-end sem nenhum aviso. Os efeitos dentro dos reducers contrariam o guia de estilo do Redux e tornam o estado dependente de algo que o teste não controla.
+    mecanismo: O laboratório aplica o teste escrito antes para acrescentar o campo `densidade` à `uiSlice`, com o `createSlice` gerando a ação `setDensidade`, e usa testes de caracterização com `vi.fn()` para contar quantas vezes o `queryClient` chama a API dentro do `staleTime`.
+    comprovacao: O teste da densidade falha com `expected undefined to be 'confortavel'` e passa depois da implementação, o teste do `queryClient` falha com `expected "vi.fn()" to be called 1 times, but got 2 times` quando o `staleTime` vai a 0, e a suíte completa termina com `Tests 102 passed (102)`.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

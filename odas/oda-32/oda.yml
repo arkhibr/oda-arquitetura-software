@@ -5,7 +5,133 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é ligar funções Lambda a eventos de S3, SQS, DynamoDB e EventBridge, verificar o efeito de forma assíncrona nos testes e impedir que uma mensagem que a função não consegue processar seja repetida para sempre. No repositório `aspire-aws`, os cenários 07, 08, 11 e 14 implantam funções Python no LocalStack e esperam o resultado com um laço de consulta. Você vai rodar os cenários num contêiner Linux, provar que a fila do cenário 08 não tem destino para mensagens com falha e configurar uma fila de mensagens mortas com o teste escrito antes.
+    texto: O objetivo desta ODA é impedir que uma mensagem que a função não consegue processar volte à fila e acione a função sem fim, defeito da fila do cenário 08, e testar com segurança efeitos que chegam depois da chamada. No repositório `aspire-aws`, os cenários 07, 08, 11 e 14 ligam funções do AWS Lambda a eventos do Amazon S3 (Simple Storage Service), do Amazon SQS (Simple Queue Service), do Amazon DynamoDB e do Amazon EventBridge no LocalStack e esperam o resultado com um laço de consulta. Você vai rodar os cenários num contêiner Linux, provar com um teste que a mensagem inválida não sai da fila e configurar uma fila de mensagens mortas.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa uma função quando um evento chega, sem servidor administrado por quem escreve a função. Nos cenários desta ODA, as funções são escritas em Python e implantadas no LocalStack.
+      referencia:
+        rotulo: O que é o AWS Lambda? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica num bucket. No cenário 07, a criação de um objeto no bucket aciona uma função.
+      referencia:
+        rotulo: O que é o Amazon S3? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Amazon SQS (Simple Queue Service)
+      definicao: Serviço de filas da AWS. O consumidor recebe a mensagem e a apaga depois de processá-la, e a mensagem não apagada volta a ficar disponível depois do tempo de visibilidade.
+      referencia:
+        rotulo: O que é o Amazon SQS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html
+    - termo: Amazon DynamoDB
+      definicao: Banco NoSQL gerenciado da AWS que guarda itens em tabelas e os localiza pela chave. As funções dos cenários gravam nele o resultado que os testes conferem.
+      referencia:
+        rotulo: O que é o Amazon DynamoDB? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Introduction.html
+    - termo: Amazon EventBridge
+      definicao: Serviço de barramento de eventos da AWS, em que regras comparam cada evento recebido com um padrão e o encaminham aos alvos, como uma função Lambda. O cenário 14 usa uma regra desse tipo.
+      referencia:
+        rotulo: O que é o Amazon EventBridge? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/eventbridge/latest/userguide/eb-what-is.html
+    - termo: Gatilho
+      definicao: Ligação entre uma origem de eventos e uma função Lambda, que faz a função rodar a cada evento. Esta ODA compara quatro gatilhos, S3, SQS, DynamoDB e EventBridge, e o que cada um faz quando a função falha.
+    - termo: Efeito assíncrono
+      definicao: Resultado que aparece algum tempo depois da chamada que o provocou, sem que a chamada espere por ele. O envio de uma mensagem termina antes de a função gravar no DynamoDB, e o teste precisa esperar o efeito.
+    - termo: Mensagem envenenada
+      definicao: Mensagem que a função não consegue processar, como um texto que não é JSON, e que faz cada tentativa falhar. Sem limite de recebimentos, ela volta à fila e aciona a função repetidamente.
+    - termo: Cenário
+      definicao: No repositório `aspire-aws`, cada pasta numerada de `scenarios/` é um cenário, um projeto de testes xUnit que exercita uma integração com serviços da AWS. O laboratório usa o cenário 08, `08-SQS.Lambda.Consumer`.
+    - termo: LocalStack
+      definicao: Emulador dos serviços da AWS que roda num contêiner Docker e responde na porta 4566. Para executar uma função Lambda, ele cria outro contêiner pelo Docker da máquina.
+      referencia:
+        rotulo: Documentação do LocalStack
+        url: https://docs.localstack.cloud/overview/
+    - termo: Laço de consulta (polling) com tempo limite
+      definicao: Técnica de teste que consulta uma condição a cada intervalo até ela ficar verdadeira ou até um prazo máximo. No repositório, o `PollingHelper.WaitUntilAsync` faz essa consulta, e o `AssertNeverAsync` confere que algo não acontece dentro do prazo.
+    - termo: Fila de mensagens mortas (DLQ, dead-letter queue)
+      definicao: Fila comum que recebe as mensagens que falharam repetidas vezes, para que sejam analisadas sem voltar a acionar a função. No laboratório, a `consumer-dlq` recebe a mensagem inválida da `consumer-queue`.
+      referencia:
+        rotulo: Filas de mensagens não entregues no Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html
+    - termo: '`RedrivePolicy` e `maxReceiveCount`'
+      definicao: Atributo da fila de origem que aponta, pelo ARN, a fila de mensagens mortas e define em `maxReceiveCount` quantas vezes uma mensagem pode ser recebida sem ser apagada. Ao passar desse número, o SQS move a mensagem para a fila de mensagens mortas.
+    - termo: ARN (Amazon Resource Name)
+      definicao: Identificador único de um recurso da AWS, no formato `arn:aws:serviço:região:conta:recurso`. A `RedrivePolicy` identifica a fila de mensagens mortas pelo ARN dela.
+      referencia:
+        rotulo: Nomes do recurso da Amazon (ARNs) (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/IAM/latest/UserGuide/reference-arns.html
+    - termo: Docker, imagem e contêiner
+      definicao: O Docker executa programas em contêineres, processos isolados criados a partir de uma imagem, que reúne o sistema e as dependências. O laboratório constrói uma imagem com o .NET SDK 10 e o cliente do Docker e roda os testes num contêiner criado a partir dela com `docker exec`.
+      referencia:
+        rotulo: What is Docker? (documentação do Docker)
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: Socket do Docker (`/var/run/docker.sock`)
+      definicao: Arquivo pelo qual programas conversam com o daemon do Docker, o serviço que cria e para os contêineres. O LocalStack e o contêiner Linux do laboratório recebem esse arquivo para criar contêineres no Docker da máquina.
+    - termo: Apple Silicon e ARM64
+      definicao: Apple Silicon é a família de processadores dos Macs recentes, com arquitetura ARM64. O repositório ignora os testes com Lambda quando o processo de teste roda no macOS com ARM64, pela regra de `src/Shared/EnvironmentLimitations.cs`.
+    - termo: Teste ignorado (`Skip`)
+      definicao: 'Teste marcado para não rodar, com o motivo registrado. No macOS com Apple Silicon, o cenário 08 aparece com `Ignorado: 1`, e no contêiner Linux o mesmo teste roda.'
+    - termo: Colima
+      definicao: Ferramenta que roda o Docker no macOS dentro de uma máquina virtual Linux. O caminho do laboratório com o contêiner Linux foi verificado com o Colima.
+    - termo: WSL (Windows Subsystem for Linux)
+      definicao: Recurso do Windows que roda um ambiente Linux dentro do sistema. No WSL, os comandos `dotnet test` rodam direto, sem o contêiner do laboratório.
+      referencia:
+        rotulo: O que é o Subsistema do Windows para Linux (Microsoft Learn)
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: Mapeamento de origem de eventos
+      definicao: Recurso do Lambda que lê uma fila ou um stream e invoca a função com lotes de registros. Ele apaga as mensagens do SQS quando a invocação termina com sucesso, e a fixture do cenário 08 usa lote de uma mensagem.
+      referencia:
+        rotulo: Como o Lambda processa registros de fluxos e filas (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/invocation-eventsourcemapping.html
+    - termo: Tempo limite de visibilidade
+      definicao: Período em que uma mensagem recebida fica invisível para outros consumidores da fila. Se ela não for apagada nesse período, volta a ficar visível e é entregue de novo, e a `consumer-queue`, criada sem atributos, usa o valor padrão do SQS, de 30 s.
+      referencia:
+        rotulo: Tempo limite de visibilidade do Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html
+    - termo: Período de retenção
+      definicao: Tempo máximo que o SQS guarda uma mensagem na fila antes de descartá-la. Sem fila de mensagens mortas, a mensagem inválida volta à fila até o fim desse período.
+    - termo: DynamoDB Streams e fragmento
+      definicao: O DynamoDB Streams registra em ordem as alterações dos itens de uma tabela, divididas em fragmentos. No cenário 11, um mapeamento lê esse stream, e um lote que falha é repetido e bloqueia o fragmento até expirar ou dar certo.
+      referencia:
+        rotulo: DynamoDB Streams (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Streams.html
+    - termo: Inicialização a frio
+      definicao: Tempo extra da primeira invocação de uma função, em que o ambiente de execução é criado antes de o código rodar. O tempo limite das asserções assíncronas precisa cobrir esse tempo.
+      referencia:
+        rotulo: Ciclo de vida do ambiente de execução do Lambda (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/lambda-runtime-environment.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Registro curto de uma decisão de arquitetura, com o contexto, a decisão, as alternativas e as consequências. A ADR-005, em `docs/architecture/adrs/`, registra a tática de asserções assíncronas do repositório.
+      referencia:
+        rotulo: Architectural Decision Records (adr.github.io)
+        url: https://adr.github.io/
+    - termo: Polly
+      definicao: Biblioteca .NET de resiliência, com novas tentativas e tempos limite configuráveis. A ADR-005 a cita entre as alternativas consideradas para as asserções assíncronas.
+    - termo: xUnit e fixture
+      definicao: O xUnit é o framework de testes para .NET usado nos cenários. A fixture é a classe que o xUnit cria antes dos testes para preparar recursos compartilhados, e a do cenário 08 cria a tabela, implanta a função e prepara a fila.
+      referencia:
+        rotulo: Sharing Context between Tests (documentação do xUnit)
+        url: https://xunit.net/docs/shared-context
+    - termo: Handler
+      definicao: Função de entrada que o Lambda chama a cada invocação, com o evento como parâmetro. No cenário 08, é a `lambda_handler` de `src/lambdas/sqs_consumer/handler.py`.
+    - termo: Idempotência e entrega pelo menos uma vez
+      definicao: O SQS padrão entrega cada mensagem pelo menos uma vez, e a mesma mensagem pode chegar duas vezes. Uma gravação idempotente produz o mesmo resultado quando repetida, e por isso a função usa o `messageId` como chave do item.
+      referencia:
+        rotulo: Filas padrão do Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues.html
+    - termo: '`ReportBatchItemFailures`'
+      definicao: Opção do mapeamento de origem de eventos do SQS em que a função devolve a lista das mensagens do lote que falharam. Só essas voltam à fila, e as demais são apagadas.
+      referencia:
+        rotulo: Tratamento de erros para uma origem de eventos do SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/services-sqs-errorhandling.html
+    - termo: LocalStack Pro
+      definicao: Edição paga do LocalStack, com serviços e recursos que a edição gratuita, a Community, não oferece. A regra que ignora os testes no macOS não consulta a edição do LocalStack.
+    - termo: Esteira de CI (integração contínua)
+      definicao: Processo automatizado que compila e testa o código a cada envio ao repositório remoto. O README do `aspire-aws` indica Linux ou CI para os cenários com Lambda.
+      referencia:
+        rotulo: Noções básicas sobre GitHub Actions (documentação do GitHub)
+        url: https://docs.github.com/pt/actions/about-github-actions/understanding-github-actions
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,48 +179,21 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · os quatro gatilhos
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
-      saida: sha256:a0faca54756aacaea5097cc0979f311171edd1d6c09d612dccf1af343c214321
-      origem: executado
-      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
-    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
-      saida: c010420897a4…
-      origem: executado
-      dica: O contêiner fica parado em `sleep infinity`, usa a rede da máquina e o Docker dela pelo socket. O identificador muda a cada execução.
-    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
-      saida: ''
-      origem: executado
-      dica: A função copia para `/repo` no contêiner os arquivos do repositório, inclusive os novos. O `COPYFILE_DISABLE=1` evita os arquivos `._*` do macOS.
-    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
-      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 s - 08-SQS.Lambda.Consumer.dll (net10.0)'
-      origem: executado
-      dica: 'No Linux, o teste do cenário 08 roda: a mensagem válida chega à Lambda, que grava no DynamoDB.'
-    - entrada: dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
-      saida: '  Ignorado Scenarios.SQS.LambdaConsumer.SqsLambdaConsumerTests.SendMessage_ShouldTriggerLambda_AndPersistToDynamoDb
-
-        Ignorado!  – Com falha:     0, Aprovado:     0, Ignorado:     1, Total:     1, Duração: 1 ms - 08-SQS.Lambda.Consumer.dll (net10.0)'
-      origem: executado
-      dica: No macOS com Apple Silicon, os testes com Lambda são ignorados de propósito. Rode-os no contêiner Linux do passo 2.
-    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/07-S3.Lambda.Trigger 2>&1 | grep -E 'Passed!|Failed!'
-      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 559 ms - 07-S3.Lambda.Trigger.dll (net10.0)'
-      origem: executado
-    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/11-DynamoDB.Lambda 2>&1 | grep -E 'Passed!|Failed!'
-      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 453 ms - 11-DynamoDB.Lambda.dll (net10.0)'
-      origem: executado
-    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/14-EventBridge.Lambda 2>&1 | grep -E 'Passed!|Failed!'
-      saida: 'Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 5 s - 14-EventBridge.Lambda.dll (net10.0)'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior, como exige o `global.json`.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
     cenarios:
-    - rotulo: No macOS
-      comando: dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
-    - rotulo: SQS no Linux
-      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
-    - rotulo: S3 no Linux
-      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/07-S3.Lambda.Trigger 2>&1 | grep -E 'Passed!|Failed!'
-    - rotulo: EventBridge no Linux
-      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/14-EventBridge.Lambda 2>&1 | grep -E 'Passed!|Failed!'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
+      comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
   titulo: Conceito
   blocos:
@@ -258,7 +357,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é garantir que uma mensagem que a Lambda não consegue processar saia da fila principal e vá para uma fila de mensagens mortas, com um teste que comprova isso. Os passos 1 a 3 preparam o contêiner Linux e rodam o cenário 08, os passos 4 e 5 escrevem o teste e criam a fila de mensagens mortas, e o passo 6 liga as duas filas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é tirar da fila principal a mensagem que a função não consegue processar, que hoje volta e aciona a função até o fim do período de retenção, levando-a para uma fila de mensagens mortas e provando isso com teste. Os passos 1 a 3 preparam o contêiner Linux e rodam o cenário 08, os passos 4 e 5 escrevem o teste e criam a fila de mensagens mortas, e o passo 6 liga as duas filas com a `RedrivePolicy`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: A fila `consumer-queue` do cenário 08 é criada sem `RedrivePolicy`, e a função `sqs_consumer` lança exceção para toda mensagem que não seja JSON. Uma mensagem desse tipo volta à fila depois de cada falha e aciona a função de novo até o fim do período de retenção.
+    impacto: A mensagem envenenada consome invocações sem fim, ocupa a fila e esconde o problema, porque nenhum lugar guarda a mensagem para análise. No macOS com Apple Silicon, os testes com Lambda são ignorados, e o defeito não aparece na máquina de quem desenvolve.
+    mecanismo: O laboratório roda os testes num contêiner Linux e escreve primeiro um teste que envia um texto que não é JSON e espera encontrá-lo na fila de mensagens mortas, com laço de consulta e tempo limite de 120 s, porque o efeito é assíncrono. Depois cria a `consumer-dlq` e liga as duas filas com `RedrivePolicy` e `maxReceiveCount` igual a 2.
+    comprovacao: 'Com a fila de mensagens mortas criada e sem a política, o teste falha com `TimeoutException`. Com a `RedrivePolicy`, o cenário 08 mostra `Passed: 2`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

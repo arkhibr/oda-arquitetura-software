@@ -5,7 +5,90 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é registrar endpoints de uma Minimal API por auto-descoberta e organizá-los em grupos de rota versionados. No `net-minimal-api`, os Pedidos registram endpoints por auto-descoberta, e o Catálogo os organiza em route groups versionados. Você vai acrescentar um endpoint sem tocar no `Program.cs`, mostrar que ele nasce sem exigir token e levar os Pedidos para um grupo que aplica prefixo e autenticação a todos.
+    texto: O objetivo desta ODA é registrar endpoints de uma Minimal API por auto-descoberta e organizá-los em grupos de rota versionados, porque a forma atual dos Pedidos deixa uma fatia nova nascer sem exigir token sem que nada no `Program.cs` mostre isso. No `net-minimal-api`, os Pedidos registram os endpoints por reflection e repetem em cada fatia o prefixo `/api/v1/pedidos` e o `RequireAuthorization`, e o Catálogo já usa um route group versionado. Você vai acrescentar um endpoint sem tocar no `Program.cs`, mostrar que ele responde sem token e levar os Pedidos para um grupo que aplica o prefixo e a autenticação a todos.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Minimal API (API mínima)
+      definicao: Forma de declarar endpoints HTTP no ASP.NET Core com chamadas como `app.MapGet` e `app.MapPost`, que associam uma rota a uma função, sem classes de controller. É o estilo usado em toda a API `net-minimal-api`.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral das APIs mínimas
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/minimal-apis/overview
+    - termo: ASP.NET Core
+      definicao: Framework da Microsoft para aplicações web e APIs sobre o .NET. Ele recebe cada requisição HTTP, passa a requisição pela cadeia de middlewares e entrega o resultado ao endpoint correspondente.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/introduction-to-aspnet-core
+    - termo: Route group (grupo de rotas)
+      definicao: Recurso das Minimal APIs, criado com `MapGroup`, que dá a um conjunto de endpoints o mesmo prefixo de rota e as mesmas exigências, como autorização e tags do Swagger. O Catálogo usa o grupo `/api/v1/catalogo`, montado dentro do grupo de versão `/api/v1`.
+      referencia:
+        rotulo: Microsoft Learn · Manipuladores de rotas e grupos de rotas
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/minimal-apis/route-handlers
+    - termo: Versionamento de API
+      definicao: Prática de incluir a versão do contrato no endereço ou nos cabeçalhos, como o `/v1` de `/api/v1`, para que uma mudança incompatível possa ser publicada numa versão nova sem quebrar os clientes da anterior. A ADR-0012 do repositório faz isso com route groups e descarta a biblioteca `Asp.Versioning.Http`.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, a decisão tomada, as alternativas descartadas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`, e esta ODA as usa como registro das escolhas que o código mostra.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Bounded context (contexto delimitado)
+      definicao: Conceito do Domain-Driven Design que delimita a parte do sistema dentro da qual um modelo e o seu vocabulário têm um único significado. No `net-minimal-api`, Catálogo, Pedidos e Pix são três bounded contexts, cada um com pastas, rotas e testes próprios.
+      referencia:
+        rotulo: martinfowler.com · Bounded Context
+        url: https://martinfowler.com/bliki/BoundedContext.html
+    - termo: Vertical Slice Architecture (arquitetura de fatias verticais)
+      definicao: Estilo de organização em que todo o código de um caso de uso, como requisição, validação, handler e endpoint, fica numa mesma pasta, chamada fatia. Nos Pedidos do `net-minimal-api`, cada operação, como `CreatePedido` ou `CancelPedido`, é uma fatia com pasta própria.
+    - termo: Reflection (reflexão)
+      definicao: Recurso do .NET que permite ao programa examinar os próprios tipos em tempo de execução, por exemplo para listar as classes de um assembly que implementam uma interface. É o mecanismo que `AddEndpointsFromAssembly` usa para encontrar os endpoints dos Pedidos.
+      referencia:
+        rotulo: Microsoft Learn · Reflexão no .NET
+        url: https://learn.microsoft.com/pt-br/dotnet/fundamentals/reflection/reflection
+    - termo: Assembly
+      definicao: Unidade compilada do .NET, normalmente um arquivo `.dll`, que contém os tipos de um projeto e os metadados com as referências a outros assemblies. Cada projeto `.csproj` do repositório gera um assembly.
+    - termo: Injeção de dependência (DI) e contêiner
+      definicao: Técnica em que uma classe recebe pronto, normalmente pelo construtor ou pelos parâmetros do endpoint, o objeto de que precisa. No ASP.NET Core, o contêiner cria esses objetos a partir dos registros feitos com `AddScoped`, `AddTransient` ou `AddSingleton` na inicialização, e um tipo sem registro não chega a quem o pede.
+      referencia:
+        rotulo: Microsoft Learn · Injeção de dependência no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/dependency-injection
+    - termo: JWT (JSON Web Token)
+      definicao: 'Formato de token assinado que carrega, em JSON, a identidade do usuário e a validade do acesso. A API emite o token em `/api/v1/auth/login`, e o cliente o envia no cabeçalho `Authorization: Bearer <token>` para acessar as rotas protegidas, como as de Pedidos.'
+      referencia:
+        rotulo: Microsoft Learn · Autenticação de portador JWT no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/configure-jwt-bearer-authentication
+    - termo: Princípio aberto/fechado (Open/Closed)
+      definicao: Princípio de projeto segundo o qual um módulo deve aceitar comportamento novo por extensão, sem que o código existente precise ser alterado. Na auto-descoberta de endpoints, uma fatia nova entra na API sem mudança no `Program.cs`.
+    - termo: Controller MVC
+      definicao: Classe que agrupa ações HTTP no estilo MVC (Model-View-Controller) do ASP.NET Core, com uma rota por método. É a alternativa às Minimal APIs, e o repositório não a usa.
+    - termo: Rate limiting (limitação de taxa)
+      definicao: Controle que limita quantas requisições um cliente pode fazer num intervalo e responde 429 quando o limite é ultrapassado. No ASP.NET Core, as políticas são registradas na inicialização e aplicadas às rotas ou aos grupos.
+      referencia:
+        rotulo: Microsoft Learn · Middleware de limitação de taxa
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Swagger e OpenAPI
+      definicao: OpenAPI é a especificação que descreve as rotas, os parâmetros e as respostas de uma API HTTP num documento JSON. O Swagger, instalado no repositório pelo pacote Swashbuckle, gera esse documento a partir do código e oferece uma página web para explorar e chamar as rotas em desenvolvimento.
+      referencia:
+        rotulo: Microsoft Learn · Suporte a OpenAPI no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/openapi/overview
+    - termo: Handler
+      definicao: Classe que executa um caso de uso a partir de um comando ou de uma consulta, chamando o domínio e os repositórios. Nas fatias de Pedidos, o endpoint recebe a requisição, chama o handler e traduz o resultado dele em resposta HTTP.
+    - termo: Repositório
+      definicao: Classe que esconde o acesso a dados atrás de uma interface com operações como buscar e gravar, para que o domínio e os handlers não dependam do banco. No repositório, as interfaces de escrita usam o EF Core e as de leitura usam o Dapper.
+    - termo: Dapper
+      definicao: Biblioteca leve de acesso a dados para .NET que executa SQL escrito à mão e preenche objetos com o resultado. No Catálogo, ela atende os repositórios de leitura, e o EF Core atende os de escrita.
+    - termo: Teste de integração
+      definicao: Teste que sobe a API em memória e faz requisições HTTP a ela, conferindo status e corpo, com banco e serviços configurados como na aplicação. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests/Integration` e usam a `ApiFactory` para criar a API de teste.
+      referencia:
+        rotulo: Microsoft Learn · Testes de integração no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: Teste escrito antes da mudança
+      definicao: Prática de escrever primeiro o teste que descreve o comportamento desejado, vê-lo falhar e só depois mudar o código até ele passar. A falha inicial confirma que o teste realmente verifica a mudança e não passaria por acaso.
+    - termo: Erros `CS0234`, `CS0246` e `MSB3030`
+      definicao: 'Os códigos que começam com `CS` vêm do compilador C#: o `CS0234` indica que um namespace ou tipo não existe dentro do namespace citado, e o `CS0246` indica que um tipo não foi encontrado, em geral por falta de `using` ou de referência de projeto. O `MSB3030` vem do MSBuild e indica que um arquivo marcado para cópia não foi encontrado no momento da cópia.'
+    - termo: '`git stash` e `detached HEAD`'
+      definicao: O `git stash` guarda as alterações locais numa pilha e deixa a pasta como no último commit, e o `git stash pop` as devolve. O `detached HEAD` é o estado em que o Git fica depois de `git checkout <commit>`, apontando para um commit e não para um branch.
+      referencia:
+        rotulo: Git · git-stash
+        url: https://git-scm.com/docs/git-stash
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,19 +136,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · rotas dos Pedidos
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
-      saida: "        app.MapPost(\"/api/v1/pedidos/{id:int}/itens\", async (\n        app.MapPost(\"/api/v1/pedidos/{id:int}/cancelar\", async (\n        app.MapPost(\"/api/v1/pedidos\", async (\n        app.MapGet(\"/api/v1/pedidos/{id:int}\", async (\n        app.MapGet(\"/api/v1/pedidos\", async ("
-      origem: executado
-    - entrada: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
-      saida: 'Aprovado!  – Com falha:     0, Aprovado:    13, Ignorado:     0, Total:    13, Duração: 800 ms - ProdutosAPI.Tests.dll (net10.0)'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Caminhos das fatias
-      comando: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
-    - rotulo: Testes de Pedidos
-      comando: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -328,7 +412,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é criar um endpoint descoberto automaticamente e colocar os endpoints dos Pedidos num grupo versionado e autenticado. Os passos 1 a 5 criam o endpoint com o teste escrito antes, e os passos 6 a 9 levam os Pedidos ao route group e conferem o resultado com a API no ar. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é fechar a brecha de autorização que a auto-descoberta abre nos Pedidos, levando a exigência de token e o prefixo de versão das fatias para um grupo de rotas que vale para todas. Os passos 1 a 5 criam o endpoint de contagem com o teste escrito antes e mostram que ele responde sem token, e os passos 6 a 9 tiram o prefixo das fatias, criam o grupo `v1.MapGroup("/pedidos")` com autorização e conferem o resultado com a API no ar. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: Nos Pedidos, cada fatia escreve a rota completa, com `/api/v1/pedidos`, e repete `.RequireAuthorization()` dentro do próprio `MapEndpoints`. A auto-descoberta de `AddEndpointsFromAssembly` registra qualquer classe que implemente `IEndpoint` sem aplicar política nenhuma, e a extensão `MapRegisteredEndpoints` só aceita uma `WebApplication`, o que impede passar um grupo a ela.
+    impacto: Uma fatia nova que esqueça o `.RequireAuthorization()` fica pública, e a revisão do `Program.cs` não mostra a falha, porque a fatia não aparece ali. A versão repetida em cada arquivo torna a troca de versão uma edição em todas as fatias, e é por isso que a ADR-0012 descarta o prefixo escrito em cada endpoint.
+    mecanismo: O laboratório cria a fatia `ContarPedidos` com três testes de integração escritos antes, um deles sem token. Em seguida, tira o prefixo das seis fatias, muda a extensão para aceitar qualquer `IEndpointRouteBuilder` e cria no `Program.cs` o grupo `v1.MapGroup("/pedidos")` com tag e `RequireAuthorization`, de modo que toda fatia herde a regra.
+    comprovacao: Antes do grupo, o teste sem token falha com `found HttpStatusCode.OK`, e depois dele os 3 testes novos passam junto com os 13 de integração anteriores, num total de 16 nos Pedidos e 146 na suíte. Com a API no ar, a contagem responde 401 sem token e `{"total":0}` com token, e o Swagger lista `/api/v1/pedidos/contagem`.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

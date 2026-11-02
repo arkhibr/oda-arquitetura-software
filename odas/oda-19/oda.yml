@@ -5,7 +5,93 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é explicar a responsabilidade de cada subprojeto do Catálogo e garantir com testes que as dependências apontem para o domínio. No `net-minimal-api`, o Catálogo divide o código em quatro subprojetos de Clean Architecture, e a camada de API referencia a Infrastructure só para registrar repositórios, a única seta que aponta para fora. Você vai ler o grafo de referências, transformar a regra em testes de arquitetura e corrigir essa seta.
+    texto: O objetivo desta ODA é explicar a responsabilidade de cada subprojeto do Catálogo e garantir com testes que as dependências entre eles apontem para o domínio, porque uma referência na direção errada acopla camadas que a Clean Architecture deveria manter independentes. No `net-minimal-api`, a camada de API do Catálogo referencia a Infrastructure só para registrar repositórios na injeção de dependência, e essa é a única seta que aponta para fora. Você vai ler o grafo de referências, transformar a regra de dependência em testes de arquitetura e mover esse registro para a raiz de composição.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Clean Architecture
+      definicao: Estilo de arquitetura em camadas concêntricas em que o domínio e as regras de aplicação ficam no centro e não dependem de banco, framework ou interface com o usuário. As dependências entre projetos apontam sempre para dentro, e no Catálogo isso se traduz nos subprojetos Domain, Application, Infrastructure e API.
+      referencia:
+        rotulo: Microsoft Learn · Arquiteturas comuns de aplicativos web
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures
+    - termo: Bounded context (contexto delimitado)
+      definicao: Conceito do Domain-Driven Design que delimita a parte do sistema dentro da qual um modelo e o seu vocabulário têm um único significado. No `net-minimal-api`, Catálogo, Pedidos e Pix são três bounded contexts, cada um com pastas, rotas e testes próprios.
+      referencia:
+        rotulo: martinfowler.com · Bounded Context
+        url: https://martinfowler.com/bliki/BoundedContext.html
+    - termo: Camadas Domain, Application, Infrastructure e API
+      definicao: São os quatro subprojetos do Catálogo. O Domain guarda entidades e regras de negócio, a Application guarda serviços, validadores e interfaces de repositório, a Infrastructure implementa essas interfaces com EF Core e Dapper, e a API declara os endpoints.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, a decisão tomada, as alternativas descartadas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`, e esta ODA as usa como registro das escolhas que o código mostra.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Vertical Slice Architecture (arquitetura de fatias verticais)
+      definicao: Estilo de organização em que todo o código de um caso de uso, como requisição, validação, handler e endpoint, fica numa mesma pasta, chamada fatia. Nos Pedidos do `net-minimal-api`, cada operação, como `CreatePedido` ou `CancelPedido`, é uma fatia com pasta própria.
+    - termo: Inversão de dependência
+      definicao: Princípio segundo o qual o código de alto nível declara a interface de que precisa e o código de baixo nível a implementa, de modo que a referência entre projetos aponta para o lado da regra de negócio. No Catálogo, a Application declara `IProdutoCommandRepository` e a Infrastructure o implementa.
+      referencia:
+        rotulo: Microsoft Learn · Princípios arquitetônicos
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/modern-web-apps-azure/architectural-principles
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional da Microsoft, que traduz classes C# em tabelas e consultas LINQ em SQL. No repositório, ele grava os dados no SQLite e atende as operações de escrita.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do Entity Framework Core
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: Dapper
+      definicao: Biblioteca leve de acesso a dados para .NET que executa SQL escrito à mão e preenche objetos com o resultado. No Catálogo, ela atende os repositórios de leitura, e o EF Core atende os de escrita.
+    - termo: Dublê de teste
+      definicao: Objeto que substitui uma dependência real durante o teste, como um repositório em memória no lugar do banco, para que o teste exercite só a parte que interessa.
+    - termo: Injeção de dependência (DI) e contêiner
+      definicao: Técnica em que uma classe recebe pronto, normalmente pelo construtor ou pelos parâmetros do endpoint, o objeto de que precisa. No ASP.NET Core, o contêiner cria esses objetos a partir dos registros feitos com `AddScoped`, `AddTransient` ou `AddSingleton` na inicialização, e um tipo sem registro não chega a quem o pede.
+      referencia:
+        rotulo: Microsoft Learn · Injeção de dependência no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/dependency-injection
+    - termo: Raiz de composição (composition root)
+      definicao: Ponto único do sistema onde as interfaces são associadas às implementações no contêiner de injeção de dependência. Esse ponto costuma ser o host, aqui o `Program.cs` do `ProdutosAPI.csproj`, que já referencia todos os subprojetos.
+    - termo: Host
+      definicao: Projeto executável que inicia a aplicação e reúne os demais projetos. No `net-minimal-api`, o host é o `ProdutosAPI.csproj` da raiz, com o `Program.cs`.
+    - termo: Assembly
+      definicao: Unidade compilada do .NET, normalmente um arquivo `.dll`, que contém os tipos de um projeto e os metadados com as referências a outros assemblies. Cada projeto `.csproj` do repositório gera um assembly.
+    - termo: Teste de arquitetura
+      definicao: Teste automatizado que verifica regras de estrutura do código, como quais camadas podem referenciar quais, e falha quando uma dependência proibida aparece. No laboratório, ele lê as referências gravadas nos assemblies compilados.
+    - termo: '`DbContext`'
+      definicao: Classe do EF Core que representa a sessão com o banco, expõe as tabelas como `DbSet` e grava as mudanças com `SaveChanges`. No repositório, o `AppDbContext`, em `src/Shared/Data`, atende o Catálogo e os Pedidos.
+    - termo: LINQ e `IQueryable`
+      definicao: 'LINQ (Language Integrated Query) é a sintaxe de consulta integrada ao C#. Uma consulta sobre `IQueryable` não executa no momento em que é escrita: o provedor, aqui o EF Core, a traduz para SQL quando o resultado é pedido, e um método que ele não sabe traduzir só falha nesse momento.'
+      referencia:
+        rotulo: Microsoft Learn · Como as consultas funcionam no EF Core
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/how-query-works
+    - termo: FluentValidation
+      definicao: Biblioteca de validação para .NET em que as regras de uma requisição ficam numa classe validadora, como `CriarProdutoValidator`, escrita com métodos encadeados. A ADR-0010 do repositório registra o uso dela para validar a entrada.
+    - termo: Padrão Result (`Result` e `Result<T>`)
+      definicao: Tipo de retorno que informa sucesso ou falha de forma explícita, com `IsSuccess`, o valor em caso de sucesso e a mensagem em `Error` em caso de falha. No repositório, `Result` e `Result<T>` são records definidos em `src/Shared/Common/Result.cs` e em `Catalogo.Domain/Common/Result.cs`, e a ADR-0003 registra o uso deles para erros de domínio.
+    - termo: Migrations
+      definicao: Arquivos gerados pelo EF Core que descrevem, em C#, cada mudança no esquema do banco, para que ela seja aplicada de forma versionada. A API aplica as migrations pendentes ao iniciar, fora do ambiente de testes.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral das migrações
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Value object (objeto de valor)
+      definicao: Objeto do domínio definido apenas pelo valor que carrega, sem identidade própria, e que valida esse valor na criação. No Catálogo, `PrecoProduto` e `EstoqueProduto` são value objects, e um preço inválido não chega a existir.
+      referencia:
+        rotulo: Microsoft Learn · Implementando objetos de valor
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/implement-value-objects
+    - termo: Ambiente de execução (`Development`, `Production`, `Testing`)
+      definicao: Nome que o ASP.NET Core lê da variável `ASPNETCORE_ENVIRONMENT` para ajustar o comportamento da aplicação. Os perfis do `Properties/launchSettings.json`, como o `http` usado com `dotnet run --launch-profile http`, definem `Development`, a ausência da variável leva a `Production`, e os testes do repositório rodam no ambiente `Testing`, definido pela `ApiFactory`.
+      referencia:
+        rotulo: Microsoft Learn · Ambientes de runtime do ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/environments
+    - termo: '`ValidateOnBuild`'
+      definicao: Opção do contêiner de injeção de dependência que, ao construir a aplicação, confere se todos os serviços registrados podem ser criados e interrompe a inicialização quando falta um registro. O ASP.NET Core a liga por padrão no ambiente `Development`.
+    - termo: Middleware de tratamento de exceções
+      definicao: Middleware global do repositório, em `src/Shared/Middleware/ExceptionHandlingMiddleware.cs`, que captura as exceções não tratadas e as converte numa resposta JSON com o status de cada tipo de exceção. Uma exceção que não tem ramo próprio vira 500 com mensagem genérica.
+    - termo: Erros `CS0234`, `CS0246` e `MSB3030`
+      definicao: 'Os códigos que começam com `CS` vêm do compilador C#: o `CS0234` indica que um namespace ou tipo não existe dentro do namespace citado, e o `CS0246` indica que um tipo não foi encontrado, em geral por falta de `using` ou de referência de projeto. O `MSB3030` vem do MSBuild e indica que um arquivo marcado para cópia não foi encontrado no momento da cópia.'
+    - termo: '`git stash` e `detached HEAD`'
+      definicao: O `git stash` guarda as alterações locais numa pilha e deixa a pasta como no último commit, e o `git stash pop` as devolve. O `detached HEAD` é o estado em que o Git fica depois de `git checkout <commit>`, apontando para um commit e não para um branch.
+      referencia:
+        rotulo: Git · git-stash
+        url: https://git-scm.com/docs/git-stash
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,37 +139,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · grafo do Catálogo
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
-      saida: '== Catalogo.Domain
-
-        == Catalogo.Application
-
-        ../Catalogo.Domain/Catalogo.Domain.csproj
-
-        == Catalogo.Infrastructure
-
-        ../Catalogo.Application/Catalogo.Application.csproj
-
-        ../Catalogo.Domain/Catalogo.Domain.csproj
-
-        == Catalogo.API
-
-        ../Catalogo.Application/Catalogo.Application.csproj
-
-        ../Catalogo.Infrastructure/Catalogo.Infrastructure.csproj'
-      origem: executado
-    - entrada: grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
-      saida: 'src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs:5:using ProdutosAPI.Catalogo.Infrastructure.Queries;
-
-        src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs:6:using ProdutosAPI.Catalogo.Infrastructure.Repositories;'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Referências dos subprojetos
-      comando: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
-    - rotulo: Usos da Infrastructure na API
-      comando: grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -338,7 +407,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é transformar a regra de dependência em testes e fazer a camada de API deixar de referenciar a Infrastructure. Os passos 1 a 4 leem o grafo e escrevem os testes de arquitetura, e os passos 5 a 7 movem o registro dos repositórios para a raiz de composição e conferem o resultado. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é impedir que uma camada do Catálogo passe a depender de outra que não deveria, porque hoje nada no build acusa uma referência na direção errada, e a camada de API já tem uma. Os passos 1 a 4 leem o grafo e escrevem testes que leem as referências dos assemblies compilados, e os passos 5 a 7 movem o registro dos repositórios para uma extensão da Infrastructure chamada pelo host e conferem o resultado. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: No commit `702145a`, o `Catalogo.API.csproj` referencia a `Catalogo.Infrastructure`, e o único uso dessa referência é o `CatalogoServiceExtensions.cs`, que registra os repositórios de EF Core e de Dapper no contêiner de injeção de dependência. Nenhum teste verifica a direção das referências entre os subprojetos do Catálogo.
+    impacto: Com a referência no lugar, um endpoint pode passar a usar uma classe da Infrastructure sem que o compilador ou a suíte acusem, e a regra de dependência da Clean Architecture vale só por disciplina. A ADR-0011 registra esse risco como consequência negativa da arquitetura híbrida, o de misturar responsabilidades quando a disciplina de camadas não é mantida.
+    mecanismo: Os testes de arquitetura leem, com `GetReferencedAssemblies`, as referências gravadas em cada assembly compilado e fixam uma regra por camada. O registro dos repositórios sai da API para a extensão `AddCatalogoInfrastructure`, na Infrastructure, a linha `ProjectReference` da API para a Infrastructure é removida, e o `Program.cs` do host, que é a raiz de composição, passa a chamar a extensão.
+    comprovacao: Antes da mudança, a regra da API falha com `Catalogo.Infrastructure` na lista de referências, e depois os 4 testes de arquitetura passam, com a suíte em 147 aprovações. O grafo de referências mostra a API apontando só para a Application, e o `grep` não encontra uso da Infrastructure na API.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

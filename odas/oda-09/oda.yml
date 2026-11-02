@@ -5,7 +5,61 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é aplicar tokens de design e CSS com escopo para que o estilo de um microfrontend não dependa do shell nem vaze para outro. No `frontend-react`, o shell publica tokens e a estrutura externa, e cada microfrontend deveria carregar o próprio CSS, como faz o de empréstimo. Você vai mostrar que o microfrontend de endereço depende do CSS gerado para o shell e corrigi-lo com o teste escrito antes.
+    texto: O objetivo desta ODA é tornar a aparência de cada microfrontend independente do build do shell, aplicando tokens de design e CSS (Cascading Style Sheets) com escopo, para que o estilo de um não dependa do shell nem vaze para outro. No `frontend-react`, o microfrontend de endereço usa classes do Tailwind que só existem no CSS gerado pelo build do shell, e qualquer mudança nesse build pode deixar a tela dele sem estilo. Você vai demonstrar essa dependência e corrigi-la com um tema próprio baseado nos tokens do shell, com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte da interface do portal com build e deploy próprios, que o shell carrega numa rota enquanto o usuário navega. No `frontend-react`, os microfrontends ficam em `mfes/endereco/` e `mfes/emprestimo/`.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Tokens de design
+      definicao: Valores nomeados que representam as decisões visuais do produto, como cores, espaçamentos e fontes, e que os componentes usam pelo nome. No portal, o shell publica os tokens como propriedades CSS personalizadas, por exemplo `--color-primary`.
+    - termo: CSS (Cascading Style Sheets) e CSS com escopo
+      definicao: CSS é a linguagem que define a aparência dos elementos de uma página. CSS com escopo é aquele cujas regras só alcançam os elementos de um componente ou de um microfrontend, para que o estilo de um não altere o de outro.
+    - termo: Shell
+      definicao: Aplicação React da pasta `src/` que cuida do login, do layout e das rotas do portal e carrega os microfrontends em tempo de execução, sem precisar ser recompilada quando um microfrontend muda.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. As ADRs do `frontend-react` ficam em `docs/architecture/adrs/`, e a ADR-014 trata do CSS e do contrato visual dos microfrontends.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: Design system
+      definicao: Conjunto compartilhado de tokens, componentes e regras de uso que mantém a mesma identidade visual em todas as partes de um produto.
+    - termo: Propriedade CSS personalizada e fallback
+      definicao: Propriedade CSS personalizada é uma variável de CSS, declarada com `--nome` e lida com `var(--nome)`. Em `var(--color-primary,
+      referencia:
+        rotulo: MDN · Utilizando propriedades CSS personalizadas
+        url: https://developer.mozilla.org/pt-BR/docs/Web/CSS/Using_CSS_custom_properties
+    - termo: mount e unmount
+      definicao: Funções que todo microfrontend do portal exporta para o shell. O shell chama `mount` para desenhar o microfrontend dentro de um elemento da página e `unmount` para removê-lo ao sair da rota, e o tema do microfrontend é injetado no primeiro e retirado no segundo.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build a partir do código-fonte de um microfrontend, com tudo de que ele precisa para rodar no navegador. O shell baixa esse arquivo e o executa como módulo.
+    - termo: Tailwind CSS e classes utilitárias
+      definicao: O Tailwind CSS é uma ferramenta que gera, durante o build, as regras CSS das classes utilitárias encontradas no código, como `flex` ou `bg-blue-600`, em que cada classe aplica um único estilo. No `frontend-react`, só o build do shell roda o Tailwind, e por isso um microfrontend que usa essas classes depende do CSS gerado para o shell.
+    - termo: SPA (Single-Page Application)
+      definicao: Aplicação web que carrega uma única página HTML e troca o conteúdo da tela por JavaScript, sem recarregar a página a cada navegação. O shell do portal é uma SPA.
+      referencia:
+        rotulo: MDN · SPA (Single-page application)
+        url: https://developer.mozilla.org/en-US/docs/Glossary/SPA
+    - termo: LocalStack
+      definicao: Emulador dos serviços da AWS que roda num contêiner Docker na sua máquina e responde na porta 4566. O `frontend-react` usa só o S3 do LocalStack, para hospedar os bundles dos microfrontends em desenvolvimento.
+      referencia:
+        rotulo: LocalStack · Overview
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: Vitest
+      definicao: Framework de testes para projetos JavaScript e TypeScript integrado ao Vite. O laboratório escreve com ele o teste que comprova que o microfrontend de endereço carrega o próprio CSS.
+      referencia:
+        rotulo: Vitest · Getting Started
+        url: https://vitest.dev/guide/
+    - termo: TypeScript e erros TS
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript. O compilador `tsc` aponta erros com códigos como `TS2307`, que indica um módulo importado que ele não encontrou.
+      referencia:
+        rotulo: TypeScript · Everyday Types
+        url: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+    - termo: DevTools do navegador
+      definicao: Ferramentas de desenvolvedor embutidas no navegador, abertas com F12, que mostram os elementos da página, os estilos aplicados a cada um, o console e as requisições de rede.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -52,15 +106,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · CSS gerado para o shell
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
-      saida: '       1'
-      origem: executado
-      dica: O valor 1 indica que a classe está no CSS gerado para o shell.
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Procurar bg-blue-600 no CSS do shell
-      comando: npm run build > /dev/null && grep -o '\.bg-blue-600' dist/assets/*.css | wc -l
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -256,7 +315,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer o microfrontend de endereço carregar o próprio CSS, baseado nos tokens do shell, com um teste que comprova o contrato. Os passos 1 a 3 mostram a dependência do endereço em relação ao CSS do shell, os passos 4 a 12 aplicam o contrato com o teste escrito antes, e o passo 13 confere o resultado no portal. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é retirar do shell a responsabilidade pelo CSS do microfrontend de endereço, dando a ele um tema próprio que lê os tokens do shell e que um teste de contrato visual comprova. Os passos 1 a 3 mostram que a classe do botão Salvar só existe no CSS gerado para o shell, os passos 4 a 12 criam o tema, injetam-no no `mount` e trocam as classes com o teste escrito antes, e o passo 13 confere no portal a cor vinda do token. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O microfrontend de endereço, em `mfes/endereco`, estiliza a tela com classes utilitárias do Tailwind, como `bg-blue-600`, que ele não compila. O CSS dessas classes só existe porque o build do shell lê os arquivos de `mfes/`, e um build do shell sem essa pasta deixa de gerar a classe do botão Salvar.
+    impacto: A aparência do endereço passa a depender de um build que pertence a outra equipe e a outro deploy, e uma mudança no shell ou uma classe nova publicada só no microfrontend deixa a tela sem estilo. Isso quebra o contrato visual da ADR-014, que separa os tokens do shell do CSS local de cada microfrontend.
+    mecanismo: 'O laboratório cria um tema próprio em `mfes/endereco/src/theme/theme.css`, com seletores no namespace do microfrontend e cores lidas dos tokens do shell com fallback local, como `var(--color-primary, #1a56db)`. O `inject.ts` injeta esse tema no `mount` e o remove no `unmount`, os componentes trocam as classes do Tailwind pelas classes do namespace, e um teste do contrato visual, escrito antes, confere seletores, token, injeção e classes.'
+    comprovacao: O teste do contrato passa com `Tests 4 passed (4)`, a suíte do endereço com `Tests 15 passed (15)` e o `tsc` sem mensagens, e a contagem da classe no CSS do shell cai para `0`. No portal, o DevTools mostra o botão Salvar com fundo `rgb(26, 86, 219)`, e a troca de `primaryColor` no `public/config.json` muda o fundo para `rgb(4, 120, 87)`.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

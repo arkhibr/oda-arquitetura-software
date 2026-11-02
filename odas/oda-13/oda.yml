@@ -5,7 +5,106 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é avaliar o código do portal contra uma política de segurança de conteúdo estrita e interpretar os relatórios de violação que o navegador envia. O `frontend-react` executa código de outras origens, e a CSP decide o que pode rodar e para onde o navegador pode se conectar. Você vai ler a política de produção diretiva por diretiva, interpretar o relatório de Trusted Types que o portal gera em desenvolvimento e eliminá-lo com uma política `default` restrita, com o teste escrito antes.
+    texto: O objetivo desta ODA é proteger o portal contra o XSS baseado em DOM, ataque que executa script de terceiros na sessão do cliente, avaliando o código contra uma política de segurança de conteúdo estrita, a Content Security Policy (CSP), e interpretando os relatórios de violação que o navegador envia. O `frontend-react` executa código de outras origens, e a exigência de Trusted Types, que fecha o caminho do XSS baseado em DOM, continua só em modo de relatório porque o próprio boot de desenvolvimento a viola. Você vai ler a política de produção diretiva por diretiva, interpretar o relatório que o boot gera e deixar o portal compatível com essa exigência por meio de uma política `default` restrita, com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: CSP (Content Security Policy)
+      definicao: Cabeçalho HTTP com que o servidor informa ao navegador de quais origens a página pode carregar scripts, estilos e imagens e para onde ela pode abrir conexões. O navegador bloqueia o que a política não autoriza e pode enviar um relatório de cada violação a um endereço configurado.
+      referencia:
+        rotulo: MDN · Utilizando Políticas de Segurança de Conteúdo
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
+    - termo: Diretiva
+      definicao: Cada regra de uma CSP, formada por um nome e uma lista de valores. `script-src` diz de onde vêm os scripts, `connect-src` diz para onde a página pode abrir conexões, `default-src 'none'` proíbe tudo o que outra diretiva não liberar, `frame-ancestors` diz quem pode embutir a página num `<iframe>` e `base-uri` limita o elemento `<base>`.
+      referencia:
+        rotulo: MDN · Content-Security-Policy
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Content-Security-Policy
+    - termo: Trusted Types
+      definicao: Recurso do navegador que, quando a CSP traz `require-trusted-types-for 'script'`, recusa strings comuns nos pontos da página que interpretam texto como código ou como endereço de script e passa a exigir objetos criados por uma política registrada pela aplicação. Ele protege contra o XSS baseado em DOM.
+      referencia:
+        rotulo: MDN · Trusted Types API
+        url: https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API
+    - termo: Política default de Trusted Types
+      definicao: Política registrada com o nome `default`, que o navegador chama automaticamente sempre que uma string comum é atribuída a um sink. Ela devolve o valor aprovado ou `null`, e o `null` faz o navegador recusar a atribuição.
+    - termo: Sink
+      definicao: Propriedade ou função do navegador que transforma texto em código executável ou em endereço de script, como `innerHTML`, `script.src` e `eval`. Uma string maliciosa que chega a um sink pode executar código na página.
+    - termo: Relatório de violação e Reporting API
+      definicao: Quando uma diretiva é violada, o navegador dispara o evento `securitypolicyviolation` na página e monta um relatório com a diretiva, o arquivo e a linha. A Reporting API envia esse relatório em segundo plano ao endereço declarado no cabeçalho `Reporting-Endpoints`, aqui o destino `csp-endpoint`.
+      referencia:
+        rotulo: MDN · Reporting API
+        url: https://developer.mozilla.org/en-US/docs/Web/API/Reporting_API
+    - termo: Enforcement e Report-Only
+      definicao: 'Em enforcement, enviada no cabeçalho `Content-Security-Policy`, a política bloqueia o que viola. Em Report-Only, enviada no cabeçalho `Content-Security-Policy-Report-Only`, a política só reporta a violação e deixa a ação continuar, o que aparece no relatório como `disposition: report`.'
+      referencia:
+        rotulo: MDN · Content-Security-Policy-Report-Only
+        url: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only
+    - termo: Nonce
+      definicao: Valor aleatório gerado a cada requisição, gravado no cabeçalho da CSP e no atributo `nonce` dos scripts da página. Só os scripts que trazem o nonce da requisição executam, e um script injetado por um atacante não o conhece.
+      referencia:
+        rotulo: MDN · nonce
+        url: https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/nonce
+    - termo: strict-dynamic
+      definicao: Valor da diretiva `script-src` que estende a confiança de um script autorizado pelo nonce aos scripts que ele carregar. Com ele, o navegador ignora as listas de origens e o `'unsafe-inline'` da mesma diretiva.
+      referencia:
+        rotulo: 'MDN · Content-Security-Policy: script-src'
+        url: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src
+    - termo: Playwright e Chromium
+      definicao: O Playwright é uma ferramenta que controla um navegador real para testar a aplicação de ponta a ponta. O Chromium é o navegador de código aberto em que se baseia o Google Chrome, e o Playwright baixa uma versão própria dele com `npx playwright install chromium`.
+      referencia:
+        rotulo: Playwright · Installation
+        url: https://playwright.dev/docs/intro
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta as requisições HTTP da página e devolve respostas simuladas definidas em handlers. No `frontend-react`, os handlers ficam em `src/mocks/`, e o MSW só é iniciado em desenvolvimento, pelo `worker.start()` de `src/main.tsx`.
+      referencia:
+        rotulo: Mock Service Worker · Introduction
+        url: https://mswjs.io/docs/
+    - termo: Service Worker
+      definicao: Script que o navegador registra para uma origem e executa separado da página, capaz de interceptar as requisições que a página faz. O MSW funciona no navegador por meio de um Service Worker, o arquivo `/mockServiceWorker.js`.
+      referencia:
+        rotulo: MDN · API do Service Worker
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Service_Worker_API
+    - termo: Shell e microfrontend
+      definicao: O shell é a aplicação React da pasta `src/` que cuida do login, do layout e das rotas e carrega os microfrontends em tempo de execução. Um microfrontend é uma parte da interface com build e deploy próprios, cujo bundle o shell baixa de um bucket de outra origem.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. A ADR-012 trata da CSP estrita e a ADR-013 trata de Trusted Types e da Reporting API.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: Nginx e Vite
+      definicao: O Nginx é o servidor web que entrega o shell compilado em produção e envia a CSP de produção. O Vite é a ferramenta de build e o servidor de desenvolvimento do shell, na porta 5173, e envia a política de desenvolvimento.
+      referencia:
+        rotulo: Vite · Getting Started
+        url: https://vite.dev/guide/
+    - termo: XSS (Cross-Site Scripting) baseado em DOM
+      definicao: Ataque em que um texto controlado pelo atacante chega a um sink e passa a executar como script na página da vítima, com o acesso que a sessão dela tem. No XSS baseado em DOM, o caminho todo acontece no JavaScript do navegador, sem passar pelo servidor.
+      referencia:
+        rotulo: OWASP · DOM Based XSS
+        url: https://owasp.org/www-community/attacks/DOM_Based_XSS
+    - termo: envsubst
+      definicao: Comando que substitui variáveis de ambiente num arquivo de texto. Na imagem de produção, ele preenche as variáveis `CSP_` do modelo de configuração do Nginx quando o contêiner inicia.
+    - termo: HMR (Hot Module Replacement)
+      definicao: Recurso do servidor de desenvolvimento do Vite que troca no navegador o módulo alterado sem recarregar a página. Ele depende de script inline e de `eval`, e por isso a política de desenvolvimento os libera.
+      referencia:
+        rotulo: Vite · HMR API
+        url: https://vite.dev/guide/api-hmr
+    - termo: Hash SHA-256 e URL `blob:`
+      definicao: O hash SHA-256 é um resumo do conteúdo do bundle, conferido contra o manifesto antes da execução. A URL `blob:` aponta para dados guardados na memória do navegador, e o shell importa o bundle conferido por uma URL desse tipo.
+      referencia:
+        rotulo: 'MDN · blob: URLs'
+        url: https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/blob
+    - termo: LocalStack
+      definicao: Emulador dos serviços da AWS que roda num contêiner Docker na sua máquina. O `frontend-react` usa o S3 do LocalStack para hospedar os bundles dos microfrontends em desenvolvimento.
+      referencia:
+        rotulo: LocalStack · Overview
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: TypeScript e ESLint
+      definicao: O compilador do TypeScript, `tsc`, confere os tipos do código, e o ESLint aplica regras de estilo e de arquitetura. O último passo do laboratório roda os dois para garantir que a política nova não introduz erros.
+      referencia:
+        rotulo: ESLint · Getting Started
+        url: https://eslint.org/docs/latest/use/getting-started
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,21 +152,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · relatório de Trusted Types
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
-      saida: "Running 3 tests using 3 workers\n\n  ✓  3 [chromium] › tests/e2e/trustedTypes.spec.ts:24:1 › URL de script fora da lista continua reportada (1.1s)\n  ✓  2 [chromium] › tests/e2e/trustedTypes.spec.ts:19:1 › HTML cru num sink do DOM continua reportado (1.1s)\n  ✘  1 [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types (1.2s)\n\n\n  1) [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types ───\n\n    Error: expect(received).toEqual(expected) // deep equality\n\n    - Expected  - 1\n    + Received  + 3\n\n    - Array []\n    + Array [\n    +   \"require-trusted-types-for ServiceWorkerContainer register|/mockServiceWorker.js\",\n    + ]\n\n      14 |\n      15 | test('o boot do portal não viola Trusted Types', async ({ page }) => {\n    > 16 |   expect(await violacoes(page)).toEqual([])\n         |                                 ^\n      17 | })\n      18 |\n      19 | test('HTML cru num sink do DOM continua reportado', async ({ page }) => {\n        at ./tests/e2e/trustedTypes.spec.ts:16:33\n\n\n  1 failed\n    [chromium] › tests/e2e/trustedTypes.spec.ts:15:1 › o boot do portal não viola Trusted Types ────\n  2 passed (1.7s)"
-      origem: executado
-      dica: Este é o teste do passo 3. A violação vem do MSW, que só roda em desenvolvimento.
-    - entrada: 'curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1'
-      saida: HTTP/1.1 404 Not Found
-      origem: executado
-      dica: O Vite não tem rota para o coletor, e o handler do MSW só vê requisições feitas pela página.
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Teste de Trusted Types
-      comando: npx playwright test tests/e2e/trustedTypes.spec.ts --project=chromium --reporter=list
-    - rotulo: Coletor de relatórios
-      comando: 'curl -s -i -X POST -H ''Content-Type: application/reports+json'' -d ''[]'' http://localhost:5173/__csp-report | head -1'
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -315,7 +413,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é eliminar o relatório de Trusted Types do portal com uma política restrita, comprovada por teste no navegador. Os passos 1 e 2 sobem o servidor de desenvolvimento e conferem o coletor, os passos 3 a 7 eliminam a violação com o teste escrito antes, e o passo 8 confere tipos e lint. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é deixar o portal compatível com a exigência de Trusted Types, para que ela possa passar de relatório a bloqueio e fechar o caminho do XSS baseado em DOM. Os passos 1 e 2 sobem o servidor de desenvolvimento e conferem o coletor, os passos 3 a 7 escrevem o teste, mostram a violação do boot e a eliminam com uma política `default` que aprova só a URL do Service Worker do MSW, e o passo 8 confere tipos e lint. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O portal escreve strings em sinks como `innerHTML` e `script.src`, a porta de entrada do XSS baseado em DOM, e a exigência de Trusted Types que fecha essa porta está só em Report-Only no `nginx.conf.template` e no `vite.config.ts`. O próprio boot de desenvolvimento viola a exigência, porque o MSW registra o Service Worker passando a string `/mockServiceWorker.js` ao `register` e nenhuma política `default` aprova esse valor.
+    impacto: Um XSS baseado em DOM executa script de terceiros na sessão do cliente, com acesso ao que a página mostra e às chamadas que ela faz em nome dele. Enquanto o boot gerar violação, a exigência não pode passar a enforcement, porque o navegador bloquearia o registro do Service Worker e o portal de desenvolvimento ficaria sem o back-end simulado do MSW.
+    mecanismo: Um teste no Playwright, escrito antes, registra as violações desde o início da página. A política `default` de Trusted Types criada em `src/shared/lib/trustedTypes.ts` aprova só a URL do Service Worker do MSW na mesma origem e devolve `null` para qualquer outro valor, e o `src/main.tsx` a registra antes de `prepare()`, que inicia o MSW.
+    comprovacao: O teste novo falha primeiro com `1 failed` e `2 passed`, com `ServiceWorkerContainer register|/mockServiceWorker.js` na lista de violações do boot, e passa depois com `3 passed`, junto de `4 passed` com o `csp.spec.ts` existente. Os outros dois testes mostram que um `innerHTML` e um `script.src` de outra origem continuam gerando violação, porque a política não os aprova, e o `tsc` e o `eslint src/` terminam sem mensagens.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

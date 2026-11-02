@@ -5,7 +5,111 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é diagnosticar as falhas de integridade, de origem e de montagem na carga de um microfrontend e garantir que nenhuma delas derrube o portal. No `frontend-react`, o shell envolve cada microfrontend num error boundary, mas um erro de renderização dentro da árvore React do próprio microfrontend escapa desse isolamento. Você vai demonstrar esse limite com um teste no shell e corrigi-lo no microfrontend de endereço com o teste escrito antes.
+    texto: O objetivo desta ODA é diagnosticar as falhas de integridade, de origem e de montagem na carga de um microfrontend e garantir que nenhuma delas derrube o portal, porque um erro de renderização dentro de um microfrontend deixa a área dele vazia, sem nenhum aviso para a pessoa. No `frontend-react`, o shell envolve cada microfrontend num error boundary, e esse componente não alcança a árvore React que o próprio microfrontend cria com `createRoot`. Você vai demonstrar esse limite com um teste no shell e corrigi-lo no microfrontend de endereço com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Error boundary
+      definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
+      referencia:
+        rotulo: React · Error boundary
+        url: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+    - termo: Árvore React
+      definicao: Conjunto de componentes que uma raiz React renderiza, em que cada componente é filho de outro. Erros de renderização sobem por essa árvore até o error boundary mais próximo.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: Raiz React (`createRoot`)
+      definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: Promessa (Promise)
+      definicao: Objeto do JavaScript que representa um resultado futuro, como o fim de um download, e termina resolvida com um valor ou rejeitada com um erro, tratado no `.catch`.
+    - termo: Performance API e fases de carga
+      definicao: API do navegador que registra marcas de tempo e mede o intervalo entre elas. As funções de `perf.ts` medem as fases `fetchEval`, `validate`, `mount` e `total` da carga de cada microfrontend.
+      referencia:
+        rotulo: MDN · Performance APIs
+        url: https://developer.mozilla.org/en-US/docs/Web/API/Performance_API
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Slow 3G
+      definicao: Perfil de limitação de rede das ferramentas do Chromium que simula uma conexão móvel lenta, usado no relatório de performance para medir a carga em rede ruim.
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: Simulação de módulo (`vi.mock`)
+      definicao: Recurso do Vitest que troca um módulo importado por uma versão controlada pelo teste. O laboratório troca o `EnderecoApp` por um componente que lança erro ao renderizar.
+      referencia:
+        rotulo: Vitest · Mocking
+        url: https://vitest.dev/guide/mocking
+    - termo: '`onUncaughtError`'
+      definicao: Opção do `createRoot` do React 19 que recebe os erros de renderização que nenhum error boundary capturou naquela raiz.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: CORS (Cross-Origin Resource Sharing)
+      definicao: Mecanismo de cabeçalhos HTTP com que um servidor autoriza páginas de outra origem a ler as respostas dele. Os buckets precisam de CORS porque o shell, na porta 5173, baixa bundles servidos pela porta 4566, que é outra origem.
+      referencia:
+        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
+    - termo: CSP (Content Security Policy)
+      definicao: Cabeçalho HTTP com que o servidor informa ao navegador de quais origens a página pode carregar scripts, estilos e outros recursos e para onde ela pode abrir conexões. O navegador bloqueia o que a política não autoriza, e a ADR-012 do repositório adota uma política estrita.
+      referencia:
+        rotulo: MDN · Políticas de Segurança de Conteúdo (CSP)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
+    - termo: StrictMode
+      definicao: Modo de desenvolvimento do React que repete renderizações e efeitos para revelar efeitos colaterais indevidos, sem desligar os error boundaries.
+      referencia:
+        rotulo: React · StrictMode
+        url: https://react.dev/reference/react/StrictMode
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Playwright
+      definicao: Ferramenta que controla navegadores para testes ponta a ponta e medições. O script `npm run test:perf` do repositório usa o Playwright para medir a carga dos microfrontends.
+      referencia:
+        rotulo: Playwright · Instalação
+        url: https://playwright.dev/docs/intro
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,15 +157,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · testes do carregamento de microfrontends
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npx vitest run src/app/mfe
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
-      origem: executado
-      dica: O `MfeHost.test.tsx` já cobre a falha de carregamento com o aviso do error boundary.
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Rodar os testes de src/app/mfe
-      comando: npx vitest run src/app/mfe
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -367,7 +476,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é provar que um erro interno do microfrontend escapa do error boundary do shell e corrigir isso no próprio microfrontend. Os passos 1 a 3 demonstram no shell o limite do error boundary, e os passos 4 a 9 criam um boundary interno no microfrontend de endereço com o teste escrito antes. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é provar que um erro interno do microfrontend fica fora do error boundary do shell e corrigir isso no próprio microfrontend, porque só um componente da mesma árvore React captura os erros de renderização dessa árvore. Os passos 1 a 3 demonstram no shell o limite do error boundary, e os passos 4 a 9 criam um boundary interno no microfrontend de endereço com o teste escrito antes. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O `MfeErrorBoundary` do shell captura as falhas de carga e as exceções do `mount`, que o `MfeHost` relança ao renderizar, e não recebe os erros de renderização da raiz React que o microfrontend de endereço cria em `mfes/endereco/src/index.tsx`.
+    impacto: Quando um componente do microfrontend quebra depois da montagem, o React desmonta a árvore dele, e a rota fica vazia sem o aviso de módulo indisponível, o que deixa a pessoa sem saber o que aconteceu.
+    mecanismo: O laboratório escreve no shell um teste de isolamento que compara uma exceção no `mount` com um erro na raiz própria do microfrontend, registrado por `onUncaughtError`, e cria no microfrontend o boundary interno `FalhaInterna`, com o teste escrito antes e o `vi.mock` trocando o `EnderecoApp` por um componente que lança erro.
+    comprovacao: O teste de isolamento passa com o aviso para a exceção do `mount` e sem aviso para o erro da raiz própria, o teste da falha interna falha antes do `FalhaInterna` e passa depois, e a suíte do microfrontend termina com `Tests 12 passed (12)` e o `tsc` sem mensagens.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

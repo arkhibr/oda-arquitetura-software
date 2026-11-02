@@ -5,7 +5,105 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é comparar a organização por camada com a organização por caso de uso e implementar um caso de uso novo como fatia vertical. No `net-minimal-api`, o agregado `Pedido` já tem o método `Confirmar()`, com três regras de negócio, mas a API não expõe essa operação. Você vai comparar Pedidos com Catálogo e criar a confirmação de pedido como uma fatia com comando, handler, endpoint e teste.
+    texto: O objetivo desta ODA é comparar a organização por camada técnica com a organização por caso de uso e implementar um caso de uso novo como fatia vertical, porque é ao acrescentar uma funcionalidade que o custo de cada padrão aparece. No `net-minimal-api`, o agregado `Pedido` já tem o método `Confirmar()`, com três regras de negócio, mas a API não expõe essa operação, e o cliente não tem como confirmar um pedido. Você vai comparar Pedidos com Catálogo e criar a confirmação de pedido como uma fatia com comando, handler, endpoint e teste de integração.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Clean Architecture
+      definicao: Estilo de arquitetura em camadas concêntricas em que o domínio e as regras de aplicação ficam no centro e não dependem de banco, framework ou interface com o usuário. As dependências entre projetos apontam sempre para dentro, e no Catálogo isso se traduz nos subprojetos Domain, Application, Infrastructure e API.
+      referencia:
+        rotulo: Microsoft Learn · Arquiteturas comuns de aplicativos web
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures
+    - termo: Vertical Slice Architecture (arquitetura de fatias verticais)
+      definicao: Estilo de organização em que todo o código de um caso de uso, como requisição, validação, handler e endpoint, fica numa mesma pasta, chamada fatia. Nos Pedidos do `net-minimal-api`, cada operação, como `CreatePedido` ou `CancelPedido`, é uma fatia com pasta própria.
+    - termo: Bounded context (contexto delimitado)
+      definicao: Conceito do Domain-Driven Design que delimita a parte do sistema dentro da qual um modelo e o seu vocabulário têm um único significado. No `net-minimal-api`, Catálogo, Pedidos e Pix são três bounded contexts, cada um com pastas, rotas e testes próprios.
+      referencia:
+        rotulo: martinfowler.com · Bounded Context
+        url: https://martinfowler.com/bliki/BoundedContext.html
+    - termo: Agregado e raiz do agregado
+      definicao: Agregado é um grupo de objetos do domínio tratado como uma unidade de consistência, e a raiz é o único objeto do grupo que o código de fora pode chamar. O `Pedido` é a raiz do agregado de pedido, e os `PedidoItem` só mudam por meio dos métodos dele.
+      referencia:
+        rotulo: martinfowler.com · DDD Aggregate
+        url: https://martinfowler.com/bliki/DDD_Aggregate.html
+    - termo: Comando
+      definicao: Objeto que representa a intenção de mudar o estado do sistema e carrega os dados necessários para isso, como o `CancelPedidoCommand`. O handler da fatia recebe o comando e executa a operação.
+    - termo: Handler
+      definicao: Classe que executa um caso de uso a partir de um comando ou de uma consulta, chamando o domínio e os repositórios. Nas fatias de Pedidos, o endpoint recebe a requisição, chama o handler e traduz o resultado dele em resposta HTTP.
+    - termo: Repositório
+      definicao: Classe que esconde o acesso a dados atrás de uma interface com operações como buscar e gravar, para que o domínio e os handlers não dependam do banco. No repositório, as interfaces de escrita usam o EF Core e as de leitura usam o Dapper.
+    - termo: Minimal API (API mínima)
+      definicao: Forma de declarar endpoints HTTP no ASP.NET Core com chamadas como `app.MapGet` e `app.MapPost`, que associam uma rota a uma função, sem classes de controller. É o estilo usado em toda a API `net-minimal-api`.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral das APIs mínimas
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/minimal-apis/overview
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, a decisão tomada, as alternativas descartadas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`, e esta ODA as usa como registro das escolhas que o código mostra.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Value object (objeto de valor)
+      definicao: Objeto do domínio definido apenas pelo valor que carrega, sem identidade própria, e que valida esse valor na criação. No Catálogo, `PrecoProduto` e `EstoqueProduto` são value objects, e um preço inválido não chega a existir.
+      referencia:
+        rotulo: Microsoft Learn · Implementando objetos de valor
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/implement-value-objects
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional da Microsoft, que traduz classes C# em tabelas e consultas LINQ em SQL. No repositório, ele grava os dados no SQLite e atende as operações de escrita.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do Entity Framework Core
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: Dapper
+      definicao: Biblioteca leve de acesso a dados para .NET que executa SQL escrito à mão e preenche objetos com o resultado. No Catálogo, ela atende os repositórios de leitura, e o EF Core atende os de escrita.
+    - termo: FluentValidation
+      definicao: Biblioteca de validação para .NET em que as regras de uma requisição ficam numa classe validadora, como `CriarProdutoValidator`, escrita com métodos encadeados. A ADR-0010 do repositório registra o uso dela para validar a entrada.
+    - termo: Padrão Result (`Result` e `Result<T>`)
+      definicao: Tipo de retorno que informa sucesso ou falha de forma explícita, com `IsSuccess`, o valor em caso de sucesso e a mensagem em `Error` em caso de falha. No repositório, `Result` e `Result<T>` são records definidos em `src/Shared/Common/Result.cs` e em `Catalogo.Domain/Common/Result.cs`, e a ADR-0003 registra o uso deles para erros de domínio.
+    - termo: Injeção de dependência (DI) e contêiner
+      definicao: Técnica em que uma classe recebe pronto, normalmente pelo construtor ou pelos parâmetros do endpoint, o objeto de que precisa. No ASP.NET Core, o contêiner cria esses objetos a partir dos registros feitos com `AddScoped`, `AddTransient` ou `AddSingleton` na inicialização, e um tipo sem registro não chega a quem o pede.
+      referencia:
+        rotulo: Microsoft Learn · Injeção de dependência no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/dependency-injection
+    - termo: Reflection (reflexão)
+      definicao: Recurso do .NET que permite ao programa examinar os próprios tipos em tempo de execução, por exemplo para listar as classes de um assembly que implementam uma interface. É o mecanismo que `AddEndpointsFromAssembly` usa para encontrar os endpoints dos Pedidos.
+      referencia:
+        rotulo: Microsoft Learn · Reflexão no .NET
+        url: https://learn.microsoft.com/pt-br/dotnet/fundamentals/reflection/reflection
+    - termo: Assembly
+      definicao: Unidade compilada do .NET, normalmente um arquivo `.dll`, que contém os tipos de um projeto e os metadados com as referências a outros assemblies. Cada projeto `.csproj` do repositório gera um assembly.
+    - termo: Vinculação de parâmetros (parameter binding)
+      definicao: 'Regra pela qual a Minimal API decide de onde vem cada parâmetro do endpoint: da rota, da query string, dos cabeçalhos, do contêiner de serviços ou do corpo. Um parâmetro de tipo complexo que não é serviço registrado é lido do corpo da requisição, e a falta de corpo gera 400.'
+      referencia:
+        rotulo: Microsoft Learn · Associação de parâmetros em APIs mínimas
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/minimal-apis/parameter-binding
+    - termo: AutoMapper
+      definicao: Biblioteca que copia os dados de um objeto para outro, como de uma entidade para um DTO, a partir de configurações de mapeamento declaradas uma vez.
+    - termo: DTO (Data Transfer Object)
+      definicao: Objeto simples que só carrega os dados que entram ou saem da API, sem regras de negócio, como `CriarProdutoRequest`.
+    - termo: JWT (JSON Web Token)
+      definicao: 'Formato de token assinado que carrega, em JSON, a identidade do usuário e a validade do acesso. A API emite o token em `/api/v1/auth/login`, e o cliente o envia no cabeçalho `Authorization: Bearer <token>` para acessar as rotas protegidas, como as de Pedidos.'
+      referencia:
+        rotulo: Microsoft Learn · Autenticação de portador JWT no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/configure-jwt-bearer-authentication
+    - termo: Idempotência e `IdempotencyMiddleware`
+      definicao: Uma operação é idempotente quando repeti-la produz o mesmo efeito de executá-la uma vez. O `IdempotencyMiddleware` do repositório guarda a resposta das requisições POST, PUT e PATCH que trazem o cabeçalho `Idempotency-Key` e devolve a mesma resposta quando a chave chega de novo.
+      referencia:
+        rotulo: MDN · Idempotente
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Teste de integração
+      definicao: Teste que sobe a API em memória e faz requisições HTTP a ela, conferindo status e corpo, com banco e serviços configurados como na aplicação. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests/Integration` e usam a `ApiFactory` para criar a API de teste.
+      referencia:
+        rotulo: Microsoft Learn · Testes de integração no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: Suíte de testes e xUnit
+      definicao: A suíte é o conjunto de testes automatizados do repositório, e o xUnit é o framework de testes que os projetos de teste usam. O `dotnet test` compila os projetos de teste, roda os testes e imprime uma linha de resumo por projeto, com aprovados, falhas e ignorados.
+      referencia:
+        rotulo: xUnit.net
+        url: https://xunit.net/
+    - termo: '`git stash` e `detached HEAD`'
+      definicao: O `git stash` guarda as alterações locais numa pilha e deixa a pasta como no último commit, e o `git stash pop` as devolve. O `detached HEAD` é o estado em que o Git fica depois de `git checkout <commit>`, apontando para um commit e não para um branch.
+      referencia:
+        rotulo: Git · git-stash
+        url: https://git-scm.com/docs/git-stash
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -589,7 +687,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é expor a confirmação de pedido pela API como uma fatia vertical completa, com teste de integração. Os passos 1 e 2 clonam o repositório e conferem o ambiente, os passos 3 a 6 criam o comando, o handler, o endpoint e o teste, e os passos 7 e 8 registram o handler e rodam a suíte. O terminal simulado responde aos mesmos comandos, e o passo 7 muda o resultado dos testes como no projeto real.
+    texto: O objetivo do laboratório é expor a confirmação de pedido pela API como uma fatia vertical completa, porque a regra já existe no agregado e falta o caminho HTTP até ela, e mostrar o que uma fatia nova ainda exige do `Program.cs`. Os passos 1 e 2 clonam o repositório e conferem o ambiente, os passos 3 a 6 criam o comando, o handler, o endpoint e o teste, e os passos 7 e 8 registram o handler e rodam a suíte. O terminal simulado responde aos mesmos comandos, e o passo 7 muda o resultado dos testes como no projeto real.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O agregado `Pedido` tem o método `Confirmar()`, que confere o status, a existência de itens e o valor mínimo, mas nenhuma fatia de `src/Pedidos` expõe essa operação pela API. Uma fatia nova depende de duas peças que falham de formas diferentes, porque o endpoint é descoberto por reflection e o handler precisa ser registrado à mão no `Program.cs`.
+    impacto: Sem a rota, o cliente não consegue tirar um pedido do status Rascunho. Se o handler não for registrado, a Minimal API tenta ler esse parâmetro do corpo e responde 400 com corpo vazio, e um teste que confere só o status aceita esse 400 como se fosse a regra de domínio.
+    mecanismo: O laboratório cria a pasta `src/Pedidos/ConfirmarPedido/` com o comando, o handler e o endpoint no formato da fatia de cancelamento, com `.RequireAuthorization()` na rota. Três testes de integração, um deles conferindo a mensagem de domínio, são escritos antes do registro, e o handler entra no `Program.cs` com `AddScoped`.
+    comprovacao: Antes do registro, os três testes da fatia falham com respostas 400 de corpo vazio, e depois dele passam, com a suíte `ProdutosAPI.Tests` em 146 aprovações e nenhuma falha. A comparação com o Catálogo fica registrada no caminho de cada requisição, na aba Simulação, e no quadro de `docs/01-ARQUITETURA.md`.
   - tipo: passos
     itens:
     - titulo: Clonar o repositório no commit de referência

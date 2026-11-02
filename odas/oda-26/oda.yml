@@ -5,7 +5,77 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é fazer um cliente HTTP chamar uma API Pix com certificado de cliente e token OAuth2, e garantir que as novas tentativas automáticas desse cliente não dupliquem uma devolução de dinheiro. No repositório `net-minimal-api`, o `Pix.MockServer` simula a API Pix com mTLS, e o `Pix.ClientDemo` usa o `AddStandardResilienceHandler`, que repete a chamada que falha, inclusive um POST. Você vai provar o handshake mTLS com o `curl`, reproduzir uma devolução duplicada pela mesma chave de idempotência e corrigir o servidor e o cliente com o teste escrito antes.
+    texto: O objetivo desta ODA é impedir que as novas tentativas automáticas de um cliente HTTP dupliquem uma devolução de dinheiro numa integração com a API Pix, protegida por certificado de cliente e token OAuth2. No repositório `net-minimal-api`, o `Pix.MockServer` simula a API Pix com mTLS (TLS mútuo, em que cliente e servidor apresentam certificados) e cria uma devolução nova a cada chamada, e o `Pix.ClientDemo` usa o `AddStandardResilienceHandler`, que repete chamadas que falham, inclusive um POST, sem enviar chave de idempotência nas devoluções. Você vai provar o handshake mTLS com o `curl`, reproduzir a devolução duplicada e corrigir o servidor e o cliente com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Pix
+      definicao: Meio de pagamento instantâneo do Banco Central do Brasil, em que as instituições trocam mensagens pela API Pix. Nesta ODA aparecem a cobrança, que é o pedido de pagamento identificado por um `txid`, a liquidação, que é o pagamento da cobrança, e a devolução, que é o retorno de parte ou de todo o valor pago.
+      referencia:
+        rotulo: 'Banco Central do Brasil: Pix'
+        url: https://www.bcb.gov.br/estabilidadefinanceira/pix
+    - termo: TLS (Transport Layer Security) e handshake
+      definicao: O TLS é o protocolo que cifra a conexão do HTTPS. O handshake é a negociação inicial da conexão, em que o servidor apresenta o certificado e as duas partes combinam as chaves, antes de qualquer cabeçalho HTTP ser enviado.
+      referencia:
+        rotulo: 'MDN: TLS'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/TLS
+    - termo: mTLS (TLS mútuo)
+      definicao: Variante do TLS em que o cliente também apresenta um certificado durante o handshake, e o servidor recusa a conexão se esse certificado não for assinado pela autoridade esperada. A API Pix do Banco Central exige mTLS, e o `Pix.MockServer` simula essa exigência.
+      referencia:
+        rotulo: 'Microsoft Learn: certificados de cliente no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/certauth
+    - termo: OAuth2 e client credentials
+      definicao: OAuth2 é o protocolo de autorização em que o cliente obtém um token de acesso num servidor de autorização e o envia nas chamadas à API. No fluxo client credentials, um sistema obtém o token com o próprio identificador e segredo, sem usuário humano envolvido.
+      referencia:
+        rotulo: 'IETF: RFC 6749, seção 4.4, Client Credentials Grant'
+        url: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
+    - termo: Política de resiliência e AddStandardResilienceHandler
+      definicao: Política de resiliência é o conjunto de regras que um cliente HTTP aplica para tolerar falhas temporárias, como tempo limite, novas tentativas e disjuntor. O `AddStandardResilienceHandler`, da biblioteca Microsoft.Extensions.Http.Resilience, registra um pipeline padrão com essas regras em volta de cada chamada.
+      referencia:
+        rotulo: 'Microsoft Learn: criar aplicativos HTTP resilientes'
+        url: https://learn.microsoft.com/pt-br/dotnet/core/resilience/http-resilience
+    - termo: Idempotência e chave de idempotência
+      definicao: Uma operação é idempotente quando repeti-la tem o mesmo efeito que executá-la uma vez. A chave de idempotência, enviada no cabeçalho `Idempotency-Key`, permite ao servidor reconhecer que uma requisição é a repetição de outra e devolver o resultado da primeira.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Kestrel
+      definicao: Servidor web embutido nas aplicações ASP.NET Core, que recebe as conexões HTTP e HTTPS. No `Pix.MockServer`, é a configuração do Kestrel que exige o certificado do cliente.
+      referencia:
+        rotulo: 'Microsoft Learn: servidor web Kestrel'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/servers/kestrel
+    - termo: Autoridade certificadora (CA)
+      definicao: Entidade que assina certificados, de modo que quem confia nela confia também nos certificados que ela assinou. No laboratório, o servidor gera a própria autoridade em `certs/pix/` e só aceita certificados de cliente assinados por ela.
+      referencia:
+        rotulo: 'MDN: certificate authority'
+        url: https://developer.mozilla.org/en-US/docs/Glossary/Certificate_authority
+    - termo: Formatos DER, PEM e PFX
+      definicao: São formatos de arquivo de certificado. O DER é binário, o PEM é o mesmo conteúdo codificado em texto entre linhas `-----BEGIN CERTIFICATE-----`, e o PFX, também chamado PKCS#12, guarda o certificado junto com a chave privada, protegido por senha.
+    - termo: Novas tentativas com espera exponencial e variação aleatória
+      definicao: Estratégia em que o cliente repete uma chamada que falhou e dobra a espera a cada tentativa, somando uma variação aleatória, o jitter, para que muitos clientes não repitam ao mesmo tempo.
+    - termo: Disjuntor (circuit breaker)
+      definicao: Mecanismo que, depois de uma proporção de falhas, para de enviar chamadas a um serviço por um intervalo e falha na hora, para dar tempo ao serviço de se recuperar.
+      referencia:
+        rotulo: 'Martin Fowler: CircuitBreaker'
+        url: https://martinfowler.com/bliki/CircuitBreaker.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
+    - termo: Servidor simulado (mock server)
+      definicao: Servidor que imita a API de um parceiro para desenvolvimento e testes, sem acesso ao serviço real. O `Pix.MockServer` é uma Minimal API própria do repositório, e WireMock.Net e Mockoon são ferramentas prontas com o mesmo propósito.
+    - termo: Polly
+      definicao: Biblioteca .NET de resiliência que implementa novas tentativas, tempo limite e disjuntor, e sobre a qual a Microsoft.Extensions.Http.Resilience é construída.
+    - termo: DelegatingHandler e cliente HTTP tipado
+      definicao: Um `DelegatingHandler` é um elo da cadeia de processamento do `HttpClient`, que pode alterar a requisição antes de passá-la ao próximo elo, como o `IdempotencyKeyHandler` faz com o cabeçalho. Um cliente HTTP tipado é uma classe, como o `PixProcessingClient`, registrada com o próprio `HttpClient` e a própria cadeia de handlers.
+      referencia:
+        rotulo: 'Microsoft Learn: IHttpClientFactory e handlers de saída'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/http-requests
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, serviços e serialização, por meio de requisições HTTP. No repositório, os testes do servidor Pix ficam em `tests/Pix.MockServer.Tests`.
+    - termo: Identificador de correlação
+      definicao: Valor único enviado num cabeçalho de cada requisição para que os logs do cliente e do servidor sobre a mesma operação possam ser ligados entre si.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,46 +123,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · bater à porta do servidor Pix
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: dotnet run --project src/Pix/Pix.MockServer
-      saida: 'Now listening on: https://localhost:5099
-
-        Application started. Press Ctrl+C to shut down.
-
-        Hosting environment: Production'
-      origem: executado
-      dica: 'Na primeira execução, o servidor gera os certificados em `certs/pix/`. Reinicie-o depois de cada troca de código: as cobranças e as chaves ficam na memória do processo.'
-    - entrada: openssl x509 -inform DER -in certs/pix/ca.cer -out certs/pix/ca.pem
-      saida: ''
-      origem: executado
-      dica: O `ca.cer` está em DER, e o `curl` espera a autoridade certificadora em PEM.
-    - entrada: curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
-      saida: 'curl: (56) Recv failure: Connection reset by peer'
-      origem: executado
-      dica: O texto do erro muda conforme a versão do `curl`, e também aparece `(52) Empty reply from server`. Nos dois casos, o servidor fechou a conexão porque não recebeu certificado do cliente.
-    - entrada: pix() { curl -sS --http1.1 --cacert certs/pix/ca.pem --cert certs/pix/client.pfx:pix-demo-123 --cert-type P12 "$@"; }
-      saida: ''
-      origem: executado
-      dica: A função `pix` chama o `curl` com o certificado do cliente e a senha `pix-demo-123`, e repassa os demais argumentos.
-    - entrada: 'TOKEN=$(pix -X POST -H ''Content-Type: application/json'' -d ''{"client_id":"pix-demo-client","client_secret":"pix-demo-secret","grant_type":"client_credentials"}'' https://localhost:5099/oauth/token | sed -nE ''s/.*"access_token": "([^"]+)".*/\1/p'')'
-      saida: ''
-      origem: executado
-    - entrada: 'pix -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Idempotency-Key: x'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas'
-      saida: '401'
-      origem: executado
-      dica: Com certificado e sem token, o handshake passa e a API responde 401.
-    - entrada: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
-      saida: "      HTTP POST /pix/v1/cobrancas -> 201 em 59ms\n      HTTP GET /pix/v1/cobrancas/1a3a6f1ef0bc4d31a1f95942fd5dcd52 -> 200 em 3ms\n      HTTP POST /pix/v1/cobrancas/1a3a6f1ef0bc4d31a1f95942fd5dcd52/simular-liquidacao -> 200 em 1ms\n      HTTP POST /pix/v1/devolucoes -> 201 em 4ms\n      HTTP GET /pix/v1/devolucoes/62a244730c51473c96d47641ac82f71a -> 200 em 1ms\nStatus cobrança final: CONCLUIDA\nDevolução: 62a244730c51473c96d47641ac82f71a\nStatus devolução final: DEVOLVIDA"
-      origem: executado
-      dica: O cenário completo do cliente, com cobrança, liquidação e devolução.
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Sem certificado
-      comando: curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
-    - rotulo: Com certificado e sem token
-      comando: 'pix -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Idempotency-Key: x'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas'
-    - rotulo: Cliente de demonstração
-      comando: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -292,7 +336,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é chamar o servidor Pix com mTLS e OAuth2 e tornar seguras as novas tentativas de uma devolução, no servidor e no cliente. Os passos 1 a 4 provam o handshake e reproduzem a devolução duplicada, os passos 5 a 10 escrevem o teste e corrigem o servidor, e os passos 11 a 13 corrigem o cliente e mostram a política de resiliência repetindo uma chamada. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é eliminar o risco de devolução em dobro quando a política de resiliência repete um POST, fazendo o servidor reconhecer a chave de idempotência da devolução e o cliente enviá-la, depois de provar o handshake mTLS e o token OAuth2. Os passos 1 a 4 provam o handshake e reproduzem a devolução duplicada, os passos 5 a 10 escrevem o teste e corrigem o servidor, e os passos 11 a 13 corrigem o cliente e mostram a política de resiliência repetindo uma chamada. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: No `Program.cs` do `Pix.MockServer`, a rota `POST /devolucoes` não lê o cabeçalho `Idempotency-Key` e cria uma devolução a cada chamada. No cliente, o `IdempotencyKeyHandler.cs` só acrescenta a chave aos caminhos de cobrança, e o `AddStandardResilienceHandler` repete falhas de conexão, tempo esgotado e respostas 5xx em qualquer método HTTP, inclusive no POST.
+    impacto: Quando a resposta de uma devolução se perde, a nova tentativa automática cria outra devolução, e o recebedor recebe de volta o dobro do valor pedido, como mostra a simulação com 60 devolvidos duas vezes. Numa integração Pix real, o erro movimenta dinheiro de verdade.
+    mecanismo: O laboratório prova primeiro o mTLS e o token OAuth2 com o `curl`. Depois torna a devolução idempotente no servidor, guardando a chave com o prefixo `devolucao:` e a impressão digital do corpo sob uma trava, e faz o `IdempotencyKeyHandler` incluir `/pix/v1/devolucoes`, para que todas as tentativas da política de resiliência levem a mesma chave.
+    comprovacao: 'O teste de idempotência da devolução falha com `Com falha: 3` antes da correção e passa com `Aprovado: 3`, com a suíte em `Aprovado: 10`. Pela API, a mesma chave responde 201 e depois 200 com o mesmo `devolucaoId`, outro valor recebe 409, a falta de chave recebe 400, e o cliente de demonstração termina com `Status devolução final: DEVOLVIDA`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

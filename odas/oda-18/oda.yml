@@ -5,7 +5,94 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é avaliar os recursos, os códigos de status e os payloads de uma API REST contra as boas práticas que o próprio repositório adota. O `net-minimal-api` traz dois guias de API, e você vai sondar criação, validação, paginação, exclusão e cancelamento no Catálogo e nos Pedidos. No fim, você terá um quadro de onde a API segue ou diverge dos guias e uma das divergências corrigida com o teste escrito antes.
+    texto: O objetivo desta ODA é avaliar os recursos, os códigos de status e os payloads de uma API REST (Representational State Transfer) contra os dois guias de API do próprio repositório, porque contratos que mudam de um contexto para outro ou que ignoram parâmetros sem aviso levam o cliente a tratar erros e resultados de forma errada. No `net-minimal-api`, você vai sondar criação, validação, paginação, exclusão e cancelamento no Catálogo e nos Pedidos, e encontrar, entre outros casos, um filtro de status inexistente que devolve todos os pedidos. No fim, você terá um quadro de onde a API segue ou diverge dos guias, com evidência de cada item, e a divergência do filtro corrigida com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: REST (Representational State Transfer)
+      definicao: Estilo de arquitetura para APIs HTTP em que cada recurso tem um endereço próprio e as operações usam os métodos do protocolo, como GET para ler, POST para criar e DELETE para remover. Os guias do repositório acrescentam regras próprias, como substantivos no plural e paginação obrigatória.
+      referencia:
+        rotulo: MDN · REST
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/REST
+    - termo: Código de status HTTP
+      definicao: 'Número de três dígitos que a resposta HTTP traz para indicar o resultado: a faixa 2xx indica sucesso, a 4xx indica erro do cliente e a 5xx indica falha do servidor. Os códigos mais citados aqui são 200, 201, 204, 400, 401, 404, 422 e 500.'
+      referencia:
+        rotulo: MDN · Códigos de status de respostas HTTP
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status
+    - termo: Payload
+      definicao: Corpo de uma requisição ou de uma resposta HTTP, que nesta API vem sempre em JSON.
+    - termo: Paginação
+      definicao: Divisão de uma lista longa em páginas, pedidas por parâmetros como `page` e `pageSize`, com metadados na resposta que informam a página atual, o tamanho e o total de itens.
+    - termo: Cabeçalho `Location`
+      definicao: Cabeçalho que a resposta `201 Created` traz com o endereço do recurso recém-criado, para que o cliente possa buscá-lo em seguida.
+      referencia:
+        rotulo: MDN · Location
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Location
+    - termo: Problem Details (`application/problem+json`)
+      definicao: Formato padronizado pela RFC 9457 para respostas de erro de APIs HTTP, com campos como `type`, `title`, `status` e `detail`, e um tipo de conteúdo próprio, `application/problem+json`. O ASP.NET Core produz esse formato com `Results.Problem` e `Results.ValidationProblem`.
+      referencia:
+        rotulo: IETF · RFC 9457, Problem Details for HTTP APIs
+        url: https://datatracker.ietf.org/doc/html/rfc9457
+    - termo: '`ValidationProblem`'
+      definicao: Resposta do ASP.NET Core no formato Problem Details para erros de validação, com status 400 e um objeto `errors` que lista as mensagens de cada campo. Os Pedidos usam essa resposta, e o Catálogo usa um `ErrorResponse` próprio com status 422.
+    - termo: Bounded context (contexto delimitado)
+      definicao: Conceito do Domain-Driven Design que delimita a parte do sistema dentro da qual um modelo e o seu vocabulário têm um único significado. No `net-minimal-api`, Catálogo, Pedidos e Pix são três bounded contexts, cada um com pastas, rotas e testes próprios.
+      referencia:
+        rotulo: martinfowler.com · Bounded Context
+        url: https://martinfowler.com/bliki/BoundedContext.html
+    - termo: JWT (JSON Web Token)
+      definicao: 'Formato de token assinado que carrega, em JSON, a identidade do usuário e a validade do acesso. A API emite o token em `/api/v1/auth/login`, e o cliente o envia no cabeçalho `Authorization: Bearer <token>` para acessar as rotas protegidas, como as de Pedidos.'
+      referencia:
+        rotulo: Microsoft Learn · Autenticação de portador JWT no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/configure-jwt-bearer-authentication
+    - termo: ASP.NET Core
+      definicao: Framework da Microsoft para aplicações web e APIs sobre o .NET. Ele recebe cada requisição HTTP, passa a requisição pela cadeia de middlewares e entrega o resultado ao endpoint correspondente.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/introduction-to-aspnet-core
+    - termo: Minimal API (API mínima)
+      definicao: Forma de declarar endpoints HTTP no ASP.NET Core com chamadas como `app.MapGet` e `app.MapPost`, que associam uma rota a uma função, sem classes de controller. É o estilo usado em toda a API `net-minimal-api`.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral das APIs mínimas
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/minimal-apis/overview
+    - termo: Teste escrito antes da mudança
+      definicao: Prática de escrever primeiro o teste que descreve o comportamento desejado, vê-lo falhar e só depois mudar o código até ele passar. A falha inicial confirma que o teste realmente verifica a mudança e não passaria por acaso.
+    - termo: Enum, `Enum.TryParse` e `Enum.IsDefined`
+      definicao: Um enum é um tipo C# com um conjunto fixo de valores nomeados, como `StatusPedido`, com `Rascunho`, `Confirmado` e `Cancelado`. O `Enum.TryParse` converte um texto num valor do enum e aceita também números que não correspondem a nenhum membro, e o `Enum.IsDefined` confere se o valor convertido existe no enum.
+      referencia:
+        rotulo: Microsoft Learn · Tipos de enumeração em C#
+        url: https://learn.microsoft.com/pt-br/dotnet/csharp/language-reference/builtin-types/enum
+    - termo: Middleware de tratamento de exceções
+      definicao: Middleware global do repositório, em `src/Shared/Middleware/ExceptionHandlingMiddleware.cs`, que captura as exceções não tratadas e as converte numa resposta JSON com o status de cada tipo de exceção. Uma exceção que não tem ramo próprio vira 500 com mensagem genérica.
+    - termo: Ambiente de execução (`Development`, `Production`, `Testing`)
+      definicao: Nome que o ASP.NET Core lê da variável `ASPNETCORE_ENVIRONMENT` para ajustar o comportamento da aplicação. Os perfis do `Properties/launchSettings.json`, como o `http` usado com `dotnet run --launch-profile http`, definem `Development`, a ausência da variável leva a `Production`, e os testes do repositório rodam no ambiente `Testing`, definido pela `ApiFactory`.
+      referencia:
+        rotulo: Microsoft Learn · Ambientes de runtime do ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/environments
+    - termo: Teste de integração
+      definicao: Teste que sobe a API em memória e faz requisições HTTP a ela, conferindo status e corpo, com banco e serviços configurados como na aplicação. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests/Integration` e usam a `ApiFactory` para criar a API de teste.
+      referencia:
+        rotulo: Microsoft Learn · Testes de integração no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros de exemplo que a API grava no banco ao iniciar, pelo `DbSeeder` do Catálogo, para que haja produtos e categorias desde a primeira execução. Apagar o `produtos-api.db` faz a API recriar o banco com esses dados na próxima vez que subir.
+    - termo: SQLite
+      definicao: Banco de dados relacional que guarda tudo num único arquivo e roda dentro do próprio processo da aplicação. A API usa o arquivo `produtos-api.db`, na raiz do repositório, e o cria ao iniciar quando ele não existe.
+      referencia:
+        rotulo: SQLite · About SQLite
+        url: https://www.sqlite.org/about.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, a decisão tomada, as alternativas descartadas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`, e esta ODA as usa como registro das escolhas que o código mostra.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Erros `CS0234`, `CS0246` e `MSB3030`
+      definicao: 'Os códigos que começam com `CS` vêm do compilador C#: o `CS0234` indica que um namespace ou tipo não existe dentro do namespace citado, e o `CS0246` indica que um tipo não foi encontrado, em geral por falta de `using` ou de referência de projeto. O `MSB3030` vem do MSBuild e indica que um arquivo marcado para cópia não foi encontrado no momento da cópia.'
+    - termo: '`git stash` e `detached HEAD`'
+      definicao: O `git stash` guarda as alterações locais numa pilha e deixa a pasta como no último commit, e o `git stash pop` as devolve. O `detached HEAD` é o estado em que o Git fica depois de `git checkout <commit>`, apontando para um commit e não para um branch.
+      referencia:
+        rotulo: Git · git-stash
+        url: https://git-scm.com/docs/git-stash
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,26 +140,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · duas validações, dois contratos
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
-      saida: ''
-      origem: executado
-    - entrada: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
-      saida: '{"type":"https://api.example.com/errors/validation","title":"Validação falhou","status":422,"detail":"Nome é obrigatório; Nome deve ter no mínimo 3 caracteres; Descrição deve ter no mínimo 10 caracteres; Preço deve ser maior que zero; Categoria é obrigatória; Categoria inválida; Estoque não pode ser negativo; Email inválido","instance":"","errors":{}}
-
-        422'
-      origem: executado
-    - entrada: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[]}'' http://localhost:5000/api/v1/pedidos'
-      saida: '{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Itens":["Pedido deve conter ao menos um item."]}}
-
-        400'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Produto inválido
-      comando: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
-    - rotulo: Pedido sem itens
-      comando: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[]}'' http://localhost:5000/api/v1/pedidos'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -343,7 +424,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é montar um quadro de avaliação da API contra os guias e corrigir uma divergência encontrada. Os passos 1 a 4 sobem a API, sondam os dois contextos e montam o quadro, e os passos 5 a 8 corrigem o filtro de status ignorado com o teste escrito antes. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é documentar com evidência onde a API diverge dos guias e corrigir o filtro de status que é descartado sem aviso, porque um relatório que pede `status=Cancelados` recebe pedidos de todos os status. Os passos 1 a 4 sobem a API, sondam os dois contextos e montam o quadro de avaliação, e os passos 5 a 8 escrevem o teste do filtro, fazem o handler recusar o status inexistente com `ValidationProblem` e conferem a resposta com a API no ar. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: 'No commit `702145a`, o handler de `ListPedidosQuery.cs` descarta sem aviso um `status` que não converte para `StatusPedido`, e o `Enum.TryParse` ainda aceita números como `7`, que não correspondem a nenhum membro do enum. A sondagem mostra outras divergências dos guias: um JSON ilegível recebe 500, o Catálogo responde 422 com `errors` vazio, os Pedidos respondem 400 com mensagens por campo, e um `pageSize=1000` volta como 20 sem aviso.'
+    impacto: O cliente que pede um status inexistente recebe a lista inteira e acredita que ela está filtrada, como no relatório de cancelados que mostra pedidos em rascunho. Os dois contratos de validação obrigam cada cliente, como um aplicativo móvel, a manter dois tratamentos de erro para a mesma API.
+    mecanismo: A sondagem por `curl` compara cada resposta com a tabela de status do `MELHORES-PRATICAS-API.md` e com o formato `application/problem+json` do guia de JSON, e classifica cada item como de acordo, em desacordo, guia desatualizado ou comportamento silencioso. A correção usa um teste de integração escrito antes, `Enum.IsDefined` depois do `TryParse` e uma resposta `ValidationProblem`, o mesmo contrato da criação de pedidos.
+    comprovacao: O teste do filtro falha antes com `found HttpStatusCode.OK` para `Qualquer` e para `7`, e passa depois, com a suíte em 146 aprovações. Com a API reiniciada, `status=Qualquer` recebe 400 com a mensagem `Status 'Qualquer' inválido. Use Rascunho, Confirmado, Cancelado.`, e o quadro guarda a saída do terminal como evidência de cada linha.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

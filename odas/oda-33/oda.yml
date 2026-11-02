@@ -5,7 +5,103 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é seguir uma mensagem por um pipeline com vários serviços e localizar em que ponto ela parou, usando testes que conferem cada salto. No repositório `aspire-aws`, o cenário 12 liga um bucket S3 a uma fila SQS, a fila a uma Lambda e a Lambda ao DynamoDB, e o cenário 13 faz o mesmo partindo do SNS. Você vai provar que um arquivo copiado para o bucket não entra no pipeline, localizar o salto que falhou e corrigir a configuração.
+    texto: O objetivo desta ODA é localizar o ponto em que uma mensagem parou num pipeline com vários serviços, porque nenhum deles avisa quem enviou, e corrigir o defeito do cenário 12, em que arquivos copiados para o bucket nunca são processados. No repositório `aspire-aws`, o cenário 12 liga um bucket do Amazon S3 (Simple Storage Service) a uma fila do Amazon SQS (Simple Queue Service), a fila a uma função do AWS Lambda e a função ao Amazon DynamoDB, e o cenário 13 faz o mesmo partindo do Amazon SNS (Simple Notification Service). Você vai escrever um teste que confere o primeiro e o último salto, eliminar os saltos que funcionam e corrigir o filtro da notificação do bucket.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Pipeline de mensagens
+      definicao: Sequência de serviços em que a saída de um é a entrada do seguinte, como um bucket que avisa uma fila, uma fila lida por uma função e uma função que grava numa tabela. Cada ligação entre dois serviços é um salto.
+    - termo: Salto
+      definicao: Passagem da mensagem de um serviço para o seguinte no pipeline. Conferir o primeiro e o último salto num teste indica em que trecho a mensagem parou.
+    - termo: Amazon S3 (Simple Storage Service) e bucket
+      definicao: O S3 é o serviço de armazenamento de objetos da AWS, e o bucket é o recipiente que guarda os objetos, cada um identificado por uma chave. No cenário 12, o bucket `pipeline-uploads` é a entrada do pipeline.
+      referencia:
+        rotulo: O que é o Amazon S3? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Amazon SQS (Simple Queue Service)
+      definicao: Serviço de filas da AWS. A fila guarda cada mensagem até que um consumidor a receba e a apague, e nos dois pipelines a fila fica entre a entrada e a função.
+      referencia:
+        rotulo: O que é o Amazon SQS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa uma função quando um evento chega, sem servidor administrado por quem escreve a função. As funções dos dois pipelines são escritas em Python e leem as mensagens da fila.
+      referencia:
+        rotulo: O que é o AWS Lambda? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: Amazon DynamoDB
+      definicao: Banco NoSQL gerenciado da AWS que guarda itens em tabelas e os localiza pela chave. É a saída do pipeline 12, onde o teste procura o item com o corpo da mensagem.
+      referencia:
+        rotulo: O que é o Amazon DynamoDB? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Introduction.html
+    - termo: Amazon SNS (Simple Notification Service)
+      definicao: Serviço de tópicos da AWS, que copia cada mensagem publicada para todas as assinaturas do tópico. O pipeline 13 começa com uma publicação num tópico assinado por uma fila.
+      referencia:
+        rotulo: O que é o Amazon SNS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/sns/latest/dg/welcome.html
+    - termo: Cenário
+      definicao: No repositório `aspire-aws`, cada pasta numerada de `scenarios/` é um cenário, um projeto de testes xUnit que exercita uma integração com serviços da AWS. Esta ODA usa o cenário 12, `12-Pipeline.S3.SQS.Lambda.DynamoDB`, e o cenário 13, `13-Pipeline.SNS.SQS.Lambda.S3`.
+    - termo: Notificação de evento do S3
+      definicao: Configuração do bucket que envia um aviso a um destino, como uma fila, quando acontece um tipo de evento, por exemplo a criação de um objeto. A fixture do cenário 12 configura a notificação filtrada pelo tipo `ObjectCreatedPut`.
+      referencia:
+        rotulo: Tipos e destinos de notificações de evento (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html
+    - termo: Tipos de evento de criação de objeto
+      definicao: O S3 distingue a criação de objeto por `s3:ObjectCreated:Put`, `Post`, `Copy` e `CompleteMultipartUpload`, e `s3:ObjectCreated:*` inclui todos. No SDK .NET, os filtros correspondentes são `EventType.ObjectCreatedPut` e `EventType.ObjectCreatedAll`.
+    - termo: '`PutObject`, `CopyObject` e `GetObjectMetadata`'
+      definicao: Operações do S3. O `PutObject` envia um arquivo, o `CopyObject` copia um objeto de outro bucket ou chave, e o `GetObjectMetadata` consulta os dados de um objeto sem baixá-lo, que o teste usa para conferir o primeiro salto.
+    - termo: Upload multiparte
+      definicao: Envio de um arquivo grande em partes, concluído com `CompleteMultipartUpload`. O S3 gera um único evento de criação ao completar o envio, do tipo `s3:ObjectCreated:CompleteMultipartUpload`.
+      referencia:
+        rotulo: Upload fracionado no Amazon S3 (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/mpuoverview.html
+    - termo: Política de acesso da fila
+      definicao: Documento JSON gravado na fila que diz quais serviços podem enviar mensagens a ela. Na AWS, o S3 e o SNS só gravam na fila se a política autorizar `sqs:SendMessage`, e o LocalStack Community não aplica essa regra.
+      referencia:
+        rotulo: Políticas baseadas em identidade e em recurso (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/IAM/latest/UserGuide/access_policies_identity-vs-resource.html
+    - termo: ARN (Amazon Resource Name)
+      definicao: Identificador único de um recurso da AWS, no formato `arn:aws:serviço:região:conta:recurso`. A política da fila limita a permissão ao ARN do bucket do pipeline.
+      referencia:
+        rotulo: Nomes do recurso da Amazon (ARNs) (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/IAM/latest/UserGuide/reference-arns.html
+    - termo: Assinatura
+      definicao: Registro que liga um tópico do SNS a um destino, como uma fila. No pipeline 13, a fila assina o tópico e recebe uma cópia de cada publicação.
+    - termo: LocalStack e LocalStack Community
+      definicao: O LocalStack é um emulador dos serviços da AWS que roda num contêiner Docker e responde na porta 4566. O repositório usa a edição gratuita, a Community, que não aplica as políticas de acesso das filas.
+      referencia:
+        rotulo: Documentação do LocalStack
+        url: https://docs.localstack.cloud/overview/
+    - termo: Docker, imagem e contêiner
+      definicao: O Docker executa programas em contêineres, processos isolados criados a partir de uma imagem, que reúne o sistema e as dependências. O laboratório constrói uma imagem com o .NET SDK 10 e o cliente do Docker e roda os testes num contêiner criado a partir dela com `docker exec`.
+      referencia:
+        rotulo: What is Docker? (documentação do Docker)
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: Socket do Docker (`/var/run/docker.sock`)
+      definicao: Arquivo pelo qual programas conversam com o daemon do Docker, o serviço que cria e para os contêineres. O LocalStack usa esse arquivo para criar os contêineres das funções Lambda.
+    - termo: Apple Silicon e teste ignorado
+      definicao: Apple Silicon é a família de processadores ARM64 dos Macs recentes. O repositório ignora os testes com Lambda quando o processo de teste roda no macOS com ARM64, e por isso o laboratório os roda num contêiner Linux.
+    - termo: Colima
+      definicao: Ferramenta que roda o Docker no macOS dentro de uma máquina virtual Linux. O caminho do laboratório com o contêiner Linux foi verificado com o Colima.
+    - termo: WSL (Windows Subsystem for Linux)
+      definicao: Recurso do Windows que roda um ambiente Linux dentro do sistema. No WSL, os comandos `dotnet test` rodam direto, sem o contêiner do laboratório.
+      referencia:
+        rotulo: O que é o Subsistema do Windows para Linux (Microsoft Learn)
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: xUnit e fixture
+      definicao: O xUnit é o framework de testes para .NET usado nos cenários. A fixture é a classe que o xUnit cria antes dos testes para preparar recursos compartilhados, e a do cenário 12 monta o pipeline do bucket até a tabela.
+      referencia:
+        rotulo: Sharing Context between Tests (documentação do xUnit)
+        url: https://xunit.net/docs/shared-context
+    - termo: Mapeamento de origem de eventos
+      definicao: Recurso do Lambda que lê uma fila e invoca a função com as mensagens. A fixture do cenário 12 liga a fila à função `sqs_consumer` por um mapeamento desse tipo.
+      referencia:
+        rotulo: Usar o Lambda com o Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/with-sqs.html
+    - termo: Envelope do SNS e entrega bruta
+      definicao: Quando o SNS entrega a uma fila, a mensagem original chega dentro de um JSON do SNS, no campo `Message`, e a função do pipeline 13 extrai esse campo. Com a entrega bruta ligada na assinatura, a fila recebe a mensagem original sem o envelope.
+      referencia:
+        rotulo: Entrega de mensagens brutas do Amazon SNS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/sns/latest/dg/sns-large-payload-raw-message-delivery.html
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,33 +149,21 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · os dois pipelines
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
-      saida: sha256:a0faca54756a…
-      origem: executado
-      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
-    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
-      saida: c010420897a4…
-      origem: executado
-      dica: O identificador do contêiner muda a cada execução.
-    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
-      saida: ''
-      origem: executado
-      dica: A função copia os arquivos do repositório para `/repo` no contêiner.
-    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
-      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 m 2 s - 12-Pipeline.S3.SQS.Lambda.DynamoDB.dll (net10.0)'
-      origem: executado
-      dica: Um arquivo enviado com `PutObject` atravessa o S3, o SQS e a Lambda até o DynamoDB.
-    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/13-Pipeline.SNS.SQS.Lambda.S3 2>&1 | grep -E 'Passed!|Failed!'
-      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 s - 13-Pipeline.SNS.SQS.Lambda.S3.dll (net10.0)'
-      origem: executado
-      dica: O pipeline 13 publica no SNS, que entrega a uma fila lida por uma Lambda que grava no S3.
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior, como exige o `global.json`.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
     cenarios:
-    - rotulo: Pipeline 12
-      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
-    - rotulo: Pipeline 13
-      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/13-Pipeline.SNS.SQS.Lambda.S3 2>&1 | grep -E 'Passed!|Failed!'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
+      comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
   titulo: Conceito
   blocos:
@@ -238,7 +322,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer um arquivo copiado de outro bucket atravessar o pipeline 12, com um teste que confere o primeiro e o último salto. Os passos 1 e 2 preparam o contêiner Linux e rodam o pipeline, o passo 3 escreve o teste e localiza a falha, e o passo 4 corrige a notificação do bucket. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é fazer um arquivo copiado de outro bucket atravessar o pipeline 12, que hoje o ignora sem erro, com um teste que confere o primeiro e o último salto e por isso indica em que trecho a mensagem parou. Os passos 1 e 2 preparam o contêiner Linux e rodam o pipeline, o passo 3 escreve o teste e localiza a falha, e o passo 4 amplia o filtro da notificação do bucket. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: A notificação do bucket `pipeline-uploads`, no cenário 12, é filtrada por `EventType.ObjectCreatedPut`, e só os arquivos enviados com `PutObject` geram mensagem para a fila. Um arquivo copiado de outro bucket com `CopyObject` chega ao bucket e não entra no pipeline.
+    impacto: Arquivos que um parceiro copia de outro bucket, e arquivos grandes enviados por upload multiparte, nunca são processados, e nenhum serviço registra erro. Um teste que olha só a saída informa que algo falhou, sem indicar em que salto.
+    mecanismo: O laboratório escreve um teste que copia o arquivo para o bucket do pipeline, confere o primeiro salto com `GetObjectMetadata` e espera o item no DynamoDB, e compara o resultado com o arquivo enviado por `PutObject` para eliminar os saltos que funcionam. A correção amplia o filtro da notificação para `EventType.ObjectCreatedAll`.
+    comprovacao: 'Antes da correção, o teste falha com a mensagem `O objeto está no bucket do pipeline, mas nenhum item chegou ao DynamoDB em 60 s.`, que localiza a falha entre o bucket e a tabela. Depois da correção, o cenário 12 mostra `Passed: 2`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

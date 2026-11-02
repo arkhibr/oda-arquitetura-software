@@ -6,6 +6,26 @@ abas:
   blocos:
   - tipo: legenda
     texto: Crie uma ODA a partir de dados YAML e experimente os componentes disponíveis no próprio motor.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais
+      extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência,
+      e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: ODA (Objeto Digital de Aprendizagem)
+      definicao: Página interativa de estudo com sete abas, da Missão à Verificação, gerada a partir de um arquivo `oda.yml`
+        e ligada a um repositório e a um commit de referência.
+    - termo: YAML
+      definicao: Formato de texto para dados estruturados, baseado em indentação, em que cada ODA descreve as abas e os blocos
+        que o motor exibe.
+      referencia:
+        rotulo: YAML · especificação 1.2.2
+        url: https://yaml.org/spec/1.2.2/
+    - termo: Motor
+      definicao: Conjunto de módulos JavaScript da pasta `motor/` que lê os dados da ODA embutidos na página e monta cada
+        bloco no navegador.
+    - termo: Bloco
+      definicao: Unidade de conteúdo de uma aba, identificada pelo campo `tipo`, como legenda, editor, terminal ou quiz, com
+        propriedades obrigatórias conferidas pelo gerador.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -74,9 +94,24 @@ abas:
   - tipo: legenda
     texto: Percorra o que o `npm run deploy` faz, etapa por etapa, e depois localize cada peça do repositório.
   - tipo: conceito
+    titulo: glossario
+    texto: Explica os termos técnicos da ODA antes do primeiro uso e fica na Missão, logo depois da legenda, posição que o
+      gerador confere. Cada item tem termo e definicao, e a referencia opcional aponta para um portal curado da lista `CURADOS`
+      do gerador.
+  - tipo: editor
+    rotulo: terminal
+    linhas:
+    - 'tipo: glossario'
+    - 'itens:'
+    - '- termo: CSP (Content Security Policy)'
+    - '  definicao: Cabeçalho HTTP que diz ao navegador de quais origens a página pode carregar recursos.'
+    - '  referencia: {rotulo: "MDN · CSP", url: "https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP"}'
+  - tipo: conceito
     titulo: faixa
     texto: Destaca dica, sucesso, quebra ou erro, e o estilo erro exige sintoma, causa e correcao. A lista opcional links
-      acrescenta ao fim da faixa endereços que começam com https.
+      acrescenta ao fim da faixa endereços que começam com https. O estilo objetivo, obrigatório logo depois da legenda do
+      Laboratório, exige problema, impacto, mecanismo e comprovacao, para que o aluno saiba que risco ou defeito o laboratório
+      trata, por que ele importa, com que mecanismo e como provar o resultado.
   - tipo: editor
     rotulo: terminal
     linhas:
@@ -657,6 +692,16 @@ abas:
 - id: laboratorio
   titulo: Crie sua ODA
   blocos:
+  - tipo: faixa
+    estilo: objetivo
+    problema: Uma ODA escrita sem estrutura comum mistura objetivo, contexto e exercício, e o aluno que chega direto nela
+      não sabe o que precisa fazer nem por quê.
+    impacto: Sem objetivo explícito e sem conceitos definidos antes do uso, o aluno executa passos sem entender o problema
+      que eles resolvem e não consegue transferir o aprendizado para outro sistema.
+    mecanismo: O laboratório monta uma ODA mínima em `oda.yml` com as sete abas, o glossário na Missão, a faixa de objetivo
+      no Laboratório e o contexto de cada trecho de código, regras que o gerador confere.
+    comprovacao: O comando `.venv/bin/python scripts/gerar_odas.py` termina com `0 erro(s).`, e a página gerada abre no navegador
+      com as sete abas.
   - tipo: passos
     itens:
     - titulo: Registre no catálogo

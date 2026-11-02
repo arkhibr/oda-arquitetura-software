@@ -5,7 +5,140 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é acompanhar o token JWT do login até a resposta 401 e corrigir o encerramento de sessão que o shell deveria fazer e não faz. No `frontend-react`, o shell guarda o token no `sessionStorage`, os guards de rota leem o estado do Redux, e só o Gateway valida a assinatura. Você vai mostrar com testes que o monitor de sessão nunca é iniciado e corrigir o shell com o teste escrito antes.
+    texto: O objetivo desta ODA é acompanhar o JWT (JSON Web Token) do login até a resposta 401 e corrigir o encerramento de sessão que o shell deveria fazer e não faz, porque sem ele uma pessoa com o token expirado continua no painel até que uma chamada de microfrontend receba 401. No `frontend-react`, o shell guarda o token no `sessionStorage`, os guards de rota leem o estado do Redux, e só o Gateway valida a assinatura. Você vai mostrar com testes que o monitor de sessão nunca é iniciado e corrigir o shell com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: '`sessionStorage`'
+      definicao: Área de armazenamento do navegador isolada por aba, apagada quando a aba é fechada e acessível por JavaScript. O shell guarda nela o token, na chave `portal_access_token`.
+      referencia:
+        rotulo: MDN · Window.sessionStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/sessionStorage
+    - termo: Guard de rota (`AuthGuard`)
+      definicao: Componente que decide se uma rota pode ser exibida e redireciona para outra quando a condição falha. O `AuthGuard` do shell lê `isAuthenticated` no store e leva para `/login` quem não está autenticado.
+    - termo: Redux e Redux Toolkit
+      definicao: O Redux guarda o estado global de uma aplicação num único objeto, que só muda por meio de ações tratadas por reducers. O Redux Toolkit é o pacote oficial que simplifica esse uso, e o shell o usa em `src/shared/lib/store/`.
+      referencia:
+        rotulo: Redux Toolkit · Primeiros passos
+        url: https://redux-toolkit.js.org/introduction/getting-started
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: Assinatura do JWT
+      definicao: Parte final do token, calculada com uma chave a partir do cabeçalho e do conteúdo, que prova que o token não foi alterado e foi emitido por quem tem a chave. O shell só lê o conteúdo, e quem confere a assinatura é o Gateway.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Monitor de sessão (`sessionMonitor`)
+      definicao: Módulo do shell em `src/shared/auth/sessionMonitor.ts` que encerra a sessão quando o token expira, conferindo a cada 60 segundos, ou quando recebe o evento `auth:unauthorized`. Ele só age depois de `sessionMonitor.start()`.
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+    - termo: Relógio simulado (fake timers)
+      definicao: Recurso do Vitest que substitui o relógio real durante o teste e permite avançar o tempo pelo intervalo que o teste indicar, sem esperar. O laboratório avança 60 segundos para disparar a verificação do monitor.
+      referencia:
+        rotulo: Vitest · Timers
+        url: https://vitest.dev/guide/mocking/timers
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
+      referencia:
+        rotulo: Mock Service Worker · Introdução
+        url: https://mswjs.io/docs/
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+      referencia:
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: '`localStorage`'
+      definicao: Área de armazenamento do navegador compartilhada por todas as abas da mesma origem e mantida depois de fechar o navegador. A ADR-004 a descartou para o token por ampliar a exposição.
+      referencia:
+        rotulo: MDN · Window.localStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/localStorage
+    - termo: XSS (Cross-Site Scripting)
+      definicao: Ataque em que um script malicioso é injetado na página e roda com as permissões dela, podendo ler o que o JavaScript da página acessa, como o `sessionStorage`. A CSP e o cookie `httpOnly` são defesas contra os efeitos desse ataque.
+      referencia:
+        rotulo: OWASP · Cross Site Scripting (XSS)
+        url: https://owasp.org/www-community/attacks/xss/
+    - termo: Cookie `httpOnly`
+      definicao: Cookie que o navegador envia ao servidor em cada requisição e que o JavaScript da página não consegue ler. A ADR-004 o descartou porque exigiria mudanças no back-end.
+      referencia:
+        rotulo: MDN · Cookies HTTP
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/Cookies
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: '`exp`, `iat` e `sub`'
+      definicao: Campos do conteúdo de um JWT que informam a expiração, o momento de emissão e o identificador do usuário. O `tokenParser` do shell trata como expirado o token sem esses campos válidos.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Store
+      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Callback `onUnauthorized`
+      definicao: Função que o shell entrega ao microfrontend no contexto de montagem e que o microfrontend chama quando a API responde 401. O shell a implementa com o `dispatch(logout())`.
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: HS256, RS256 e JWKS
+      definicao: HS256 assina o token com um segredo compartilhado, e RS256 assina com uma chave privada e confere com a chave pública correspondente. O JWKS é o endereço que publica essas chaves públicas, e o Gateway usa HS256 com `JWT_SHARED_SECRET` quando não há JWKS configurado.
+      referencia:
+        rotulo: IETF · RFC 7518, JSON Web Algorithms
+        url: https://datatracker.ietf.org/doc/html/rfc7518
+    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
+      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Teste E2E (ponta a ponta)
+      definicao: Teste que abre a aplicação num navegador real e percorre telas como uma pessoa faria. O repositório os escreve com o Playwright, em `tests/e2e/`.
+      referencia:
+        rotulo: Playwright · Instalação
+        url: https://playwright.dev/docs/intro
+    - termo: Cobertura de testes
+      definicao: Medida de quais linhas do código os testes executam. O `vitest.config.ts` exclui alguns arquivos dessa medida, entre eles o `sessionMonitor`.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: DevTools do navegador
+      definicao: Ferramentas de desenvolvedor embutidas no navegador, abertas com F12, com o console para executar JavaScript e a aba Application para ver o `sessionStorage`.
+    - termo: Revogação de token
+      definicao: Invalidação de um token antes da data de expiração, por exemplo depois de um logout ou de uma senha trocada, o que exige uma lista consultada a cada requisição. Nenhum trecho lido nesta ODA faz essa consulta.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,15 +186,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · testes de autenticação
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npx vitest run src/shared/auth src/shared/api src/app/router
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  6 passed (6)\n      Tests  23 passed (23)"
-      origem: executado
-      dica: 'São 6 arquivos: o `httpClient`, o `ApiError`, o `tokenParser`, o `tokenStorage` e os dois guards. Nenhum deles testa o `sessionMonitor`.'
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Rodar os testes de autenticação
-      comando: npx vitest run src/shared/auth src/shared/api src/app/router
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -521,7 +659,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer o shell encerrar a sessão quando o token deixa de valer, com testes que provam a falha e a correção. Os passos 1 a 4 caracterizam o `sessionMonitor`, os passos 5 a 9 corrigem o shell com o teste escrito antes da correção, e o passo 10 confere o resultado no navegador. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é fazer o shell encerrar a sessão quando o token deixa de valer, com testes que provam a falha e a correção, porque no commit de referência nenhum código chama `sessionMonitor.start()` e os dois mecanismos de encerramento ficam desligados. Os passos 1 a 4 caracterizam o `sessionMonitor`, os passos 5 a 9 corrigem o shell com o teste escrito antes da correção, e o passo 10 confere o resultado no navegador. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O `src/shared/auth/sessionMonitor.ts` tem dois mecanismos de encerramento, a verificação da expiração a cada 60 segundos e a escuta do evento `auth:unauthorized`, e nenhum arquivo de `src/` chama `sessionMonitor.start()` no commit `2179313`. O README de `shared/auth` e o diagrama da ADR-004 afirmam o contrário, e o `vitest.config.ts` exclui o monitor da cobertura.
+    impacto: Com o portal aberto, um token que expira não leva a pessoa de volta ao login, e o evento que o `httpClient` emitiria num 401 não tem ouvinte. A sessão só termina quando uma chamada de microfrontend recebe 401 e aciona o callback `onUnauthorized`.
+    mecanismo: O laboratório caracteriza o monitor com o relógio simulado do Vitest, que avança 60 segundos sem espera, escreve antes da correção um teste que monta os `Providers` do shell e liga o monitor ao ciclo de vida do shell com um `useEffect` que chama `sessionMonitor.start()` e devolve a função que o desliga.
+    comprovacao: Os dois testes dos `Providers` falham com `expected true to be false` antes da correção e passam depois, a suíte termina com `Tests 103 passed (103)`, e no navegador o evento `auth:unauthorized` leva a página para `/login` e apaga `portal_access_token` do `sessionStorage`.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

@@ -5,7 +5,70 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é aplicar as regras de dependência entre as camadas do Feature-Sliced Design no shell do `frontend-react` e entender as violações que o ESLint aponta. O shell organiza o código em camadas que só podem importar camadas abaixo delas, e um plugin do ESLint recusa as importações que quebram essa regra. Você vai introduzir uma violação, ler o erro do lint, corrigi-la e descobrir uma brecha da configuração.
+    texto: O objetivo desta ODA é aplicar as regras de dependência entre as camadas do Feature-Sliced Design (FSD) no shell do `frontend-react` e entender as violações que o ESLint aponta, porque uma importação na direção proibida faz a infraestrutura comum depender de uma funcionalidade e se repete pelo código sem que a revisão manual a detecte. O shell organiza o código em camadas que só podem importar camadas abaixo delas, e o plugin `eslint-plugin-boundaries` recusa as importações que quebram essa regra. Você vai introduzir uma violação, ler o erro do lint, corrigi-la e descobrir que uma pasta fora dos elementos declarados fica sem verificação.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Feature-Sliced Design (FSD)
+      definicao: Metodologia de organização de front-end em camadas com responsabilidade definida, como `app`, `pages`, `features` e `shared`, em que cada camada só importa das camadas abaixo dela. O shell do repositório segue essa organização dentro de `src/`.
+      referencia:
+        rotulo: Feature-Sliced Design · Visão geral
+        url: https://feature-sliced.design/docs/get-started/overview
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
+      referencia:
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: '`eslint-plugin-boundaries`'
+      definicao: Plugin do ESLint que associa cada pasta a um elemento, como uma camada, e acusa as importações entre elementos que a configuração não permite. O erro dele aparece com o nome de regra `boundaries/dependencies`.
+    - termo: Camadas do shell
+      definicao: Pastas de `src/` declaradas como camadas na configuração do ESLint, de cima para baixo `app`, `pages`, `widgets`, `features`, `entities` e `shared`, mais a exceção `mocks`. As pastas `widgets` e `entities` estão declaradas e não existem no commit de referência.
+      referencia:
+        rotulo: Feature-Sliced Design · Visão geral
+        url: https://feature-sliced.design/docs/get-started/overview
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Node.js
+      definicao: Ambiente que executa JavaScript fora do navegador. No repositório, ele roda o Vite, os testes, o script de deploy, o Gateway e os BFFs.
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: Esteira de CI (integração contínua)
+      definicao: Sequência automática de verificações, como build, testes e lint, que roda a cada alteração enviada ao repositório. O repositório define a esteira em `.github/workflows/`, com o GitHub Actions.
+      referencia:
+        rotulo: GitHub Docs · Integração contínua
+        url: https://docs.github.com/pt/actions/get-started/continuous-integration
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
+      referencia:
+        rotulo: Mock Service Worker · Introdução
+        url: https://mswjs.io/docs/
+    - termo: Dependência circular
+      definicao: Situação em que dois módulos importam um do outro, de forma direta ou passando por outros módulos. Esse acoplamento dificulta testar e alterar cada módulo separadamente, e a ADR-002 do repositório cita esse risco.
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: Alias de caminho (`@/`)
+      definicao: Atalho de importação declarado em `tsconfig.app.json`, que faz `@/` apontar para `src/`. O plugin de fronteiras resolve o alias até o arquivo real antes de identificar a camada.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: WSL (Windows Subsystem for Linux) e Git Bash
+      definicao: O WSL é um recurso do Windows que executa um ambiente Linux completo, e o Git Bash é o terminal bash que acompanha o Git para Windows. Os dois aceitam a sintaxe de comandos usada nos laboratórios.
+      referencia:
+        rotulo: Microsoft Learn · O que é o Subsistema do Windows para Linux
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -373,7 +436,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é provocar uma violação de camada, ver o lint recusá-la e corrigi-la. Os passos 1 e 2 preparam o repositório e rodam o lint no estado original, os passos 3 a 6 introduzem a violação, leem o erro, testam a troca do alias por caminho relativo e desfazem a alteração, e o passo 7 mostra uma pasta que o lint não vigia. O terminal simulado responde aos mesmos comandos, e os passos 3 e 6 mudam o resultado dele como no projeto real.
+    texto: O objetivo do laboratório é provocar uma violação de camada, ver o lint recusá-la e corrigi-la, porque a proteção das camadas só vale para as pastas registradas em `boundaries/elements` e só aparece quando o lint roda. Os passos 1 e 2 preparam o repositório e rodam o lint no estado original, os passos 3 a 6 introduzem a violação, leem o erro, testam a troca do alias por caminho relativo e desfazem a alteração, e o passo 7 mostra uma pasta que o lint não vigia. O terminal simulado responde aos mesmos comandos, e os passos 3 e 6 mudam o resultado dele como no projeto real.
+  - tipo: faixa
+    estilo: objetivo
+    problema: No shell do `frontend-react`, a camada `shared` não pode importar de nenhuma outra, e uma importação de `@/features/auth/loginRequest` em `src/shared/api/httpClient.ts` quebra essa regra. Uma pasta nova como `src/processes/` não corresponde a nenhum padrão de `boundaries/elements`, e o plugin não verifica as importações dela.
+    impacto: Uma importação proibida faz a infraestrutura comum depender de uma funcionalidade e abre caminho para dependências circulares. A pasta não registrada pode importar de qualquer camada sem nenhum erro na esteira de CI.
+    mecanismo: 'O laboratório usa a regra `boundaries/dependencies` do `eslint-plugin-boundaries`, configurada em `eslint.config.ts`, que identifica a camada pelo caminho resolvido do arquivo, inclusive através do alias `@/`, e recusa com `default: ''disallow''` tudo o que as regras não permitem.'
+    comprovacao: O `npm run lint` acusa um único erro na linha 4, coluna 30, com `Dependencies to elements of type "features" are not allowed in elements of type "shared"`, o mesmo erro aparece com o caminho relativo, e o lint volta a passar depois de desfazer a alteração. A pasta `src/processes/` passa pelo lint sem nenhum erro.
   - tipo: passos
     itens:
     - titulo: Clonar o repositório e instalar as dependências

@@ -5,7 +5,67 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é acrescentar um campo do sistema legado ao contrato que um BFF entrega ao microfrontend, com teste e medição de desempenho. No `frontend-react`, o BFF de empréstimo lê o legado em PascalCase e devolve um contrato próprio em camelCase, escolhendo campo a campo o que passa, o que muda de nome e o que fica de fora. Você vai acrescentar a data de término do empréstimo com o teste escrito antes e medir o efeito com o benchmark do próprio BFF.
+    texto: O objetivo desta ODA é levar ao microfrontend um dado que o sistema legado já envia, a data de término do empréstimo, sem expor a ele o formato do legado e sem degradar o BFF (Backend for Frontend) que faz a tradução. No `frontend-react`, o BFF de empréstimo lê o legado em PascalCase e devolve um contrato próprio em camelCase, escolhendo campo a campo o que passa, e hoje descarta o `VencimentoDoContrato`. Você vai acrescentar o campo ao contrato com o teste escrito antes e medir o custo da mudança com o benchmark do próprio BFF.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Sistema legado
+      definicao: Sistema mais antigo, já em produção, cujo formato de dados o portal precisa consumir sem poder alterar. No laboratório, o legado de empréstimo é simulado por arquivos de fixture lidos pelo BFF.
+    - termo: Contrato
+      definicao: Formato combinado de uma resposta, com os campos, os nomes e os tipos de cada um, que o consumidor pode esperar de quem a produz. O BFF de empréstimo entrega ao microfrontend um contrato próprio, diferente do formato do legado.
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface específica, que adapta os dados dos sistemas internos ao formato de que essa interface precisa. No `frontend-react`, os BFFs de empréstimo e de endereço ficam em `bffs/` e só recebem chamadas do Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Backends para Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Microfrontend
+      definicao: Parte da interface do portal com build e deploy próprios, que o shell carrega numa rota enquanto o usuário navega. O microfrontend de empréstimo, em `mfes/emprestimo/`, é o consumidor do contrato do BFF de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: PascalCase e camelCase
+      definicao: Convenções de escrita de nomes compostos sem espaço. Em PascalCase cada palavra começa com maiúscula, como `VencimentoDoContrato`, e em camelCase a primeira palavra começa com minúscula, como `vencimentoFinal`.
+    - termo: Benchmark
+      definicao: Medição repetida do tempo de execução de um trecho de código, feita para comparar versões. O `vitest bench` roda a função muitas vezes e informa a vazão em `hz`, execuções por segundo, e o erro relativo em `rme`, a margem de variação entre as rodadas.
+      referencia:
+        rotulo: Vitest · Benchmarking
+        url: https://vitest.dev/guide/benchmarking
+    - termo: Gateway de API
+      definicao: Serviço que é a porta única de entrada das chamadas do portal para o back-end. No `frontend-react`, o Gateway autentica a chamada e a repassa ao BFF com cabeçalhos internos, como o `X-Internal-Gateway-Key`, sem conhecer os campos dos contratos.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. A ADR-015 põe a transformação de mensagens no BFF, e a ADR-005 define como o repositório usa benchmarks.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: Camada anticorrupção (anticorruption layer)
+      definicao: Camada que traduz o modelo de um sistema externo para o modelo do sistema que o consome, para que o vocabulário externo não se espalhe pelo código interno. O `transform.ts` do BFF de empréstimo cumpre esse papel entre o legado e o microfrontend.
+      referencia:
+        rotulo: Microsoft Learn · Padrão de camada anticorrupção
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/anti-corruption-layer
+    - termo: Ausente, null e valor padrão
+      definicao: Um campo ausente não vem na resposta, um campo `null` vem com a indicação explícita de que não há valor e um valor padrão é o valor que o BFF preenche quando o legado não envia o dado.
+    - termo: Fixture
+      definicao: Conjunto fixo de dados de exemplo usado em testes e simulações para que o resultado seja sempre o mesmo. O BFF de empréstimo lê fixtures que imitam as respostas do legado.
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta as requisições HTTP e devolve respostas simuladas definidas em handlers. O shell usa o MSW em desenvolvimento, e as fixtures dele podem divergir das fixtures do BFF.
+      referencia:
+        rotulo: Mock Service Worker · Introduction
+        url: https://mswjs.io/docs/
+    - termo: Vitest
+      definicao: Framework de testes para projetos JavaScript e TypeScript integrado ao Vite, usado nos testes do BFF e no benchmark da transformação.
+      referencia:
+        rotulo: Vitest · Getting Started
+        url: https://vitest.dev/guide/
+    - termo: TypeScript e erros TS
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript. O compilador `tsc` aponta erros com códigos como `TS2339`, que indica o acesso a uma propriedade que o tipo não declara.
+      referencia:
+        rotulo: TypeScript · Everyday Types
+        url: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+    - termo: V8
+      definicao: Motor JavaScript do Chrome e do Node.js, que compila e otimiza o código durante a execução. O otimizador do V8 pode descartar um cálculo cujo resultado ninguém usa, o que distorce um benchmark mal escrito.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,20 +113,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · legado e contrato
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: grep -o '"[A-Za-z]*":' bffs/emprestimo/src/fixtures/contratos.list.json | sort | uniq -c
-      saida: "   2 \"CodigoDaLinha\":\n   2 \"Conta\":\n   2 \"Contrato\":\n   1 \"DataDeLiberacaoDoContrato\":\n   1 \"DataDeVencimentoInicial\":\n   1 \"DataDoProximoVencimento\":\n   2 \"DescricaoDaLinha\":\n   2 \"FormaDePagamento\":\n   1 \"LinhaDeEmprestimo\":\n   2 \"NumeroDeParcelas\":\n   1 \"NumeroDoContrato\":\n   2 \"ParcelasEmAtraso\":\n   2 \"ParcelasRestantes\":\n   2 \"ProximaParcela\":\n   1 \"Quitado\":\n   2 \"SaldoAtual\":\n   2 \"TaxaDaCETAnual\":\n   2 \"TaxaDaCETMensal\":\n   2 \"TaxaDeJuros\":\n   2 \"TemParcelasEmAtraso\":\n   2 \"Valor\":\n   2 \"ValorBruto\":\n   1 \"ValorDaPrestacao\":\n   1 \"ValorDoSaldoAtual\":\n   2 \"ValorLiberado\":\n   1 \"ValorNoProximoVencimento\":\n   2 \"Vencimento\":\n   1 \"VencimentoDaParcela\":\n   2 \"VencimentoDoContrato\":"
-      origem: executado
-      dica: Os campos com contagem 1 aparecem num só contrato ou dentro de `ParcelasEmAtraso`.
-    - entrada: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
-      saida: '[{"numero":"123456-7","linhaDeCredito":"Crédito Pessoal","valorLiberado":15000,"saldoAtual":9245.5,"parcelas":24,"parcelasRestantes":14,"taxaDeJuros":1.89,"cetMensal":2.11,"cetAnual":28.7,"temAtraso":false,"proximaParcela":{"vencimento":"2026-07-10","valor":944.3}},{"numero":"654321-0","linhaDeCredito":"Refinanciamento Consignado","valorLiberado":8300,"saldoAtual":4132.99,"parcelas":18,"parcelasRestantes":8,"taxaDeJuros":1.49,"cetMensal":1.72,"cetAnual":22.8,"temAtraso":true,"proximaParcela":{"vencimento":"2026-07-05","valor":615.8}}]'
-      origem: executado
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Campos do legado
-      comando: grep -o '"[A-Za-z]*":' bffs/emprestimo/src/fixtures/contratos.list.json | sort | uniq -c
-    - rotulo: Contratos no BFF
-      comando: 'curl -s -H "X-Internal-Gateway-Key: development-only-gateway-key" -H "X-Authenticated-Subject: user1" http://localhost:4001/contratos'
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -394,7 +454,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer o BFF devolver a data de término do empréstimo, com um teste que define o formato e um benchmark que mede o custo. Os passos 1 a 4 medem o ponto de partida, os passos 5 a 10 acrescentam o campo com o teste escrito antes, e os passos 11 e 12 comparam o benchmark e conferem a resposta do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é acrescentar ao contrato do BFF o campo `vencimentoFinal`, com o formato e o comportamento na ausência do dado fixados por teste, e comprovar com benchmark que a transformação não ficou mais lenta. Os passos 1 a 4 medem o ponto de partida e mostram o campo descartado, os passos 5 a 10 acrescentam o campo com o teste escrito antes, e os passos 11 e 12 comparam o benchmark e conferem a resposta do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O legado de empréstimo envia `VencimentoDoContrato` na lista de contratos, e o `transform.ts` do BFF descarta esse campo ao montar o contrato em camelCase. O microfrontend não tem como mostrar a data de término do empréstimo, e o detalhe do contrato no legado nem traz esse dado.
+    impacto: Para exibir a data, o microfrontend teria de ler o formato do legado, o que desfaz a camada anticorrupção que o BFF mantém, e cada campo acrescentado à transformação aumenta o trabalho feito para cada contrato de cada resposta. A mudança precisa definir o que a tela recebe quando o legado não envia o dado.
+    mecanismo: Um teste escrito antes fixa o nome `vencimentoFinal`, o mapeamento a partir do legado e o valor `null` quando o campo falta. O campo é declarado como opcional no tipo do legado e como obrigatório no contrato do BFF, o `transform.ts` faz a cópia, e o `vitest bench` com `--compare` mede a transformação contra a medição gravada antes da mudança.
+    comprovacao: A suíte do BFF termina com `Tests 66 passed (66)` e o `tsc` sem mensagens, e as razões do benchmark ficam perto de `1.00x`. A resposta do BFF traz `"vencimentoFinal":"2027-08-10"` e `"vencimentoFinal":"2027-02-05"` na lista e `"vencimentoFinal":null` no detalhe.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

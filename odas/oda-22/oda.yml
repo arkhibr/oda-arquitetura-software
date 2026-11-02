@@ -5,7 +5,89 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é aprender a separar três tipos de erro numa API, a requisição que o servidor não consegue ler, a regra de negócio violada e a falha inesperada, e a dar a cada um um status e um formato de resposta próprios. Na API `net-minimal-api`, um JSON ilegível recebe 500 em desenvolvimento e 400 sem corpo em produção, e você vai fazer os dois ambientes responderem 400 com `application/problem+json`, com o teste escrito antes.
+    texto: O objetivo desta ODA é separar três tipos de erro numa API, a requisição que o servidor não consegue ler, a regra de negócio violada e a falha inesperada, e dar a cada um um status e um formato de resposta próprios, porque um erro do cliente reportado como falha do servidor confunde o cliente e o monitoramento. Na API `net-minimal-api`, um JSON ilegível recebe 500 em `Development` e 400 sem corpo em `Production`, e o mesmo erro aparece com duas respostas conforme o ambiente. Você vai fazer os dois ambientes responderem 400 em `application/problem+json`, com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Erro de entrada, erro de domínio e erro inesperado
+      definicao: O erro de entrada é a requisição que o servidor não consegue ler ou que não passa na validação. O erro de domínio é a regra de negócio violada por uma requisição legível, e o erro inesperado é a falha que ninguém previu, como um bug ou o banco fora do ar.
+    - termo: Código de status HTTP
+      definicao: 'Número de três dígitos que a resposta HTTP traz para indicar o resultado: a faixa 2xx indica sucesso, a 4xx indica erro do cliente e a 5xx indica falha do servidor. Os códigos mais citados aqui são 200, 201, 204, 400, 401, 404, 422 e 500.'
+      referencia:
+        rotulo: MDN · Códigos de status de respostas HTTP
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status
+    - termo: Problem Details (`application/problem+json`)
+      definicao: Formato padronizado pela RFC 9457 para respostas de erro de APIs HTTP, com campos como `type`, `title`, `status` e `detail`, e um tipo de conteúdo próprio, `application/problem+json`. O ASP.NET Core produz esse formato com `Results.Problem` e `Results.ValidationProblem`.
+      referencia:
+        rotulo: IETF · RFC 9457, Problem Details for HTTP APIs
+        url: https://datatracker.ietf.org/doc/html/rfc9457
+    - termo: Teste escrito antes da mudança
+      definicao: Prática de escrever primeiro o teste que descreve o comportamento desejado, vê-lo falhar e só depois mudar o código até ele passar. A falha inicial confirma que o teste realmente verifica a mudança e não passaria por acaso.
+    - termo: Padrão Result (`Result` e `Result<T>`)
+      definicao: Tipo de retorno que informa sucesso ou falha de forma explícita, com `IsSuccess`, o valor em caso de sucesso e a mensagem em `Error` em caso de falha. No repositório, `Result` e `Result<T>` são records definidos em `src/Shared/Common/Result.cs` e em `Catalogo.Domain/Common/Result.cs`, e a ADR-0003 registra o uso deles para erros de domínio.
+    - termo: FluentValidation
+      definicao: Biblioteca de validação para .NET em que as regras de uma requisição ficam numa classe validadora, como `CriarProdutoValidator`, escrita com métodos encadeados. A ADR-0010 do repositório registra o uso dela para validar a entrada.
+    - termo: Middleware de tratamento de exceções
+      definicao: Middleware global do repositório, em `src/Shared/Middleware/ExceptionHandlingMiddleware.cs`, que captura as exceções não tratadas e as converte numa resposta JSON com o status de cada tipo de exceção. Uma exceção que não tem ramo próprio vira 500 com mensagem genérica.
+    - termo: Ambiente de execução (`Development`, `Production`, `Testing`)
+      definicao: Nome que o ASP.NET Core lê da variável `ASPNETCORE_ENVIRONMENT` para ajustar o comportamento da aplicação. Os perfis do `Properties/launchSettings.json`, como o `http` usado com `dotnet run --launch-profile http`, definem `Development`, a ausência da variável leva a `Production`, e os testes do repositório rodam no ambiente `Testing`, definido pela `ApiFactory`.
+      referencia:
+        rotulo: Microsoft Learn · Ambientes de runtime do ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/environments
+    - termo: '`BadHttpRequestException` e `ThrowOnBadRequest`'
+      definicao: '`BadHttpRequestException` é a exceção que o ASP.NET Core lança quando não consegue ler a requisição, por exemplo um JSON truncado no corpo. A opção `ThrowOnBadRequest`, de `RouteHandlerOptions`, decide se essa exceção é lançada ou se o framework responde 400 sem corpo, e ela vem ligada só em `Development`.'
+      referencia:
+        rotulo: Microsoft Learn · Tratar erros em APIs mínimas e no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/error-handling
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, a decisão tomada, as alternativas descartadas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`, e esta ODA as usa como registro das escolhas que o código mostra.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: ASP.NET Core
+      definicao: Framework da Microsoft para aplicações web e APIs sobre o .NET. Ele recebe cada requisição HTTP, passa a requisição pela cadeia de middlewares e entrega o resultado ao endpoint correspondente.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/introduction-to-aspnet-core
+    - termo: Minimal API (API mínima)
+      definicao: Forma de declarar endpoints HTTP no ASP.NET Core com chamadas como `app.MapGet` e `app.MapPost`, que associam uma rota a uma função, sem classes de controller. É o estilo usado em toda a API `net-minimal-api`.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral das APIs mínimas
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/minimal-apis/overview
+    - termo: Stack trace (pilha de chamadas)
+      definicao: Lista dos métodos que estavam em execução quando uma exceção foi lançada. Ela ajuda a depurar, mas expõe detalhes internos da implementação se for devolvida ao cliente.
+    - termo: Cabeçalho `Content-Type`
+      definicao: Cabeçalho que informa o tipo do corpo da mensagem HTTP, como `application/json` ou `application/problem+json`. O cliente usa esse valor para decidir como ler o corpo.
+      referencia:
+        rotulo: MDN · Content-Type
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Content-Type
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros de exemplo que a API grava no banco ao iniciar, pelo `DbSeeder` do Catálogo, para que haja produtos e categorias desde a primeira execução. Apagar o `produtos-api.db` faz a API recriar o banco com esses dados na próxima vez que subir.
+    - termo: SQLite
+      definicao: Banco de dados relacional que guarda tudo num único arquivo e roda dentro do próprio processo da aplicação. A API usa o arquivo `produtos-api.db`, na raiz do repositório, e o cria ao iniciar quando ele não existe.
+      referencia:
+        rotulo: SQLite · About SQLite
+        url: https://www.sqlite.org/about.html
+    - termo: JWT (JSON Web Token)
+      definicao: 'Formato de token assinado que carrega, em JSON, a identidade do usuário e a validade do acesso. A API emite o token em `/api/v1/auth/login`, e o cliente o envia no cabeçalho `Authorization: Bearer <token>` para acessar as rotas protegidas, como as de Pedidos.'
+      referencia:
+        rotulo: Microsoft Learn · Autenticação de portador JWT no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/configure-jwt-bearer-authentication
+    - termo: FluentAssertions
+      definicao: Biblioteca de asserções para testes .NET em que a verificação é escrita como `valor.Should().Be(esperado)`. Os testes do repositório a usam junto com o xUnit.
+    - termo: Operador `?.` (null-conditional)
+      definicao: Operador do C# que só acessa o membro à direita quando o objeto à esquerda não é nulo. Quando o objeto é nulo, a expressão inteira à direita deixa de ser avaliada e devolve nulo.
+    - termo: '`ValidateAndThrow` e `ValidationException`'
+      definicao: Método do FluentValidation que valida o objeto e lança `ValidationException` quando há erro. Os endpoints do repositório validam com `Validate` e respondem sem lançar, e por isso nenhum código de `src/` produz essa exceção.
+    - termo: '`ValidationProblem`'
+      definicao: Resposta do ASP.NET Core no formato Problem Details para erros de validação, com status 400 e um objeto `errors` que lista as mensagens de cada campo. Os Pedidos usam essa resposta, e o Catálogo usa um `ErrorResponse` próprio com status 422.
+    - termo: Erros `CS0234`, `CS0246` e `MSB3030`
+      definicao: 'Os códigos que começam com `CS` vêm do compilador C#: o `CS0234` indica que um namespace ou tipo não existe dentro do namespace citado, e o `CS0246` indica que um tipo não foi encontrado, em geral por falta de `using` ou de referência de projeto. O `MSB3030` vem do MSBuild e indica que um arquivo marcado para cópia não foi encontrado no momento da cópia.'
+    - termo: '`git stash` e `detached HEAD`'
+      definicao: O `git stash` guarda as alterações locais numa pilha e deixa a pasta como no último commit, e o `git stash pop` as devolve. O `detached HEAD` é o estado em que o Git fica depois de `git checkout <commit>`, apontando para um commit e não para um branch.
+      referencia:
+        rotulo: Git · git-stash
+        url: https://git-scm.com/docs/git-stash
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,52 +135,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · o mesmo erro em dois ambientes
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
-      saida: 'Now listening on: http://localhost:5000
-
-        Application started. Press Ctrl+C to shut down.
-
-        Hosting environment: Development'
-      origem: executado
-      efeito:
-      - amb_dev
-      - '!amb_prod'
-      dica: Apague `produtos-api.db` antes, para partir do banco do seed.
-    - entrada: ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
-      saida: 'Now listening on: http://localhost:5000
-
-        Application started. Press Ctrl+C to shut down.
-
-        Hosting environment: Production'
-      origem: executado
-      efeito:
-      - amb_prod
-      - '!amb_dev'
-    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
-      saida: ''
-      origem: executado
-    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
-      condicao: amb_prod
-      saida: 'HTTP/1.1 400 Bad Request
-
-        Content-Length: 0'
-      origem: executado
-    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
-      saida: 'HTTP/1.1 500 Internal Server Error
-
-        Content-Type: application/json; charset=utf-8
-
-        {"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/produtos","errors":{}}'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Subir em Development
-      comando: ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
-    - rotulo: Subir em Production
-      comando: ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
-    - rotulo: Enviar JSON ilegível
-      comando: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -324,7 +374,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer a API responder a um corpo ilegível com 400 em `application/problem+json`, igual em todos os ambientes, sem mudar a resposta dos erros de domínio. Os passos 1 e 2 mostram a diferença entre os ambientes, os passos 3 a 6 escrevem os testes e mudam o `Program.cs` e o middleware, e o passo 7 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é dar ao corpo ilegível a mesma resposta em todos os ambientes, 400 em `application/problem+json`, porque hoje o desenvolvimento registra uma falha de servidor e a produção devolve 400 sem corpo nem explicação. Os passos 1 e 2 mostram a diferença entre os ambientes, os passos 3 a 6 escrevem os testes e mudam o `Program.cs` e o middleware, e o passo 7 repete as chamadas nos dois ambientes. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: Quando o ASP.NET Core não consegue ler o corpo de um endpoint mínimo, a opção `ThrowOnBadRequest`, ligada só em `Development`, decide entre lançar `BadHttpRequestException` e responder 400 sem corpo. O `ExceptionHandlingMiddleware.cs` não tem ramo para essa exceção, que cai no `default` e vira 500, e o `WriteAsJsonAsync` sem `contentType` grava `application/json` por cima do tipo definido antes.
+    impacto: O mesmo JSON truncado aparece como falha do servidor no monitoramento de desenvolvimento e como 400 sem corpo em produção, e o cliente não recebe nenhuma explicação do erro. Um alerta de 500 para um erro do cliente leva a equipe a investigar o servidor sem motivo.
+    mecanismo: O laboratório liga `ThrowOnBadRequest` em todos os ambientes, acrescenta ao middleware um ramo para `BadHttpRequestException` que responde 400 com título e detalhe e passa `application/problem+json` no próprio `WriteAsJsonAsync`. Os testes de integração, escritos antes, conferem o status e o tipo de conteúdo de dois erros de entrada e mantêm o erro de domínio, que continua tratado pelo `Result` do handler.
+    comprovacao: 'Antes da mudança, dois testes falham com `Expected tipo to be "application/problem+json", but found <null>.`, e depois os três passam, com a suíte em 146 aprovações. Com a API em `Development` e em `Production`, o JSON ilegível recebe `HTTP/1.1 400 Bad Request` com `Content-Type: application/problem+json` e o título `Requisição inválida`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

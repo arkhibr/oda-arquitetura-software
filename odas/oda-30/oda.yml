@@ -5,7 +5,112 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é diferenciar fila e tópico e estender um fan-out, em que uma mensagem publicada num tópico SNS chega a várias filas SQS. No repositório `aspire-aws`, o cenário 09 publica uma mensagem e confere que duas filas recebem uma cópia cada, com os serviços emulados pelo LocalStack. Você vai acrescentar uma terceira fila assinante e provocar de propósito a falta de assinatura para ver a mensagem não chegar.
+    texto: O objetivo desta ODA é diferenciar fila e tópico e garantir que um consumidor novo de um fan-out receba as mensagens, porque uma fila do Amazon SQS (Simple Queue Service) sem assinatura no tópico do Amazon SNS (Simple Notification Service) fica sem nenhuma cópia e sem nenhum erro. No repositório `aspire-aws`, o cenário 09 publica uma mensagem e confere que duas filas recebem uma cópia cada, com os serviços emulados pelo LocalStack. Você vai acrescentar uma terceira fila assinante, estender o teste para conferir cada fila e retirar a assinatura de propósito para ver a falta virar uma falha de teste.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Fila de mensagens
+      definicao: Estrutura que guarda mensagens enviadas por um produtor até que um consumidor as leia e as apague. Cada mensagem é processada por um único consumidor, que trabalha no próprio ritmo, e por isso a fila separa quem produz de quem processa.
+    - termo: Tópico
+      definicao: Canal de publicação em que cada mensagem publicada é copiada para todos os assinantes registrados naquele momento. O tópico não guarda a mensagem, e um assinante registrado depois da publicação não recebe a cópia.
+    - termo: Fan-out
+      definicao: Padrão de distribuição em que uma única publicação num tópico gera uma cópia em cada fila assinante. Cada fila passa a ter o próprio consumidor, e um consumidor lento não atrasa os demais.
+      referencia:
+        rotulo: Fanout do Amazon SNS para filas do Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/sns/latest/dg/sns-sqs-as-subscriber.html
+    - termo: Amazon SNS (Simple Notification Service)
+      definicao: Serviço de tópicos da AWS. O produtor publica uma mensagem no tópico com `PublishAsync`, e o SNS entrega uma cópia a cada assinatura, que pode ser uma fila SQS, uma função Lambda ou um endereço HTTP.
+      referencia:
+        rotulo: O que é o Amazon SNS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/sns/latest/dg/welcome.html
+    - termo: Amazon SQS (Simple Queue Service)
+      definicao: Serviço de filas da AWS. O consumidor busca mensagens com `ReceiveMessageAsync` e apaga cada uma depois de processá-la, e a mensagem não apagada volta a ficar disponível depois de um tempo.
+      referencia:
+        rotulo: O que é o Amazon SQS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html
+    - termo: Cenário
+      definicao: No repositório `aspire-aws`, cada pasta numerada de `scenarios/` é um cenário, um projeto de testes xUnit que exercita uma integração com serviços da AWS. O cenário 09, `09-SNS.SQS.Fanout`, é o fan-out desta ODA.
+    - termo: LocalStack
+      definicao: Emulador dos serviços da AWS que roda num contêiner Docker e responde na porta 4566. Os cenários criam nele tópicos, filas, buckets e tabelas sem conta na AWS, e o repositório usa a edição gratuita, a Community, na versão 3.8.
+      referencia:
+        rotulo: Documentação do LocalStack
+        url: https://docs.localstack.cloud/overview/
+    - termo: Docker e contêiner
+      definicao: O Docker executa programas em contêineres, processos isolados que levam consigo as próprias dependências a partir de uma imagem. O LocalStack e o PostgreSQL dos cenários rodam como contêineres na sua máquina.
+      referencia:
+        rotulo: What is Docker? (documentação do Docker)
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: Socket do Docker (`/var/run/docker.sock`)
+      definicao: Arquivo pelo qual programas conversam com o daemon do Docker, o serviço que cria e para os contêineres. O AppHost entrega esse arquivo ao LocalStack para que ele possa criar os contêineres das funções Lambda.
+    - termo: Colima
+      definicao: Ferramenta que roda o Docker no macOS dentro de uma máquina virtual Linux. Na configuração padrão, ela não cria o arquivo `/var/run/docker.sock`, e por isso a montagem do AppHost falha.
+    - termo: AppHost
+      definicao: Projeto do .NET Aspire que declara, em C#, os recursos que a aplicação precisa. No repositório, `src/AppHost/Program.cs` declara os contêineres do LocalStack e do PostgreSQL usados por todos os cenários.
+      referencia:
+        rotulo: What is the AppHost? (documentação do Aspire)
+        url: https://learn.microsoft.com/pt-br/dotnet/aspire/fundamentals/app-host-overview
+    - termo: Montagem de arquivo do host (bind mount)
+      definicao: Configuração que faz um arquivo ou uma pasta da máquina aparecer dentro de um contêiner no mesmo caminho ou em outro. A linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` do AppHost é uma montagem desse tipo, e ela falha quando o arquivo não existe na máquina.
+      referencia:
+        rotulo: Bind mounts (documentação do Docker)
+        url: https://docs.docker.com/engine/storage/bind-mounts/
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa uma função quando um evento chega, sem servidor administrado por quem escreve a função. Os cenários desta ODA não usam Lambda, e outros cenários do repositório implantam funções em Python no LocalStack.
+      referencia:
+        rotulo: O que é o AWS Lambda? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: .NET Aspire
+      definicao: Conjunto de ferramentas da Microsoft para descrever e subir, a partir de um projeto .NET, os serviços e contêineres de que uma aplicação depende. Nos testes do repositório, o Aspire sobe o LocalStack e o PostgreSQL antes de cada cenário.
+      referencia:
+        rotulo: What is Aspire? (documentação do Aspire)
+        url: https://learn.microsoft.com/pt-br/dotnet/aspire/get-started/aspire-overview
+    - termo: xUnit
+      definicao: Framework de testes automatizados para .NET usado em todos os cenários. O comando `dotnet test` compila o projeto do cenário e roda os métodos marcados como teste.
+    - termo: Fixture
+      definicao: Classe que o xUnit cria antes dos testes para preparar recursos compartilhados e que descarta no fim. No cenário 09, `Fixture.cs` cria o tópico, as filas, as políticas de acesso e as assinaturas.
+      referencia:
+        rotulo: Sharing Context between Tests (documentação do xUnit)
+        url: https://xunit.net/docs/shared-context
+    - termo: Política de acesso de recurso
+      definicao: Documento JSON gravado no próprio recurso, como uma fila, que diz quem pode executar quais ações sobre ele. A política da fila do cenário 09 permite ao serviço SNS a ação `sqs:SendMessage`, e só quando a origem é o tópico do cenário.
+      referencia:
+        rotulo: Políticas baseadas em identidade e em recurso (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/IAM/latest/UserGuide/access_policies_identity-vs-resource.html
+    - termo: ARN (Amazon Resource Name)
+      definicao: Identificador único de um recurso da AWS, no formato `arn:aws:serviço:região:conta:recurso`. A assinatura e a política identificam a fila pelo ARN dela, e a condição `aws:SourceArn` compara o ARN do tópico de origem.
+      referencia:
+        rotulo: Nomes do recurso da Amazon (ARNs) (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/IAM/latest/UserGuide/reference-arns.html
+    - termo: Assinatura
+      definicao: Registro que liga um tópico do SNS a um destino, como uma fila, criado com `SubscribeAsync`. Sem assinatura, o tópico não entrega cópia ao destino, mesmo que a política de acesso exista.
+    - termo: Fila de mensagens mortas (DLQ, dead-letter queue)
+      definicao: Fila que recebe as mensagens que falharam repetidas vezes no processamento, para que sejam analisadas sem voltar à fila principal. O cenário 02 cria uma fila desse tipo.
+      referencia:
+        rotulo: Filas de mensagens não entregues no Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica num bucket. O cenário 10 configura o bucket para enviar a uma fila um aviso de objeto criado.
+      referencia:
+        rotulo: O que é o Amazon S3? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: PostgreSQL
+      definicao: Banco de dados relacional de código aberto. O AppHost declara um contêiner PostgreSQL 16.9, usado pelos cenários que tratam de banco relacional.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Registro curto de uma decisão de arquitetura, com o contexto, a decisão, as alternativas e as consequências. As decisões sobre o LocalStack e sobre o isolamento dos cenários estão nas ADRs da pasta `docs/architecture/adrs/` do repositório.
+      referencia:
+        rotulo: Architectural Decision Records (adr.github.io)
+        url: https://adr.github.io/
+    - termo: Execução sequencial e bloqueio da porta 4566
+      definicao: Como todos os cenários usam o LocalStack na porta fixa 4566, o repositório impede dois cenários ao mesmo tempo. O `test.runsettings` define `MaxCpuCount` igual a 1, e a `LocalStackFixture` adquire um bloqueio de arquivo antes de subir o ambiente.
+    - termo: Modo duplo (`AWS_TARGET=aws`)
+      definicao: Variável de ambiente que desvia os mesmos testes para a AWS real. Sem ela, o AppHost sobe o LocalStack, e os clientes do SDK da AWS apontam para a porta 4566.
+    - termo: Teste ignorado (`Skip`) no macOS ARM64
+      definicao: Os testes que dependem de Lambda são marcados como ignorados quando o processo de teste roda no macOS com processador ARM64, como os Macs com Apple Silicon. A regra fica em `src/Shared/EnvironmentLimitations.cs`, e esses testes rodam em Linux e na esteira de CI.
+    - termo: Esteira de CI (integração contínua)
+      definicao: Processo automatizado que compila e testa o código a cada envio ao repositório remoto. O README do `aspire-aws` indica a esteira como o ambiente em que os cenários com Lambda rodam.
+      referencia:
+        rotulo: Noções básicas sobre GitHub Actions (documentação do GitHub)
+        url: https://docs.github.com/pt/actions/about-github-actions/understanding-github-actions
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -471,7 +576,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer o fan-out entregar a mensagem a três filas e ver o que acontece quando uma delas não está inscrita. Os passos 1 a 3 clonam o repositório e rodam os cenários de mensageria, os passos 4 a 6 criam e verificam a terceira fila, e os passos 7 a 9 retiram a assinatura, rodam de novo e desfazem as alterações. O terminal simulado responde aos mesmos comandos, e os passos 5, 7 e 9 mudam a saída do cenário 09.
+    texto: O objetivo do laboratório é fazer o fan-out entregar a mensagem a três filas e provar com teste que uma fila sem assinatura fica sem a cópia, a falha silenciosa que o teste passa a revelar. Os passos 1 a 3 clonam o repositório e rodam os cenários de mensageria, os passos 4 a 6 criam e verificam a terceira fila, e os passos 7 a 9 retiram a assinatura, rodam de novo e desfazem as alterações. O terminal simulado responde aos mesmos comandos, e os passos 5, 7 e 9 mudam a saída do cenário 09.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O cenário 09 do `aspire-aws` confere o fan-out com duas filas, e a `Fixture.cs` liga cada fila ao tópico num único laço, que grava a política de acesso e faz a assinatura. Uma fila criada fora desse laço existe, mas não recebe cópia das publicações, e nenhuma etapa do código avisa sobre isso.
+    impacto: Num sistema real, um consumidor novo acrescentado sem assinatura deixa de receber eventos sem nenhum erro, e a falta só aparece quando alguém percebe dados ausentes. Um teste que confere cada fila transforma essa falta silenciosa numa falha visível antes da entrega.
+    mecanismo: O laboratório acrescenta a terceira fila ao laço de política e assinatura da fixture e estende a verificação do teste para exigir exatamente uma cópia em cada fila. Em seguida, retira a assinatura de propósito, mantendo a fila e a verificação, para observar a falha.
+    comprovacao: 'Com a fila no laço, o `dotnet test` do cenário 09 mostra três linhas `Mensagens recebidas: 1` e o teste aprovado. Sem a assinatura, o teste falha em `Assert.Single()` com `Mensagens recebidas: 0` para `fanout-queue-3`.'
   - tipo: passos
     itens:
     - titulo: Clonar o repositório no commit de referência

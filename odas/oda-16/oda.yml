@@ -5,7 +5,93 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é colocar a API `net-minimal-api` para rodar na sua máquina e identificar o padrão arquitetural de cada um dos três bounded contexts dela. O repositório reúne Catálogo, Pedidos e Pix numa única API .NET 10, e no commit de referência o `setup.sh` não termina por causa de duas falhas de build. Você vai corrigir essas falhas, subir a API e ligar cada contexto ao padrão que a estrutura de pastas revela.
+    texto: O objetivo desta ODA é colocar a API `net-minimal-api` para rodar na sua máquina e reconhecer o padrão arquitetural de cada um dos três bounded contexts (contextos delimitados) dela, Catálogo, Pedidos e Pix, num ambiente em que o build e os testes sejam confiáveis. No commit de referência, o `setup.sh` não termina, porque o projeto de testes de Pedidos referencia uma pasta removida num refactor e o build incremental falha de forma intermitente com `MSB3030`, e o resumo do `dotnet test` parece verde com 47 testes fora da execução. Você vai corrigir as duas falhas de build, subir a API e ligar cada contexto ao padrão que a estrutura de pastas revela.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: .NET 10 e .NET SDK (Software Development Kit)
+      definicao: O .NET é a plataforma de desenvolvimento da Microsoft na qual a API roda, e o 10 é a versão usada pelo repositório. O SDK é o pacote instalado na máquina que traz o compilador e o comando `dotnet`, usado para compilar, rodar e testar os projetos.
+      referencia:
+        rotulo: Microsoft Learn · Introdução ao .NET
+        url: https://learn.microsoft.com/pt-br/dotnet/core/introduction
+    - termo: Bounded context (contexto delimitado)
+      definicao: Conceito do Domain-Driven Design que delimita a parte do sistema dentro da qual um modelo e o seu vocabulário têm um único significado. No `net-minimal-api`, Catálogo, Pedidos e Pix são três bounded contexts, cada um com pastas, rotas e testes próprios.
+      referencia:
+        rotulo: martinfowler.com · Bounded Context
+        url: https://martinfowler.com/bliki/BoundedContext.html
+    - termo: ASP.NET Core
+      definicao: Framework da Microsoft para aplicações web e APIs sobre o .NET. Ele recebe cada requisição HTTP, passa a requisição pela cadeia de middlewares e entrega o resultado ao endpoint correspondente.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/introduction-to-aspnet-core
+    - termo: Pix e BCB (Banco Central do Brasil)
+      definicao: O Pix é o sistema de pagamentos instantâneos criado e regulado pelo Banco Central do Brasil, o BCB. O contexto Pix do repositório tem um servidor que simula a API Pix do BCB e um cliente que consome essa API.
+      referencia:
+        rotulo: Banco Central do Brasil · Pix
+        url: https://www.bcb.gov.br/estabilidadefinanceira/pix
+    - termo: Servidor simulado (mock server)
+      definicao: Programa que imita a API de um sistema externo e responde como ele, para que o cliente possa ser desenvolvido e testado sem acesso ao sistema real. No repositório, o projeto `src/Pix/Pix.MockServer` cumpre esse papel para a API Pix.
+    - termo: Suíte de testes e xUnit
+      definicao: A suíte é o conjunto de testes automatizados do repositório, e o xUnit é o framework de testes que os projetos de teste usam. O `dotnet test` compila os projetos de teste, roda os testes e imprime uma linha de resumo por projeto, com aprovados, falhas e ignorados.
+      referencia:
+        rotulo: xUnit.net
+        url: https://xunit.net/
+    - termo: Solução (`.slnx`) e projeto (`.csproj`)
+      definicao: O arquivo de projeto `.csproj` descreve um programa ou uma biblioteca .NET, com os arquivos que entram na compilação, os pacotes usados e as referências a outros projetos. O arquivo de solução, aqui o `ProdutosAPI.slnx`, agrupa vários projetos para que `dotnet build` e `dotnet test` os percorram juntos.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do SDK de projeto do .NET
+        url: https://learn.microsoft.com/pt-br/dotnet/core/project-sdk/overview
+    - termo: NuGet
+      definicao: Gerenciador de pacotes do .NET, que baixa as bibliotecas declaradas no `.csproj` com `PackageReference`. O `dotnet build` restaura esses pacotes antes de compilar e guarda uma cópia num cache local da máquina.
+      referencia:
+        rotulo: Microsoft Learn · O que é o NuGet
+        url: https://learn.microsoft.com/pt-br/nuget/what-is-nuget
+    - termo: MSBuild e SDK Web
+      definicao: O MSBuild é o motor de compilação que o `dotnet build` usa para ler o `.csproj` e decidir o que compilar e o que copiar para a pasta de saída. O SDK Web, declarado como `Microsoft.NET.Sdk.Web` no `ProdutosAPI.csproj`, é o conjunto de regras do MSBuild para aplicações ASP.NET Core e trata como conteúdo os arquivos `.json` das subpastas do projeto.
+      referencia:
+        rotulo: Microsoft Learn · MSBuild
+        url: https://learn.microsoft.com/pt-br/visualstudio/msbuild/msbuild
+    - termo: Erros `CS0234`, `CS0246` e `MSB3030`
+      definicao: 'Os códigos que começam com `CS` vêm do compilador C#: o `CS0234` indica que um namespace ou tipo não existe dentro do namespace citado, e o `CS0246` indica que um tipo não foi encontrado, em geral por falta de `using` ou de referência de projeto. O `MSB3030` vem do MSBuild e indica que um arquivo marcado para cópia não foi encontrado no momento da cópia.'
+    - termo: JWT (JSON Web Token)
+      definicao: 'Formato de token assinado que carrega, em JSON, a identidade do usuário e a validade do acesso. A API emite o token em `/api/v1/auth/login`, e o cliente o envia no cabeçalho `Authorization: Bearer <token>` para acessar as rotas protegidas, como as de Pedidos.'
+      referencia:
+        rotulo: Microsoft Learn · Autenticação de portador JWT no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/configure-jwt-bearer-authentication
+    - termo: Swagger e OpenAPI
+      definicao: OpenAPI é a especificação que descreve as rotas, os parâmetros e as respostas de uma API HTTP num documento JSON. O Swagger, instalado no repositório pelo pacote Swashbuckle, gera esse documento a partir do código e oferece uma página web para explorar e chamar as rotas em desenvolvimento.
+      referencia:
+        rotulo: Microsoft Learn · Suporte a OpenAPI no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/openapi/overview
+    - termo: Clean Architecture
+      definicao: Estilo de arquitetura em camadas concêntricas em que o domínio e as regras de aplicação ficam no centro e não dependem de banco, framework ou interface com o usuário. As dependências entre projetos apontam sempre para dentro, e no Catálogo isso se traduz nos subprojetos Domain, Application, Infrastructure e API.
+      referencia:
+        rotulo: Microsoft Learn · Arquiteturas comuns de aplicativos web
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures
+    - termo: Vertical Slice Architecture (arquitetura de fatias verticais)
+      definicao: Estilo de organização em que todo o código de um caso de uso, como requisição, validação, handler e endpoint, fica numa mesma pasta, chamada fatia. Nos Pedidos do `net-minimal-api`, cada operação, como `CreatePedido` ou `CancelPedido`, é uma fatia com pasta própria.
+    - termo: Minimal API (API mínima)
+      definicao: Forma de declarar endpoints HTTP no ASP.NET Core com chamadas como `app.MapGet` e `app.MapPost`, que associam uma rota a uma função, sem classes de controller. É o estilo usado em toda a API `net-minimal-api`.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral das APIs mínimas
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/minimal-apis/overview
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional da Microsoft, que traduz classes C# em tabelas e consultas LINQ em SQL. No repositório, ele grava os dados no SQLite e atende as operações de escrita.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do Entity Framework Core
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: Kestrel
+      definicao: 'Servidor web embutido no ASP.NET Core, que abre a porta e recebe as conexões HTTP da API. A mensagem `Now listening on: http://localhost:5000` é escrita quando ele começa a aceitar conexões.'
+      referencia:
+        rotulo: Microsoft Learn · Servidor web Kestrel no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/servers/kestrel
+    - termo: Receptor AirPlay (AirTunes)
+      definicao: 'Serviço do macOS que recebe áudio e vídeo de outros aparelhos da Apple e escuta na porta 5000, a mesma da API. As respostas dele trazem o cabeçalho `Server: AirTunes` e podem ser confundidas com as da API quando ela está parada.'
+    - termo: '`git stash` e `detached HEAD`'
+      definicao: O `git stash` guarda as alterações locais numa pilha e deixa a pasta como no último commit, e o `git stash pop` as devolve. O `detached HEAD` é o estado em que o Git fica depois de `git checkout <commit>`, apontando para um commit e não para um branch.
+      referencia:
+        rotulo: Git · git-stash
+        url: https://git-scm.com/docs/git-stash
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,35 +139,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · net-minimal-api no commit de referência
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: bash setup.sh
-      saida: '    2 Erro(s)
-
-        ✓ .NET SDK 10.0.401 encontrado
-
-        ✓ Dependências restauradas
-
-        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(1,19): error CS0234: O nome de tipo ou namespace "Produtos" não existe no namespace "ProdutosAPI" (você está sem uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
-
-        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(47,12): error CS0246: O nome do tipo ou do namespace "Produto" não pode ser encontrado (está faltando uma diretiva using ou uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
-
-        FALHA da compilação.'
-      origem: executado
-    - entrada: dotnet test
-      saida: './tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(1,19): error CS0234: O nome de tipo ou namespace "Produtos" não existe no namespace "ProdutosAPI" (você está sem uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
-
-        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(47,12): error CS0246: O nome do tipo ou do namespace "Produto" não pode ser encontrado (está faltando uma diretiva using ou uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
-
-        Aprovado!  – Com falha:     0, Aprovado:     7, Ignorado:     0, Total:     7, Duração: 233 ms - Pix.MockServer.Tests.dll (net10.0)
-
-        Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Setup
-      comando: bash setup.sh
-    - rotulo: Testes
-      comando: dotnet test
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -351,7 +422,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é levar o `setup.sh` e a suíte de testes ao verde e ver os três contextos respondendo. Os passos 1 a 7 clonam o repositório e corrigem as duas falhas de build, e os passos 8 a 10 sobem a API, chamam os três contextos e leem a estrutura de pastas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é deixar o build e a suíte de testes confiáveis, porque no commit de referência a solução não compila e o resumo do `dotnet test` esconde um projeto inteiro de testes que não rodou. Os passos 1 a 7 clonam o repositório, apontam os testes de Pedidos para o Catálogo e excluem da compilação da API os arquivos gerados pelos outros projetos, e os passos 8 a 10 sobem a API, chamam os três contextos e leem a estrutura de pastas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: No commit `702145a`, o `tests/Pedidos.Tests/Pedidos.Tests.csproj` referencia `src/Produtos/Produtos.Domain`, pasta removida no refactor `d378512`, e a compilação da solução para com `CS0234`. O `ProdutosAPI.csproj` usa o SDK Web, que trata como conteúdo os `.json` dos `bin/` e `obj/` dos outros projetos, e o build incremental falha em parte das execuções com `MSB3030`.
+    impacto: Com o projeto de Pedidos fora da compilação, o `dotnet test` imprime só duas linhas `Aprovado!`, e quem confere apenas essas linhas aceita uma suíte com 47 testes que não rodaram. A falha intermitente de cópia faz o mesmo código passar numa execução e falhar na seguinte, e isso tira a confiança no build antes de qualquer estudo de arquitetura.
+    mecanismo: A referência quebrada é trocada pelo projeto `Catalogo.Domain`, com o `using` correspondente no `ProdutoTestBuilder.cs`. A propriedade `DefaultItemExcludes` do `ProdutosAPI.csproj` passa a excluir `tests/**` e os `bin/` e `obj/` dos subprojetos, e as chamadas aos endpoints com e sem JWT conferem os três contextos no ar.
+    comprovacao: O `dotnet test` passa a imprimir três linhas `Aprovado!`, com 7, 47 e 143 testes, e o `setup.sh` termina com `Compilação com êxito.` em execuções seguidas, com 0 arquivos de `tests/` na saída. Com a API no ar, a saúde e o Catálogo respondem 200, os Pedidos respondem 401 sem token e 200 com token, e o Swagger lista 18 caminhos.
   - tipo: passos
     itens:
     - titulo: Conferir o SDK e clonar

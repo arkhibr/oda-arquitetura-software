@@ -5,7 +5,112 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é comparar duas formas de executar um processo na AWS, uma máquina de estados do Step Functions e uma tarefa em contêiner no ECS, e escrever uma máquina de estados que transforma um erro previsto num estado de negócio. No repositório `aspire-aws`, o cenário 15 tem uma máquina de estados que chama uma Lambda e por isso fica com os testes ignorados, e o cenário 18 roda um worker em contêiner que consome uma fila. Você vai criar uma máquina de estados sem Lambda que registra pedidos no DynamoDB e fazê-la reconhecer um pedido repetido com um `Catch`.
+    texto: O objetivo desta ODA é comparar uma máquina de estados do AWS Step Functions com uma tarefa em contêiner no Amazon ECS (Elastic Container Service) e fazer um pedido repetido terminar como resposta de negócio, porque sem tratamento ele encerra a execução em falha e exige investigação. No repositório `aspire-aws`, o cenário 15 tem uma máquina de estados que chama uma Lambda e por isso fica com os testes ignorados no macOS ARM64, e o cenário 18 roda um worker em contêiner que consome uma fila. Você vai criar uma máquina de estados sem Lambda que registra pedidos no DynamoDB, testá-la no LocalStack e fazê-la reconhecer o pedido repetido com um `Catch`.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: AWS Step Functions e máquina de estados
+      definicao: O Step Functions é o serviço da AWS que executa fluxos de trabalho descritos como máquinas de estados, em que cada estado é uma etapa e as transições dizem qual etapa vem depois. O serviço guarda o estado de cada execução, que pode ser consultada etapa por etapa.
+      referencia:
+        rotulo: O que é o Step Functions? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/step-functions/latest/dg/welcome.html
+    - termo: Amazon ECS (Elastic Container Service) e tarefa em contêiner
+      definicao: O ECS é o serviço da AWS que executa contêineres, e uma tarefa é uma execução de um ou mais contêineres a partir de uma definição. No cenário 18, o worker de pedidos roda como contêiner Docker na sua máquina, porque a API de controle do ECS não existe no LocalStack Community.
+      referencia:
+        rotulo: O que é o Amazon ECS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AmazonECS/latest/developerguide/Welcome.html
+    - termo: Erro previsto e estado de negócio
+      definicao: 'Erro previsto é uma falha que faz parte das regras, como um pedido que já foi registrado. Transformá-lo num estado de negócio é terminar a execução com uma resposta clara, como `situacao: duplicado`, sem registrar uma falha para investigar.'
+    - termo: Cenário
+      definicao: No repositório `aspire-aws`, cada pasta numerada de `scenarios/` é um cenário, um projeto de testes xUnit que exercita uma integração com serviços da AWS. Esta ODA usa o cenário 15, `15-StepFunctions.Orchestration`, e o cenário 18, `18-ECS.RunTask`.
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa uma função quando um evento chega, sem servidor administrado por quem escreve a função. A máquina de estados original do cenário 15 chama uma Lambda, e a do laboratório não usa nenhuma.
+      referencia:
+        rotulo: O que é o AWS Lambda? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: Worker
+      definicao: Programa que roda continuamente buscando trabalho numa fila e processando cada item. O worker do cenário 18, em `src/tasks/pedido_processor/handler.py`, lê pedidos de uma fila SQS e os grava no PostgreSQL.
+    - termo: Amazon SQS (Simple Queue Service)
+      definicao: Serviço de filas da AWS. O consumidor recebe as mensagens, até dez por chamada no worker do cenário 18, e apaga cada uma depois de processá-la.
+      referencia:
+        rotulo: O que é o Amazon SQS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html
+    - termo: Amazon DynamoDB
+      definicao: Banco NoSQL gerenciado da AWS que guarda itens em tabelas e os localiza pela chave. A máquina de estados do laboratório grava os pedidos na tabela `pedidos-sfn`.
+      referencia:
+        rotulo: O que é o Amazon DynamoDB? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Introduction.html
+    - termo: Amazon States Language (ASL)
+      definicao: Linguagem em JSON que define uma máquina de estados do Step Functions, com os estados, as transições e o tratamento de erros. Esta ODA usa os estados `Task`, que executa um trabalho, `Pass`, que acrescenta dados à saída, e `Choice`, que escolhe o próximo estado por uma condição.
+      referencia:
+        rotulo: Amazon States Language (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/step-functions/latest/dg/concepts-amazon-states-language.html
+    - termo: '`Catch`, `Retry`, `ErrorEquals` e `ResultPath`'
+      definicao: Campos de tratamento de erro de um estado. O `Retry` repete o estado que falhou, e o `Catch` compara o nome do erro com a lista `ErrorEquals` e desvia a execução para outro estado, guardando o erro no caminho indicado por `ResultPath`.
+      referencia:
+        rotulo: Tratar erros em fluxos de trabalho do Step Functions (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/step-functions/latest/dg/concepts-error-handling.html
+    - termo: Integração direta com serviços
+      definicao: Estado `Task` que chama outro serviço da AWS sem código intermediário, identificado por um recurso como `arn:aws:states:::dynamodb:putItem`. A máquina do laboratório grava no DynamoDB dessa forma, sem Lambda.
+      referencia:
+        rotulo: Operações do DynamoDB com o Step Functions (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/step-functions/latest/dg/connect-ddb.html
+    - termo: Notação `.$` e caminho `$`
+      definicao: 'Na definição de um estado, um parâmetro com nome terminado em `.$` recebe o valor lido da entrada da execução pelo caminho indicado. Em `"S.$": "$.id"`, o valor do atributo vem do campo `id` da entrada.'
+    - termo: Teste ignorado (`Skip`)
+      definicao: Teste marcado para não rodar, com o motivo registrado. Os dois testes do cenário 15 são ignorados porque a máquina de estados original depende de Lambda, e a execução de Lambda no LocalStack não funciona de forma estável no macOS ARM64.
+    - termo: LocalStack e LocalStack Community
+      definicao: O LocalStack é um emulador dos serviços da AWS que roda num contêiner Docker e responde na porta 4566. O repositório usa a edição gratuita, a Community, que emula o Step Functions e o DynamoDB e não oferece a API de controle do ECS.
+      referencia:
+        rotulo: Documentação do LocalStack
+        url: https://docs.localstack.cloud/overview/
+    - termo: Docker, imagem e contêiner
+      definicao: O Docker executa programas em contêineres, processos isolados criados a partir de uma imagem. A fixture do cenário 18 constrói a imagem `ecs-worker:latest` e inicia o worker com o Docker da máquina.
+      referencia:
+        rotulo: What is Docker? (documentação do Docker)
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: WSL (Windows Subsystem for Linux)
+      definicao: Recurso do Windows que roda um ambiente Linux dentro do sistema. No Windows, os comandos desta ODA devem rodar nele, porque usam a sintaxe do bash.
+      referencia:
+        rotulo: O que é o Subsistema do Windows para Linux (Microsoft Learn)
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: ADR (Architecture Decision Record)
+      definicao: Registro curto de uma decisão de arquitetura, com o contexto, a decisão, as alternativas e as consequências. A ADR-003, em `docs/architecture/adrs/`, registra o uso do LocalStack Community e as limitações de Lambda e de Step Functions.
+      referencia:
+        rotulo: Architectural Decision Records (adr.github.io)
+        url: https://adr.github.io/
+    - termo: Tipo Standard
+      definicao: Tipo de máquina de estados do Step Functions para fluxos longos, com execuções de até um ano e histórico guardado pelo serviço. É o tipo usado na comparação com a tarefa em contêiner.
+    - termo: Escrita condicional com `attribute_not_exists(id)`
+      definicao: Gravação que o DynamoDB só aplica se a condição for verdadeira, e `attribute_not_exists(id)` exige que ainda não exista item com aquele `id`. Quando o pedido já existe, a gravação é recusada com `ConditionalCheckFailedException`.
+      referencia:
+        rotulo: Expressões de condição do DynamoDB (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html
+    - termo: '`SUCCEEDED` e `FAILED`'
+      definicao: Situações finais de uma execução do Step Functions. Sem `Catch`, o erro de um estado encerra a execução em `FAILED`, e com o `Catch` do laboratório a execução do pedido repetido termina em `SUCCEEDED`.
+    - termo: xUnit e fixture
+      definicao: O xUnit é o framework de testes para .NET usado nos cenários. A fixture é a classe que o xUnit cria antes dos testes para preparar recursos compartilhados, e a do laboratório cria a tabela `pedidos-sfn` e os clientes do Step Functions e do DynamoDB.
+      referencia:
+        rotulo: Sharing Context between Tests (documentação do xUnit)
+        url: https://xunit.net/docs/shared-context
+    - termo: '`host.docker.internal`'
+      definicao: Nome que um contêiner usa para alcançar a máquina hospedeira. O worker do cenário 18 chega ao LocalStack e ao PostgreSQL por esse nome.
+    - termo: PostgreSQL
+      definicao: Banco de dados relacional de código aberto. O AppHost declara um contêiner PostgreSQL, onde o worker do cenário 18 grava os pedidos.
+    - termo: Fila de mensagens mortas e `maxReceiveCount`
+      definicao: Fila que recebe as mensagens recebidas `maxReceiveCount` vezes sem serem apagadas, para análise. A fila de pedidos do cenário 18 não tem essa configuração, e uma mensagem malformada volta à fila indefinidamente.
+      referencia:
+        rotulo: Filas de mensagens não entregues no Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html
+    - termo: '`WaitTimeSeconds`'
+      definicao: Tempo que a chamada de recebimento do SQS espera por mensagens novas quando a fila está vazia. No worker do cenário 18, esse tempo é de 2 segundos.
+    - termo: Papel do IAM
+      definicao: Identidade da AWS com permissões, assumida por um serviço para agir em nome dele. Na AWS, a máquina de estados precisa de um papel com permissão para gravar no DynamoDB.
+      referencia:
+        rotulo: Perfis do IAM (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/IAM/latest/UserGuide/id_roles.html
+    - termo: Modo duplo (`AWS_TARGET=aws`)
+      definicao: Variável de ambiente que desvia os mesmos testes para a AWS real. Sem ela, o AppHost sobe o LocalStack, e os clientes do SDK da AWS apontam para a porta 4566.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,21 +158,21 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · rodar o cenário 15
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
-      saida: 'Ignorado!  – Com falha:     0, Aprovado:     0, Ignorado:     2, Total:     2, Duração: 4 ms - 15-StepFunctions.Orchestration.dll (net10.0)'
-      origem: executado
-      dica: Os dois testes do cenário 15 estão marcados com `Skip`, porque a máquina de estados original chama uma Lambda.
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior, como exige o `global.json`.
     - entrada: docker info --format '{{.ServerVersion}}'
       saida: 29.5.2
-      origem: executado
-      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
     cenarios:
-    - rotulo: Docker em execução
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
-    - rotulo: Rodar o cenário 15
-      comando: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
 - id: conceito
   titulo: Conceito
   blocos:
@@ -277,7 +382,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é criar uma máquina de estados que registra pedidos no DynamoDB e responde a um pedido repetido com um estado de negócio, testada contra o LocalStack. O passo 1 roda o cenário 15, os passos 2 a 4 criam a fixture, o teste e a primeira definição, e o passo 5 acrescenta o `Catch`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é dar ao cenário 15 uma máquina de estados testável no LocalStack, sem a Lambda que deixa os testes originais ignorados, e transformar a recusa de um pedido repetido, que encerraria a execução em `FAILED`, num estado de negócio. O passo 1 roda o cenário 15, os passos 2 a 4 criam a fixture, o teste e a primeira definição, e o passo 5 acrescenta o `Catch`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: A máquina de estados do cenário 15 chama uma Lambda, e por isso os dois testes do cenário ficam ignorados no macOS ARM64, sem nenhum teste da orquestração nesse ambiente. Uma gravação condicional recusada por pedido repetido encerra a execução do Step Functions em `FAILED` quando a máquina não tem `Catch`.
+    impacto: Sem `Catch`, o reenvio de um pedido, situação prevista pelo negócio, aparece no painel como falha a investigar, e quem iniciou a execução precisa ler o erro para descobrir que o pedido já existia.
+    mecanismo: O laboratório cria uma máquina de estados sem Lambda, com integração direta ao DynamoDB pelo recurso `arn:aws:states:::dynamodb:putItem` e a condição `attribute_not_exists(id)`, e escreve primeiro um teste que executa duas vezes o mesmo pedido. Depois acrescenta um `Catch` para `DynamoDB.ConditionalCheckFailedException` que leva ao estado `Duplicado`.
+    comprovacao: 'Sem o `Catch`, o teste falha com `segunda execução: FAILED DynamoDB.ConditionalCheckFailedException`. Com o `Catch`, a segunda execução termina em `SUCCEEDED` com `situacao: duplicado`, e o cenário 15 mostra `Aprovado: 1` e `Ignorado: 2`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
@@ -287,7 +398,7 @@ abas:
     titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
     sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
     causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
-    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda, e a máquina de estados do laboratório não usa Lambda.
+    correcao: Depois do `git stash` da faixa Antes de começar, na aba Laboratório, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda, e a máquina de estados do laboratório não usa Lambda.
   - tipo: passos
     itens:
     - titulo: Rodar o cenário 15

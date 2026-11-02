@@ -5,7 +5,87 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é entender um pipeline de ponta a ponta com agendador, filas, funções e regras em tabela, e mudar uma regra de negócio do roteamento com um teste que prova a mudança. No repositório `aspire-aws`, o cenário 16 gera ofertas de crédito a cada 20 s, e uma Lambda as encaminha para a fila do segmento segundo regras guardadas no DynamoDB, descartando as ofertas de segmento sem regra. Você vai mudar essa regra para que a oferta sem destino vá para uma fila de revisão, com o teste escrito antes.
+    texto: O objetivo desta ODA é acabar com o descarte silencioso de ofertas no pipeline de crédito do cenário 16, em que uma oferta de segmento sem regra some sem erro e sem registro, e entender quando uma mudança de roteamento vai para a tabela de regras e quando vai para o código. No repositório `aspire-aws`, o cenário 16 gera ofertas de crédito a cada 20 s, e uma função do AWS Lambda as encaminha para a fila do segmento segundo regras guardadas no Amazon DynamoDB. Você vai escrever antes um teste de ponta a ponta e mudar o roteador para que a oferta sem regra vá para uma fila de revisão.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Pipeline de ponta a ponta
+      definicao: Sequência completa de serviços por onde passa um dado, da origem ao destino final. No cenário 16, a oferta de crédito sai do agendador, passa por duas filas e duas funções e chega à fila do segmento.
+    - termo: Agendador
+      definicao: Serviço que dispara uma ação em horários ou intervalos definidos. No cenário 16, o agendador invoca a função produtora a cada 20 segundos.
+    - termo: Fila de mensagens
+      definicao: Estrutura que guarda mensagens até que um consumidor as leia e as apague, e cada mensagem é entregue a um consumidor por vez. As ofertas passam pela `fila-ofertas-credito` e chegam às filas de segmento, como a `fila-consignado`.
+    - termo: Regras em tabela
+      definicao: Regras de negócio guardadas como dados numa tabela, lidas pelo código a cada execução. Mudar uma regra passa a ser gravar um item, sem implantar de novo a função.
+    - termo: Roteamento e roteador
+      definicao: Roteamento é a escolha do destino de cada mensagem segundo uma regra. No cenário 16, a função `roteador-de-ofertas` procura o segmento da oferta na tabela de regras e envia a oferta à fila indicada.
+    - termo: Oferta de crédito e segmento
+      definicao: A oferta de crédito é a mensagem do pipeline, com id, segmento, taxa e valor. O segmento é a categoria do produto de crédito, como `consignado`, e define o destino da oferta.
+    - termo: Cenário
+      definicao: No repositório `aspire-aws`, cada pasta numerada de `scenarios/` é um cenário, um projeto de testes xUnit que exercita uma integração com serviços da AWS. Esta ODA usa o cenário 16, `16-Pipeline.Scheduler.Router`, cujo `README.md` descreve o caso de negócio.
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa uma função quando um evento chega, sem servidor administrado por quem escreve a função. O cenário 16 tem três funções em Python, a produtora, o roteador e a de eco do consignado.
+      referencia:
+        rotulo: O que é o AWS Lambda? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: Amazon DynamoDB
+      definicao: Banco NoSQL gerenciado da AWS que guarda itens em tabelas e os localiza pela chave. As regras de roteamento ficam na tabela `regras-de-roteamento`, uma por segmento.
+      referencia:
+        rotulo: O que é o Amazon DynamoDB? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Introduction.html
+    - termo: Fila de revisão
+      definicao: Fila que recebe as ofertas sem regra de destino, para que alguém as analise. O laboratório cria a `fila-revisao` e muda o roteador para enviar a ela as ofertas de segmento sem regra.
+    - termo: Descarte silencioso
+      definicao: Situação em que o sistema abandona uma mensagem sem erro e sem guardá-la em lugar consultável, deixando no máximo uma linha de log. No commit de referência, o roteador descarta assim as ofertas de segmento sem regra.
+    - termo: Teste de ponta a ponta escrito antes
+      definicao: Teste que publica a entrada do pipeline e confere a saída final, escrito antes da mudança no código. Ele falha enquanto a regra antiga vale e passa quando a mudança está correta, e por isso prova a mudança.
+    - termo: Docker, imagem e contêiner
+      definicao: O Docker executa programas em contêineres, processos isolados criados a partir de uma imagem, que reúne o sistema e as dependências. O laboratório constrói uma imagem com o .NET SDK 10 e o cliente do Docker e roda os testes num contêiner criado a partir dela com `docker exec`.
+      referencia:
+        rotulo: What is Docker? (documentação do Docker)
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: Socket do Docker (`/var/run/docker.sock`)
+      definicao: Arquivo pelo qual programas conversam com o daemon do Docker, o serviço que cria e para os contêineres. O LocalStack usa esse arquivo para criar os contêineres das funções Lambda.
+    - termo: Apple Silicon e teste ignorado
+      definicao: Apple Silicon é a família de processadores ARM64 dos Macs recentes. O repositório ignora os testes com Lambda quando o processo de teste roda no macOS com ARM64, e por isso o laboratório os roda num contêiner Linux.
+    - termo: Colima
+      definicao: Ferramenta que roda o Docker no macOS dentro de uma máquina virtual Linux. O caminho do laboratório com o contêiner Linux foi verificado com o Colima.
+    - termo: WSL (Windows Subsystem for Linux)
+      definicao: Recurso do Windows que roda um ambiente Linux dentro do sistema. No WSL, os comandos `dotnet test` rodam direto, sem o contêiner do laboratório.
+      referencia:
+        rotulo: O que é o Subsistema do Windows para Linux (Microsoft Learn)
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: LocalStack
+      definicao: Emulador dos serviços da AWS que roda num contêiner Docker e responde na porta 4566. O cenário 16 cria nele as filas, as tabelas, as funções e o agendador.
+      referencia:
+        rotulo: Documentação do LocalStack
+        url: https://docs.localstack.cloud/overview/
+    - termo: Amazon EventBridge Scheduler
+      definicao: Serviço de agendamento da AWS que invoca um alvo, como uma função Lambda, por uma expressão de tempo. A fixture do cenário 16 cria um agendamento com `rate(20 seconds)` para a função produtora.
+      referencia:
+        rotulo: O que é o Agendador do Amazon EventBridge? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/scheduler/latest/UserGuide/what-is-scheduler.html
+    - termo: Amazon SQS (Simple Queue Service)
+      definicao: Serviço de filas da AWS usado por todas as filas do cenário 16. O SQS entrega cada mensagem a um consumidor por vez, e quando a função a recebe primeiro o teste não a encontra.
+      referencia:
+        rotulo: O que é o Amazon SQS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AWSSimpleQueueService/latest/SQSDeveloperGuide/welcome.html
+    - termo: Mapeamento de origem de eventos
+      definicao: Recurso do Lambda que lê uma fila e invoca a função com as mensagens, apagando-as quando a invocação termina sem erro. O cenário 16 liga o roteador à fila de ofertas e a função de eco à `fila-consignado` dessa forma.
+      referencia:
+        rotulo: Usar o Lambda com o Amazon SQS (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/with-sqs.html
+    - termo: Variável de ambiente da função
+      definicao: Valor de configuração entregue à função Lambda na implantação e lido pelo código. O laboratório passa o endereço da fila de revisão ao roteador pela variável `FILA_REVISAO_URL`.
+    - termo: Implantação
+      definicao: Publicação de uma nova versão do código da função no serviço. Mudar o código do roteador exige implantar a função de novo, e mudar um item da tabela de regras não exige.
+    - termo: xUnit e fixture
+      definicao: O xUnit é o framework de testes para .NET usado nos cenários. A fixture é a classe que o xUnit cria antes dos testes para preparar recursos compartilhados, e a do cenário 16 cria as tabelas, as filas, as funções e o agendador.
+      referencia:
+        rotulo: Sharing Context between Tests (documentação do xUnit)
+        url: https://xunit.net/docs/shared-context
+    - termo: '`SemeadorDeRegras`'
+      definicao: Classe de apoio dos testes do cenário 16, em `Support/SemeadorDeRegras.cs`, que grava itens na tabela de regras de roteamento.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,27 +133,21 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · o pipeline de ofertas
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
-      saida: sha256:a0faca54756a…
-      origem: executado
-      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
-    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
-      saida: c010420897a4…
-      origem: executado
-      dica: O identificador do contêiner muda a cada execução.
-    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
-      saida: ''
-      origem: executado
-      dica: A função copia os arquivos do repositório para `/repo` no contêiner.
-    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
-      saida: 'Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 22 s - 16-Pipeline.Scheduler.Router.dll (net10.0)'
-      origem: executado
-      dica: 'Os quatro testes do cenário 16 passam: a oferta de consignado chega à fila dela, e a de segmento sem regra não chega.'
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior, como exige o `global.json`.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
     cenarios:
-    - rotulo: Rodar o cenário 16
-      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
+      comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
   titulo: Conceito
   blocos:
@@ -236,7 +310,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é mudar o roteador para que ofertas de segmento sem regra vão para uma fila de revisão, com um teste de ponta a ponta escrito antes. Os passos 1 e 2 preparam o contêiner Linux e rodam o cenário 16, os passos 3 e 4 escrevem o teste e criam a fila de revisão, e o passo 5 muda o roteador. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é fazer as ofertas de segmento sem regra chegarem a uma fila de revisão, onde podem ser consultadas e reprocessadas, e provar a mudança com um teste de ponta a ponta escrito antes. Os passos 1 e 2 preparam o contêiner Linux e rodam o cenário 16, os passos 3 e 4 escrevem o teste e criam a fila de revisão, e o passo 5 muda o roteador. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O roteador do cenário 16, em `src/lambdas/roteador_de_ofertas/handler.py`, descarta a oferta cujo segmento não tem regra na tabela `regras-de-roteamento` e deixa apenas um aviso no log. Como a invocação termina sem erro, a mensagem também é apagada da fila de ofertas.
+    impacto: Quando um produto de crédito novo é lançado sem regra cadastrada, todas as ofertas dele desaparecem sem erro e sem registro que se possa consultar ou reprocessar.
+    mecanismo: O laboratório escreve primeiro um teste de ponta a ponta que publica uma oferta do segmento `pessoal`, cria a `fila-revisao` e passa o endereço dela ao roteador pela variável `FILA_REVISAO_URL`. Depois muda o código do roteador para enviar a essa fila as ofertas sem regra, porque a tabela só guarda destinos por segmento e não define o que fazer na ausência de regra.
+    comprovacao: 'Com a fila criada e o roteador sem mudança, o teste falha com `TimeoutException`. Com o roteador alterado, o cenário 16 mostra `Passed: 5`, com os quatro testes originais aprovados.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

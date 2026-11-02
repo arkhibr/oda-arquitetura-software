@@ -68,6 +68,11 @@ button { cursor: pointer; }
 .faixa--dica { border-color: var(--destaque); background: var(--dica-fundo); }
 .faixa--erro { border-color: var(--alerta); background: var(--alerta-fundo); }
 .faixa--quebra { border-color: var(--perigo); background: var(--perigo-fundo); }
+.faixa--objetivo { border-color: var(--destaque); background: var(--dica-fundo); }
+.faixa--objetivo .faixa__titulo { display: block; margin-bottom: 6px; }
+.faixa__objetivo { margin: 0; }
+.faixa__objetivo dt { font-weight: 700; margin-top: 8px; }
+.faixa__objetivo dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .faixa--sucesso { border-color: var(--sucesso); background: var(--sucesso-fundo); }
 .faixa__titulo { color: var(--destaque); }
 .faixa--erro .faixa__titulo { color: var(--alerta); }
@@ -224,3 +229,13 @@ fieldset { min-width: 0; }
 .tempo__resumo { font-weight: 700; margin: 10px 0 0; }
 a.botao { color: inherit; text-decoration: none; display: inline-block; }
 .terminal__origem { display: block; }
+
+.glossario { border: 1px solid var(--borda); border-radius: 10px; padding: 12px 16px; }
+.glossario__titulo { margin: 0 0 6px; }
+.glossario__texto { margin: 0 0 10px; }
+.glossario__lista { margin: 0; }
+.glossario__termo { font-weight: 700; margin-top: 10px; overflow-wrap: anywhere; }
+.glossario__definicao { margin: 2px 0 0; overflow-wrap: anywhere; }
+.glossario__definicao code { overflow-wrap: anywhere; }
+.glossario__referencia { display: block; margin-top: 4px; font-size: .9rem; }
+.glossario__referencia a { color: var(--destaque); overflow-wrap: anywhere; }

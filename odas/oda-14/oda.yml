@@ -5,7 +5,80 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é escolher o nível de teste adequado a cada pergunta e escrever um teste com rede simulada e um benchmark. O `frontend-react` combina Vitest, Playwright e MSW, e cada ferramenta responde a uma pergunta diferente. Você vai escrever um teste com MSW para o carregamento do `config.json`, que revela uma falha atrás do Nginx, e um benchmark para a ordenação dos microfrontends, que revela um custo que cresce mais rápido que o manifesto.
+    texto: O objetivo desta ODA é escolher o nível de teste que responde a cada pergunta sobre o portal e usar dois deles para encontrar defeitos que a suíte atual não mostra, um teste com rede simulada e um benchmark. O `frontend-react` combina Vitest, Playwright e MSW (Mock Service Worker), e nenhum teste existente cobre o `config.json` ausente atrás do Nginx, que derruba o boot do portal, nem o custo da ordenação dos microfrontends, que cresce mais rápido que o manifesto. Você vai escrever o teste com MSW que revela e corrige a falha do boot e o benchmark que justifica e mede a correção da ordenação.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Níveis de teste
+      definicao: O teste unitário exercita uma função ou um componente isolado, o de integração exercita várias partes juntas com a rede simulada e o de ponta a ponta usa a aplicação inteira num navegador real. Cada nível responde a uma pergunta diferente e tem custo e velocidade diferentes.
+      referencia:
+        rotulo: martinfowler.com · The Practical Test Pyramid
+        url: https://martinfowler.com/articles/practical-test-pyramid.html
+    - termo: Rede simulada
+      definicao: Técnica de teste em que as requisições HTTP são atendidas por respostas definidas no próprio teste, sem servidor real. O código testado chama o `fetch` normalmente e recebe a resposta escolhida pelo teste.
+    - termo: Benchmark
+      definicao: Medição repetida do tempo de execução de um trecho de código, feita para comparar versões ou tamanhos de entrada. O `vitest bench` informa a vazão em `hz`, execuções por segundo, e o erro relativo em `rme`, e a opção `--compare` compara a medição atual com uma gravada antes.
+      referencia:
+        rotulo: Vitest · Benchmarking
+        url: https://vitest.dev/guide/benchmarking
+    - termo: Vitest
+      definicao: Framework de testes para projetos JavaScript e TypeScript integrado ao Vite, que roda os testes unitários e de integração do shell e os benchmarks.
+      referencia:
+        rotulo: Vitest · Getting Started
+        url: https://vitest.dev/guide/
+    - termo: Playwright
+      definicao: Ferramenta que controla um navegador real para testar a aplicação de ponta a ponta, com navegação, cliques e leitura da página.
+      referencia:
+        rotulo: Playwright · Installation
+        url: https://playwright.dev/docs/intro
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta as requisições HTTP e devolve respostas definidas em handlers, tanto no Node.js, nos testes do Vitest, quanto no navegador. O `src/test-setup.ts` inicia o servidor do MSW para os testes, e o `server.use` acrescenta handlers que valem só até o fim de um teste.
+      referencia:
+        rotulo: Mock Service Worker · Introduction
+        url: https://mswjs.io/docs/
+    - termo: config.json
+      definicao: Arquivo de configuração que o shell baixa ao iniciar, com valores que mudam por ambiente sem novo build, como a URL base da API e a cor primária do portal. O `loadConfig`, em `src/shared/config/index.ts`, ignora o arquivo quando ele falta e recai nas variáveis de ambiente do Vite.
+    - termo: Nginx e fallback para o index.html
+      definicao: O Nginx é o servidor web que entrega o shell em produção. Para que as rotas da SPA funcionem, a diretiva `try_files` devolve o `index.html` sempre que o arquivo pedido não existe, e isso inclui o `/config.json` ausente.
+      referencia:
+        rotulo: nginx.org · ngx_http_core_module, try_files
+        url: https://nginx.org/en/docs/http/ngx_http_core_module.html#try_files
+    - termo: Microfrontend e manifesto
+      definicao: Um microfrontend é uma parte da interface com build e deploy próprios, carregada pelo shell em tempo de execução. O manifesto `public/mfe-manifest.json` lista os microfrontends e as dependências que cada um declara em `dependsOn`.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Custo superlinear
+      definicao: Custo que cresce mais rápido que o tamanho da entrada. Se a entrada fica dez vezes maior e a vazão cai bem mais que dez vezes, há trabalho repetido proporcional ao tamanho da entrada.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. A ADR-005 define a tática de testes do repositório.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: Jest e Cypress
+      definicao: São ferramentas de teste para JavaScript, o Jest para testes unitários e o Cypress para testes de ponta a ponta. A ADR-005 as avaliou e preferiu Vitest e Playwright.
+    - termo: Esteira de integração contínua (CI)
+      definicao: Sequência automática de verificações, como instalação, conferência de tipos, testes e build, que roda a cada mudança enviada ao repositório.
+      referencia:
+        rotulo: GitHub Docs · Noções básicas sobre GitHub Actions
+        url: https://docs.github.com/pt/actions/about-github-actions/understanding-github-actions
+    - termo: Algoritmo de Kahn
+      definicao: Algoritmo que ordena itens com dependências de modo que cada item venha depois de todos aqueles de que depende, a chamada ordenação topológica. O `dependencyResolver.ts` do shell o usa para decidir a ordem de carga dos microfrontends.
+    - termo: ESLint e a regra de fronteiras
+      definicao: O ESLint aplica regras de análise estática ao código. No shell, a regra `boundaries/dependencies` proíbe importações que atravessem as camadas do Feature-Sliced Design na direção não permitida, como o código de produção importar `@/mocks/server`.
+      referencia:
+        rotulo: ESLint · Getting Started
+        url: https://eslint.org/docs/latest/use/getting-started
+    - termo: DOM (Document Object Model)
+      definicao: Representação da página em memória como uma árvore de elementos, que o JavaScript lê e altera para mudar o que aparece na tela.
+      referencia:
+        rotulo: MDN · Modelo de Objeto de Documento (DOM)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Document_Object_Model
+    - termo: CSP (Content Security Policy)
+      definicao: Cabeçalho HTTP com que o servidor informa ao navegador de quais origens a página pode carregar scripts e outros recursos.
+      referencia:
+        rotulo: MDN · Utilizando Políticas de Segurança de Conteúdo
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,21 +126,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · testes do shell
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npx vitest run
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  23 passed (23)\n      Tests  99 passed (99)"
-      origem: executado
-    - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
-      saida: '> frontend-react@0.0.0 lint
-
-        > eslint src/'
-      origem: executado
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Suíte do shell
-      comando: npx vitest run
-    - rotulo: Tipos e lint
-      comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -315,7 +387,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é escrever um teste com MSW que revela uma falha do carregamento da configuração e um benchmark que justifica uma mudança na ordenação. Os passos 1 a 7 cobrem o teste com MSW e a regra de fronteiras, e os passos 8 a 11 cobrem o benchmark e a correção da ordenação. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é evitar que um ambiente sem `config.json` derrube o boot do portal e reduzir o custo superlinear da ordenação dos microfrontends, com um teste e um benchmark que comprovam cada mudança. Os passos 1 a 7 cobrem o teste com MSW, a correção do `loadConfig` e a regra de fronteiras, e os passos 8 a 11 cobrem o benchmark e a correção da ordenação. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O `loadConfig`, em `src/shared/config/index.ts`, ignora o `public/config.json` quando a resposta não é 200, e atrás do Nginx um arquivo ausente volta como `index.html` com status 200 por causa do `try_files`, e a leitura do JSON lança `SyntaxError`. Além disso, o `dependencyResolver.ts` copia a lista de dependentes a cada dependência acrescentada, e o custo da ordenação dos microfrontends cresce mais rápido que o manifesto.
+    impacto: Em produção, um ambiente publicado sem `config.json` mostra a tela de falha de boot no lugar do portal, e os testes existentes não cobrem esse caso. O custo superlinear da ordenação pesa no boot de cada página à medida que o manifesto ganha microfrontends.
+    mecanismo: Um teste de integração com MSW, escrito antes, troca a resposta de `/config.json` com `server.use` e devolve HTML com status 200, como o Nginx faria, e o `loadConfig` passa a ignorar respostas cujo `content-type` não é JSON. A regra de fronteiras do ESLint ganha um elemento próprio para os testes, e um benchmark com manifestos de 10, 100 e 1000 microfrontends mede a ordenação antes e depois de acrescentar o dependente sem copiar a lista.
+    comprovacao: O teste novo falha com `Unexpected token '<', "<!doctype "... is not valid JSON` e passa depois, a suíte termina com `Tests 103 passed (103)` e o `tsc` e o `eslint src/` ficam sem mensagens. Na linha de 1000 microfrontends, o `--compare` mostra `[3.56x]`, e os testes de `src/app/mfe` continuam com `Tests 31 passed (31)`.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

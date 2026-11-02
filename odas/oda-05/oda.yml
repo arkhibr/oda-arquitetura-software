@@ -5,7 +5,124 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é escrever um microfrontend mínimo que o shell do `frontend-react` aceite carregar, cumprindo o contrato `mount` e `unmount`. No portal, cada microfrontend é um bundle ESM autônomo, carregado em tempo de execução, e o shell confere o hash e as duas funções antes de montá-lo. Você vai criar um microfrontend de um arquivo, sem React, com o teste escrito antes, e provocar as duas falhas que o carregador detecta.
+    texto: O objetivo desta ODA é escrever um microfrontend mínimo que o shell do `frontend-react` aceite carregar, cumprindo o contrato `mount` e `unmount`, porque o carregador recusa o bundle cujo hash SHA-256 não confere com o manifesto, antes de executá-lo, e o módulo que não exporta as duas funções, antes de montá-lo. No portal, cada microfrontend é um bundle ESM (ECMAScript Modules) autônomo, carregado em tempo de execução, e essas conferências impedem o shell de montar código alterado depois da publicação ou incapaz de se desmontar. Você vai criar um microfrontend de um arquivo, sem React, com o teste escrito antes, e provocar as duas falhas que o carregador detecta.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Contrato `mount`/`unmount`
+      definicao: 'Interface que todo microfrontend do portal cumpre: `mount(el, ctx)` renderiza a tela dentro do elemento entregue pelo shell, com o contexto recebido, e `unmount(el)` desmonta essa tela e libera o elemento. A ADR-009 define esse contrato.'
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: ESM (ECMAScript Modules)
+      definicao: Formato padrão de módulos do JavaScript, com `import` e `export`, que o navegador carrega diretamente. Os bundles dos microfrontends são módulos ESM.
+      referencia:
+        rotulo: MDN · Módulos JavaScript
+        url: https://developer.mozilla.org/pt-BR/docs/Web/JavaScript/Guide/Modules
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: OpenSSL
+      definicao: Ferramenta de linha de comando para criptografia, usada no laboratório para calcular o SHA-256 de um arquivo e convertê-lo para Base64.
+    - termo: WSL (Windows Subsystem for Linux) e Git Bash
+      definicao: O WSL é um recurso do Windows que executa um ambiente Linux completo, e o Git Bash é o terminal bash que acompanha o Git para Windows. Os dois aceitam a sintaxe de comandos usada nos laboratórios.
+      referencia:
+        rotulo: Microsoft Learn · O que é o Subsistema do Windows para Linux
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: Integração em tempo de execução
+      definicao: Forma de compor o portal em que o shell baixa o bundle de cada microfrontend quando a página roda, sem recompilar o shell. A ADR-008 escolheu essa forma, e a integração na compilação exigiria um novo build do shell a cada mudança de microfrontend.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Module Federation
+      definicao: Recurso de bundlers como o Webpack e o Vite, por plugin, que carrega módulos de outra aplicação em tempo de execução e compartilha dependências entre elas, como o React. A ADR-009 o descartou porque o compartilhamento acopla as versões.
+    - termo: Web Components e Shadow DOM
+      definicao: Web Components são elementos HTML personalizados definidos por JavaScript, e o Shadow DOM isola o HTML e o CSS de um elemento do restante da página. A ADR-009 os descartou pelo atrito com estilos globais e com a passagem de funções.
+      referencia:
+        rotulo: MDN · Web Components
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Web_components
+    - termo: Vite e modo biblioteca (lib mode)
+      definicao: O Vite é a ferramenta de build e o servidor de desenvolvimento do shell e dos microfrontends, o mesmo que responde em `npm run dev`. O modo biblioteca gera um único arquivo a partir de um ponto de entrada, e é assim que cada microfrontend vira um bundle ESM.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: Raiz React (`createRoot`)
+      definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: DOM (Document Object Model)
+      definicao: Representação da página como uma árvore de objetos que o JavaScript lê e altera. O microfrontend mínimo do laboratório escreve na página diretamente pela API do DOM, sem React.
+      referencia:
+        rotulo: MDN · DOM
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/DOM
+    - termo: Blob
+      definicao: Objeto do navegador que guarda bytes em memória e pode receber uma URL própria. O carregador transforma o bundle já conferido num Blob e importa esse Blob como módulo.
+      referencia:
+        rotulo: MDN · Blob
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Blob
+    - termo: '`import()` dinâmico'
+      definicao: Forma de carregar um módulo ESM durante a execução, a partir de uma URL calculada pelo programa. Com `import(url)`, o navegador baixa e executa o módulo na mesma operação, sem oportunidade de conferir os bytes antes.
+      referencia:
+        rotulo: MDN · import()
+        url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
+    - termo: Base64
+      definicao: Codificação que representa bytes com 64 caracteres de texto, usada para escrever hashes e tokens em formato legível. O hash do campo `integrity` tem 43 caracteres em Base64 seguidos de `=`.
+      referencia:
+        rotulo: MDN · Base64
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Base64
+    - termo: '`import.meta.glob`'
+      definicao: Função do Vite que importa, durante o build ou o teste, todos os arquivos que correspondem a um padrão de caminho. O teste do laboratório a usa para carregar o microfrontend mínimo e ler o texto dos arquivos.
+      referencia:
+        rotulo: Vite · Importação com glob
+        url: https://vite.dev/guide/features#glob-import
+    - termo: Error boundary
+      definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
+      referencia:
+        rotulo: React · Error boundary
+        url: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: CORS (Cross-Origin Resource Sharing)
+      definicao: Mecanismo de cabeçalhos HTTP com que um servidor autoriza páginas de outra origem a ler as respostas dele. Os buckets precisam de CORS porque o shell, na porta 5173, baixa bundles servidos pela porta 4566, que é outra origem.
+      referencia:
+        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: Pacote de tipos
+      definicao: Pacote npm que publica só declarações de tipo do TypeScript, sem código que rode, para que vários projetos compilem contra a mesma definição de contrato.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -52,15 +169,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · testes do carregamento de microfrontends
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npx vitest run src/app/mfe
-      saida: " RUN  v4.1.7 .\n\n\n Test Files  8 passed (8)\n      Tests  31 passed (31)"
-      origem: executado
-      dica: São 8 arquivos de teste da pasta `src/app/mfe`, do manifesto ao error boundary.
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Rodar os testes de src/app/mfe
-      comando: npx vitest run src/app/mfe
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -410,7 +532,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é criar um microfrontend que passa pelas validações do carregador do shell e ver as duas falhas que elas detectam. Os passos 1 a 7 escrevem o teste, criam o microfrontend de um arquivo, sem React e sem build, e publicam o hash, e os passos 8 a 10 quebram o contrato, alteram o arquivo depois do hash e rodam a suíte. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é criar um microfrontend que passa pelas validações do carregador do shell e ver as duas falhas que elas detectam, porque são as mensagens dessas falhas que revelam a uma equipe um contrato quebrado ou um bundle publicado com o hash desatualizado. Os passos 1 a 7 escrevem o teste, criam o microfrontend de um arquivo, sem React e sem build, e publicam o hash, e os passos 8 a 10 quebram o contrato, alteram o arquivo depois do hash e rodam a suíte. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O shell só monta um microfrontend cujo bundle tenha o SHA-256 igual ao campo `integrity` do manifesto e exporte `mount` e `unmount` como funções, conferências feitas por `verifyBundleIntegrity` e `assertMfeModule` em `src/app/mfe/loadMfeModule.ts`. A ADR-009 ainda descreve um `import(url)` direto, que não permitiria conferir os bytes antes de executá-los.
+    impacto: Sem essas conferências, um bundle alterado depois da publicação ou sem a função de desmontagem rodaria dentro do portal, e um microfrontend que não libera o elemento deixaria a árvore e os ouvintes ativos depois de sair da rota.
+    mecanismo: O laboratório aplica o teste escrito antes, cria `mfes/minimo/index.js` com a API do DOM, calcula o SHA-256 em Base64 com o `openssl` e confere o módulo com as funções reais do carregador do shell, carregadas no teste por `import.meta.glob`.
+    comprovacao: O teste falha com `mfes/minimo/index.js não encontrado` antes do módulo e passa depois do `integrity.txt`, renomear `unmount` produz `não exporta unmount()`, trocar uma letra produz `[mfe] integridade do bundle inválida`, e a suíte termina com `Tests 103 passed (103)`.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

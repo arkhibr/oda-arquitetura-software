@@ -26,13 +26,23 @@ OBRIGATORIOS = {
     "arvores": ("esquerda", "direita"), "comparativo": ("colunas", "linhas"), "diagrama": ("id", "tipo_diagrama", "titulo", "mermaid"),
     "fluxo": ("titulo", "etapas"), "console-api": ("cenarios",), "classificador": ("categorias", "itens"),
     "terminal": ("comandos",), "incidente": ("titulo", "saida", "origem", "pergunta", "alternativas", "correcao"),
-    "quiz": ("perguntas",), "resumo": (), "linha-do-tempo": ("atores", "eventos"),
+    "quiz": ("perguntas",), "resumo": (), "glossario": ("itens",), "linha-do-tempo": ("atores", "eventos"),
 }
-ESTILOS = {"dica", "erro", "quebra", "sucesso"}
+ESTILOS = {"dica", "erro", "quebra", "sucesso", "objetivo"}
+CAMPOS_OBJETIVO = ("problema", "impacto", "mecanismo", "comprovacao")
 ROTULOS = {"terminal", "arquivo", "saida", "log"}
 ORIGENS = {"executado", "codigo", "exemplo"}
 FRASE = re.compile(r"[.!?](\s|$)")
 ONDE = "📂 Onde está o código"
+CURADOS = {
+    "developer.mozilla.org", "web.dev", "www.w3.org", "w3c.github.io", "html.spec.whatwg.org", "datatracker.ietf.org", "www.rfc-editor.org",
+    "owasp.org", "cheatsheetseries.owasp.org", "martinfowler.com", "microservices.io", "c4model.com", "adr.github.io",
+    "learn.microsoft.com", "docs.aws.amazon.com", "aws.amazon.com", "docs.localstack.cloud", "aspire.dev",
+    "react.dev", "redux.js.org", "redux-toolkit.js.org", "tanstack.com", "vite.dev", "vitest.dev", "playwright.dev", "eslint.org",
+    "www.typescriptlang.org", "nodejs.org", "docs.npmjs.com", "hono.dev", "mswjs.io", "feature-sliced.design", "feature-sliced.github.io",
+    "git-scm.com", "docs.github.com", "docs.docker.com", "nginx.org", "www.postgresql.org", "www.sqlite.org", "www.npgsql.org",
+    "xunit.net", "opentelemetry.io", "json-schema.org", "semver.org", "www.bcb.gov.br", "jwt.io", "www.iana.org", "yaml.org",
+}
 COMO_OBTER = "🧭 Como ter o código na sua máquina"
 
 
@@ -89,11 +99,22 @@ def _bloco(bloco, commit: str, rotulo: str, flags: set[str] = frozenset()) -> li
             erros.append(f"{rotulo}: estilo de faixa inválido: {bloco['estilo']}.")
         elif bloco["estilo"] == "erro" and not all(k in bloco for k in ("sintoma", "causa", "correcao")):
             erros.append(f"{rotulo}: faixa de erro exige sintoma, causa e correcao.")
-        elif bloco["estilo"] != "erro" and "texto" not in bloco:
+        elif bloco["estilo"] == "objetivo" and not all(bloco.get(k) for k in CAMPOS_OBJETIVO):
+            erros.append(f"{rotulo}: faixa de objetivo exige {', '.join(CAMPOS_OBJETIVO)}.")
+        elif bloco["estilo"] not in ("erro", "objetivo") and "texto" not in bloco:
             erros.append(f"{rotulo}: faixa exige texto.")
         for l in bloco.get("links", []):
             if not l.get("rotulo") or not str(l.get("url", "")).startswith("https://"):
                 erros.append(f"{rotulo}: link de faixa exige rotulo e url https.")
+    if tipo == "glossario":
+        for i, item in enumerate(bloco["itens"], 1):
+            if not item.get("termo") or not item.get("definicao"):
+                erros.append(f"{rotulo}: termo {i} do glossário exige termo e definicao.")
+            ref = item.get("referencia")
+            if ref is not None:
+                host = re.match(r"https://([^/]+)/", str(ref.get("url", "")) + "/")
+                if not ref.get("rotulo") or not host or host.group(1) not in CURADOS:
+                    erros.append(f"{rotulo}: referência do termo {i} exige rotulo e url https de um portal curado.")
     if tipo == "editor":
         erros += _editor(bloco, commit, rotulo)
         if bloco.get("rotulo") == "arquivo" and not bloco.get("contexto"):
@@ -213,6 +234,16 @@ def validar_oda(dados: dict, catalogo: dict) -> list[str]:
         titulos = {b.get("titulo") for b in aba.get("blocos", []) if isinstance(b, dict)}
         if aba.get("id") == "missao" and COMO_OBTER not in titulos:
             erros.append(f"missao: falta a faixa {COMO_OBTER}.")
+        if aba.get("id") == "laboratorio":
+            estilos = [b.get("estilo") if b.get("tipo") == "faixa" else b.get("tipo") for b in aba.get("blocos", []) if isinstance(b, dict)]
+            esperado = 1 if estilos[:1] == ["legenda"] else 0
+            if estilos[esperado:esperado + 1] != ["objetivo"]:
+                erros.append("laboratorio: a faixa de objetivo deve vir logo depois da legenda.")
+        if aba.get("id") == "missao":
+            tipos = [b.get("tipo") for b in aba.get("blocos", []) if isinstance(b, dict)]
+            esperado = 1 if tipos[:1] == ["legenda"] else 0
+            if tipos[esperado:esperado + 1] != ["glossario"]:
+                erros.append("missao: o glossário deve vir logo depois da legenda, antes de qualquer outro bloco.")
         if aba.get("id") != "laboratorio" and _mostra_codigo(aba) and ONDE not in titulos:
             erros.append(f"{aba.get('id')}: aba mostra código e não tem a faixa {ONDE}.")
         for i, bloco in enumerate(aba.get("blocos", [])):

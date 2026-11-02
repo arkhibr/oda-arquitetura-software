@@ -5,7 +5,87 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: 'O objetivo desta ODA é aprender a decidir onde vale a pena modelar regras no próprio domínio e a garantir que um agregado proteja essas regras em qualquer sequência de operações. O caso de estudo é o pedido da API `net-minimal-api`: ele aceita oito unidades de um produto com estoque cinco, porque confere cada parcela e não a soma, e você vai reproduzir a falha pela API e corrigi-la com um teste de unidade escrito antes.'
+    texto: O objetivo desta ODA é decidir onde vale a pena modelar regras no próprio domínio e garantir que um agregado proteja essas regras em qualquer sequência de operações, porque uma invariante conferida só na parcela nova deixa o sistema vender mais do que tem em estoque. O caso de estudo é o pedido da API `net-minimal-api`, que aceita oito unidades de um produto com estoque cinco quando elas chegam em duas chamadas de quatro. Você vai reproduzir a falha pela API e corrigi-la dentro do agregado, com um teste de unidade escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: DDD (Domain-Driven Design)
+      definicao: Abordagem de projeto de software que organiza o código em torno do modelo do negócio e da linguagem usada pelos especialistas do domínio. A parte tática do DDD trata dos blocos de construção desse modelo, como entidade, value object e agregado.
+      referencia:
+        rotulo: Microsoft Learn · Criando um modelo de domínio de microsserviço
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/microservice-domain-model
+    - termo: Agregado e raiz do agregado
+      definicao: Agregado é um grupo de objetos do domínio tratado como uma unidade de consistência, e a raiz é o único objeto do grupo que o código de fora pode chamar. O `Pedido` é a raiz do agregado de pedido, e os `PedidoItem` só mudam por meio dos métodos dele.
+      referencia:
+        rotulo: martinfowler.com · DDD Aggregate
+        url: https://martinfowler.com/bliki/DDD_Aggregate.html
+    - termo: Invariante
+      definicao: Regra de negócio que precisa valer depois de qualquer operação sobre o objeto, e não só na criação, como a quantidade de um item não passar do estoque disponível.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, a decisão tomada, as alternativas descartadas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`, e esta ODA as usa como registro das escolhas que o código mostra.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Domínio rico e domínio anêmico
+      definicao: No domínio rico, as entidades guardam as regras de negócio nos próprios métodos. No domínio anêmico, elas só carregam dados, e as regras ficam em serviços, e a ADR-0015 do repositório escolhe domínio rico só para Produto, Categoria e Variante.
+      referencia:
+        rotulo: martinfowler.com · Anemic Domain Model
+        url: https://martinfowler.com/bliki/AnemicDomainModel.html
+    - termo: CRUD
+      definicao: Sigla de Create, Read, Update e Delete, as quatro operações básicas sobre um registro. Um recurso tratado como CRUD só grava e lê dados, sem regras de domínio próprias, e a ADR-0015 trata assim os recursos Atributo e Mídia.
+      referencia:
+        rotulo: MDN · CRUD
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/CRUD
+    - termo: Value object (objeto de valor)
+      definicao: Objeto do domínio definido apenas pelo valor que carrega, sem identidade própria, e que valida esse valor na criação. No Catálogo, `PrecoProduto` e `EstoqueProduto` são value objects, e um preço inválido não chega a existir.
+      referencia:
+        rotulo: Microsoft Learn · Implementando objetos de valor
+        url: https://learn.microsoft.com/pt-br/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/implement-value-objects
+    - termo: Entidade
+      definicao: Objeto do domínio que tem identidade própria, um `Id` que permanece o mesmo enquanto os outros dados mudam. `Produto` e `PedidoItem` são entidades no repositório.
+    - termo: Fronteira de consistência
+      definicao: Limite do que um agregado consegue garantir sozinho numa operação. Uma regra que envolve dois agregados, como pedidos diferentes disputando o mesmo estoque de `Produto`, fica fora da fronteira de cada um e precisa de outro mecanismo.
+    - termo: '`sealed record`'
+      definicao: Tipo C# que compara instâncias pelo valor dos campos, e o `sealed` impede que outras classes herdem dele. A ADR-0004 do repositório usa `sealed record` com construtor privado para os value objects.
+      referencia:
+        rotulo: Microsoft Learn · Tipos de registro em C#
+        url: https://learn.microsoft.com/pt-br/dotnet/csharp/fundamentals/types/records
+    - termo: Padrão Result (`Result` e `Result<T>`)
+      definicao: Tipo de retorno que informa sucesso ou falha de forma explícita, com `IsSuccess`, o valor em caso de sucesso e a mensagem em `Error` em caso de falha. No repositório, `Result` e `Result<T>` são records definidos em `src/Shared/Common/Result.cs` e em `Catalogo.Domain/Common/Result.cs`, e a ADR-0003 registra o uso deles para erros de domínio.
+    - termo: Reidratação (`Reconstituir`)
+      definicao: Recriação de um objeto do domínio a partir dos dados já gravados no banco. Nos value objects do Catálogo, `Criar` serve para dados novos e `Reconstituir` é usado na leitura do banco.
+    - termo: DataAnnotations
+      definicao: Atributos do .NET, como `[Required]` e `[Range]`, que declaram regras de validação diretamente nas propriedades de uma classe. A ADR-0004 os cita como alternativa descartada aos value objects.
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional da Microsoft, que traduz classes C# em tabelas e consultas LINQ em SQL. No repositório, ele grava os dados no SQLite e atende as operações de escrita.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral do Entity Framework Core
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: '`DbContext`'
+      definicao: Classe do EF Core que representa a sessão com o banco, expõe as tabelas como `DbSet` e grava as mudanças com `SaveChanges`. No repositório, o `AppDbContext`, em `src/Shared/Data`, atende o Catálogo e os Pedidos.
+    - termo: Teste de unidade
+      definicao: Teste que exercita uma classe isolada, como o agregado `Pedido`, sem subir a API nem acessar o banco. Ele roda em milissegundos e aponta a regra exata que falhou.
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros de exemplo que a API grava no banco ao iniciar, pelo `DbSeeder` do Catálogo, para que haja produtos e categorias desde a primeira execução. Apagar o `produtos-api.db` faz a API recriar o banco com esses dados na próxima vez que subir.
+    - termo: JWT (JSON Web Token)
+      definicao: 'Formato de token assinado que carrega, em JSON, a identidade do usuário e a validade do acesso. A API emite o token em `/api/v1/auth/login`, e o cliente o envia no cabeçalho `Authorization: Bearer <token>` para acessar as rotas protegidas, como as de Pedidos.'
+      referencia:
+        rotulo: Microsoft Learn · Autenticação de portador JWT no ASP.NET Core
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/configure-jwt-bearer-authentication
+    - termo: Transação
+      definicao: Conjunto de operações no banco que é gravado inteiro ou descartado inteiro, de modo que nenhum outro acesso veja o estado intermediário.
+    - termo: Migrations
+      definicao: Arquivos gerados pelo EF Core que descrevem, em C#, cada mudança no esquema do banco, para que ela seja aplicada de forma versionada. A API aplica as migrations pendentes ao iniciar, fora do ambiente de testes.
+      referencia:
+        rotulo: Microsoft Learn · Visão geral das migrações
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Erros `CS0234`, `CS0246` e `MSB3030`
+      definicao: 'Os códigos que começam com `CS` vêm do compilador C#: o `CS0234` indica que um namespace ou tipo não existe dentro do namespace citado, e o `CS0246` indica que um tipo não foi encontrado, em geral por falta de `using` ou de referência de projeto. O `MSB3030` vem do MSBuild e indica que um arquivo marcado para cópia não foi encontrado no momento da cópia.'
+    - termo: '`git stash` e `detached HEAD`'
+      definicao: O `git stash` guarda as alterações locais numa pilha e deixa a pasta como no último commit, e o `git stash pop` as devolve. O `detached HEAD` é o estado em que o Git fica depois de `git checkout <commit>`, apontando para um commit e não para um branch.
+      referencia:
+        rotulo: Git · git-stash
+        url: https://git-scm.com/docs/git-stash
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,25 +133,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · oito notebooks com estoque cinco
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
-      saida: ''
-      origem: executado
-    - entrada: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":1,"quantidade":4}]}'' http://localhost:5000/api/v1/pedidos'
-      saida: '201'
-      origem: executado
-    - entrada: curl -s http://localhost:5000/api/v1/catalogo/produtos/1 | grep -o '"estoque":[0-9]*'
-      saida: '"estoque":5'
-      origem: executado
-    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
-      saida: '{"id":1,"status":"Rascunho","total":36000.0,"criadoEm":"2026-11-02T00:34:43.790497","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":8,"subtotal":36000.0}]} 200'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Estoque do produto 1
-      comando: curl -s http://localhost:5000/api/v1/catalogo/produtos/1 | grep -o '"estoque":[0-9]*'
-    - rotulo: Mais quatro unidades
-      comando: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":1,"quantidade":4}'' http://localhost:5000/api/v1/pedidos/1/itens'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -323,7 +398,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é corrigir a regra de estoque e de limite do pedido dentro do agregado, provando a falha antes e a correção depois. Os passos 1 e 2 sobem a API com o banco de exemplo e reproduzem a brecha por `curl`, os passos 3 a 6 escrevem os testes de unidade e corrigem `Pedido.AdicionarItem`, e o passo 7 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é fazer o agregado `Pedido` conferir estoque e limite de quantidade sobre a quantidade final do item, porque hoje ele confere cada parcela isolada e aceita um pedido acima do estoque. Os passos 1 e 2 sobem a API com o banco de exemplo e reproduzem a brecha por `curl`, os passos 3 a 6 escrevem os testes de unidade e corrigem `Pedido.AdicionarItem`, e o passo 7 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: Em `src/Pedidos/Domain/Pedido.cs`, o `AdicionarItem` confere o limite de 999 unidades e o estoque do produto só para a quantidade da parcela nova, e soma essa parcela ao item existente depois das verificações. Quando a soma passa de 999, quem a percebe é o `PedidoItem.IncrementarQuantidade`, que lança exceção fora do padrão `Result` usado pelo agregado.
+    impacto: Duas chamadas de quatro unidades deixam o pedido com oito unidades de um produto com estoque cinco, e a API responde 200. A exceção do limite chegaria ao middleware de tratamento de exceções como 500, uma falha do servidor para um erro que é do cliente.
+    mecanismo: Dois testes de unidade escritos antes conferem a soma contra o estoque e contra o limite de 999. A correção, feita na raiz do agregado, procura o item existente antes das regras e confere estoque e limite com a quantidade final, sem mudar o handler nem o endpoint.
+    comprovacao: 'Antes da correção, os dois testes falham, um com `found True` e outro com `System.InvalidOperationException : Quantidade máxima por item é 999.`, e depois passam, com a suíte em 145 aprovações. Com a API reiniciada, a segunda chamada recebe 400 com `Produto ''Notebook Dell XPS 13'' sem estoque suficiente.`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

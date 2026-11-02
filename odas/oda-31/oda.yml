@@ -5,7 +5,111 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é comparar como o DynamoDB e um banco relacional garantem uma regra de negócio quando várias requisições chegam ao mesmo tempo, com testes de integração contra os dois. No repositório `aspire-aws`, o cenário 03 usa o DynamoDB do LocalStack, e o cenário 17 usa um PostgreSQL que faz o papel do RDS, porque a API de controle do RDS não existe no LocalStack Community. Você vai provar que ler o estoque e depois gravar vende mais do que existe e corrigir a reserva com uma escrita condicional em cada banco.
+    texto: O objetivo desta ODA é impedir que reservas simultâneas vendam mais estoque do que existe, defeito de perda de atualização que testes sequenciais não revelam, comparando como o Amazon DynamoDB e um banco relacional garantem essa regra. No repositório `aspire-aws`, o cenário 03 usa o DynamoDB do LocalStack, e o cenário 17 usa um PostgreSQL no papel do Amazon RDS (Relational Database Service), porque a API de controle do RDS não existe no LocalStack Community. Você vai provar com dez reservas em paralelo que ler o estoque e depois gravar aprova dez vendas para cinco unidades e corrigir a reserva com uma escrita condicional em cada banco.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Amazon DynamoDB
+      definicao: Banco NoSQL gerenciado da AWS que guarda itens em tabelas e os localiza pela chave. A tabela declara apenas a chave, e cada item pode ter atributos diferentes, sem colunas fixas.
+      referencia:
+        rotulo: O que é o Amazon DynamoDB? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Introduction.html
+    - termo: Banco relacional
+      definicao: Banco que guarda dados em tabelas com colunas e tipos declarados e é consultado em SQL, com junções e transações. Nesta ODA, o banco relacional é o PostgreSQL.
+    - termo: Requisições simultâneas (concorrência)
+      definicao: Situação em que várias requisições leem e alteram o mesmo dado ao mesmo tempo. O laboratório dispara dez reservas do mesmo produto em paralelo para provocar essa situação.
+    - termo: Teste de integração
+      definicao: Teste que exercita o código junto com dependências reais, como um banco de dados num contêiner. Os testes desta ODA gravam e leem no DynamoDB do LocalStack e no PostgreSQL.
+    - termo: Cenário
+      definicao: No repositório `aspire-aws`, cada pasta numerada de `scenarios/` é um cenário, um projeto de testes xUnit que exercita uma integração com serviços da AWS. Esta ODA usa o cenário 03, `03-DynamoDB.Basic`, e o cenário 17, `17-RDS.Basic`.
+    - termo: LocalStack e LocalStack Community
+      definicao: O LocalStack é um emulador dos serviços da AWS que roda num contêiner Docker e responde na porta 4566. O repositório usa a edição gratuita, a Community, na versão 3.8, que emula o DynamoDB e não oferece a API de controle do RDS, disponível na edição paga, a Pro.
+      referencia:
+        rotulo: Documentação do LocalStack
+        url: https://docs.localstack.cloud/overview/
+    - termo: PostgreSQL
+      definicao: Banco de dados relacional de código aberto. O AppHost declara um contêiner PostgreSQL 16.9 na porta 5433, que os testes do cenário 17 usam no lugar de uma instância do RDS.
+    - termo: Amazon RDS (Relational Database Service)
+      definicao: Serviço da AWS que cria e administra instâncias de bancos relacionais, como o PostgreSQL. Os dados são acessados pelo próprio banco, em SQL, e a criação e a configuração das instâncias passam por uma API do serviço.
+      referencia:
+        rotulo: O que é o Amazon RDS? (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/AmazonRDS/latest/UserGuide/Welcome.html
+    - termo: API de controle do RDS
+      definicao: Conjunto de chamadas do RDS que cria, altera, descreve e remove instâncias de banco, como `CreateDBInstance`. A fixture do cenário 17 tenta essa chamada e segue sem ela quando o LocalStack Community a recusa.
+    - termo: Chave de partição e chave primária
+      definicao: No DynamoDB, a chave de partição é o atributo que identifica o item e define onde ele é guardado, e a tabela `items` do cenário 03 usa o atributo `id`. Numa tabela relacional, a chave primária é a coluna ou o conjunto de colunas que identifica cada linha.
+      referencia:
+        rotulo: Componentes principais do Amazon DynamoDB (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/HowItWorks.CoreComponents.html
+    - termo: Perda de atualização
+      definicao: Falha de concorrência em que duas requisições leem o mesmo valor, calculam o novo valor na aplicação e gravam, e a segunda gravação apaga o efeito da primeira. Com estoque 5 e dez reservas simultâneas, todas podem ler 5 e aprovar a venda.
+      referencia:
+        rotulo: Transaction Isolation (documentação do PostgreSQL)
+        url: https://www.postgresql.org/docs/current/transaction-iso.html
+    - termo: Escrita condicional
+      definicao: Gravação que o próprio banco só aplica se uma condição for verdadeira no momento da escrita, numa única operação atômica. No DynamoDB, a condição vai na `ConditionExpression` do `UpdateItem`, e no SQL vai no `WHERE` do `UPDATE`.
+      referencia:
+        rotulo: Expressões de condição do DynamoDB (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html
+    - termo: Operação atômica
+      definicao: Operação que o banco executa por inteiro ou não executa, sem que outra requisição veja um estado intermediário. É o que impede duas reservas de usarem a mesma unidade de estoque.
+    - termo: '`ConditionalCheckFailedException`'
+      definicao: Exceção que o DynamoDB lança quando a condição de uma escrita condicional é falsa. O item não muda, e o código da reserva trata a exceção como recusa.
+    - termo: Docker e contêiner
+      definicao: O Docker executa programas em contêineres, processos isolados que levam consigo as próprias dependências a partir de uma imagem. O LocalStack e o PostgreSQL dos cenários rodam como contêineres na sua máquina.
+      referencia:
+        rotulo: What is Docker? (documentação do Docker)
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: WSL (Windows Subsystem for Linux)
+      definicao: Recurso do Windows que roda um ambiente Linux dentro do sistema. No Windows, os comandos desta ODA devem rodar nele, porque usam a sintaxe do bash.
+      referencia:
+        rotulo: O que é o Subsistema do Windows para Linux (Microsoft Learn)
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: '`GetItem`, `Query`, `Scan`, `PutItem` e `UpdateItem`'
+      definicao: Operações do DynamoDB. O `GetItem` lê um item pela chave, o `Query` lê itens de uma mesma chave de partição, o `Scan` percorre a tabela inteira em páginas de até 1 MB, o `PutItem` grava o item inteiro e o `UpdateItem` altera atributos de um item.
+      referencia:
+        rotulo: Trabalhar com itens e atributos no DynamoDB (documentação da AWS)
+        url: https://docs.aws.amazon.com/pt_br/amazondynamodb/latest/developerguide/WorkingWithItems.html
+    - termo: Transação
+      definicao: Conjunto de operações que o banco aplica por inteiro ou desfaz por inteiro. No DynamoDB, o `TransactWriteItems` agrupa até 100 itens, e no PostgreSQL a transação começa com `BEGIN` e termina com `COMMIT` ou `ROLLBACK`.
+    - termo: AppHost
+      definicao: Projeto do .NET Aspire que declara, em C#, os recursos que a aplicação precisa. No repositório, `src/AppHost/Program.cs` declara os contêineres do LocalStack e do PostgreSQL usados por todos os cenários.
+      referencia:
+        rotulo: What is the AppHost? (documentação do Aspire)
+        url: https://learn.microsoft.com/pt-br/dotnet/aspire/fundamentals/app-host-overview
+    - termo: .NET Aspire
+      definicao: Conjunto de ferramentas da Microsoft para descrever e subir, a partir de um projeto .NET, os serviços e contêineres de que uma aplicação depende. Nos testes do repositório, o Aspire sobe o LocalStack e o PostgreSQL para os cenários.
+      referencia:
+        rotulo: What is Aspire? (documentação do Aspire)
+        url: https://learn.microsoft.com/pt-br/dotnet/aspire/get-started/aspire-overview
+    - termo: ADR (Architecture Decision Record)
+      definicao: Registro curto de uma decisão de arquitetura, com o contexto, a decisão, as alternativas e as consequências. A ADR-003, em `docs/architecture/adrs/`, registra o uso do LocalStack Community e as limitações dele.
+      referencia:
+        rotulo: Architectural Decision Records (adr.github.io)
+        url: https://adr.github.io/
+    - termo: xUnit e fixture
+      definicao: O xUnit é o framework de testes para .NET usado nos cenários. A fixture é a classe que o xUnit cria antes dos testes para preparar recursos compartilhados, como a tabela `items` do cenário 03, e `IClassFixture` liga uma fixture a uma classe de teste.
+      referencia:
+        rotulo: Sharing Context between Tests (documentação do xUnit)
+        url: https://xunit.net/docs/shared-context
+    - termo: Cobrança por requisição (`PAY_PER_REQUEST`)
+      definicao: Modo de cobrança do DynamoDB em que a tabela não reserva capacidade de leitura e escrita e cobra cada operação. A fixture do cenário 03 cria a tabela nesse modo.
+    - termo: Pool de conexões e Npgsql
+      definicao: O Npgsql é o driver que liga programas .NET ao PostgreSQL. O pool de conexões guarda conexões abertas para reaproveitá-las, e ele pertence ao processo inteiro, por isso pode entregar uma conexão aberta com um banco que já foi encerrado.
+      referencia:
+        rotulo: Connection String Parameters, seção Pooling (documentação do Npgsql)
+        url: https://www.npgsql.org/doc/connection-string-parameters.html
+    - termo: Erro `57P01`
+      definicao: Código de erro do PostgreSQL para conexão encerrada por um comando do administrador, `admin_shutdown`. No laboratório, ele aparece quando o pool entrega uma conexão com o PostgreSQL de uma classe de teste anterior, que o Aspire já tinha encerrado.
+      referencia:
+        rotulo: PostgreSQL Error Codes (documentação do PostgreSQL)
+        url: https://www.postgresql.org/docs/current/errcodes-appendix.html
+    - termo: Teste ignorado (`Skip`)
+      definicao: Teste marcado para não rodar, com o motivo registrado no atributo. Os três testes do cenário 17 que chamam a API de controle do RDS são ignorados, com o motivo na constante `LocalStackRdsApiReason`.
+    - termo: Modo duplo (`AWS_TARGET=aws`)
+      definicao: Variável de ambiente que desvia os mesmos testes para a AWS real. Sem ela, o AppHost sobe o LocalStack, e os clientes do SDK da AWS apontam para a porta 4566.
+    - termo: Socket do Docker e Colima
+      definicao: O arquivo `/var/run/docker.sock` é o canal pelo qual programas conversam com o daemon do Docker, e o AppHost o monta no contêiner do LocalStack para os cenários com Lambda. O Colima, ferramenta que roda o Docker no macOS numa máquina virtual Linux, não cria esse arquivo na configuração padrão, e a montagem falha.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,25 +157,21 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · rodar os cenários 03 e 17
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
-      saida: 'Aprovado!  – Com falha:     0, Aprovado:     4, Ignorado:     0, Total:     4, Duração: 140 ms - 03-DynamoDB.Basic.dll (net10.0)'
-      origem: executado
-      dica: Os quatro testes do cenário 03 gravam e leem itens um de cada vez.
-    - entrada: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
-      saida: 'Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     3, Total:     8, Duração: 46 ms - 17-RDS.Basic.dll (net10.0)'
-      origem: executado
-      dica: Os três ignorados chamam a API de controle do RDS, que o LocalStack Community não oferece. Os cinco aprovados usam o PostgreSQL do AppHost.
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior, como exige o `global.json`.
     - entrada: docker info --format '{{.ServerVersion}}'
       saida: 29.5.2
-      origem: executado
-      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
     cenarios:
-    - rotulo: Cenário 03, DynamoDB
-      comando: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
-    - rotulo: Cenário 17, PostgreSQL
-      comando: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
+      comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
   titulo: Conceito
   blocos:
@@ -255,7 +355,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é implementar a reserva de estoque nos dois bancos de forma que dez reservas simultâneas nunca vendam mais que as cinco unidades existentes. Os passos 1 a 4 escrevem o teste no DynamoDB, mostram a versão que lê e grava falhar e corrigem com a escrita condicional, e os passos 5 a 7 repetem o teste no PostgreSQL. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é eliminar a perda de atualização na reserva de estoque, que aprova dez vendas para cinco unidades, levando a condição para dentro da escrita nos dois bancos e provando a correção com dez reservas simultâneas. Os passos 1 a 4 escrevem o teste no DynamoDB, mostram a versão que lê e grava falhar e corrigem com a escrita condicional, e os passos 5 a 7 repetem o teste no PostgreSQL e corrigem o pool de conexões. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: Os testes dos cenários 03 e 17 gravam e leem um item por vez, e nenhum deles exercita duas requisições sobre o mesmo dado. Uma reserva de estoque que lê o valor, confere na aplicação e grava o resultado sofre perda de atualização quando as requisições chegam juntas.
+    impacto: Com estoque 5 e dez reservas simultâneas, as dez são aprovadas, e a loja vende o dobro do que tem. A falha não aparece em testes sequenciais e só se manifesta sob carga, quando o prejuízo já aconteceu.
+    mecanismo: O laboratório escreve primeiro um teste com dez reservas em paralelo, mostra a versão que lê e grava falhando e corrige com escrita condicional, usando a `ConditionExpression` do `UpdateItem` no DynamoDB e a condição `estoque >= @quantidade` no `WHERE` do `UPDATE` no PostgreSQL. No caminho, corrige o erro `57P01` do pool de conexões do Npgsql com `NpgsqlConnection.ClearAllPools()` na fixture.
+    comprovacao: 'A versão que lê e grava falha com `Expected: 5` e `Actual: 10`. Com a escrita condicional, o cenário 03 mostra `Aprovado: 5`, e o cenário 17 mostra `Aprovado: 6` e `Ignorado: 3`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
@@ -265,7 +371,7 @@ abas:
     titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
     sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
     causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
-    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
+    correcao: Depois do `git stash` da faixa Antes de começar, na aba Laboratório, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
   - tipo: passos
     itens:
     - titulo: Rodar o cenário 03

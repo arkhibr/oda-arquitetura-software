@@ -5,7 +5,76 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é fazer o compilador detectar uma quebra de contrato entre um BFF e o microfrontend que o consome. No `frontend-react`, o microfrontend de endereço declara à mão o formato da resposta do BFF, e uma renomeação no BFF passa por todos os testes e pelo `tsc` dos dois lados. Você vai aplicar a proposta de tipos compartilhados pelo Hono RPC até que a mesma renomeação pare o build do microfrontend.
+    texto: O objetivo desta ODA é impedir que uma quebra de contrato entre um BFF (Backend for Frontend) e o microfrontend que o consome chegue ao portal sem aviso, fazendo o compilador detectá-la. No `frontend-react`, o microfrontend de endereço declara à mão o formato da resposta do BFF, e uma renomeação no BFF passa por todos os testes e pelo compilador TypeScript (`tsc`) dos dois lados, de modo que o erro só apareceria com o portal em uso. Você vai aplicar a proposta de tipos compartilhados pelo Hono RPC (Remote Procedure Call) até que a mesma renomeação pare o build do microfrontend, sem levar código do BFF ao bundle.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Contrato e quebra de contrato
+      definicao: Contrato é o formato combinado de uma resposta, com os campos, os nomes e os tipos de cada um. Há quebra de contrato quando quem produz a resposta muda esse formato, por exemplo renomeando um campo, sem que quem a consome seja ajustado.
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface específica, que adapta os dados dos sistemas internos ao formato de que essa interface precisa. O BFF de endereço, em `bffs/endereco/`, atende o microfrontend de endereço.
+      referencia:
+        rotulo: Microsoft Learn · Backends para Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Microfrontend
+      definicao: Parte da interface do portal com build e deploy próprios, que o shell carrega numa rota enquanto o usuário navega. O microfrontend de endereço fica em `mfes/endereco/` e chama o BFF de endereço pelo Gateway.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: TypeScript e o compilador tsc
+      definicao: O TypeScript acrescenta tipos estáticos ao JavaScript, e o compilador `tsc` confere esses tipos antes da execução. Os erros vêm com códigos como `TS2339`, propriedade inexistente no tipo, e `TS2741`, propriedade obrigatória ausente.
+      referencia:
+        rotulo: TypeScript · Everyday Types
+        url: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+    - termo: Hono e Hono RPC (Remote Procedure Call)
+      definicao: O Hono é o framework web do Gateway e dos BFFs. O Hono RPC é o recurso dele que deriva do próprio código das rotas um tipo com caminho, método e resposta de cada uma, que o cliente `hc` usa para chamar o servidor com os tipos conferidos pelo compilador.
+      referencia:
+        rotulo: Hono · RPC
+        url: https://hono.dev/docs/guides/rpc
+    - termo: Build e bundle
+      definicao: O build transforma o código-fonte em arquivos prontos para o navegador, e o bundle é o arquivo JavaScript que resulta dele. O build do microfrontend roda o `tsc` antes de gerar o bundle.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. A ADR-009 define o contrato técnico entre shell, microfrontend e BFF, e a ADR-017 propõe os tipos compartilhados pelo Hono RPC.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: import type
+      definicao: Forma de importação do TypeScript que traz só tipos de outro módulo. Ela existe apenas para o compilador e desaparece do JavaScript gerado, de modo que nenhum código do BFF entra no bundle do microfrontend.
+      referencia:
+        rotulo: TypeScript · Modules
+        url: https://www.typescriptlang.org/docs/handbook/2/modules.html
+    - termo: Alias de caminho
+      definicao: Nome curto configurado no `tsconfig.json`, no campo `paths`, que o compilador traduz para uma pasta do projeto. O laboratório cria um alias para que o microfrontend importe o `contract.ts` do BFF sem um caminho relativo longo.
+      referencia:
+        rotulo: TypeScript · Modules - Reference
+        url: https://www.typescriptlang.org/docs/handbook/modules/reference.html
+    - termo: Tipo genérico e anotação de tipo
+      definicao: Um tipo genérico recebe outros tipos como parâmetro, como `Hono<BffEnv>`. Escrever essa anotação no retorno de uma função faz o compilador usar o tipo declarado e descartar o tipo mais detalhado que ele inferiria das rotas encadeadas.
+      referencia:
+        rotulo: TypeScript · Generics
+        url: https://www.typescriptlang.org/docs/handbook/2/generics.html
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS. No portal, cada microfrontend é publicado num bucket do S3, emulado pelo LocalStack em desenvolvimento.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Esteira de integração contínua (CI)
+      definicao: Sequência automática de verificações, como instalação, conferência de tipos, testes e build, que roda a cada mudança enviada ao repositório. Com o contrato compartilhado, a esteira do microfrontend passa a precisar do código e das dependências do BFF.
+      referencia:
+        rotulo: GitHub Docs · Noções básicas sobre GitHub Actions
+        url: https://docs.github.com/pt/actions/about-github-actions/understanding-github-actions
+    - termo: tRPC
+      definicao: Biblioteca que gera chamadas tipadas entre cliente e servidor TypeScript. A ADR-017 a descartou porque exigiria duas dependências novas e agruparia chamadas, o que quebraria a auditoria por rota feita no Gateway.
+    - termo: Vitest
+      definicao: Framework de testes para projetos JavaScript e TypeScript integrado ao Vite, usado nos testes do BFF e do microfrontend.
+      referencia:
+        rotulo: Vitest · Getting Started
+        url: https://vitest.dev/guide/
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta as requisições HTTP e devolve respostas simuladas. Os testes do microfrontend usam respostas simuladas e por isso não percebem a mudança feita no BFF.
+      referencia:
+        rotulo: Mock Service Worker · Introduction
+        url: https://mswjs.io/docs/
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,43 +122,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · renomeação no BFF
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
-      saida: ''
-      origem: executado
-      efeito: renomeado
-      dica: O comando troca `numero` por `numeroDoImovel` em todo o BFF de endereço, inclusive nos testes, sem imprimir nada.
-    - entrada: (cd bffs/endereco && npx vitest run)
-      condicao: renomeado
-      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
-      origem: executado
-    - entrada: (cd bffs/endereco && npx vitest run)
-      saida: " RUN  v4.1.9 ./bffs/endereco\n\n\n Test Files  3 passed (3)\n      Tests  9 passed (9)"
-      origem: executado
-    - entrada: (cd mfes/endereco && npx tsc --noEmit)
-      condicao: renomeado
-      saida: ''
-      origem: executado
-      dica: 'Sem mensagens: o microfrontend não percebe a mudança no BFF.'
-    - entrada: (cd mfes/endereco && npx tsc --noEmit)
-      saida: ''
-      origem: executado
-      dica: 'Sem mensagens: os tipos conferem.'
-    - entrada: git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
-      saida: ''
-      origem: executado
-      efeito: '!renomeado'
-      dica: O comando restaura só os arquivos tocados pela renomeação e mantém o `routes.ts` e o `contract.ts`.
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Renomear numero no BFF
-      comando: perl -pi -e 's/\bnumero\b/numeroDoImovel/g' bffs/endereco/src/*.ts bffs/endereco/src/__tests__/*.ts
-    - rotulo: Testes do BFF
-      comando: (cd bffs/endereco && npx vitest run)
-    - rotulo: Tipos do microfrontend
-      comando: (cd mfes/endereco && npx tsc --noEmit)
-    - rotulo: Desfazer
-      comando: git checkout -- bffs/endereco/src/legacyBackend.ts bffs/endereco/src/validation.ts bffs/endereco/src/__tests__
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -306,7 +352,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é transformar uma quebra de contrato silenciosa num erro de compilação. Os passos 1 a 4 mostram a quebra passando pelos testes, os passos 5 a 10 aplicam a prova de conceito acompanhando cada erro de compilação, e os passos 11 e 12 repetem a quebra e conferem que o bundle não leva código do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é transformar uma quebra de contrato silenciosa num erro de compilação do microfrontend, ligando o tipo que ele usa às rotas do BFF. Os passos 1 a 4 mostram a renomeação passando pelos testes e pelo `tsc`, os passos 5 a 10 aplicam a prova de conceito com o Hono RPC acompanhando cada erro de compilação, e os passos 11 e 12 repetem a quebra e conferem que o bundle não leva código do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O microfrontend de endereço declara à mão, em `mfes/endereco/src/EnderecoForm.tsx`, o formato da resposta do BFF de endereço. Quando o BFF renomeia `numero` para `numeroDoImovel`, os testes e o `tsc` dos dois lados continuam passando, porque cada lado confere o código contra a própria cópia do tipo.
+    impacto: A quebra de contrato só aparece com o portal em uso, quando a tela recebe o número do imóvel num campo que ela não lê. Nenhuma etapa da esteira avisa a equipe do microfrontend antes da publicação.
+    mecanismo: O BFF passa a exportar num `contract.ts` o tipo derivado das próprias rotas pelo Hono RPC, com as rotas encadeadas e sem anotação de retorno, para que o tipo guarde caminho, método e resposta. O microfrontend importa esse tipo com `import type` por um alias de caminho no `tsconfig.json`, o que leva o tipo ao compilador sem levar código do BFF ao bundle.
+    comprovacao: Repetida a mesma renomeação, o `tsc` do microfrontend acusa quatro erros, entre eles `Argument of type '"numero"' is not assignable`, e o `npm run build` para. Desfeita a renomeação, o bundle tem `296.05 kB`, o mesmo tamanho do commit de referência, com `0` ocorrências de código do BFF.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

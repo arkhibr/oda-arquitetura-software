@@ -5,7 +5,144 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é colocar o portal `frontend-react` para rodar na sua máquina e saber em que pasta fica cada parte dele. Você vai clonar o repositório, publicar os microfrontends num S3 local emulado pelo LocalStack, subir o shell e abrir a rota `/endereco`, que carrega um microfrontend publicado. No caminho, cada pasta do repositório fica associada à responsabilidade que ela tem no portal.
+    texto: O objetivo desta ODA é colocar o portal `frontend-react` para rodar na sua máquina e localizar cada parte dele no repositório, porque sem o ambiente no ar e sem esse mapa nenhuma decisão de arquitetura do portal pode ser conferida no código. Você vai clonar o repositório, publicar os microfrontends num Amazon S3 (Simple Storage Service) local emulado pelo LocalStack, subir o shell e abrir a rota `/endereco`, que carrega um microfrontend publicado. No caminho, cada pasta do repositório fica associada à responsabilidade que ela tem no portal, e as falhas de ambiente mais comuns passam a ser reconhecidas pela mensagem do console do navegador.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica dentro de um bucket e é acessado por uma URL. No portal, o S3 guarda os bundles publicados dos microfrontends.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Node.js
+      definicao: Ambiente que executa JavaScript fora do navegador. No repositório, ele roda o Vite, os testes, o script de deploy, o Gateway e os BFFs.
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: Docker e Docker Compose
+      definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
+      referencia:
+        rotulo: Docker Docs · Docker Compose
+        url: https://docs.docker.com/compose/
+    - termo: Type stripping do Node.js (`--experimental-strip-types`)
+      definicao: Opção do Node.js que remove as anotações de tipo de um arquivo TypeScript e executa o JavaScript que sobra, sem etapa de compilação. Os scripts de deploy, o Gateway e os BFFs rodam dessa forma, e por isso exigem Node 22.12 ou superior.
+      referencia:
+        rotulo: Node.js · Módulos TypeScript
+        url: https://nodejs.org/api/typescript.html
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: detached HEAD
+      definicao: Estado do Git em que a cópia de trabalho aponta para um commit específico, fora de qualquer branch. É o estado que o `git checkout` de um commit produz, e as alterações feitas nele não pertencem a nenhum branch até que um seja criado.
+      referencia:
+        rotulo: Git · git checkout
+        url: https://git-scm.com/docs/git-checkout
+    - termo: WSL (Windows Subsystem for Linux) e Git Bash
+      definicao: O WSL é um recurso do Windows que executa um ambiente Linux completo, e o Git Bash é o terminal bash que acompanha o Git para Windows. Os dois aceitam a sintaxe de comandos usada nos laboratórios.
+      referencia:
+        rotulo: Microsoft Learn · O que é o Subsistema do Windows para Linux
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: SPA (Single-Page Application)
+      definicao: Aplicação web que carrega uma única página HTML e troca o conteúdo da tela por JavaScript, sem recarregar a página a cada navegação. O shell é uma SPA.
+      referencia:
+        rotulo: MDN · SPA (Single-page application)
+        url: https://developer.mozilla.org/en-US/docs/Glossary/SPA
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Hono
+      definicao: Framework web leve para JavaScript e TypeScript, que define rotas e middlewares de um servidor HTTP. O Gateway e os BFFs do repositório são aplicações Hono.
+      referencia:
+        rotulo: Hono · Documentação
+        url: https://hono.dev/docs/
+    - termo: Modelo C4
+      definicao: Forma de diagramar arquitetura de software em quatro níveis de detalhe, contexto, containers, componentes e código, em que cada nível amplia uma parte do anterior. A documentação do repositório traz os níveis de contexto e de containers em `docs/architecture/README.md`.
+      referencia:
+        rotulo: C4 model · Página oficial
+        url: https://c4model.com/
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
+      referencia:
+        rotulo: Mock Service Worker · Introdução
+        url: https://mswjs.io/docs/
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: ESM (ECMAScript Modules)
+      definicao: Formato padrão de módulos do JavaScript, com `import` e `export`, que o navegador carrega diretamente. Os bundles dos microfrontends são módulos ESM.
+      referencia:
+        rotulo: MDN · Módulos JavaScript
+        url: https://developer.mozilla.org/pt-BR/docs/Web/JavaScript/Guide/Modules
+    - termo: Vite e modo biblioteca (lib mode)
+      definicao: O Vite é a ferramenta de build e o servidor de desenvolvimento do shell e dos microfrontends, o mesmo que responde em `npm run dev`. O modo biblioteca gera um único arquivo a partir de um ponto de entrada, e é assim que cada microfrontend vira um bundle ESM.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: CORS (Cross-Origin Resource Sharing)
+      definicao: Mecanismo de cabeçalhos HTTP com que um servidor autoriza páginas de outra origem a ler as respostas dele. Os buckets precisam de CORS porque o shell, na porta 5173, baixa bundles servidos pela porta 4566, que é outra origem.
+      referencia:
+        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: Feature-Sliced Design (FSD)
+      definicao: Metodologia de organização de front-end em camadas com responsabilidade definida, como `app`, `pages`, `features` e `shared`, em que cada camada só importa das camadas abaixo dela. O shell do repositório segue essa organização dentro de `src/`.
+      referencia:
+        rotulo: Feature-Sliced Design · Visão geral
+        url: https://feature-sliced.design/docs/get-started/overview
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Health check
+      definicao: Endereço que um serviço expõe para informar se está pronto para receber requisições. O deploy consulta `/_localstack/health` e sobe o compose quando o LocalStack não responde.
+      referencia:
+        rotulo: microservices.io · Health Check API
+        url: https://microservices.io/patterns/observability/health-check-api.html
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -374,7 +511,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é ver o portal funcionando na sua máquina, com um microfrontend servido pelo S3 local. Os passos 1 e 2 clonam o repositório e publicam os microfrontends no LocalStack, os passos 3 e 4 conferem o manifesto e sobem o shell, e os passos 5 e 6 entram no portal e abrem a rota `/endereco`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é ver o portal funcionando na sua máquina, com um microfrontend servido pelo S3 local, porque o shell só monta um microfrontend cujo bundle publicado tenha o hash registrado no manifesto, e esse caminho só pode ser conferido com o deploy feito. Os passos 1 e 2 clonam o repositório e publicam os microfrontends no LocalStack, os passos 3 e 4 conferem o manifesto e sobem o shell, e os passos 5 e 6 entram no portal e abrem a rota `/endereco`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: 'Um clone novo do `frontend-react` não abre a rota `/endereco` sem preparo, porque o bundle do microfrontend precisa estar publicado num bucket do LocalStack e o `public/mfe-manifest.json` precisa trazer o hash desse bundle. Em Linux e no WSL, o `npm ci` deste commit também termina com `Missing: @emnapi/core@1.11.3 from lock file`.'
+    impacto: Sem o deploy, o shell mostra o aviso de módulo indisponível, e sem o mapa das pastas não há como saber se a falha está no shell, no microfrontend, no LocalStack ou no manifesto. O compose do repositório não ativa a persistência do LocalStack, e cada reinício apaga os buckets publicados.
+    mecanismo: O laboratório usa o `npm run deploy`, que sobe o LocalStack pelo Docker Compose quando ele não responde ao health check, compila cada microfrontend em Vite lib mode, envia o bundle ao bucket e grava o SHA-256 no campo `integrity` do manifesto. Em seguida, o `npm run dev` sobe o shell, e o login usa o back-end simulado pelo MSW.
+    comprovacao: 'O deploy termina com `✅ deploy concluído: 2 MFEs publicados em http://localhost:4566`, o `git status` mostra `public/mfe-manifest.json` modificado, e a rota `/endereco` exibe o formulário com o CEP `01001000` sem erro no console do navegador.'
   - tipo: passos
     itens:
     - titulo: Clonar o repositório e instalar as dependências do shell

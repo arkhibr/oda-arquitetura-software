@@ -5,7 +5,83 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é executar na sua máquina o Quality Gate da esteira de entrega e construir a imagem do shell. No `frontend-react`, a esteira roda cinco verificações e depois gera uma imagem Nginx com os arquivos estáticos. Você vai rodar cada etapa no commit de referência, encontrar três que falham ou não conferem o que prometem, corrigi-las e terminar com a imagem saudável servindo a CSP com nonce por requisição.
+    texto: O objetivo desta ODA é fazer a esteira de entrega barrar de fato o que promete barrar e produzir uma imagem do shell que o orquestrador reconheça como saudável, executando na sua máquina o Quality Gate e o build da imagem. No `frontend-react`, a esteira roda cinco verificações e depois gera uma imagem Nginx com os arquivos estáticos, e no commit de referência duas etapas falham, uma não confere nenhum arquivo e o healthcheck marca como doente um contêiner que funciona. Você vai rodar cada etapa, corrigir as falhas e terminar com a imagem saudável servindo a Content Security Policy (CSP) com nonce por requisição.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Esteira de entrega e integração contínua (CI)
+      definicao: Sequência automática de verificações e de empacotamento que roda a cada mudança enviada ao repositório. No `frontend-react`, a esteira fica em `.github/workflows/ci.yml` e roda no GitHub Actions.
+      referencia:
+        rotulo: GitHub Docs · Noções básicas sobre GitHub Actions
+        url: https://docs.github.com/pt/actions/about-github-actions/understanding-github-actions
+    - termo: Quality Gate
+      definicao: Nome do job da esteira que reúne as verificações que uma mudança precisa passar antes de ser aceita. No commit de referência, ele instala as dependências com `npm ci`, confere os tipos com `tsc`, roda o ESLint e o Stylelint, roda os testes com cobertura e faz o build com o Vite.
+    - termo: Imagem e contêiner Docker
+      definicao: Uma imagem é um pacote com a aplicação, as dependências e a configuração necessárias para rodá-la, e um contêiner é a execução isolada dessa imagem. A imagem do shell é construída a partir do `Dockerfile` da raiz.
+      referencia:
+        rotulo: Docker Docs · What is Docker?
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: Shell
+      definicao: Aplicação React da pasta `src/` que cuida do login, do layout e das rotas do portal e carrega os microfrontends em tempo de execução. O build dela gera os arquivos estáticos que a imagem entrega.
+    - termo: Nginx
+      definicao: Servidor web que, na imagem do shell, entrega os arquivos estáticos do build e envia os cabeçalhos de segurança de cada resposta.
+      referencia:
+        rotulo: nginx.org · Beginner’s Guide
+        url: https://nginx.org/en/docs/beginners_guide.html
+    - termo: CSP (Content Security Policy) e nonce
+      definicao: A CSP é o cabeçalho HTTP com que o servidor informa ao navegador de onde a página pode carregar scripts e outros recursos. O nonce é um valor aleatório gerado a cada requisição, que o Nginx grava no cabeçalho e nos scripts da página para que só eles executem.
+      referencia:
+        rotulo: MDN · Utilizando Políticas de Segurança de Conteúdo
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
+    - termo: npm ci e package-lock.json
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada. O `npm ci` instala exatamente o que esse arquivo descreve e recusa a instalação quando ele não corresponde ao `package.json`, o que torna a esteira reprodutível.
+      referencia:
+        rotulo: npm Docs · npm-ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: Cobertura de branches
+      definicao: Percentual dos caminhos possíveis do código, como os dois lados de cada `if`, que os testes percorreram. O `vitest.config.ts` exige pelo menos 80% de cobertura de branches, e abaixo disso o comando de testes falha.
+      referencia:
+        rotulo: Vitest · Coverage
+        url: https://vitest.dev/guide/coverage
+    - termo: Healthcheck
+      definicao: Comando que o Docker roda periodicamente dentro do contêiner para saber se a aplicação responde. Depois de falhas seguidas, o contêiner é marcado como `unhealthy`, e orquestradores e balanceadores usam esse estado para tirar a instância do tráfego.
+      referencia:
+        rotulo: Docker Docs · Dockerfile reference, HEALTHCHECK
+        url: https://docs.docker.com/reference/dockerfile/#healthcheck
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. A ADR-006 define a conteinerização do shell.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: Build em dois estágios (multi-stage build)
+      definicao: Dockerfile com mais de um `FROM`, em que um estágio compila a aplicação e o seguinte copia só o resultado para uma imagem menor. No shell, o primeiro estágio usa `node:20-alpine` para gerar o `dist/`, e o segundo copia o `dist/` para `nginx:1.27-alpine`.
+      referencia:
+        rotulo: Docker Docs · Multi-stage builds
+        url: https://docs.docker.com/build/building/multi-stage/
+    - termo: envsubst e variáveis de execução
+      definicao: O `envsubst` substitui variáveis de ambiente num arquivo de texto. Na imagem do shell, ele preenche as variáveis `CSP_*` do modelo `nginx.conf.template` quando o contêiner inicia, e as variáveis `VITE_*` ficam fixadas antes, no build.
+    - termo: SPA (Single-Page Application)
+      definicao: Aplicação web que carrega uma única página HTML e troca o conteúdo da tela por JavaScript, sem recarregar a página a cada navegação. Por isso o Nginx devolve o `index.html` para qualquer rota do shell, com a diretiva `try_files`.
+      referencia:
+        rotulo: MDN · SPA (Single-page application)
+        url: https://developer.mozilla.org/en-US/docs/Glossary/SPA
+    - termo: TypeScript e tsc --noEmit
+      definicao: O compilador do TypeScript, `tsc`, confere os tipos do código. Com `--noEmit`, ele só faz a conferência sem gerar arquivos, e o resultado depende de quais arquivos o `tsconfig.json` inclui.
+      referencia:
+        rotulo: TypeScript · Everyday Types
+        url: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+    - termo: ESLint, Stylelint e FSD (Feature-Sliced Design)
+      definicao: O ESLint aplica regras ao código TypeScript, e o Stylelint aplica regras aos arquivos CSS. No shell, o ESLint também impõe as fronteiras entre as camadas do Feature-Sliced Design, metodologia que organiza o código em camadas com dependência num único sentido.
+      referencia:
+        rotulo: Feature-Sliced Design · Overview
+        url: https://feature-sliced.design/docs/get-started/overview
+    - termo: Vitest
+      definicao: Framework de testes para projetos JavaScript e TypeScript integrado ao Vite, que roda os testes do shell e mede a cobertura.
+      referencia:
+        rotulo: Vitest · Getting Started
+        url: https://vitest.dev/guide/
+    - termo: Alpine, localhost e IPv6
+      definicao: Alpine é a distribuição Linux mínima usada nas imagens do shell. Dentro dela, o nome `localhost` resolve para `::1`, o endereço local em IPv6, e um servidor que só escuta em IPv4 não responde nesse endereço.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,19 +129,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · esteira no commit de referência
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: npm run test:coverage
-      saida: " Test Files  23 passed (23)\n      Tests  99 passed (99)\nFile               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s \nAll files          |   86.03 |     78.8 |   88.33 |   90.09 |                   \nERROR: Coverage for branches (78.8%) does not meet global threshold (80%)"
-      origem: executado
-    - entrada: docker build --progress=plain -t portal-web:oda15 .
-      saida: "#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#5 [build 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293\n#8 [build 2/6] WORKDIR /app\n#9 [build 3/6] COPY package*.json ./\n#10 [build 4/6] RUN npm ci --prefer-offline\n#10 0.852 npm error code EUSAGE\n#10 0.852 npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.\n#10 0.852 npm error Missing: @emnapi/core@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/runtime@1.11.3 from lock file\n#10 0.852 npm error Missing: @emnapi/wasi-threads@1.2.3 from lock file\n#10 ERROR: process \"/bin/sh -c npm ci --prefer-offline\" did not complete successfully: exit code: 1\n > [build 4/6] RUN npm ci --prefer-offline:"
-      origem: executado
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Cobertura
-      comando: npm run test:coverage
-    - rotulo: Imagem do shell
-      comando: docker build --progress=plain -t portal-web:oda15 .
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -337,7 +414,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é levar o Quality Gate ao verde na sua máquina e subir a imagem do shell saudável. Os passos 1 a 5 rodam e corrigem as etapas da esteira, e os passos 6 a 8 provam que a etapa de tipos está vazia, corrigem o healthcheck e conferem os cabeçalhos da imagem. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é levar o Quality Gate ao verde com verificações que realmente conferem o código e subir a imagem do shell com o healthcheck correto. Os passos 1 a 5 rodam a esteira, sincronizam o lock e levam a cobertura de branches acima do limite, e os passos 6 a 8 provam que a etapa de tipos está vazia, corrigem essa etapa e o healthcheck e conferem os cabeçalhos da imagem. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: 'No commit `2179313`, o Quality Gate de `.github/workflows/ci.yml` tem três falhas: o `npm ci` do `docker build` para com `Missing: @emnapi/core@1.11.3 from lock file`, a cobertura de branches fica em 78,8%, abaixo do limite de 80% e o `npx tsc --noEmit` não confere arquivo nenhum, porque o `tsconfig.json` da raiz só tem referências. Na imagem, o healthcheck chama `localhost`, que no Alpine resolve para `::1`, e o Nginx só escuta em IPv4.'
+    impacto: A esteira fica vermelha e a imagem do shell não chega a ser construída, enquanto erros de tipo passam pela etapa que deveria barrá-los. Um contêiner que serve o portal normalmente é marcado como `unhealthy`, e um orquestrador o retiraria do tráfego.
+    mecanismo: O `npm install --package-lock-only` sincroniza o lock sem tocar no `node_modules`, e quatro testes do `loadConfig`, no padrão do repositório com `vi.stubGlobal`, cobrem os ramos que faltavam. A etapa de tipos passa a usar `npx tsc -b`, que segue as referências do `tsconfig.json`, e o healthcheck passa a chamar `127.0.0.1`.
+    comprovacao: A cobertura de branches sobe para 85,43% com `Tests 103 passed (103)`, e um arquivo com erro de tipo passa pelo `tsc --noEmit` e é acusado pelo `tsc -b` com `TS2322`. A imagem é construída, o `docker inspect` mostra `healthy`, e o HTML e o cabeçalho trazem o mesmo nonce, diferente a cada requisição.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

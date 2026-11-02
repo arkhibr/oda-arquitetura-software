@@ -5,7 +5,67 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é publicar um microfrontend no S3 emulado pelo LocalStack e entender por que o bundle e o manifesto precisam ser promovidos juntos. No `frontend-react`, cada microfrontend tem build e deploy próprios, e o shell recusa o bundle cujo hash não confere com o manifesto. Você vai publicar só o bundle de uma versão nova, ver o portal recusá-lo e corrigir a promoção.
+    texto: O objetivo desta ODA é garantir que uma versão nova de microfrontend chegue ao portal sem derrubar a funcionalidade, publicando o bundle no Amazon S3 (Simple Storage Service), emulado na sua máquina pelo LocalStack, junto com o manifesto que o shell usa para conferi-lo. No `frontend-react`, o shell recusa o bundle cujo hash não confere com o manifesto, e o deploy próprio de cada microfrontend publica só o bundle, o que deixa o módulo indisponível para todos os usuários depois de uma promoção parcial. Você vai publicar só o bundle de uma versão nova, ver o portal recusá-lo e corrigir a promoção publicando bundle e manifesto juntos.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte da interface do portal com build e deploy próprios, que o shell carrega numa rota enquanto o usuário navega. No `frontend-react`, os microfrontends ficam em `mfes/endereco/` e `mfes/emprestimo/`.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica guardado num bucket e é acessado por uma URL. No portal, cada microfrontend tem um bucket próprio, que guarda o bundle publicado.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: LocalStack
+      definicao: Emulador dos serviços da AWS que roda num contêiner Docker na sua máquina e responde na porta 4566. O `frontend-react` usa só o S3 do LocalStack, para hospedar os bundles dos microfrontends em desenvolvimento.
+      referencia:
+        rotulo: LocalStack · Simple Storage Service (S3)
+        url: https://docs.localstack.cloud/aws/services/s3/
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build a partir do código-fonte de um microfrontend, com tudo de que ele precisa para rodar no navegador. O shell baixa esse arquivo do bucket e o executa como módulo.
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json` que o shell baixa ao iniciar para saber quais microfrontends existem, de onde baixar o bundle de cada um, em que rota montá-lo e qual hash o bundle precisa ter.
+    - termo: Build e deploy
+      definicao: O build transforma o código-fonte em arquivos prontos para o navegador, e o deploy publica esses arquivos no lugar de onde eles serão servidos. A promoção é o deploy de uma versão nova para o ambiente em uso.
+    - termo: Shell
+      definicao: Aplicação React da pasta `src/` que cuida do login, do layout e das rotas do portal e carrega os microfrontends em tempo de execução, sem precisar ser recompilada quando um microfrontend muda.
+    - termo: Hash e campo integrity
+      definicao: Um hash é um resumo de tamanho fixo calculado a partir do conteúdo de um arquivo, que muda por completo quando um único byte do arquivo muda. O campo `integrity` do manifesto guarda o hash SHA-256 de cada bundle, e o shell recusa o bundle cujo hash calculado não confere com esse valor.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity
+    - termo: Vite e o modo biblioteca (lib mode)
+      definicao: O Vite é a ferramenta de build e o servidor de desenvolvimento do portal. No modo biblioteca, ele gera um único módulo JavaScript a partir de um ponto de entrada, e é assim que cada microfrontend produz o próprio bundle.
+      referencia:
+        rotulo: Vite · Building for Production, Library Mode
+        url: https://vite.dev/guide/build#library-mode
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. As ADRs do `frontend-react` ficam em `docs/architecture/adrs/`, e a ADR-011 trata do build e do deploy dos microfrontends.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: Docker e docker compose
+      definicao: O Docker empacota uma aplicação e as dependências dela numa imagem e roda essa imagem como contêiner, um processo isolado do restante da máquina. O `docker compose` sobe os contêineres descritos num arquivo YAML, como o `infra/docker-compose.yml` do LocalStack.
+      referencia:
+        rotulo: Docker Docs · What is Docker?
+        url: https://docs.docker.com/get-started/docker-overview/
+    - termo: Módulo ESM (ECMAScript Module)
+      definicao: Formato padrão de módulo do JavaScript, com `import` e `export`, que o navegador carrega e executa diretamente. O bundle de cada microfrontend é um módulo ESM.
+      referencia:
+        rotulo: MDN · Módulos JavaScript
+        url: https://developer.mozilla.org/pt-BR/docs/Web/JavaScript/Guide/Modules
+    - termo: AWS SDK v3
+      definicao: Biblioteca oficial da AWS para chamar os serviços dela a partir de JavaScript, organizada em comandos como `PutObjectCommand` e `PutBucketPolicyCommand`. O script de deploy de cada microfrontend a usa para criar o bucket e enviar o bundle ao LocalStack.
+    - termo: Bucket policy
+      definicao: Documento JSON associado a um bucket do S3 que define quem pode ler ou gravar os objetos dele. O deploy grava uma policy que permite a leitura pública do bundle, para que o navegador consiga baixá-lo.
+    - termo: CORS (Cross-Origin Resource Sharing)
+      definicao: Mecanismo pelo qual um servidor informa, em cabeçalhos HTTP, quais outras origens podem ler as respostas dele pelo navegador. O bucket de cada microfrontend precisa de configuração de CORS, porque o shell roda numa origem e baixa o bundle de outra.
+      referencia:
+        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -52,15 +112,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · LocalStack
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4566/_localstack/health
-      saida: '200'
-      origem: executado
-      dica: 200 indica o LocalStack no ar, e 000 indica que não houve resposta. Nesse caso, rode `docker compose -f infra/docker-compose.yml up -d` ou deixe o `npm run deploy` subir o compose.
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Conferir o LocalStack
-      comando: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4566/_localstack/health
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -358,7 +423,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é publicar uma versão nova de um microfrontend e chegar a um portal consistente, com o bundle e o manifesto de acordo. Os passos 1 a 4 partem de um deploy consistente, os passos 5 a 8 publicam só o bundle e mostram a recusa, e os passos 9 e 10 promovem bundle e manifesto juntos. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima, com o `npm run dev` rodando num terminal separado.
+    texto: O objetivo do laboratório é provar que a promoção parcial derruba o microfrontend e que a promoção conjunta de bundle e manifesto o restaura, comparando o hash do bundle com o do manifesto a cada etapa. Os passos 1 a 4 partem de um deploy consistente, os passos 5 a 8 publicam só o bundle e mostram a recusa por integridade, e os passos 9 e 10 promovem bundle e manifesto juntos. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo, com o `npm run dev` rodando num terminal separado.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O shell só executa o bundle de um microfrontend quando o hash SHA-256 do arquivo baixado confere com o campo `integrity` do `public/mfe-manifest.json`. O `npm run deploy` de `mfes/endereco` publica só o bundle no bucket, e quem promove uma versão nova por ele deixa no manifesto o hash da versão anterior.
+    impacto: Depois de uma promoção parcial, o portal recusa o bundle e mostra `O módulo Alteração de Endereço está indisponível no momento.` para todos os usuários, e o mesmo acontece quando o manifesto chega antes do bundle. A falha nasce de uma etapa de publicação incompleta e não de um erro no código do microfrontend.
+    mecanismo: O laboratório compara o hash calculado com `openssl` sobre o bundle compilado com o valor gravado no manifesto, antes e depois de uma mudança. Em seguida, aplica a promoção conjunta pelo `npm run deploy` da raiz, que publica cada bundle, confere a resposta 200 e grava o hash novo no campo `integrity`.
+    comprovacao: Depois do deploy só do microfrontend, os dois hashes divergem e o console mostra `[mfe] integridade do bundle inválida`. Depois do deploy da raiz, os hashes voltam a ser iguais, o formulário de endereço reaparece sem erros no console e o `git status --short` lista o manifesto ao lado do código do microfrontend, para que os dois entrem no mesmo commit.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

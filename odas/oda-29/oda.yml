@@ -5,7 +5,71 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é ler a configuração de uma aplicação a partir dos serviços da AWS feitos para isso, o SSM Parameter Store e o Secrets Manager, usando o SDK .NET contra o LocalStack. No repositório `aspire-aws`, os cenários 01, 05 e 06 exercitam o S3, o Parameter Store e o Secrets Manager com uma chamada por teste. Você vai escrever um carregador que lê todos os parâmetros de um prefixo e descobrir, com o teste, os dois detalhes da API que um carregador simples deixa passar.
+    texto: O objetivo desta ODA é escrever um carregador de configuração que leia todos os parâmetros de um prefixo do Parameter Store do AWS Systems Manager (SSM), inclusive os cifrados, e descobrir com o teste os dois detalhes da API que fazem um carregador simples perder dados sem erro. A configuração vem dos serviços da Amazon Web Services (AWS) feitos para isso, o Parameter Store e o Secrets Manager, lidos pelo SDK (kit de desenvolvimento) da AWS para .NET contra o LocalStack, emulador local desses serviços, e um carregador que lê só a primeira página ou não decifra os `SecureString` sobe a aplicação com valores faltando ou errados. Você vai rodar o cenário 05 do repositório `aspire-aws`, escrever o teste e o carregador simples e acrescentar a paginação e a decifragem até o teste passar.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: AWS (Amazon Web Services)
+      definicao: Plataforma de computação em nuvem da Amazon, que oferece serviços como armazenamento de arquivos, configuração, segredos e filas. Os cenários do repositório testam integrações com esses serviços.
+      referencia:
+        rotulo: 'AWS: o que é a AWS'
+        url: https://aws.amazon.com/pt/what-is-aws/
+    - termo: SSM Parameter Store
+      definicao: Recurso do AWS Systems Manager (SSM) que guarda parâmetros de configuração com nomes hierárquicos, como `/loja/prod/db-host`. Cada parâmetro é do tipo `String`, `StringList` ou `SecureString`.
+      referencia:
+        rotulo: 'AWS: Parameter Store'
+        url: https://docs.aws.amazon.com/pt_br/systems-manager/latest/userguide/systems-manager-parameter-store.html
+    - termo: AWS Secrets Manager
+      definicao: Serviço da AWS que guarda credenciais, como senhas de banco e chaves de API, com versões e com suporte a rotação periódica do valor.
+      referencia:
+        rotulo: 'AWS: o que é o Secrets Manager'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/intro.html
+    - termo: SDK da AWS para .NET
+      definicao: Conjunto de bibliotecas que o código .NET usa para chamar os serviços da AWS, com um cliente por serviço, como o `AmazonSimpleSystemsManagementClient`. No repositório, o `AwsClientFactory` cria esses clientes apontados para o LocalStack.
+      referencia:
+        rotulo: 'AWS: guia do desenvolvedor do SDK para .NET'
+        url: https://docs.aws.amazon.com/sdk-for-net/v3/developer-guide/welcome.html
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: Amazon S3
+      definicao: Serviço de armazenamento de arquivos da AWS, em que cada arquivo é um objeto guardado num bucket. É o serviço indicado para dados grandes, como um catálogo em JSON ou documentos em PDF.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Paginação e NextToken
+      definicao: As operações de listagem da AWS devolvem os resultados em páginas e, quando há mais itens, um `NextToken` que o cliente envia na chamada seguinte. O `GetParametersByPath` devolve no máximo dez parâmetros por página.
+      referencia:
+        rotulo: 'AWS: GetParametersByPath'
+        url: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
+    - termo: SecureString e KMS (Key Management Service)
+      definicao: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS, o serviço de chaves de criptografia da AWS. A leitura só devolve o valor original com `WithDecryption = true` e exige permissão de uso da chave.
+      referencia:
+        rotulo: 'AWS: como o Parameter Store usa o AWS KMS'
+        url: https://docs.aws.amazon.com/pt_br/kms/latest/developerguide/services-parameter-store.html
+    - termo: Versões e período de recuperação de um segredo
+      definicao: Cada troca de valor de um segredo cria uma versão nova, e os rótulos `AWSCURRENT` e `AWSPREVIOUS` apontam para a atual e a anterior. O `DeleteSecret` agenda a exclusão para depois de um período de recuperação de 7 a 30 dias, e o `ForceDeleteWithoutRecovery` apaga na hora.
+      referencia:
+        rotulo: 'AWS: excluir um segredo'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/manage_delete-secret.html
+    - termo: Teste de integração
+      definicao: Teste que exercita o código junto com os serviços de que ele depende, aqui os serviços da AWS emulados pelo LocalStack. No repositório, cada cenário é um projeto de testes desse tipo.
+    - termo: Docker
+      definicao: Plataforma que executa aplicações em contêineres, processos isolados que trazem tudo de que precisam para rodar. O LocalStack e o PostgreSQL dos testes rodam em contêineres Docker.
+      referencia:
+        rotulo: 'Docker Docs: what is a container'
+        url: https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/
+    - termo: Rotação de credenciais
+      definicao: Troca periódica do valor de uma senha ou chave, feita sem interromper quem a usa, que lê sempre a versão atual. O Secrets Manager mantém a versão anterior disponível durante a troca.
+      referencia:
+        rotulo: 'AWS: rotação de segredos'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/rotating-secrets.html
+    - termo: Região e credenciais da AWS
+      definicao: Toda chamada à AWS é feita a uma região, como `us-east-1`, e assinada com credenciais de acesso. No LocalStack, a região continua obrigatória na assinatura, e as credenciais de teste `test` são aceitas.
+    - termo: Socket do Docker e Colima
+      definicao: O arquivo `/var/run/docker.sock` é o canal pelo qual programas falam com o Docker da máquina. O Colima é uma forma de rodar o Docker no macOS que, por padrão, cria esse canal noutro caminho, e por isso a montagem do AppHost falha com ele.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,21 +117,21 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · rodar o cenário 05
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
-      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 736 ms - 05-SSM.Basic.dll (net10.0)'
-      origem: executado
-      dica: Os três testes do cenário 05 usam um parâmetro por chamada e não passam de dois por prefixo.
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: A versão precisa ser 10.0.103 ou superior, como exige o `global.json`.
     - entrada: docker info --format '{{.ServerVersion}}'
       saida: 29.5.2
-      origem: executado
-      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+      origem: exemplo
+      dica: Uma resposta com versão indica que o daemon do Docker está em execução.
     cenarios:
-    - rotulo: Docker em execução
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
-    - rotulo: Rodar o cenário 05
-      comando: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
 - id: conceito
   titulo: Conceito
   blocos:
@@ -239,7 +303,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é escrever um carregador de configuração que lê todos os parâmetros de um prefixo do Parameter Store, inclusive os cifrados. O passo 1 roda o cenário 05, os passos 2 e 3 escrevem o teste e a versão simples do carregador, e os passos 4 e 5 acrescentam a paginação e a decifragem até o teste passar. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é evitar que a aplicação suba com configuração incompleta ou com segredos ilegíveis, fazendo o carregador seguir o `NextToken` da paginação e pedir `WithDecryption` para os `SecureString`. O passo 1 roda o cenário 05, os passos 2 e 3 escrevem o teste e a versão simples do carregador, e os passos 4 e 5 acrescentam a paginação e a decifragem até o teste passar. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O `GetParametersByPath` do Parameter Store devolve no máximo dez parâmetros por página, com um `NextToken` quando há mais, e devolve os `SecureString` cifrados quando o pedido não traz `WithDecryption = true`. Os testes do cenário 05, em `SsmBasicTests.cs`, leem um prefixo com dois parâmetros numa única chamada, e por isso nenhum desses detalhes aparece neles.
+    impacto: Um carregador que faz uma chamada só sobe a aplicação sem os parâmetros além do décimo, sem nenhum erro no log. Sem decifragem, a senha chega como texto cifrado, e a aplicação tenta se conectar com um valor errado.
+    mecanismo: O laboratório escreve o carregador em três versões, a simples, com uma chamada, a paginada, que repete o `GetParametersByPath` enquanto houver `NextToken`, e a completa, que acrescenta `WithDecryption = true` ao pedido para que o serviço decifre os `SecureString` com a chave do KMS.
+    comprovacao: 'O teste do carregador grava doze parâmetros sob `/loja`, um deles `SecureString`, e falha com `Actual: 10` na versão simples e com `Actual: "kms:alias/aws/ssm:super-secret"` na paginada. Com paginação e decifragem, o teste passa com `Aprovado: 4`.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
@@ -249,7 +319,7 @@ abas:
     titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
     sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
     causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
-    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
+    correcao: Depois do `git stash` da faixa Antes de começar, na aba Laboratório, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
   - tipo: passos
     itens:
     - titulo: Rodar o cenário 05

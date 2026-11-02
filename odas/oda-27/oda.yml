@@ -5,7 +5,63 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é escrever testes de integração que sobem a API real em memória, com um banco isolado por classe de teste e criado pelas mesmas migrations da produção. No repositório `net-minimal-api`, a `ApiFactory` dos testes cria um arquivo SQLite no diretório temporário a cada execução, nunca o apaga e monta o esquema com `EnsureCreated`, que ignora as migrations. Você vai medir os dois efeitos, escrever os testes que os denunciam e trocar a factory por uma que usa SQLite em memória e `Migrate`.
+    texto: 'O objetivo desta ODA é corrigir dois defeitos da suíte de testes de integração do `net-minimal-api`, que sobe a API real em memória: a `ApiFactory` deixa um arquivo SQLite no diretório temporário a cada classe de teste e nunca o apaga, e monta o esquema com `EnsureCreated`, que ignora as migrations e aprova uma mudança de modelo que derruba a API no deploy. Esses defeitos enchem o disco das máquinas que rodam a suíte e fazem os testes aprovarem um código que a produção recusa. Você vai medir os dois efeitos, escrever os testes que os denunciam e trocar a factory por uma que usa SQLite em memória e `Migrate`.'
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, middlewares, autenticação e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, com um método que aplica a mudança e outro que a desfaz. A API aplica as migrations em ordem ao subir.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: SQLite e SQLite em memória
+      definicao: O SQLite é um banco relacional que roda dentro do processo da aplicação e guarda os dados num arquivo. Com a string de conexão `Data Source=:memory:`, ele guarda o banco na memória da conexão, e o banco deixa de existir quando a conexão fecha.
+      referencia:
+        rotulo: 'SQLite: in-memory databases'
+        url: https://www.sqlite.org/inmemorydb.html
+    - termo: Factory de testes (ApiFactory)
+      definicao: Classe do projeto de testes que sobe a API para os testes de integração e prepara o banco de cada execução. No repositório, a `ApiFactory` estende a `WebApplicationFactory`.
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a seguir quando o modelo tem mudanças que nenhuma migration descreve.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: WebApplicationFactory e TestServer
+      definicao: A `WebApplicationFactory` executa o `Program.cs` da API dentro do processo de teste e troca o Kestrel, o servidor web do ASP.NET Core, por um `TestServer`. O `TestServer` atende o `HttpClient` do teste na memória, sem abrir porta de rede.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: ConfigureTestServices
+      definicao: Método da factory de testes que roda depois dos registros de serviços do `Program.cs` e permite remover e substituir serviços só nos testes, como o registro do `AppDbContext`.
+    - termo: EF Core (Entity Framework Core), DbContext e modelo
+      definicao: O EF Core é a biblioteca de mapeamento objeto-relacional da Microsoft para .NET. O `DbContext`, que no repositório é o `AppDbContext`, representa a sessão com o banco, e o modelo é a descrição das entidades, tabelas e índices que o EF Core monta a partir das classes e do mapeamento.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: Ambiente de execução (Testing)
+      definicao: Nome do ambiente em que a aplicação ASP.NET Core roda, como `Development`, `Production` ou `Testing`, que o código consulta para escolher configurações. No repositório, o ambiente `Testing` faz a API usar um banco próprio e não aplicar as migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: usar vários ambientes no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/environments
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros que a aplicação insere num banco novo para que ele já tenha dados de exemplo. Cada banco de teste do repositório recebe os oito produtos do seed.
+    - termo: Snapshot do modelo e HasPendingModelChanges
+      definicao: A cada migration, o EF Core grava um snapshot, uma fotografia em código do modelo naquele ponto. O método `HasPendingModelChanges` compara o modelo atual com esse snapshot e indica se existe mudança sem migration, a mesma condição que gera o aviso `PendingModelChangesWarning`.
+    - termo: xUnit e IClassFixture
+      definicao: O xUnit é o framework de testes do repositório. Uma classe que declara `IClassFixture<T>` recebe uma instância de `T` criada uma vez para a classe, e por isso o repositório cria uma factory, e um banco, por classe de teste.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Agente de CI (integração contínua)
+      definicao: Máquina que executa automaticamente a compilação e os testes a cada alteração enviada ao repositório. Por rodar a suíte muitas vezes, ele acumula os arquivos que os testes deixam no diretório temporário.
+      referencia:
+        rotulo: 'Martin Fowler: Continuous Integration'
+        url: https://martinfowler.com/articles/continuousIntegration.html
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,34 +109,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · contar os bancos deixados pela suíte
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: contar() { ls "${TMPDIR:-/tmp}"/TestDb_*.db 2>/dev/null | wc -l | tr -d ' '; }
-      saida: ''
-      origem: executado
-      dica: A função `contar` mostra quantos bancos `TestDb_*.db` existem no diretório temporário que o .NET usa.
-    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
-      condicao: fabrica_nova
-      saida: 300 -> 300
-      origem: executado
-      dica: 'Nenhum arquivo novo: cada factory usa um banco em memória.'
-    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
-      condicao: teste_banco
-      saida: 291 -> 300
-      origem: executado
-      dica: 'Mais 9 arquivos: a classe nova criou mais uma factory.'
-    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
-      saida: 282 -> 290
-      origem: executado
-      dica: 'Os números absolutos dependem das execuções anteriores na sua máquina. O que importa é a diferença: mais 8 arquivos, um por factory, que ninguém apaga.'
-    - entrada: dotnet test tests/ProdutosAPI.Tests
-      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 979 ms - ProdutosAPI.Tests.dll (net10.0)'
-      origem: executado
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Rodar a suíte
-      comando: dotnet test tests/ProdutosAPI.Tests
-    - rotulo: Contar os bancos
-      comando: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -235,7 +277,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é trocar o banco dos testes de integração por um banco em memória criado pelas migrations, e provar com testes que a troca funcionou. Os passos 1 a 4 medem os arquivos deixados pela suíte e mostram uma mudança de modelo que a suíte não percebe, os passos 5 a 8 escrevem os testes e trocam a factory, e os passos 9 e 10 repetem a mudança de modelo com a factory nova. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é fazer a suíte parar de deixar bancos no diretório temporário e passar a recusar mudanças de modelo sem migration, trocando o banco dos testes por um SQLite em memória criado pelas migrations. Os passos 1 a 4 medem os arquivos deixados pela suíte e mostram uma mudança de modelo que a suíte não percebe, os passos 5 a 8 escrevem os testes e trocam a factory, e os passos 9 e 10 repetem a mudança de modelo com a factory nova. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: No ambiente `Testing`, o `Program.cs` registra um arquivo SQLite com nome aleatório no diretório temporário a cada host criado, e nenhum código o apaga. A `ApiFactory.cs` cria o esquema com `EnsureCreated`, a partir do modelo, e as migrations nunca rodam nos testes.
+    impacto: Cada execução da suíte deixa 8 arquivos `TestDb_*.db`, um por factory, e o agente de CI acumula esses arquivos até ficar sem espaço. Uma mudança de modelo sem migration passa nos 143 testes e só aparece no deploy, quando a API para com `PendingModelChangesWarning`.
+    mecanismo: O laboratório troca a factory por uma que abre uma conexão SQLite em memória por factory e a fecha no `Dispose`, substitui o registro do `AppDbContext` com `ConfigureTestServices` e cria o esquema com `Migrate`. Um teste novo com `HasPendingModelChanges` passa a acusar mudança de modelo sem migration.
+    comprovacao: 'Os testes do banco falham com `Com falha: 2` antes da troca e passam com `Aprovado: 3` depois, com a suíte em `Aprovado: 146` e a mesma contagem de arquivos antes e depois da execução. A mesma mudança de modelo sem migration passa a derrubar 49 testes.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

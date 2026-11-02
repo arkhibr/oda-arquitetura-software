@@ -5,7 +5,75 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é entender a cadeia de middlewares do Gateway e acrescentar a ela um limite de requisições testado. No `frontend-react`, o Gateway é a porta única entre os microfrontends e os BFFs, e cada requisição atravessa seis middlewares antes do proxy. Você vai descobrir que o Gateway entrega 500 para respostas que o BFF devolveu com sucesso, embora os 19 testes passem, corrigir o proxy e criar um limite para o envio de propostas, com os testes escritos antes.
+    texto: O objetivo desta ODA é entender a cadeia de middlewares do Gateway de API e corrigir dois defeitos dela, um que transforma em erro as respostas de sucesso e outro que deixa o envio de propostas de empréstimo sem limite próprio. No `frontend-react`, o Gateway é a porta única entre os microfrontends e os BFFs (Backends for Frontends), e o proxy dele devolve 500 para respostas que o BFF atendeu com sucesso, embora os 19 testes passem, porque os testes não usam o servidor HTTP do Node. Você vai reproduzir a falha num teste com o servidor real, corrigir o proxy e criar um limite por usuário para o envio de propostas, com os testes escritos antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Middleware
+      definicao: Função que recebe a requisição antes do tratamento final e pode responder sozinha ou chamar `next()` para passar a vez à função seguinte. O código escrito depois do `next()` age de novo quando a resposta volta pela cadeia.
+      referencia:
+        rotulo: Hono · Middleware
+        url: https://hono.dev/docs/concepts/middleware
+    - termo: Gateway de API
+      definicao: Serviço que é a porta única de entrada das chamadas do portal para o back-end e que concentra autenticação, auditoria e limite de requisições antes de encaminhar cada chamada. O Gateway do `frontend-react` fica em `gateway/`, responde na porta 4000 e encaminha as chamadas de `/bff/<nome>` ao BFF correspondente.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: Limite de requisições (rate limiting)
+      definicao: Controle que conta as requisições de cada cliente numa janela de tempo e responde com o status 429 (Too Many Requests) quando o total passa do permitido.
+      referencia:
+        rotulo: MDN · 429 Too Many Requests
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/429
+    - termo: Microfrontend
+      definicao: Parte da interface do portal com build e deploy próprios, que o shell carrega numa rota enquanto o usuário navega. Os microfrontends de endereço e de empréstimo chamam o back-end sempre pelo Gateway.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface específica, que adapta os dados dos sistemas internos ao formato de que essa interface precisa. No `frontend-react`, os BFFs de empréstimo e de endereço ficam em `bffs/` e só recebem chamadas do Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Backends para Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Proxy
+      definicao: Componente que recebe uma requisição, a reenvia a outro servidor e devolve ao cliente a resposta obtida. No Gateway, o proxy é o último elo da cadeia e repassa a chamada ao BFF escolhido pelo prefixo do caminho.
+    - termo: Códigos de status HTTP 401, 404, 429 e 500
+      definicao: O 401 indica requisição sem credencial válida, o 404 indica recurso inexistente, o 429 indica excesso de requisições e o 500 indica erro interno do servidor. A ODA distingue os que o próprio Gateway produz dos que chegam do BFF.
+      referencia:
+        rotulo: MDN · Códigos de status de respostas HTTP
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status
+    - termo: Node.js e servidor HTTP do Node
+      definicao: O Node.js é o ambiente que executa JavaScript fora do navegador e no qual rodam o Gateway e os BFFs. O `@hono/node-server` liga a aplicação Hono ao servidor HTTP do Node, e o `app.request()` do Hono chama a aplicação diretamente, sem esse servidor no meio.
+      referencia:
+        rotulo: Node.js · Introduction to Node.js
+        url: https://nodejs.org/en/learn/getting-started/introduction-to-nodejs
+    - termo: Auditoria e controle de tráfego
+      definicao: A auditoria grava um registro de cada requisição que passa pelo Gateway, com quem chamou e o resultado. O controle de tráfego é o conjunto de limites de requisições aplicados antes de a chamada chegar ao BFF.
+    - termo: JWT (JSON Web Token) e HS256
+      definicao: Um JWT é um token assinado que carrega dados do usuário, como o identificador no campo `sub`, e que o servidor valida conferindo a assinatura. O algoritmo HS256 assina o token com um segredo compartilhado entre quem emite e quem valida.
+      referencia:
+        rotulo: jwt.io · JSON Web Token Introduction
+        url: https://jwt.io/introduction
+    - termo: Identificador de correlação
+      definicao: Valor único atribuído a uma requisição e repassado em cabeçalho aos serviços que ela atravessa, para que os registros de cada serviço possam ser ligados à mesma chamada. No Gateway, ele trafega no cabeçalho `X-Correlation-Id`.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas consideradas e as consequências. A ADR-015 define o Gateway com BFFs, e a ADR-016 troca o Express pelo Hono.
+      referencia:
+        rotulo: Architectural Decision Records (ADRs)
+        url: https://adr.github.io/
+    - termo: Hono, Express e Fastify
+      definicao: São frameworks web para Node.js. O Hono, usado no Gateway e nos BFFs, é construído sobre os padrões da Web, como `Request`, `Response` e `fetch`, e o Express e o Fastify são as alternativas que a ADR-016 avaliou.
+      referencia:
+        rotulo: Hono · Web framework built on Web Standards
+        url: https://hono.dev/docs/
+    - termo: CORS (Cross-Origin Resource Sharing)
+      definicao: Mecanismo pelo qual um servidor informa, em cabeçalhos HTTP, quais outras origens podem ler as respostas dele pelo navegador. Antes de certas requisições, o navegador envia uma consulta prévia com o método `OPTIONS`, e o cabeçalho `Vary` avisa os caches de que a resposta depende da origem.
+      referencia:
+        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
+    - termo: Janela fixa
+      definicao: Estratégia de limite em que o contador de cada cliente vale por um intervalo fixo, de 60 segundos no Gateway, e recomeça do zero quando o intervalo termina. O contador do Gateway fica na memória do processo.
+    - termo: UUID (Universally Unique Identifier)
+      definicao: Identificador de 128 bits gerado de forma que a chance de dois valores iguais seja desprezível. O Gateway gera um UUID como identificador de correlação quando a requisição não traz um valor válido.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -53,42 +121,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · Gateway e BFF no ar
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: 'TOKEN=$(cd gateway && node --input-type=module -e "import { SignJWT } from ''jose''; console.log(await new SignJWT({ roles: [''cliente''] }).setProtectedHeader({ alg: ''HS256'' }).setSubject(''cliente-1'').setIssuer(''portal-dev'').setAudience(''portal-api'').setExpirationTime(''15m'').sign(new TextEncoder().encode(''segredo-local'')))")'
-      saida: ''
-      origem: executado
-      dica: O comando grava na variável `TOKEN` um JWT HS256 assinado com o segredo de desenvolvimento, sem imprimir nada.
-    - entrada: 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
-      saida: 'HTTP/1.1 500 Internal Server Error
-
-        access-control-allow-origin: http://localhost:5173
-
-        content-type: text/plain; charset=UTF-8
-
-        vary: Origin
-
-        x-correlation-id: …
-
-        content-length: 21
-
-        Date: …
-
-        Connection: keep-alive
-
-        Keep-Alive: timeout=5
-
-
-        Internal Server Error'
-      origem: executado
-    - entrada: (cd gateway && npx vitest run)
-      saida: " RUN  v4.1.9 ./gateway\n\n\n Test Files  6 passed (6)\n      Tests  19 passed (19)"
-      origem: executado
+    - entrada: node --version
+      saida: v24.16.0
+      origem: exemplo
+      dica: Qualquer versão a partir da 22.12 atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Contratos pelo Gateway
-      comando: 'curl -i -H "Authorization: Bearer $TOKEN" -H "Origin: http://localhost:5173" http://localhost:4000/bff/emprestimo/contratos'
-    - rotulo: Testes do Gateway
-      comando: (cd gateway && npx vitest run)
+    - rotulo: Verificar o Node
+      comando: node --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -437,7 +483,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é corrigir o proxy que transforma sucesso em 500 e acrescentar um limite de propostas ao Gateway, com os testes escritos antes. Os passos 1 a 8 reproduzem e corrigem a falha do proxy, os passos 9 a 14 acrescentam o limite de propostas, e o passo 15 confere o resultado com os serviços no ar. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
+    texto: O objetivo do laboratório é fazer o Gateway entregar ao portal as respostas de sucesso do BFF e impedir que um usuário crie propostas sem teto, com cada correção comprovada por um teste escrito antes. Os passos 1 a 8 reproduzem pelo servidor HTTP do Node o 500 do proxy e o corrigem, os passos 9 a 14 acrescentam o limite de propostas, e o passo 15 confere o resultado com os serviços no ar, inclusive as chamadas que não chegam à auditoria. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: faixa
+    estilo: objetivo
+    problema: 'O proxy do Gateway, em `gateway/src/proxy.ts`, devolve diretamente a resposta do `fetch` ao BFF, cujos cabeçalhos são imutáveis, e o servidor HTTP do Node falha com `TypeError: immutable` quando um middleware tenta alterá-los na volta. Os 19 testes passam porque o `app.request()` do Hono não usa esse servidor, e o envio de propostas de empréstimo só respeita o limite geral de mutações, de 20 por minuto por usuário.'
+    impacto: Com o Gateway no ar, toda chamada que o BFF atende com sucesso chega ao portal como 500, e os testes não acusam o defeito. Sem limite próprio, um mesmo usuário pode criar até 20 propostas de empréstimo por minuto no BFF, e as requisições recusadas com 401 pela autenticação nem chegam à auditoria.
+    mecanismo: Um teste que sobe um BFF falso e o Gateway com o `serve` do `@hono/node-server` reproduz a falha pelo HTTP real, e o proxy passa a devolver uma cópia da resposta do BFF com cabeçalhos alteráveis. Um segundo teste, também escrito antes, define o limite por usuário para `POST /bff/emprestimo/propostas`, implementado com o `createLimiter` existente numa janela fixa e configurado pela variável `RATE_LIMIT_PROPOSAL_MAX`.
+    comprovacao: O primeiro teste falha com `expected 500 to be 200` e passa depois da correção, e a suíte termina com `Tests 24 passed (24)` e o `tsc` sem mensagens. Com os serviços no ar, os contratos respondem `200`, as três propostas recebem `201`, `201` e `429`, e as 120 chamadas com token inválido recebem `401` sem nenhuma linha de auditoria.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar

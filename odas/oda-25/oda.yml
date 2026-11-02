@@ -5,7 +5,65 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é garantir que repetir uma requisição de escrita não repita o efeito no servidor, mesmo com outro corpo ou com várias tentativas ao mesmo tempo. Um aplicativo que reenvia a criação de um pedido depois de um timeout manda o cabeçalho `Idempotency-Key`, e na API `net-minimal-api` cinco reenvios simultâneos criam cinco pedidos. Você vai reproduzir as três falhas do mecanismo e corrigi-las com o teste escrito antes.
+    texto: O objetivo desta ODA é impedir que a repetição de uma requisição de escrita repita o efeito no servidor, defeito que hoje cria pedidos duplicados na API `net-minimal-api`. Um aplicativo que reenvia a criação de um pedido depois de um tempo esgotado (timeout) manda o cabeçalho `Idempotency-Key`, e mesmo assim cinco reenvios simultâneos criam cinco pedidos, a repetição chega sem o cabeçalho `Location` e uma chave reaproveitada com outro corpo devolve o pedido antigo como se fosse sucesso. Você vai reproduzir essas três falhas do middleware de idempotência e corrigi-las com o teste escrito antes.
+  - tipo: glossario
+    texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
+    itens:
+    - termo: Idempotência
+      definicao: Propriedade de uma operação que tem o mesmo efeito no servidor quando executada uma vez ou várias vezes. Pela definição do HTTP, GET, PUT e DELETE são idempotentes, e um POST de criação só fica idempotente quando o servidor reconhece a repetição.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Tempo esgotado (timeout)
+      definicao: Situação em que o cliente desiste de esperar a resposta depois de um prazo. O cliente não sabe se o servidor concluiu a operação, e por isso costuma reenviar a requisição.
+    - termo: Cabeçalho Idempotency-Key
+      definicao: Cabeçalho HTTP em que o cliente envia uma chave única por operação, que ele repete em cada reenvio. O servidor usa a chave para reconhecer a repetição e devolver a resposta da primeira execução, e a IETF descreve esse contrato num rascunho de norma.
+      referencia:
+        rotulo: 'IETF: The Idempotency-Key HTTP Header Field'
+        url: https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/
+    - termo: Impressão digital do corpo
+      definicao: Hash calculado sobre o corpo da requisição e guardado junto com a resposta. Quando a mesma chave chega com um corpo de hash diferente, o servidor sabe que é outra operação e recusa a chamada.
+    - termo: Exclusão mútua (trava)
+      definicao: Mecanismo que permite que só uma requisição por vez execute um trecho de código. No laboratório, uma trava por chave faz as requisições repetidas esperarem a primeira terminar.
+    - termo: Middleware
+      definicao: Componente do pipeline HTTP do ASP.NET Core que recebe cada requisição, pode agir antes e depois do próximo componente e decide se passa a requisição adiante. A ordem de registro no `Program.cs` define a ordem de execução.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware do ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/middleware/
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, middlewares e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: Cache em memória (IMemoryCache)
+      definicao: Armazenamento de pares chave e valor na memória do processo da API, com prazo de expiração. Os dados se perdem quando o processo reinicia e não são vistos por outras instâncias.
+      referencia:
+        rotulo: 'Microsoft Learn: cache em memória no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/caching/memory
+    - termo: Token JWT (JSON Web Token)
+      definicao: 'Token assinado que a API emite no login e que o cliente envia no cabeçalho `Authorization: Bearer <token>`. Os pedidos exigem esse token, e o laboratório o obtém antes de criar pedidos.'
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: Cabeçalho Location
+      definicao: Cabeçalho que acompanha uma resposta 201 Created com o endereço do recurso criado, que o cliente usa para consultá-lo depois.
+      referencia:
+        rotulo: 'MDN: Location'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Location
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
+    - termo: Condição de corrida (verificar e depois agir)
+      definicao: Falha que ocorre quando duas execuções simultâneas consultam um estado e agem com base nele antes que a outra termine. No middleware, as duas requisições encontram o cache vazio e executam a operação.
+    - termo: HTTP 409 Conflict
+      definicao: Status que indica conflito da requisição com o estado atual do recurso. Depois da correção, a API responde 409 quando a mesma chave chega com outro corpo.
+      referencia:
+        rotulo: 'MDN: 409 Conflict'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/409
+    - termo: Redis
+      definicao: Banco de dados em memória, acessado pela rede, usado com frequência como cache compartilhado entre várias instâncias de uma aplicação. O Diagnóstico o cita como armazenamento durável e comum para as chaves de idempotência.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -53,49 +111,20 @@ abas:
         linhas:
         - code .
   - tipo: terminal
-    titulo: terminal · reenviar um pedido
+    titulo: terminal · verificação do ambiente
     comandos:
-    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
-      saida: 'Now listening on: http://localhost:5000
-
-        Application started. Press Ctrl+C to shut down.
-
-        Hosting environment: Development'
-      origem: executado
-      dica: 'Reinicie a API antes de cada bloco: o cache de idempotência fica na memória do processo.'
-    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
-      saida: ''
-      origem: executado
-    - entrada: 'post() { curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -H "Idempotency-Key: $1" -d "$2" http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -E ''^HTTP|^Location|^\{''; }'
-      saida: ''
-      origem: executado
-      dica: A função `post` recebe a chave e o corpo e mostra status, `Location` e corpo da resposta.
-    - entrada: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
-      condicao: '!primeira_feita'
-      saida: 'HTTP/1.1 201 Created
-
-        Location: /api/v1/pedidos/1
-
-        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
-      origem: executado
-      efeito: primeira_feita
-    - entrada: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
-      saida: 'HTTP/1.1 201 Created
-
-        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
-      origem: executado
-      dica: O mesmo pedido, sem o cabeçalho `Location` da primeira resposta.
-    - entrada: post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
-      saida: 'HTTP/1.1 201 Created
-
-        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
-      origem: executado
-      dica: O corpo mudou, e a API devolveu o pedido antigo com 201, sem avisar.
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: exemplo
+      dica: Qualquer versão 10.x atende.
+    - entrada: git --version
+      saida: git version 2.50.1
+      origem: exemplo
     cenarios:
-    - rotulo: Primeira
-      comando: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
-    - rotulo: Mesma chave, outro corpo
-      comando: post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+    - rotulo: Verificar o .NET
+      comando: dotnet --version
+    - rotulo: Verificar o Git
+      comando: git --version
 - id: conceito
   titulo: Conceito
   blocos:
@@ -276,7 +305,13 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer o middleware cumprir o contrato do `Idempotency-Key` nos três casos que falham hoje. Os passos 1 a 3 reproduzem as falhas pela API, os passos 4 a 7 escrevem o teste e trocam o middleware, e o passo 8 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+    texto: O objetivo do laboratório é eliminar os pedidos duplicados e as respostas enganosas do middleware de idempotência, fazendo-o cumprir o contrato do `Idempotency-Key` com chave por usuário e rota, impressão digital do corpo e trava por chave. Os passos 1 a 3 reproduzem as falhas pela API, os passos 4 a 7 escrevem o teste e trocam o middleware, e o passo 8 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: objetivo
+    problema: O `IdempotencyMiddleware.cs` monta a chave do cache só com o valor do cabeçalho `Idempotency-Key`, guarda apenas o status, o tipo e o corpo da resposta e grava no cache só depois de executar a requisição, sem trava entre a verificação e a execução.
+    impacto: Cinco reenvios simultâneos criam cinco pedidos, a repetição chega sem o cabeçalho `Location`, e uma chave reaproveitada com outro corpo recebe 201 com o pedido antigo, sem aviso de que o pedido novo não existe. Como a chave não inclui o usuário, dois usuários que gerem a mesma chave recebem a mesma resposta.
+    mecanismo: O laboratório troca o middleware por uma versão que compõe a chave com o usuário, o método e a rota, guarda a impressão digital do corpo e o `Location` junto com a resposta e serializa as requisições de mesma chave com uma trava, relendo o cache depois de obtê-la.
+    comprovacao: 'O teste de idempotência falha com `Com falha: 3` antes da troca e passa com `Aprovado: 3` depois, com a suíte em `Aprovado: 146`. Pela API, a repetição volta com `Location`, o corpo diferente recebe 409, e a corrida de cinco reenvios deixa o total de pedidos em 2.'
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
