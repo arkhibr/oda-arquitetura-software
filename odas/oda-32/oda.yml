@@ -198,7 +198,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica como cada gatilho entrega o evento à Lambda e como o teste confirma um efeito que acontece depois. A ADR-005 do repositório registra o uso de um laço de consulta com tempo limite para as asserções assíncronas.
+    texto: Esta aba explica como cada gatilho, a ligação que faz uma função do AWS Lambda rodar a cada evento, entrega o evento à função e como o teste confirma um efeito que só aparece depois da chamada. Os blocos de conceito vêm antes da tabela que compara os gatilhos, e a decisão do repositório sobre asserções assíncronas, a de consultar o efeito a cada intervalo até um tempo limite, aparece no fim como apoio.
+  - tipo: conceito
+    titulo: Função Lambda e gatilho
+    texto: O AWS Lambda executa uma função quando um evento chega, sem servidor administrado por quem escreve a função, e a função de entrada, o handler, recebe o evento como parâmetro. O gatilho é a ligação entre uma origem de eventos e a função, e cada origem tem uma forma própria de repetir o evento quando a função falha. Nos cenários 07, 08, 11 e 14 do repositório, as funções são escritas em Python e implantadas no LocalStack, emulador dos serviços da AWS que roda num contêiner Docker.
+  - tipo: conceito
+    titulo: As quatro origens de eventos
+    texto: O Amazon S3 (Simple Storage Service) guarda arquivos em buckets e invoca a função a cada objeto criado. O Amazon SQS (Simple Queue Service) guarda mensagens numa fila, o Amazon DynamoDB Streams registra em ordem as alterações de uma tabela do DynamoDB, divididas em fragmentos, e o Amazon EventBridge recebe eventos e usa regras que comparam cada evento com um padrão para escolher o alvo.
+  - tipo: conceito
+    titulo: Mapeamento de origem de eventos e visibilidade
+    texto: Na fila e no stream, quem invoca a função é o mapeamento de origem de eventos, recurso do Lambda que lê os registros e entrega lotes à função, e que apaga as mensagens da fila quando a invocação termina com sucesso. Uma mensagem recebida fica invisível na fila durante o tempo de visibilidade, e se não for apagada nesse período volta a ficar visível e é entregue de novo.
+  - tipo: conceito
+    titulo: Testes com Lambda no macOS
+    texto: O repositório ignora, com o atributo `Skip`, os testes que dependem de Lambda quando o processo de teste roda no macOS com processador ARM64, como os Macs com Apple Silicon, porque a invocação de Lambda no LocalStack 3.8 não é confiável nesse ambiente. A regra fica em `src/Shared/EnvironmentLimitations.cs` e olha o sistema do processo de teste, e por isso os mesmos testes rodam num contêiner Linux.
+  - tipo: conceito
+    titulo: Asserção assíncrona
+    texto: O teste não sabe quando a Lambda termina. Ele consulta o efeito, como um item no DynamoDB, a cada intervalo, até encontrá-lo ou até o tempo limite, que precisa cobrir a inicialização a frio da função.
+  - tipo: conceito
+    titulo: Fila de mensagens mortas
+    texto: A `RedrivePolicy` de uma fila aponta outra fila e um `maxReceiveCount`. Quando uma mensagem é recebida esse número de vezes sem ser apagada, o SQS a move para a fila de mensagens mortas, onde ela espera análise e não volta a acionar a função.
   - tipo: comparativo
     colunas:
     - Como o evento chega
@@ -220,12 +238,6 @@ abas:
       valores:
       - Uma regra compara o evento e invoca a função
       - Novas tentativas por até 24 horas, sem destino configurado
-  - tipo: conceito
-    titulo: Asserção assíncrona
-    texto: O teste não sabe quando a Lambda termina. Ele consulta o efeito, como um item no DynamoDB, a cada intervalo, até encontrá-lo ou até o tempo limite, que precisa cobrir a inicialização a frio da função.
-  - tipo: conceito
-    titulo: Fila de mensagens mortas
-    texto: A `RedrivePolicy` de uma fila aponta outra fila e um `maxReceiveCount`. Quando uma mensagem é recebida esse número de vezes sem ser apagada, o SQS a move para a fila de mensagens mortas, onde ela espera análise e não volta a acionar a função.
   - tipo: adr
     id: ADR-005
     titulo: Tática de asserções assíncronas
@@ -238,7 +250,10 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os três arquivos que explicam o consumidor de fila do cenário 08: a função Python que lê a fila e grava no DynamoDB, a fixture que cria a fila e a liga à função, e a regra que ignora os testes com Lambda no macOS com Apple Silicon. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam por que uma mensagem inválida volta à fila sem limite.'
+    texto: 'Esta aba mostra os três arquivos que explicam o consumidor de fila do cenário 08: a função Python que lê a fila e grava no DynamoDB, a fixture, classe que cria a fila e a liga à função antes dos testes, e a regra que ignora os testes com Lambda no macOS com Apple Silicon. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam por que uma mensagem inválida volta à fila sem limite.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O handler é a função de entrada que o Lambda chama a cada invocação, e o `messageId` é o identificador que o SQS dá a cada mensagem. A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 08 cria a fila sem `RedrivePolicy`, o atributo que levaria as mensagens com falha a uma fila de mensagens mortas, e a liga à função por um mapeamento de origem de eventos, recurso do Lambda que lê a fila e invoca a função. A regra de `EnvironmentLimitations.cs` identifica o macOS com processador ARM64, a arquitetura dos Macs com Apple Silicon.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -317,7 +332,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, o caminho de uma mensagem inválida na fila do cenário 08, antes e depois da fila de mensagens mortas. Depois, classifique o que cada configuração faz com a mensagem.
+    texto: Esta aba simula, sem executar nada, o caminho de uma mensagem inválida na fila do cenário 08, antes e depois da fila de mensagens mortas, a fila que recebe as mensagens que falharam repetidas vezes. Depois, classifique o que cada configuração faz com a mensagem.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O mapeamento de origem de eventos lê a mensagem da fila e invoca a função, e a mensagem fica invisível durante o tempo de visibilidade, 30 s na fila do cenário 08. O `json.loads` interpreta o texto como JSON e lança exceção quando o texto não é JSON, e a mensagem não apagada volta à fila até o fim do período de retenção, o tempo máximo que o SQS guarda uma mensagem. A `RedrivePolicy` da fila de origem aponta a fila de mensagens mortas e define em `maxReceiveCount` quantos recebimentos sem exclusão a mensagem tolera.
   - tipo: fluxo
     titulo: A mensagem `isto não é JSON`
     etapas:
@@ -358,6 +376,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é tirar da fila principal a mensagem que a função não consegue processar, que hoje volta e aciona a função até o fim do período de retenção, levando-a para uma fila de mensagens mortas e provando isso com teste. Os passos 1 a 3 preparam o contêiner Linux e rodam o cenário 08, os passos 4 e 5 escrevem o teste e criam a fila de mensagens mortas, e o passo 6 liga as duas filas com a `RedrivePolicy`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A função Lambda é o código que o AWS Lambda executa a cada evento, e a fila de mensagens mortas é a fila que recebe as mensagens que falharam repetidas vezes. A imagem Docker reúne o sistema e as dependências de um contêiner, e o laboratório roda os testes num contêiner Linux, porque o repositório ignora os testes com Lambda no macOS com Apple Silicon. A `RedrivePolicy` liga a fila de origem à fila de mensagens mortas, e o `TimeoutException` é a falha do laço de consulta do teste quando o efeito não aparece no tempo limite.
   - tipo: faixa
     estilo: objetivo
     problema: A fila `consumer-queue` do cenário 08 é criada sem `RedrivePolicy`, e a função `sqs_consumer` lança exceção para toda mensagem que não seja JSON. Uma mensagem desse tipo volta à fila depois de cada falha e aciona a função de novo até o fim do período de retenção.
@@ -536,6 +557,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria com funções acionadas por eventos, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A `RedrivePolicy` é o atributo da fila de origem que aponta, pelo ARN, identificador único do recurso na AWS, a fila de mensagens mortas e define o `maxReceiveCount`. O mapeamento de origem de eventos só apaga a mensagem quando a invocação da função termina com sucesso, e com `ReportBatchItemFailures` a função devolve a lista das mensagens do lote que falharam. O tempo de visibilidade é o período em que a mensagem recebida fica invisível na fila, e o LocalStack Pro é a edição paga do emulador da AWS.
   - tipo: incidente
     titulo: Mensagem que nunca sai da fila
     origem: executado
@@ -615,6 +639,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Um efeito assíncrono aparece algum tempo depois da chamada que o provocou, e o `PollingHelper.WaitUntilAsync` do repositório consulta uma condição a cada intervalo até um tempo limite. A `RedrivePolicy` e o `maxReceiveCount` configuram a fila de mensagens mortas do SQS, o serviço de filas da AWS. O `messageId` identifica cada mensagem do SQS, e a chave de partição é o atributo que identifica um item no DynamoDB.
   - tipo: quiz
     perguntas:
     - enunciado: Como um teste confirma um efeito assíncrono da Lambda?

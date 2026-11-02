@@ -153,7 +153,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba define os três tipos de erro e o ponto da API que deve tratar cada um. No repositório, a ADR-0003 registra o uso de `Result` para os erros de domínio e a ADR-0010 registra o FluentValidation para a entrada.
+    texto: Esta aba define os três tipos de erro de uma API, a requisição que o servidor não consegue ler, a regra de negócio violada e a falha inesperada, e o ponto da API que deve tratar cada um. No `net-minimal-api`, os erros de domínio voltam como `Result`, um tipo de retorno que informa sucesso ou falha sem exceção, e a entrada é validada com o FluentValidation, uma biblioteca de regras de validação. Os blocos abaixo explicam primeiro cada conceito, e o quadro seguinte mostra quem detecta e como responde cada tipo de erro.
+  - tipo: conceito
+    titulo: Três tipos de erro
+    texto: O erro de entrada é a requisição que o servidor não consegue ler, como um JSON truncado, ou que não passa na validação dos campos. O erro de domínio é a regra de negócio violada por uma requisição legível, como pedir um produto inexistente, e o erro inesperado é a falha que ninguém previu, como um bug ou o banco fora do ar.
+  - tipo: conceito
+    titulo: Middleware de exceções
+    texto: Um middleware é um componente encadeado no processamento de cada requisição do ASP.NET Core. O `ExceptionHandlingMiddleware` do repositório envolve o restante do processamento num `try`, escolhe o status pelo tipo da exceção capturada e devolve um JSON com mensagem genérica para o que não foi previsto, sem expor a stack trace, a lista de métodos em execução no momento do erro.
+  - tipo: conceito
+    titulo: Problem Details
+    texto: Formato da RFC 9457 para respostas de erro de APIs HTTP, com campos como `type`, `title`, `status` e `detail` e o tipo de conteúdo `application/problem+json`, informado no cabeçalho `Content-Type`. Um cliente que recebe esse tipo sabe ler o erro sem conhecer os detalhes de cada rota.
+  - tipo: conceito
+    titulo: Ambientes de execução
+    texto: O ASP.NET Core lê o nome do ambiente da variável `ASPNETCORE_ENVIRONMENT` e ajusta o comportamento da aplicação a ele. Os perfis de `launchSettings.json` usam `Development`, a ausência da variável leva a `Production`, e os testes do repositório rodam em `Testing`, que trata o corpo ilegível como `Production`.
+  - tipo: conceito
+    titulo: Result para o esperado, exceção para o inesperado
+    texto: Uma regra de negócio violada faz parte do fluxo normal e volta como `Result.Fail`, que o endpoint transforma num status. A exceção fica para o que ninguém previu, e o middleware a transforma em 500 sem expor a mensagem interna.
+  - tipo: conceito
+    titulo: ThrowOnBadRequest
+    texto: Quando o ASP.NET não consegue ler o corpo de um endpoint mínimo, ele lança `BadHttpRequestException` se a opção `ThrowOnBadRequest`, de `RouteHandlerOptions`, estiver ligada, e responde 400 sem corpo se estiver desligada. A opção vem ligada só em `Development`, e é isso que faz o mesmo erro ter duas respostas.
   - tipo: comparativo
     colunas:
     - Quem detecta
@@ -171,12 +189,6 @@ abas:
       valores:
       - 'Ninguém: a exceção sobe até o middleware'
       - 500 com mensagem genérica, sem detalhes internos
-  - tipo: conceito
-    titulo: Result para o esperado, exceção para o inesperado
-    texto: Uma regra de negócio violada faz parte do fluxo normal e volta como `Result.Fail`, que o endpoint transforma num status. A exceção fica para o que ninguém previu, e o middleware a transforma em 500 sem expor a mensagem interna.
-  - tipo: conceito
-    titulo: ThrowOnBadRequest
-    texto: Quando o ASP.NET não consegue ler o corpo de um endpoint mínimo, ele lança `BadHttpRequestException` se a opção `ThrowOnBadRequest`, de `RouteHandlerOptions`, estiver ligada, e responde 400 sem corpo se estiver desligada. A opção vem ligada só em `Development`, e é isso que faz o mesmo erro ter duas respostas.
   - tipo: adr
     id: ADR-0003
     titulo: Padrão Result<T> para Erros de Domínio
@@ -190,6 +202,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra os dois pontos que decidem a resposta de um erro, no commit `702145a`: o endpoint que traduz um `Result` com falha e o middleware que trata as exceções. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nos trechos abaixo, o FluentValidation é a biblioteca que valida os campos do comando, `ValidationProblem` é a resposta padrão de validação do ASP.NET Core, com status 400 e mensagens por campo, e o `Result` é o retorno do handler que informa sucesso ou falha da regra de negócio. O middleware de exceções envolve num `try` o restante do pipeline, a sequência de componentes por onde cada requisição passa, e escolhe o status pelo tipo de exceção, e `WriteAsJsonAsync` é o método que grava o corpo da resposta em JSON.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -326,6 +341,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, o caminho de uma requisição com JSON ilegível nos dois ambientes, antes e depois da correção. Depois, classifique cada situação pelo tipo de erro, para fixar quem deve tratá-la.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: 'Nas etapas abaixo, desserializar é converter o texto JSON do corpo num objeto C#, como `CriarProdutoRequest`, e `Content-Length: 0` indica uma resposta sem corpo. `ThrowOnBadRequest` é a opção que decide se o ASP.NET Core lança `BadHttpRequestException` quando não consegue ler o corpo ou responde 400 direto, e `Development` e `Production` são os ambientes de execução da aplicação. No classificador, erro de entrada é a requisição ilegível ou inválida, erro de domínio é a regra de negócio violada, e erro inesperado é a falha que ninguém previu, como uma `NullReferenceException`, o erro de acesso a um objeto nulo.'
   - tipo: fluxo
     titulo: POST com corpo ilegível
     etapas:
@@ -375,6 +393,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é dar ao corpo ilegível a mesma resposta em todos os ambientes, 400 em `application/problem+json`, porque hoje o desenvolvimento registra uma falha de servidor e a produção devolve 400 sem corpo nem explicação. Os passos 1 e 2 mostram a diferença entre os ambientes, os passos 3 a 6 escrevem os testes e mudam o `Program.cs` e o middleware, e o passo 7 repete as chamadas nos dois ambientes. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório sobe a API nos ambientes `Development` e `Production`, os modos de execução que o ASP.NET Core lê da variável `ASPNETCORE_ENVIRONMENT`, e compara a resposta ao mesmo corpo truncado. A correção liga `ThrowOnBadRequest`, a opção que faz o framework lançar `BadHttpRequestException` para corpo ilegível, e trata essa exceção no middleware de exceções com uma resposta em `application/problem+json`, o formato padronizado de erro da RFC 9457. Os testes de integração, que sobem a API em memória, rodam no ambiente `Testing`, e o `MSB3030` é um erro do MSBuild, o motor de compilação do .NET, que some ao apagar as pastas `bin/` e `obj/`.
   - tipo: faixa
     estilo: objetivo
     problema: Quando o ASP.NET Core não consegue ler o corpo de um endpoint mínimo, a opção `ThrowOnBadRequest`, ligada só em `Development`, decide entre lançar `BadHttpRequestException` e responder 400 sem corpo. O `ExceptionHandlingMiddleware.cs` não tem ramo para essa exceção, que cai no `default` e vira 500, e o `WriteAsJsonAsync` sem `contentType` grava `application/json` por cima do tipo definido antes.
@@ -651,6 +672,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que aparecem ao tratar erros nessa API, cada uma com a saída ou o trecho de código que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas situações abaixo, `ThrowOnBadRequest` é a opção que faz o ASP.NET Core lançar `BadHttpRequestException` quando não consegue ler o corpo, e o middleware de exceções é o componente do repositório que transforma exceções em respostas JSON. O FluentAssertions é a biblioteca de asserções em que a verificação se escreve `valor.Should().Be(esperado)`, e o operador `?.` só acessa o membro à direita quando o objeto à esquerda não é nulo. `ValidateAndThrow` é o método do FluentValidation que lança `ValidationException` quando a validação falha, e a RFC 9457 é o padrão que define o tipo `application/problem+json`.
   - tipo: incidente
     titulo: Erro do cliente que vira alerta de servidor
     origem: executado
@@ -750,6 +774,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas perguntas abaixo, a borda da API é o ponto que recebe a requisição antes de qualquer regra de negócio, e `Result.Fail` é a falha de regra devolvida pelo agregado sem exceção. A stack trace é a lista de métodos em execução no momento do erro, que expõe detalhes internos se for devolvida ao cliente, e o seed é o conjunto de dados de exemplo gravado no banco ao iniciar. `ThrowOnBadRequest` é a opção que faz o framework lançar exceção para corpo ilegível, e `Should()` é o início de uma asserção do FluentAssertions.
   - tipo: quiz
     perguntas:
     - enunciado: Quem deve tratar um JSON que não pode ser lido?

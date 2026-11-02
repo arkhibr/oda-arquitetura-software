@@ -169,6 +169,25 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba compara as duas organizações presentes no repositório `net-minimal-api`: o Catálogo, em `src/Catalogo/`, agrupa o código por camada técnica, e os Pedidos, em `src/Pedidos/`, agrupam por caso de uso, com tudo de uma operação na mesma pasta. As duas árvores abaixo reproduzem essas pastas no commit `702145a`, e os itens marcados como novos são os arquivos que o laboratório cria. Clique numa pasta ou num arquivo para ver a responsabilidade dele.'
+  - tipo: conceito
+    titulo: Clean Architecture
+    texto: Organização em camadas concêntricas em que o domínio e as regras de aplicação ficam no centro e não dependem de banco nem de framework, com as referências entre projetos apontando para dentro. No Catálogo, o código de um recurso se distribui pelos subprojetos Domain, Application, Infrastructure e API, e cada camada atende vários endpoints.
+  - tipo: conceito
+    titulo: Vertical Slice
+    texto: Organização por caso de uso, em que tudo o que uma operação precisa, como comando, handler e endpoint, fica numa mesma pasta, chamada fatia. Nos Pedidos, cada operação tem a própria pasta, como `src/Pedidos/CancelPedido`, e uma fatia nova não altera as existentes.
+  - tipo: conceito
+    titulo: Agregado
+    texto: Grupo de objetos do domínio tratado como uma unidade, em que só a raiz, aqui o `Pedido`, pode ser chamada de fora. O `Pedido` guarda os itens e aplica as regras de `Confirmar()` e `Cancelar()`, que devolvem um `Result`, o tipo de retorno que informa sucesso ou falha sem lançar exceção.
+  - tipo: conceito
+    titulo: Comando, handler e repositório
+    texto: Numa fatia, o comando é o objeto com os dados da operação pedida, o handler é a classe que carrega o agregado, chama a regra e grava o resultado, e o repositório é a interface de acesso a dados, implementada com o EF Core, a biblioteca de acesso a banco da Microsoft, na escrita e com o Dapper, biblioteca de SQL escrito à mão, na leitura. O endpoint recebe a requisição HTTP, chama o handler e traduz o resultado em código de status.
+  - tipo: conceito
+    titulo: Termos da árvore do Catálogo
+    texto: Na árvore do Catálogo, value objects são objetos do domínio definidos pelo valor, como `SKU` e `PrecoProduto`, DTOs (Data Transfer Objects) são objetos simples que levam os dados de entrada e saída da API, e o FluentValidation é a biblioteca que valida esses dados de entrada. `Produto.Criar` é um método de fábrica, que cria a entidade aplicando as regras do produto antes de devolvê-la.
+  - tipo: conceito
+    titulo: Camada técnica ou caso de uso
+    texto: Na Clean Architecture, o código de um recurso se distribui por camadas e a dependência aponta da API para o domínio. Na Vertical Slice, o código de um caso de uso fica junto e depende apenas do agregado e das interfaces de repositório do contexto.
+    analogia: O Catálogo funciona como uma fábrica organizada por setores, em que cada pedido passa por todos os setores. Pedidos funciona como uma oficina por encomenda, em que cada bancada monta um produto completo.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -242,10 +261,6 @@ abas:
       valores:
       - Alto, com quatro projetos, interfaces e repositórios
       - Baixo, com uma pasta por funcionalidade
-  - tipo: conceito
-    titulo: Camada técnica ou caso de uso
-    texto: Na Clean Architecture, o código de um recurso se distribui por camadas e a dependência aponta da API para o domínio. Na Vertical Slice, o código de um caso de uso fica junto e depende apenas do agregado e das interfaces de repositório do contexto.
-    analogia: O Catálogo funciona como uma fábrica organizada por setores, em que cada pedido passa por todos os setores. Pedidos funciona como uma oficina por encomenda, em que cada bancada monta um produto completo.
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Fluxo
@@ -272,6 +287,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a fatia de cancelamento dos Pedidos, que serve de modelo para a fatia nova, e o mecanismo que registra os endpoints e os handlers. Clique nos marcadores numerados para ler a explicação de cada linha.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nos trechos abaixo, o handler é a classe da fatia que carrega o agregado `Pedido` pelo repositório de escrita, implementado com o EF Core, a biblioteca de acesso a banco da Microsoft, e o `Result` é o retorno que informa sucesso ou falha da regra sem exceção. O contêiner de injeção de dependência é o mecanismo do ASP.NET Core que entrega o handler ao endpoint, desde que ele esteja registrado com `AddScoped` no `Program.cs`, e a reflection é a leitura dos tipos do programa em tempo de execução, usada para descobrir as classes que implementam `IEndpoint`. `RequireAuthorization` exige um JWT (JSON Web Token) válido para a rota responder.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -427,6 +445,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, o caminho de uma requisição pelas camadas do Catálogo e pela fatia dos Pedidos. Percorra os dois fluxos e depois envie requisições pelo console de API, com códigos de status obtidos nos testes de integração do repositório.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas etapas abaixo, um assembly é a unidade compilada de um projeto .NET, e a vinculação de parâmetros é a regra pela qual a Minimal API decide se cada parâmetro vem da rota, do corpo JSON ou do contêiner de injeção de dependência. O AutoMapper é a biblioteca que copia os dados da entidade para o DTO, o objeto simples da resposta, e o middleware global é o componente que transforma exceções em respostas de erro para todas as rotas. No console, o token Bearer é o JWT (JSON Web Token) obtido no login, e no classificador o middleware de idempotência é o componente que devolve a mesma resposta quando uma requisição chega de novo com o mesmo cabeçalho `Idempotency-Key`.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -599,7 +620,7 @@ abas:
       requisicao:
         metodo: POST
         url: /api/v1/pedidos/99999/cancelar
-        cabecalhos: &id001
+        cabecalhos:
           Authorization: Bearer <token obtido em /api/v1/auth/login>
           Content-Type: application/json
         corpo:
@@ -614,7 +635,9 @@ abas:
       requisicao:
         metodo: POST
         url: /api/v1/pedidos/<id>/cancelar
-        cabecalhos: *id001
+        cabecalhos:
+          Authorization: Bearer <token obtido em /api/v1/auth/login>
+          Content-Type: application/json
         corpo:
           motivo: ''
       resposta:
@@ -627,7 +650,9 @@ abas:
       requisicao:
         metodo: POST
         url: /api/v1/pedidos/<id>/cancelar
-        cabecalhos: *id001
+        cabecalhos:
+          Authorization: Bearer <token obtido em /api/v1/auth/login>
+          Content-Type: application/json
         corpo:
           motivo: Desistência do cliente
       resposta:
@@ -688,6 +713,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é expor a confirmação de pedido pela API como uma fatia vertical completa, porque a regra já existe no agregado e falta o caminho HTTP até ela, e mostrar o que uma fatia nova ainda exige do `Program.cs`. Os passos 1 e 2 clonam o repositório e conferem o ambiente, os passos 3 a 6 criam o comando, o handler, o endpoint e o teste, e os passos 7 e 8 registram o handler e rodam a suíte. O terminal simulado responde aos mesmos comandos, e o passo 7 muda o resultado dos testes como no projeto real.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório escreve um teste de integração, que sobe a API em memória e faz requisições HTTP a ela, e roda esse teste antes e depois de registrar o handler, a classe que executa a confirmação. `AddScoped` registra o handler no contêiner de injeção de dependência com uma instância por requisição, e sem esse registro a vinculação de parâmetros da Minimal API tenta ler o handler do corpo da requisição.
   - tipo: faixa
     estilo: objetivo
     problema: O agregado `Pedido` tem o método `Confirmar()`, que confere o status, a existência de itens e o valor mínimo, mas nenhuma fatia de `src/Pedidos` expõe essa operação pela API. Uma fatia nova depende de duas peças que falham de formas diferentes, porque o endpoint é descoberto por reflection e o handler precisa ser registrado à mão no `Program.cs`.
@@ -925,6 +953,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta situações que alguém encontraria ao criar uma fatia nova, cada uma com a saída de uma falha real deste laboratório. Escolha a causa de cada incidente para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas situações abaixo, a vinculação de parâmetros é a regra pela qual a Minimal API decide de onde vem cada parâmetro do endpoint, e um tipo complexo que não está registrado como serviço é lido do corpo da requisição. O 401 é o status de requisição sem JWT (JSON Web Token) válido, a mensagem de domínio é o texto de erro que o agregado devolve no `Result`, e o middleware de idempotência é o componente que repete a resposta guardada quando a mesma `Idempotency-Key` chega de novo. Nos testes, a `ApiFactory` é a classe que sobe a API em memória, `[Fact]` marca um método de teste do xUnit, e `Assert.Equal` é uma asserção, a verificação que faz o teste falhar quando o valor não é o esperado.
   - tipo: incidente
     titulo: Confirmação responde 400 quando o esperado é 200
     origem: executado
@@ -1000,6 +1031,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: 'Nas perguntas abaixo, `Result.Fail` é a forma de o handler devolver uma falha de regra sem exceção, e `Results.NotFound` é a resposta 404 que o endpoint escolhe pela mensagem dessa falha. A vinculação de parâmetros é a regra pela qual a Minimal API decide de onde vem cada parâmetro do endpoint, e a query string é a parte do endereço depois do `?`. As duas ADRs citadas são registros de decisão do repositório: a ADR-0001 decidiu pela convivência de Clean Architecture no Catálogo e Vertical Slice nos Pedidos, e a ADR-0011 definiu a arquitetura híbrida do Catálogo.'
   - tipo: quiz
     perguntas:
     - enunciado: Qual afirmação diferencia corretamente as duas organizações do repositório?
@@ -1009,10 +1043,10 @@ abas:
         explicacao: Pedidos tem o agregado `Pedido` em `src/Pedidos/Domain/`, compartilhado pelas fatias.
       - texto: O Catálogo não usa Vertical Slice em nenhuma parte.
         correta: false
-        explicacao: A ADR-0011 organiza a camada de API do Catálogo no estilo Vertical Slice.
+        explicacao: A ADR-0011, que definiu a arquitetura híbrida do Catálogo, organiza a camada de API dele no estilo Vertical Slice.
       - texto: O Catálogo distribui um recurso por camadas técnicas, e Pedidos agrupa tudo de um caso de uso numa pasta.
         correta: true
-        explicacao: É a diferença registrada na ADR-0001 e no quadro de `docs/01-ARQUITETURA.md`.
+        explicacao: É a diferença que a ADR-0001 registrou ao decidir pela convivência dos dois padrões, e que o quadro de `docs/01-ARQUITETURA.md` detalha.
     - enunciado: No cancelamento de um pedido inexistente, onde nasce a resposta 404?
       alternativas:
       - texto: No endpoint, que traduz a falha "Pedido não encontrado." devolvida pelo handler.

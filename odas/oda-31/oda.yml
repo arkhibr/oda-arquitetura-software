@@ -176,7 +176,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba compara os dois modelos de dados e explica por que ler e depois gravar falha com acessos simultâneos. A ADR-003 do repositório registra o uso do LocalStack Community e as limitações que isso traz para o RDS.
+    texto: Esta aba compara o Amazon DynamoDB, banco NoSQL da AWS que localiza itens pela chave, com um banco relacional, consultado em SQL, e explica por que ler um valor e depois gravá-lo falha quando várias requisições chegam ao mesmo tempo. Os blocos de conceito explicam cada termo antes da tabela que compara os dois bancos.
+  - tipo: conceito
+    titulo: DynamoDB e banco relacional
+    texto: O Amazon DynamoDB guarda itens em tabelas que declaram só a chave, e cada item pode ter atributos diferentes. Ele lê um item pela chave com `GetItem`, lê os itens de uma chave de partição com `Query` e percorre a tabela inteira com `Scan`, e grava com `PutItem`, que substitui o item, ou `UpdateItem`, que altera atributos. Um banco relacional, como o PostgreSQL, declara colunas e tipos no `CREATE TABLE` e aceita consultas livres em SQL, com junções entre tabelas.
+  - tipo: conceito
+    titulo: Chave de partição e chave primária
+    texto: No DynamoDB, a chave de partição é o atributo que identifica o item e define onde ele é guardado, e a tabela `items` do cenário 03 usa o atributo `id`. Numa tabela relacional, a chave primária é a coluna ou o conjunto de colunas que identifica cada linha.
+  - tipo: conceito
+    titulo: Transação
+    texto: Uma transação é um conjunto de operações que o banco aplica por inteiro ou desfaz por inteiro. No DynamoDB, o `TransactWriteItems` agrupa até 100 itens, e no PostgreSQL a transação começa com `BEGIN` e termina com `COMMIT` ou `ROLLBACK`.
+  - tipo: conceito
+    titulo: LocalStack, AppHost e o RDS
+    texto: Os testes chamam o LocalStack, emulador dos serviços da AWS que roda num contêiner Docker, na edição gratuita Community, versão 3.8. Ele emula o DynamoDB e não oferece a API de controle do Amazon RDS (Relational Database Service), as chamadas que criam e administram instâncias de banco. Por isso o AppHost, projeto do .NET Aspire que declara os contêineres dos testes, sobe um PostgreSQL próprio, e o cenário 17 conversa com ele diretamente.
+  - tipo: conceito
+    titulo: Perda de atualização
+    texto: Quando duas requisições leem o mesmo valor, calculam o novo e gravam, a segunda gravação apaga o efeito da primeira. Com estoque 5 e dez reservas de uma unidade, todas podem ler 5 e aprovar a venda.
+  - tipo: conceito
+    titulo: Escrita condicional
+    texto: 'A correção leva a condição para dentro da própria escrita: o banco confere e altera numa única operação atômica. No DynamoDB, a condição falsa gera `ConditionalCheckFailedException`, e no SQL o `UPDATE` afeta zero linhas.'
   - tipo: comparativo
     colunas:
     - DynamoDB
@@ -202,17 +220,14 @@ abas:
       valores:
       - Emulado
       - API de controle indisponível, banco real no contêiner do AppHost
-  - tipo: conceito
-    titulo: Perda de atualização
-    texto: Quando duas requisições leem o mesmo valor, calculam o novo e gravam, a segunda gravação apaga o efeito da primeira. Com estoque 5 e dez reservas de uma unidade, todas podem ler 5 e aprovar a venda.
-  - tipo: conceito
-    titulo: Escrita condicional
-    texto: 'A correção leva a condição para dentro da própria escrita: o banco confere e altera numa única operação atômica. No DynamoDB, a condição falsa gera `ConditionalCheckFailedException`, e no SQL o `UPDATE` afeta zero linhas.'
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os arquivos que preparam os dois bancos comparados nesta ODA: a fixture do cenário 03, que cria a tabela do DynamoDB, um teste desse cenário e a fixture do cenário 17, que prepara o PostgreSQL usado no lugar do RDS. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam o que cada cenário prepara e o que os testes existentes deixam sem cobertura.'
+    texto: 'Esta aba mostra os arquivos que preparam os dois bancos comparados nesta ODA: a fixture do cenário 03, classe que cria a tabela do DynamoDB antes dos testes, um teste desse cenário e a fixture do cenário 17, que prepara o PostgreSQL usado no lugar do Amazon RDS, o serviço de bancos relacionais da AWS. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam o que cada cenário prepara e o que os testes existentes deixam sem cobertura.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes para preparar recursos. A tabela do cenário 03 declara só a chave de partição `id`, o atributo que identifica cada item, usa cobrança por requisição, sem capacidade reservada, e só aceita operações quando chega ao estado `ACTIVE`. O `Scan` percorre a tabela inteira, e a API de controle do RDS é o conjunto de chamadas que cria instâncias de banco, ausente no LocalStack Community, a edição gratuita do emulador da AWS.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -314,7 +329,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, duas reservas simultâneas do último item em estoque, com a leitura seguida de gravação e com a escrita condicional. Depois, classifique cada técnica pelo resultado.
+    texto: Esta aba simula, sem executar nada, duas reservas simultâneas do último item em estoque, primeiro com a leitura seguida de gravação e depois com a escrita condicional, a gravação que o banco só aplica se a condição for verdadeira. Depois, classifique cada técnica pelo resultado.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Na leitura seguida de gravação, a aplicação lê o estoque com `GetItem` ou `SELECT`, calcula o novo valor e grava com `PutItem` ou `UPDATE`, e duas requisições podem ler o mesmo valor antes de qualquer gravação. Na escrita condicional, a condição vai junto da gravação, na `ConditionExpression` do `UpdateItem` do DynamoDB ou no `WHERE` do `UPDATE` em SQL, e o banco confere e altera numa operação atômica, que nenhuma outra requisição vê pela metade.
   - tipo: fluxo
     titulo: Duas reservas do último item
     etapas:
@@ -356,6 +374,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é eliminar a perda de atualização na reserva de estoque, que aprova dez vendas para cinco unidades, levando a condição para dentro da escrita nos dois bancos e provando a correção com dez reservas simultâneas. Os passos 1 a 4 escrevem o teste no DynamoDB, mostram a versão que lê e grava falhar e corrigem com a escrita condicional, e os passos 5 a 7 repetem o teste no PostgreSQL e corrigem o pool de conexões. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A escrita condicional é a gravação que o banco só aplica se a condição for verdadeira, e ela corrige a perda de atualização, em que duas requisições leem o mesmo valor e a segunda gravação apaga o efeito da primeira. A fixture é a classe que prepara os recursos de uma classe de teste, e o Npgsql, driver que liga o .NET ao PostgreSQL, mantém um pool de conexões, um conjunto de conexões abertas reaproveitadas pelo processo inteiro. O erro `57P01` do PostgreSQL indica conexão encerrada pelo servidor.
   - tipo: faixa
     estilo: objetivo
     problema: Os testes dos cenários 03 e 17 gravam e leem um item por vez, e nenhum deles exercita duas requisições sobre o mesmo dado. Uma reserva de estoque que lê o valor, confere na aplicação e grava o resultado sofre perda de atualização quando as requisições chegam juntas.
@@ -619,6 +640,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria com esses bancos e esses testes, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A `ConditionExpression` do `UpdateItem` faz o DynamoDB gravar só se a condição for verdadeira. O pool de conexões do Npgsql, driver do PostgreSQL para .NET, guarda conexões abertas para o processo inteiro, e `NpgsqlConnection.ClearAllPools()` as descarta, enquanto `IClassFixture` faz o xUnit criar uma fixture, a classe que prepara recursos, para cada classe de teste. Um teste marcado com `Skip` não roda, a variável `AWS_TARGET=aws` desvia os testes para a AWS real, e o LocalStack Pro é a edição paga do emulador da AWS.
   - tipo: incidente
     titulo: Venda acima do estoque
     origem: executado
@@ -670,7 +694,7 @@ abas:
     alternativas:
     - texto: Eles chamam a API de controle do RDS, que o LocalStack Community não oferece, e estão marcados com `Skip`.
       correta: true
-      explicacao: A ADR-003 registra essa limitação.
+      explicacao: O atributo `Skip` desses testes cita a constante `LocalStackRdsApiReason`, que informa que a API de controle do RDS é recurso da edição Pro do LocalStack 3.8.
     - texto: O PostgreSQL não subiu.
       correta: false
       explicacao: Os cinco testes de dados passaram.
@@ -709,6 +733,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A `ConditionExpression` é a condição de uma gravação do DynamoDB, e `ConditionalCheckFailedException` é a exceção lançada quando ela é falsa. O pool de conexões guarda conexões abertas do PostgreSQL para reaproveitá-las, e o erro `57P01` indica conexão encerrada pelo servidor. O AppHost é o projeto do .NET Aspire que sobe o PostgreSQL dos testes, e o RDS é o serviço de bancos relacionais da AWS.
   - tipo: quiz
     perguntas:
     - enunciado: Por que ler, conferir e gravar falha com requisições simultâneas?

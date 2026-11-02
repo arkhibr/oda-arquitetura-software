@@ -135,7 +135,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica as duas proteções e como escolher o algoritmo de limite para cada rota. No repositório, a ADR-0007 registra o uso de JWT com credenciais em configuração, e a ADR-0013 registra as três políticas de rate limiting do Catálogo.
+    texto: Esta aba explica as duas proteções da API `net-minimal-api`, a autenticação por token JWT (JSON Web Token) e a limitação de requisições, chamada de rate limiting, e como escolher o algoritmo de limite para cada rota. Os blocos abaixo definem cada conceito antes do comparativo entre os algoritmos, e a ADR (registro de decisão de arquitetura) do fim mostra as três políticas de limite que o repositório decidiu criar no Catálogo.
+  - tipo: conceito
+    titulo: Token JWT e autenticação Bearer
+    texto: 'O JWT é um token em formato JSON, assinado por quem o emite, que carrega o usuário, o emissor, a audiência e a data de expiração. A API emite o token na rota de login, e o cliente o envia em cada chamada no cabeçalho `Authorization: Bearer <token>`. As rotas marcadas com `RequireAuthorization` recusam com 401 a chamada sem token válido.'
+  - tipo: conceito
+    titulo: O que a API confere no token
+    texto: A API aceita o token se a assinatura confere com a chave, se o emissor e a audiência são os esperados e se ele não venceu. A mesma chave simétrica, lida do `appsettings.json`, assina e valida o token. A validação de expiração tolera, por padrão, cinco minutos de diferença de relógio entre quem emitiu e quem valida, a chamada tolerância de relógio (`ClockSkew`).
+  - tipo: conceito
+    titulo: Rate limiting e resposta 429
+    texto: O rate limiting limita quantas requisições podem chegar a uma rota num intervalo de tempo e recusa as excedentes com o status 429 Too Many Requests, acompanhado do cabeçalho `Retry-After`, que diz quantos segundos esperar. No ASP.NET Core, as políticas de limite são registradas com nome e só valem nas rotas que as pedem com `RequireRateLimiting`. Sem limite no login, um atacante pode testar senhas em sequência, o chamado ataque de força bruta.
+  - tipo: conceito
+    titulo: Janela fixa, janela deslizante e balde de tokens
+    texto: A janela fixa conta as requisições num intervalo que zera de uma vez, e por isso admite uma rajada na virada do intervalo. A janela deslizante divide o intervalo em segmentos que expiram aos poucos, e o balde de tokens consome um token por requisição e repõe os tokens num ritmo constante.
+  - tipo: conceito
+    titulo: Partição
+    texto: Uma política registrada com `AddFixedWindowLimiter` tem um contador único para toda a API, e o cliente que esgota a cota bloqueia todos os outros. Com `AddPolicy` e `RateLimitPartition`, cada chave, como o IP do cliente, ganha o próprio contador, e o limite passa a valer por cliente.
   - tipo: comparativo
     colunas:
     - Como conta
@@ -157,12 +172,6 @@ abas:
       valores:
       - Um contador por chave, como o IP ou o usuário
       - Só a política `login`, depois do laboratório
-  - tipo: conceito
-    titulo: O que o JWT prova
-    texto: A API aceita o token se a assinatura confere com a chave, se o emissor e a audiência são os esperados e se ele não venceu. A validação de expiração tolera, por padrão, cinco minutos de diferença de relógio entre quem emitiu e quem valida.
-  - tipo: conceito
-    titulo: Partição
-    texto: Uma política registrada com `AddFixedWindowLimiter` tem um contador único para toda a API, e o cliente que esgota a cota bloqueia todos os outros. Com `AddPolicy` e `RateLimitPartition`, cada chave ganha o próprio contador, e o limite passa a valer por cliente.
   - tipo: adr
     id: ADR-0013
     titulo: Rate Limiting no Servidor com Três Políticas Diferenciadas
@@ -176,6 +185,43 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a validação do token, as políticas de limite e duas rotas que não usam nenhuma delas. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: JWT (JSON Web Token)
+      definicao: Token em formato JSON, assinado por quem o emite, que carrega informações como o usuário, o emissor, a audiência e a data de expiração. A API emite o token no login e confere a assinatura e esses campos a cada chamada protegida.
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: Autenticação por token Bearer
+      definicao: 'Esquema em que o cliente envia o token no cabeçalho `Authorization: Bearer <token>` e a API aceita a chamada se o token for válido. Uma rota marcada com `RequireAuthorization` recusa com 401 a chamada sem token válido.'
+      referencia:
+        rotulo: 'Microsoft Learn: autenticação JWT Bearer no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/configure-jwt-bearer-authentication
+    - termo: Emissor, audiência e chave simétrica
+      definicao: O emissor (`iss`) identifica quem gerou o token e a audiência (`aud`) identifica para quem ele foi gerado, e a API confere os dois. Com chave simétrica, a mesma chave secreta assina e valida o token, e na API ela fica no `appsettings.json`.
+    - termo: Tolerância de relógio (clock skew)
+      definicao: Margem de tempo que a validação aceita entre o relógio de quem emitiu o token e o de quem valida. No .NET, a propriedade `ClockSkew` vale cinco minutos por padrão, e por isso um token vencido há menos que isso ainda é aceito.
+      referencia:
+        rotulo: 'Microsoft Learn: TokenValidationParameters.ClockSkew'
+        url: https://learn.microsoft.com/en-us/dotnet/api/microsoft.identitymodel.tokens.tokenvalidationparameters.clockskew
+    - termo: Rate limiting (limitação de taxa)
+      definicao: Mecanismo que limita quantas requisições um cliente, ou a API inteira, pode fazer num intervalo de tempo e recusa as excedentes. No ASP.NET Core, as políticas de limite são registradas com nome e só valem nas rotas que as pedem com `RequireRateLimiting`.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware de limitação de taxa no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Janela fixa, janela deslizante e balde de tokens
+      definicao: São três algoritmos de limite. A janela fixa conta as requisições num intervalo que zera de uma vez, a janela deslizante divide o intervalo em segmentos que expiram aos poucos, e o balde de tokens consome um token por requisição e repõe os tokens num ritmo constante.
+      referencia:
+        rotulo: 'Microsoft Learn: algoritmos de limitação de taxa'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Partição de limite
+      definicao: Divisão do limite por uma chave, como o IP do cliente, em que cada chave ganha o próprio contador. Sem partição, um único contador vale para todos os clientes, e quem esgota a cota bloqueia os demais.
+    - termo: HTTP 429 e cabeçalho Retry-After
+      definicao: O status 429 Too Many Requests indica que o cliente passou do limite de requisições. O cabeçalho `Retry-After` informa quantos segundos o cliente deve esperar antes de tentar de novo.
+      referencia:
+        rotulo: 'MDN: 429 Too Many Requests'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/429
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -291,6 +337,36 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, a sequência de tentativas de login de dois clientes antes e depois da política particionada. Depois, classifique a política adequada a cada rota.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Rate limiting (limitação de taxa)
+      definicao: Mecanismo que limita quantas requisições um cliente, ou a API inteira, pode fazer num intervalo de tempo e recusa as excedentes. No ASP.NET Core, as políticas de limite são registradas com nome e só valem nas rotas que as pedem com `RequireRateLimiting`.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware de limitação de taxa no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Ataque de força bruta
+      definicao: Tentativa de descobrir uma senha enviando muitas combinações seguidas à rota de login. Limitar as tentativas por cliente é uma das defesas recomendadas.
+      referencia:
+        rotulo: 'OWASP: Authentication Cheat Sheet'
+        url: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+    - termo: Partição de limite
+      definicao: Divisão do limite por uma chave, como o IP do cliente, em que cada chave ganha o próprio contador. Sem partição, um único contador vale para todos os clientes, e quem esgota a cota bloqueia os demais.
+    - termo: IPv4, IPv6 e endereço de loopback
+      definicao: IPv4 e IPv6 são as duas versões do protocolo de endereçamento da internet. O endereço de loopback aponta para a própria máquina, `127.0.0.1` no IPv4 e `::1` no IPv6, e o laboratório usa os dois para simular dois clientes com IPs diferentes.
+      referencia:
+        rotulo: 'MDN: IPv6'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/IPv6
+    - termo: Janela fixa, janela deslizante e balde de tokens
+      definicao: São três algoritmos de limite. A janela fixa conta as requisições num intervalo que zera de uma vez, a janela deslizante divide o intervalo em segmentos que expiram aos poucos, e o balde de tokens consome um token por requisição e repõe os tokens num ritmo constante.
+      referencia:
+        rotulo: 'Microsoft Learn: algoritmos de limitação de taxa'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: HTTP 429 e cabeçalho Retry-After
+      definicao: O status 429 Too Many Requests indica que o cliente passou do limite de requisições. O cabeçalho `Retry-After` informa quantos segundos o cliente deve esperar antes de tentar de novo.
+      referencia:
+        rotulo: 'MDN: 429 Too Many Requests'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/429
   - tipo: fluxo
     titulo: Dois clientes tentam entrar
     etapas:
@@ -339,6 +415,51 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é mitigar a tentativa de senhas por força bruta e o excesso de pedidos, limitando as tentativas de login por IP e os pedidos por minuto, e medir até quando um token vencido continua aceito. Os passos 1 a 3 sobem a API e medem o comportamento atual, os passos 4 a 7 escrevem os testes e acrescentam as políticas, e os passos 8 e 9 repetem a medição e testam tokens montados à mão. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Rate limiting (limitação de taxa)
+      definicao: Mecanismo que limita quantas requisições um cliente, ou a API inteira, pode fazer num intervalo de tempo e recusa as excedentes. No ASP.NET Core, as políticas de limite são registradas com nome e só valem nas rotas que as pedem com `RequireRateLimiting`.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware de limitação de taxa no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Ataque de força bruta
+      definicao: Tentativa de descobrir uma senha enviando muitas combinações seguidas à rota de login. Limitar as tentativas por cliente é uma das defesas recomendadas.
+      referencia:
+        rotulo: 'OWASP: Authentication Cheat Sheet'
+        url: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+    - termo: JWT (JSON Web Token)
+      definicao: Token em formato JSON, assinado por quem o emite, que carrega informações como o usuário, o emissor, a audiência e a data de expiração. A API emite o token no login e confere a assinatura e esses campos a cada chamada protegida.
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: IPv4, IPv6 e endereço de loopback
+      definicao: IPv4 e IPv6 são as duas versões do protocolo de endereçamento da internet. O endereço de loopback aponta para a própria máquina, `127.0.0.1` no IPv4 e `::1` no IPv6, e o laboratório usa os dois para simular dois clientes com IPs diferentes.
+      referencia:
+        rotulo: 'MDN: IPv6'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/IPv6
+    - termo: HTTP 429 e cabeçalho Retry-After
+      definicao: O status 429 Too Many Requests indica que o cliente passou do limite de requisições. O cabeçalho `Retry-After` informa quantos segundos o cliente deve esperar antes de tentar de novo.
+      referencia:
+        rotulo: 'MDN: 429 Too Many Requests'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/429
+    - termo: Partição de limite
+      definicao: Divisão do limite por uma chave, como o IP do cliente, em que cada chave ganha o próprio contador. Sem partição, um único contador vale para todos os clientes, e quem esgota a cota bloqueia os demais.
+    - termo: xUnit e IClassFixture
+      definicao: O xUnit é o framework de testes usado no repositório. Uma classe de teste que declara `IClassFixture<T>` recebe uma instância de `T` criada uma vez para a classe, e no laboratório cada classe ganha assim a própria API de teste, com contadores próprios.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Janela fixa, janela deslizante e balde de tokens
+      definicao: São três algoritmos de limite. A janela fixa conta as requisições num intervalo que zera de uma vez, a janela deslizante divide o intervalo em segmentos que expiram aos poucos, e o balde de tokens consome um token por requisição e repõe os tokens num ritmo constante.
+      referencia:
+        rotulo: 'Microsoft Learn: algoritmos de limitação de taxa'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Tolerância de relógio (clock skew)
+      definicao: Margem de tempo que a validação aceita entre o relógio de quem emitiu o token e o de quem valida. No .NET, a propriedade `ClockSkew` vale cinco minutos por padrão, e por isso um token vencido há menos que isso ainda é aceito.
+      referencia:
+        rotulo: 'Microsoft Learn: TokenValidationParameters.ClockSkew'
+        url: https://learn.microsoft.com/en-us/dotnet/api/microsoft.identitymodel.tokens.tokenvalidationparameters.clockskew
   - tipo: faixa
     estilo: objetivo
     problema: Em `AuthEndpoints.cs`, a rota `POST /api/v1/auth/login` é anônima e não declara política de limite, e as rotas de Pedidos, como a de `CreatePedidoEndpoint.cs`, exigem token sem chamar `RequireRateLimiting`. A validação do token, no `Program.cs`, mantém a tolerância de relógio padrão de cinco minutos.
@@ -614,6 +735,53 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que aparecem ao proteger essa API, cada uma com a saída que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: HTTP 429 e cabeçalho Retry-After
+      definicao: O status 429 Too Many Requests indica que o cliente passou do limite de requisições. O cabeçalho `Retry-After` informa quantos segundos o cliente deve esperar antes de tentar de novo.
+      referencia:
+        rotulo: 'MDN: 429 Too Many Requests'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/429
+    - termo: Rate limiting (limitação de taxa)
+      definicao: Mecanismo que limita quantas requisições um cliente, ou a API inteira, pode fazer num intervalo de tempo e recusa as excedentes. No ASP.NET Core, as políticas de limite são registradas com nome e só valem nas rotas que as pedem com `RequireRateLimiting`.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware de limitação de taxa no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Partição de limite
+      definicao: Divisão do limite por uma chave, como o IP do cliente, em que cada chave ganha o próprio contador. Sem partição, um único contador vale para todos os clientes, e quem esgota a cota bloqueia os demais.
+    - termo: IPv4, IPv6 e endereço de loopback
+      definicao: IPv4 e IPv6 são as duas versões do protocolo de endereçamento da internet. O endereço de loopback aponta para a própria máquina, `127.0.0.1` no IPv4 e `::1` no IPv6, e o laboratório usa os dois para simular dois clientes com IPs diferentes.
+      referencia:
+        rotulo: 'MDN: IPv6'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/IPv6
+    - termo: Ataque de força bruta
+      definicao: Tentativa de descobrir uma senha enviando muitas combinações seguidas à rota de login. Limitar as tentativas por cliente é uma das defesas recomendadas.
+      referencia:
+        rotulo: 'OWASP: Authentication Cheat Sheet'
+        url: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+    - termo: JWT (JSON Web Token)
+      definicao: Token em formato JSON, assinado por quem o emite, que carrega informações como o usuário, o emissor, a audiência e a data de expiração. A API emite o token no login e confere a assinatura e esses campos a cada chamada protegida.
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: Tolerância de relógio (clock skew)
+      definicao: Margem de tempo que a validação aceita entre o relógio de quem emitiu o token e o de quem valida. No .NET, a propriedade `ClockSkew` vale cinco minutos por padrão, e por isso um token vencido há menos que isso ainda é aceito.
+      referencia:
+        rotulo: 'Microsoft Learn: TokenValidationParameters.ClockSkew'
+        url: https://learn.microsoft.com/en-us/dotnet/api/microsoft.identitymodel.tokens.tokenvalidationparameters.clockskew
+    - termo: Balanceador de carga
+      definicao: Componente que recebe as requisições e as distribui entre várias instâncias da mesma aplicação. Como cada instância da API guarda os contadores de limite na própria memória, o limite total cresce com o número de instâncias.
+    - termo: Gateway de API e Redis
+      definicao: Um gateway de API é um ponto de entrada único na frente dos serviços, onde regras como o limite de requisições podem valer para todas as instâncias. O Redis é um banco de dados em memória usado com frequência para guardar contadores compartilhados entre instâncias.
+      referencia:
+        rotulo: 'microservices.io: API Gateway'
+        url: https://microservices.io/patterns/apigateway.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
   - tipo: incidente
     titulo: Um cliente bloqueia a leitura de todos
     origem: executado
@@ -678,13 +846,53 @@ abas:
       explicacao: O balanceador não conhece o limite.
     - texto: Até 180, porque cada instância tem o próprio contador na memória do processo.
       correta: true
-      explicacao: A ADR-0013 registra essa limitação.
+      explicacao: A ADR-0013 do repositório, que escolheu contadores por processo, registra que eles não se somam entre instâncias.
     - texto: 60, porque o limite é da API.
       correta: false
       explicacao: Os contadores não são compartilhados.
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Partição de limite
+      definicao: Divisão do limite por uma chave, como o IP do cliente, em que cada chave ganha o próprio contador. Sem partição, um único contador vale para todos os clientes, e quem esgota a cota bloqueia os demais.
+    - termo: IPv4, IPv6 e endereço de loopback
+      definicao: IPv4 e IPv6 são as duas versões do protocolo de endereçamento da internet. O endereço de loopback aponta para a própria máquina, `127.0.0.1` no IPv4 e `::1` no IPv6, e o laboratório usa os dois para simular dois clientes com IPs diferentes.
+      referencia:
+        rotulo: 'MDN: IPv6'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/IPv6
+    - termo: Rate limiting (limitação de taxa)
+      definicao: Mecanismo que limita quantas requisições um cliente, ou a API inteira, pode fazer num intervalo de tempo e recusa as excedentes. No ASP.NET Core, as políticas de limite são registradas com nome e só valem nas rotas que as pedem com `RequireRateLimiting`.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware de limitação de taxa no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: Janela fixa, janela deslizante e balde de tokens
+      definicao: São três algoritmos de limite. A janela fixa conta as requisições num intervalo que zera de uma vez, a janela deslizante divide o intervalo em segmentos que expiram aos poucos, e o balde de tokens consome um token por requisição e repõe os tokens num ritmo constante.
+      referencia:
+        rotulo: 'Microsoft Learn: algoritmos de limitação de taxa'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/rate-limit
+    - termo: HTTP 429 e cabeçalho Retry-After
+      definicao: O status 429 Too Many Requests indica que o cliente passou do limite de requisições. O cabeçalho `Retry-After` informa quantos segundos o cliente deve esperar antes de tentar de novo.
+      referencia:
+        rotulo: 'MDN: 429 Too Many Requests'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/429
+    - termo: JWT (JSON Web Token)
+      definicao: Token em formato JSON, assinado por quem o emite, que carrega informações como o usuário, o emissor, a audiência e a data de expiração. A API emite o token no login e confere a assinatura e esses campos a cada chamada protegida.
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: Tolerância de relógio (clock skew)
+      definicao: Margem de tempo que a validação aceita entre o relógio de quem emitiu o token e o de quem valida. No .NET, a propriedade `ClockSkew` vale cinco minutos por padrão, e por isso um token vencido há menos que isso ainda é aceito.
+      referencia:
+        rotulo: 'Microsoft Learn: TokenValidationParameters.ClockSkew'
+        url: https://learn.microsoft.com/en-us/dotnet/api/microsoft.identitymodel.tokens.tokenvalidationparameters.clockskew
+    - termo: xUnit e IClassFixture
+      definicao: O xUnit é o framework de testes usado no repositório. Uma classe de teste que declara `IClassFixture<T>` recebe uma instância de `T` criada uma vez para a classe, e no laboratório cada classe ganha assim a própria API de teste, com contadores próprios.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
   - tipo: quiz
     perguntas:
     - enunciado: Por que a política de login é particionada por IP?

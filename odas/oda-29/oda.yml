@@ -136,7 +136,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica o que cada um dos três serviços guarda e os detalhes de API que importam ao ler configuração. Os três respondem no LocalStack pela mesma porta 4566, com os clientes criados pelo `AwsClientFactory` do repositório.
+    texto: Esta aba explica o que cada um dos três serviços de armazenamento da AWS (Amazon Web Services) guarda e os detalhes de API que importam ao ler configuração. Os blocos abaixo definem cada serviço e cada detalhe antes do comparativo, e os três respondem no LocalStack, o emulador local da AWS, pela mesma porta 4566, com os clientes criados pelo `AwsClientFactory` do repositório.
+  - tipo: conceito
+    titulo: Parameter Store, Secrets Manager e S3
+    texto: O Parameter Store, recurso do AWS Systems Manager (SSM), guarda parâmetros de configuração com nomes hierárquicos, como `/loja/prod/db-host`. O Secrets Manager guarda credenciais, como senhas e chaves de API, com versões e suporte à rotação periódica do valor, e o S3 guarda arquivos de qualquer tamanho, chamados de objetos, em buckets.
+  - tipo: conceito
+    titulo: LocalStack e SDK da AWS para .NET
+    texto: O LocalStack é um emulador que roda num contêiner Docker e responde na porta 4566 às mesmas chamadas HTTP que a AWS. O código chama os serviços pelo SDK da AWS para .NET, um conjunto de bibliotecas com um cliente por serviço, e o `AwsClientFactory` do repositório aponta esses clientes para o LocalStack, com a região e as credenciais de teste `test`.
+  - tipo: conceito
+    titulo: Paginação
+    texto: As operações de listagem da AWS devolvem uma página e um `NextToken` quando há mais itens. O `GetParametersByPath` devolve no máximo dez parâmetros por página, e quem lê uma página só perde o resto sem nenhum erro.
+  - tipo: conceito
+    titulo: SecureString
+    texto: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS (Key Management Service), o serviço de chaves de criptografia da AWS. A leitura só devolve o valor original com `WithDecryption = true`, e a permissão de decifrar a chave é separada da permissão de ler o parâmetro.
+  - tipo: conceito
+    titulo: Exclusão de segredo
+    texto: Cada troca de valor de um segredo cria uma versão nova, e a anterior continua disponível durante a rotação. O `DeleteSecret` agenda a exclusão para depois de um período de recuperação, de 7 dias no mínimo, e até lá o segredo não pode ser lido nem recriado com o mesmo nome, a menos que a exclusão use `ForceDeleteWithoutRecovery`.
   - tipo: comparativo
     colunas:
     - Guarda
@@ -154,20 +169,51 @@ abas:
       valores:
       - Senhas e chaves, com versões
       - '`AWSCURRENT` e `AWSPREVIOUS`, rotação e exclusão com período de recuperação'
-  - tipo: conceito
-    titulo: Paginação
-    texto: As operações de listagem da AWS devolvem uma página e um `NextToken` quando há mais itens. O `GetParametersByPath` devolve no máximo dez parâmetros por página, e quem lê uma página só perde o resto sem nenhum erro.
-  - tipo: conceito
-    titulo: SecureString
-    texto: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS. A leitura só devolve o valor original com `WithDecryption = true`, e a permissão de decifrar a chave é separada da permissão de ler o parâmetro.
-  - tipo: conceito
-    titulo: Exclusão de segredo
-    texto: O `DeleteSecret` agenda a exclusão para depois de um período de recuperação, de 7 dias no mínimo. Até lá, o segredo não pode ser lido nem recriado com o mesmo nome, a menos que a exclusão use `ForceDeleteWithoutRecovery`.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra os arquivos que definem como os testes falam com o Parameter Store e o Secrets Manager: a fábrica de clientes do SDK em `src/Shared`, que aponta todos os clientes para o LocalStack, e os testes dos cenários 05 e 06, que gravam e leem parâmetros e segredos. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para o carregador de configuração desta ODA.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: SDK da AWS para .NET
+      definicao: Conjunto de bibliotecas que o código .NET usa para chamar os serviços da AWS, com um cliente por serviço, como o `AmazonSimpleSystemsManagementClient`. No repositório, o `AwsClientFactory` cria esses clientes apontados para o LocalStack.
+      referencia:
+        rotulo: 'AWS: guia do desenvolvedor do SDK para .NET'
+        url: https://docs.aws.amazon.com/sdk-for-net/v3/developer-guide/welcome.html
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: Região e credenciais da AWS
+      definicao: Toda chamada à AWS é feita a uma região, como `us-east-1`, e assinada com credenciais de acesso. No LocalStack, a região continua obrigatória na assinatura, e as credenciais de teste `test` são aceitas.
+    - termo: SSM Parameter Store
+      definicao: Recurso do AWS Systems Manager (SSM) que guarda parâmetros de configuração com nomes hierárquicos, como `/loja/prod/db-host`. Cada parâmetro é do tipo `String`, `StringList` ou `SecureString`.
+      referencia:
+        rotulo: 'AWS: Parameter Store'
+        url: https://docs.aws.amazon.com/pt_br/systems-manager/latest/userguide/systems-manager-parameter-store.html
+    - termo: Paginação e NextToken
+      definicao: As operações de listagem da AWS devolvem os resultados em páginas e, quando há mais itens, um `NextToken` que o cliente envia na chamada seguinte. O `GetParametersByPath` devolve no máximo dez parâmetros por página.
+      referencia:
+        rotulo: 'AWS: GetParametersByPath'
+        url: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
+    - termo: SecureString e KMS (Key Management Service)
+      definicao: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS, o serviço de chaves de criptografia da AWS. A leitura só devolve o valor original com `WithDecryption = true` e exige permissão de uso da chave.
+      referencia:
+        rotulo: 'AWS: como o Parameter Store usa o AWS KMS'
+        url: https://docs.aws.amazon.com/pt_br/kms/latest/developerguide/services-parameter-store.html
+    - termo: AWS Secrets Manager
+      definicao: Serviço da AWS que guarda credenciais, como senhas de banco e chaves de API, com versões e com suporte a rotação periódica do valor.
+      referencia:
+        rotulo: 'AWS: o que é o Secrets Manager'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/intro.html
+    - termo: Versões e período de recuperação de um segredo
+      definicao: Cada troca de valor de um segredo cria uma versão nova, e os rótulos `AWSCURRENT` e `AWSPREVIOUS` apontam para a atual e a anterior. O `DeleteSecret` agenda a exclusão para depois de um período de recuperação de 7 a 30 dias, e o `ForceDeleteWithoutRecovery` apaga na hora.
+      referencia:
+        rotulo: 'AWS: excluir um segredo'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/manage_delete-secret.html
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -258,6 +304,39 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, a leitura de doze parâmetros com um carregador que pede uma página e com outro que segue o `NextToken`. Depois, classifique em que serviço cada dado da aplicação deve ficar.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: SSM Parameter Store
+      definicao: Recurso do AWS Systems Manager (SSM) que guarda parâmetros de configuração com nomes hierárquicos, como `/loja/prod/db-host`. Cada parâmetro é do tipo `String`, `StringList` ou `SecureString`.
+      referencia:
+        rotulo: 'AWS: Parameter Store'
+        url: https://docs.aws.amazon.com/pt_br/systems-manager/latest/userguide/systems-manager-parameter-store.html
+    - termo: Paginação e NextToken
+      definicao: As operações de listagem da AWS devolvem os resultados em páginas e, quando há mais itens, um `NextToken` que o cliente envia na chamada seguinte. O `GetParametersByPath` devolve no máximo dez parâmetros por página.
+      referencia:
+        rotulo: 'AWS: GetParametersByPath'
+        url: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
+    - termo: SecureString e KMS (Key Management Service)
+      definicao: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS, o serviço de chaves de criptografia da AWS. A leitura só devolve o valor original com `WithDecryption = true` e exige permissão de uso da chave.
+      referencia:
+        rotulo: 'AWS: como o Parameter Store usa o AWS KMS'
+        url: https://docs.aws.amazon.com/pt_br/kms/latest/developerguide/services-parameter-store.html
+    - termo: AWS Secrets Manager
+      definicao: Serviço da AWS que guarda credenciais, como senhas de banco e chaves de API, com versões e com suporte a rotação periódica do valor.
+      referencia:
+        rotulo: 'AWS: o que é o Secrets Manager'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/intro.html
+    - termo: Rotação de credenciais
+      definicao: Troca periódica do valor de uma senha ou chave, feita sem interromper quem a usa, que lê sempre a versão atual. O Secrets Manager mantém a versão anterior disponível durante a troca.
+      referencia:
+        rotulo: 'AWS: rotação de segredos'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/rotating-secrets.html
+    - termo: Amazon S3
+      definicao: Serviço de armazenamento de arquivos da AWS, em que cada arquivo é um objeto guardado num bucket. É o serviço indicado para dados grandes, como um catálogo em JSON ou documentos em PDF.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
   - tipo: fluxo
     titulo: Doze parâmetros sob `/loja`
     etapas:
@@ -304,6 +383,38 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é evitar que a aplicação suba com configuração incompleta ou com segredos ilegíveis, fazendo o carregador seguir o `NextToken` da paginação e pedir `WithDecryption` para os `SecureString`. O passo 1 roda o cenário 05, os passos 2 e 3 escrevem o teste e a versão simples do carregador, e os passos 4 e 5 acrescentam a paginação e a decifragem até o teste passar. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: SSM Parameter Store
+      definicao: Recurso do AWS Systems Manager (SSM) que guarda parâmetros de configuração com nomes hierárquicos, como `/loja/prod/db-host`. Cada parâmetro é do tipo `String`, `StringList` ou `SecureString`.
+      referencia:
+        rotulo: 'AWS: Parameter Store'
+        url: https://docs.aws.amazon.com/pt_br/systems-manager/latest/userguide/systems-manager-parameter-store.html
+    - termo: SecureString e KMS (Key Management Service)
+      definicao: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS, o serviço de chaves de criptografia da AWS. A leitura só devolve o valor original com `WithDecryption = true` e exige permissão de uso da chave.
+      referencia:
+        rotulo: 'AWS: como o Parameter Store usa o AWS KMS'
+        url: https://docs.aws.amazon.com/pt_br/kms/latest/developerguide/services-parameter-store.html
+    - termo: Docker
+      definicao: Plataforma que executa aplicações em contêineres, processos isolados que trazem tudo de que precisam para rodar. O LocalStack e o PostgreSQL dos testes rodam em contêineres Docker.
+      referencia:
+        rotulo: 'Docker Docs: what is a container'
+        url: https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/
+    - termo: Socket do Docker e Colima
+      definicao: O arquivo `/var/run/docker.sock` é o canal pelo qual programas falam com o Docker da máquina. O Colima é uma forma de rodar o Docker no macOS que, por padrão, cria esse canal noutro caminho, e por isso a montagem do AppHost falha com ele.
+    - termo: Paginação e NextToken
+      definicao: As operações de listagem da AWS devolvem os resultados em páginas e, quando há mais itens, um `NextToken` que o cliente envia na chamada seguinte. O `GetParametersByPath` devolve no máximo dez parâmetros por página.
+      referencia:
+        rotulo: 'AWS: GetParametersByPath'
+        url: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
+    - termo: Teste de integração
+      definicao: Teste que exercita o código junto com os serviços de que ele depende, aqui os serviços da AWS emulados pelo LocalStack. No repositório, cada cenário é um projeto de testes desse tipo.
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
   - tipo: faixa
     estilo: objetivo
     problema: O `GetParametersByPath` do Parameter Store devolve no máximo dez parâmetros por página, com um `NextToken` quando há mais, e devolve os `SecureString` cifrados quando o pedido não traz `WithDecryption = true`. Os testes do cenário 05, em `SsmBasicTests.cs`, leem um prefixo com dois parâmetros numa única chamada, e por isso nenhum desses detalhes aparece neles.
@@ -497,6 +608,36 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria ao ler configuração e segredos da AWS, cada uma com a saída que a evidencia, obtida no LocalStack do repositório. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Paginação e NextToken
+      definicao: As operações de listagem da AWS devolvem os resultados em páginas e, quando há mais itens, um `NextToken` que o cliente envia na chamada seguinte. O `GetParametersByPath` devolve no máximo dez parâmetros por página.
+      referencia:
+        rotulo: 'AWS: GetParametersByPath'
+        url: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
+    - termo: SecureString e KMS (Key Management Service)
+      definicao: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS, o serviço de chaves de criptografia da AWS. A leitura só devolve o valor original com `WithDecryption = true` e exige permissão de uso da chave.
+      referencia:
+        rotulo: 'AWS: como o Parameter Store usa o AWS KMS'
+        url: https://docs.aws.amazon.com/pt_br/kms/latest/developerguide/services-parameter-store.html
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: Região e credenciais da AWS
+      definicao: Toda chamada à AWS é feita a uma região, como `us-east-1`, e assinada com credenciais de acesso. No LocalStack, a região continua obrigatória na assinatura, e as credenciais de teste `test` são aceitas.
+    - termo: Versões e período de recuperação de um segredo
+      definicao: Cada troca de valor de um segredo cria uma versão nova, e os rótulos `AWSCURRENT` e `AWSPREVIOUS` apontam para a atual e a anterior. O `DeleteSecret` agenda a exclusão para depois de um período de recuperação de 7 a 30 dias, e o `ForceDeleteWithoutRecovery` apaga na hora.
+      referencia:
+        rotulo: 'AWS: excluir um segredo'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/manage_delete-secret.html
+    - termo: SSM Parameter Store
+      definicao: Recurso do AWS Systems Manager (SSM) que guarda parâmetros de configuração com nomes hierárquicos, como `/loja/prod/db-host`. Cada parâmetro é do tipo `String`, `StringList` ou `SecureString`.
+      referencia:
+        rotulo: 'AWS: Parameter Store'
+        url: https://docs.aws.amazon.com/pt_br/systems-manager/latest/userguide/systems-manager-parameter-store.html
   - tipo: incidente
     titulo: Configuração incompleta sem erro
     origem: executado
@@ -576,6 +717,44 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Paginação e NextToken
+      definicao: As operações de listagem da AWS devolvem os resultados em páginas e, quando há mais itens, um `NextToken` que o cliente envia na chamada seguinte. O `GetParametersByPath` devolve no máximo dez parâmetros por página.
+      referencia:
+        rotulo: 'AWS: GetParametersByPath'
+        url: https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_GetParametersByPath.html
+    - termo: SecureString e KMS (Key Management Service)
+      definicao: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS, o serviço de chaves de criptografia da AWS. A leitura só devolve o valor original com `WithDecryption = true` e exige permissão de uso da chave.
+      referencia:
+        rotulo: 'AWS: como o Parameter Store usa o AWS KMS'
+        url: https://docs.aws.amazon.com/pt_br/kms/latest/developerguide/services-parameter-store.html
+    - termo: AWS Secrets Manager
+      definicao: Serviço da AWS que guarda credenciais, como senhas de banco e chaves de API, com versões e com suporte a rotação periódica do valor.
+      referencia:
+        rotulo: 'AWS: o que é o Secrets Manager'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/intro.html
+    - termo: Rotação de credenciais
+      definicao: Troca periódica do valor de uma senha ou chave, feita sem interromper quem a usa, que lê sempre a versão atual. O Secrets Manager mantém a versão anterior disponível durante a troca.
+      referencia:
+        rotulo: 'AWS: rotação de segredos'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/rotating-secrets.html
+    - termo: Versões e período de recuperação de um segredo
+      definicao: Cada troca de valor de um segredo cria uma versão nova, e os rótulos `AWSCURRENT` e `AWSPREVIOUS` apontam para a atual e a anterior. O `DeleteSecret` agenda a exclusão para depois de um período de recuperação de 7 a 30 dias, e o `ForceDeleteWithoutRecovery` apaga na hora.
+      referencia:
+        rotulo: 'AWS: excluir um segredo'
+        url: https://docs.aws.amazon.com/pt_br/secretsmanager/latest/userguide/manage_delete-secret.html
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: Amazon S3
+      definicao: Serviço de armazenamento de arquivos da AWS, em que cada arquivo é um objeto guardado num bucket. É o serviço indicado para dados grandes, como um catálogo em JSON ou documentos em PDF.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
   - tipo: quiz
     perguntas:
     - enunciado: Como ler todos os parâmetros de um prefixo?

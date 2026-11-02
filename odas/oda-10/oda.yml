@@ -139,18 +139,31 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica o que fica no Gateway e o que fica nos BFFs: correlação, autenticação, auditoria e controle de tráfego no primeiro, e adaptação de contrato nos segundos, como registra a ADR-015. A ADR-016 troca o Express pelo Hono, e com isso o proxy e o limitador passaram a ser código próprio do repositório.'
+    texto: Esta aba explica como uma requisição do portal atravessa o Gateway de API até chegar ao BFF que a atende, e o que cada um desses serviços faz. Os blocos abaixo ensinam Gateway e BFF, middleware e a ida e a volta pelo `next()`, autenticação por JWT, identificador de correlação, auditoria e CORS, proxy e limite de requisições em janela fixa, e depois o diagrama e o comparativo mostram a cadeia de `gateway/src/app.ts`. As duas ADRs do fim registram por que o repositório escolheu esse desenho e o framework Hono.
+  - tipo: conceito
+    titulo: Gateway de API e BFF
+    texto: O Gateway de API é o serviço que funciona como porta única de entrada das chamadas do portal para o back-end, e no `frontend-react` ele fica em `gateway/` e responde na porta 4000. O BFF (Backend for Frontend) é um serviço de back-end dedicado a uma interface, que adapta os dados do sistema legado ao formato de que ela precisa, e os BFFs de empréstimo e de endereço, em `bffs/`, só recebem chamadas do Gateway. O Gateway cuida do que vale para todas as chamadas, e cada BFF cuida do contrato do microfrontend que atende.
+    analogia: O Gateway funciona como a recepção de um prédio comercial, que identifica e registra cada visitante, e os BFFs funcionam como os escritórios, cada um atendendo o próprio cliente.
+  - tipo: conceito
+    titulo: Antes e depois do next()
+    texto: Middleware é a função que recebe a requisição antes do tratamento final, e o Gateway encadeia seis delas. Cada middleware recebe o contexto e chama `await next()` para passar a vez. O código antes do `next()` age na ida, como a autenticação, e o código depois age na volta, como a auditoria e o cabeçalho `Vary` do CORS. O `auth` responde 401 sem chamar `next()`, e por isso a auditoria e os limites não executam para essa requisição.
+  - tipo: conceito
+    titulo: Autenticação por JWT
+    texto: 'O JWT (JSON Web Token) é um token assinado que carrega dados do usuário, como o identificador no campo `sub`, e que o servidor valida conferindo a assinatura. O portal envia o token no cabeçalho `Authorization: Bearer <token>`, e o middleware `auth` do Gateway confere a assinatura HS256, feita com um segredo compartilhado, o emissor, a audiência e a expiração antes de deixar a chamada seguir.'
+  - tipo: conceito
+    titulo: Correlação, auditoria e CORS
+    texto: O identificador de correlação é um valor único por requisição, repassado no cabeçalho `X-Correlation-Id`, que liga os registros de todos os serviços à mesma chamada. A auditoria grava uma linha por requisição, com quem chamou, o status e a duração. O CORS (Cross-Origin Resource Sharing) é o mecanismo com que o servidor informa, em cabeçalhos, quais origens podem ler as respostas pelo navegador, e o navegador faz antes de certas chamadas uma consulta prévia com o método `OPTIONS`.
+  - tipo: conceito
+    titulo: Proxy
+    texto: O proxy é o componente que recebe a requisição, a reenvia a outro servidor e devolve ao cliente a resposta obtida. No Gateway, ele é o último elo da cadeia, escolhe o BFF pelo prefixo `/bff/<nome>` do caminho, troca o token do usuário por uma chave interna e repassa a resposta do BFF ao portal.
+  - tipo: conceito
+    titulo: Janela fixa em memória
+    texto: O limite de requisições conta as chamadas de cada cliente numa janela de tempo e responde 429 (Too Many Requests) quando o total passa do permitido. O limitador do Gateway guarda, para cada chave, um contador e o instante em que a janela de 60 segundos termina, e recomeça a contagem quando esse instante passa. A chave junta um prefixo, como `global`, `mutating` ou `proposal`, ao `sub` do token autenticado. O contador vive na memória do processo, e por isso duas instâncias do Gateway mantêm contadores separados para o mesmo usuário.
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Sequência
     titulo: Cadeia de middlewares de gateway/src/app.ts
     mermaid: "sequenceDiagram\n    participant MFE as Microfrontend\n    participant C as correlationId\n    participant O as cors\n    participant A as auth\n    participant L as auditLog\n    participant R as limites\n    participant P as proxy\n    participant B as BFF\n    MFE->>C: requisição\n    C->>O: next()\n    O->>A: next()\n    alt token ausente ou inválido\n        A-->>MFE: 401, sem auditoria e sem limite\n    end\n    A->>L: next()\n    L->>R: next()\n    alt limite excedido\n        R-->>L: 429\n    end\n    R->>P: next()\n    alt nome de BFF desconhecido\n        P-->>L: 404\n    end\n    P->>B: fetch com identidade interna\n    B-->>P: resposta\n    P-->>L: resposta do BFF\n    L-->>MFE: auditoria gravada depois do next()"
-  - tipo: conceito
-    titulo: Antes e depois do next()
-    texto: Cada middleware recebe o contexto e chama `await next()` para passar a vez. O código antes do `next()` age na ida, como a autenticação, e o código depois age na volta, como a auditoria e o cabeçalho `Vary` do CORS. O `auth` responde 401 sem chamar `next()`, e por isso a auditoria e os limites não executam para essa requisição.
-  - tipo: conceito
-    titulo: Janela fixa em memória
-    texto: O limitador guarda, para cada chave, um contador e o instante em que a janela de 60 segundos termina, e recomeça a contagem quando esse instante passa. A chave junta um prefixo, como `global`, `mutating` ou `proposal`, ao `sub` do token autenticado. O contador vive na memória do processo, e por isso duas instâncias do Gateway mantêm contadores separados para o mesmo usuário.
   - tipo: comparativo
     colunas:
     - Gateway
@@ -192,7 +205,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os cinco arquivos da pasta `gateway/src/` que definem o caminho de uma requisição pelo Gateway de API: a montagem da cadeia de middlewares em `app.ts`, o identificador de correlação, a autenticação, o limite de requisições e o proxy que encaminha ao BFF. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam a ordem dos middlewares e os pontos em que o Gateway responde sem chamar o BFF.'
+    texto: 'Esta aba mostra os cinco arquivos da pasta `gateway/src/` que definem o caminho de uma requisição pelo Gateway de API, a porta única entre o portal e os BFFs, serviços que adaptam o back-end a cada microfrontend: a montagem da cadeia de middlewares, funções que tratam a requisição em sequência, em `app.ts`, o identificador de correlação, valor que liga os registros de uma mesma chamada, a autenticação, o limite de requisições e o proxy, que reenvia a chamada ao BFF e devolve a resposta. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam a ordem dos middlewares e os pontos em que o Gateway responde sem chamar o BFF.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -223,7 +236,7 @@ abas:
     - '}'
     anotacoes:
     - linha: 14
-      texto: 'Primeiro da cadeia: toda resposta, inclusive 401 e 429, leva o `X-Correlation-Id`.'
+      texto: 'Primeiro da cadeia: toda resposta, inclusive 401, sem credencial válida, e 429, excesso de requisições, leva o `X-Correlation-Id`.'
     - linha: 16
       texto: A autenticação vem antes da auditoria e dos limites.
     - linha: 17
@@ -250,7 +263,7 @@ abas:
     - linha: 9
       texto: O cabeçalho é preparado antes do `next()` e copiado para a resposta final.
     inicio: 5
-    contexto: O `gateway/src/correlationId.ts` é o primeiro middleware da cadeia e atribui a cada requisição um identificador de correlação. O trecho abaixo reaproveita o `x-correlation-id` recebido quando o formato é seguro, gera um UUID nos demais casos e devolve o valor no cabeçalho da resposta.
+    contexto: O `gateway/src/correlationId.ts` é o primeiro middleware da cadeia e atribui a cada requisição um identificador de correlação. O trecho abaixo reaproveita o `x-correlation-id` recebido quando o formato é seguro, gera um UUID, identificador aleatório de 128 bits, nos demais casos e devolve o valor no cabeçalho da resposta.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/auth.ts
@@ -268,7 +281,7 @@ abas:
     - linha: 27
       texto: 'Responde sem chamar `next()`: os middlewares seguintes não executam.'
     inicio: 23
-    contexto: O `gateway/src/auth.ts` é o middleware que valida o JWT enviado pelo portal antes de qualquer chamada chegar a um BFF. O trecho abaixo recusa com 401 a requisição sem cabeçalho `Bearer` válido, e a resposta sai do Gateway sem passar pelos middlewares seguintes.
+    contexto: O `gateway/src/auth.ts` é o middleware que valida o JWT, token assinado com a identidade do usuário, enviado pelo portal antes de qualquer chamada chegar a um BFF. O trecho abaixo recusa com 401 a requisição sem cabeçalho `Bearer` válido, e a resposta sai do Gateway sem passar pelos middlewares seguintes.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/rateLimit.ts
@@ -358,7 +371,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula o Gateway sem executar o projeto. Envie as requisições abaixo, com respostas capturadas antes e depois do laboratório, e depois classifique em que middleware cada requisição termina.
+    texto: Esta aba simula o Gateway de API, porta única entre o portal e os BFFs, sem executar o projeto. Envie as requisições abaixo, com respostas capturadas antes e depois do laboratório, acompanhe uma proposta pela cadeia de middlewares e depois classifique em que middleware cada requisição termina.
+  - tipo: conceito
+    titulo: Termos das requisições e das etapas
+    texto: 'Middleware é cada função da cadeia que trata a requisição antes do proxy, o elo final que a reenvia ao BFF, serviço que adapta o back-end ao microfrontend. O token `Bearer` é um JWT, token assinado com o identificador do usuário no campo `sub`, aqui com assinatura HS256 feita com um segredo compartilhado. O CORS é o mecanismo com que o servidor diz quais origens podem ler a resposta pelo navegador, com a consulta prévia `OPTIONS` e o cabeçalho `Vary: Origin`, e a auditoria grava uma linha por requisição. Os status 401, 404 e 429 indicam, nesta ordem, credencial inválida, rota inexistente e excesso de requisições na janela do limite.'
   - tipo: console-api
     cenarios:
     - rotulo: Antes · contratos com token válido
@@ -483,7 +499,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer o Gateway entregar ao portal as respostas de sucesso do BFF e impedir que um usuário crie propostas sem teto, com cada correção comprovada por um teste escrito antes. Os passos 1 a 8 reproduzem pelo servidor HTTP do Node o 500 do proxy e o corrigem, os passos 9 a 14 acrescentam o limite de propostas, e o passo 15 confere o resultado com os serviços no ar, inclusive as chamadas que não chegam à auditoria. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+    texto: O objetivo do laboratório é fazer o Gateway de API, a porta única do portal, entregar as respostas de sucesso do BFF, serviço que adapta o back-end ao microfrontend, e impedir que um usuário crie propostas sem teto, com cada correção comprovada por um teste escrito antes. Os passos 1 a 8 reproduzem pelo servidor HTTP do Node o 500 do proxy, o elo que reenvia a chamada ao BFF, e o corrigem, os passos 9 a 14 acrescentam o limite de propostas, e o passo 15 confere o resultado com os serviços no ar, inclusive as chamadas que não chegam à auditoria. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
   - tipo: faixa
     estilo: objetivo
     problema: 'O proxy do Gateway, em `gateway/src/proxy.ts`, devolve diretamente a resposta do `fetch` ao BFF, cujos cabeçalhos são imutáveis, e o servidor HTTP do Node falha com `TypeError: immutable` quando um middleware tenta alterá-los na volta. Os 19 testes passam porque o `app.request()` do Hono não usa esse servidor, e o envio de propostas de empréstimo só respeita o limite geral de mutações, de 20 por minuto por usuário.'
@@ -1053,7 +1069,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: 'Esta aba apresenta quatro situações que um time encontraria com o Gateway. As três primeiras partem de saídas do laboratório, e a última, de um trecho do README do Gateway: escolha a causa de cada uma para ver a explicação e a correção.'
+    texto: Esta aba apresenta quatro situações que um time encontraria com o Gateway de API, a porta única entre o portal e os BFFs. As três primeiras partem de saídas do laboratório, e a última, de um trecho do README do Gateway, e o bloco abaixo resume os conceitos que os incidentes usam antes de você escolher a causa de cada um.
+  - tipo: conceito
+    titulo: Conceitos usados nos incidentes
+    texto: A cadeia de middlewares do Gateway, funções que tratam a requisição em sequência, segue a ordem de `gateway/src/app.ts`, e cada uma chama `next()` para passar a vez à seguinte. O proxy é o último elo, que reenvia a chamada ao BFF, o serviço que adapta o back-end ao microfrontend, e devolve a resposta. A auditoria grava uma linha JSON por requisição na pasta de logs, o limite de requisições responde 429 quando o total da janela passa do permitido, e o `sub` é o campo do JWT que identifica o usuário.
   - tipo: incidente
     titulo: Propostas criadas com resposta 500
     origem: executado
@@ -1125,16 +1144,19 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: Termos das perguntas
+    texto: O Gateway de API é a porta única entre o portal e os BFFs, e um BFF (Backend for Frontend) é o serviço que adapta o back-end ao microfrontend que ele atende. Middleware é cada função da cadeia do Gateway, e o `next()` passa a vez à seguinte. O `app.request()` é o cliente de teste do Hono, framework web do Gateway, e o `@hono/node-server` liga a aplicação ao servidor HTTP do Node. O limitador conta as requisições de cada usuário numa janela de 60 segundos guardada na memória do processo.
   - tipo: quiz
     perguntas:
-    - enunciado: Pela ADR-015, o que fica no Gateway e o que fica no BFF?
+    - enunciado: No desenho do portal, o que fica no Gateway e o que fica no BFF?
       alternativas:
       - texto: O Gateway converte PascalCase em camelCase.
         correta: false
         explicacao: A transformação de mensagem fica no BFF de empréstimo.
       - texto: Cada BFF aplica os próprios limites de tráfego.
         correta: false
-        explicacao: Essa é a Opção 2, descartada pela duplicação.
+        explicacao: A ADR-015 do repositório descartou essa opção porque ela duplicaria auditoria e controle de tráfego em cada BFF.
       - texto: O Gateway cuida de correlação, autenticação, auditoria e tráfego, e o BFF adapta o contrato do microfrontend.
         correta: true
         explicacao: O Gateway não conhece nenhum campo de contrato.
@@ -1170,7 +1192,7 @@ abas:
         explicacao: As instâncias não trocam informação.
       - texto: Até 10, porque cada instância mantém os contadores na própria memória.
         correta: true
-        explicacao: A ADR-016 lista o limite distribuído como gatilho de revisão.
+        explicacao: A ADR-016 do repositório, que adotou o limitador em memória, prevê rever a decisão quando o limite precisar valer entre várias instâncias.
     - enunciado: Qual middleware age depois do `next()`?
       alternativas:
       - texto: A auditoria, que grava status e duração depois que a resposta existe.

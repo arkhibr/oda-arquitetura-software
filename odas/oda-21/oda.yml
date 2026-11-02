@@ -89,7 +89,7 @@ abas:
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
-    - Explicar por que a ADR-0015 dá domínio rico a Produto, Categoria e Variante e CRUD a Atributo e Mídia.
+    - Explicar por que o repositório dá domínio rico a Produto, Categoria e Variante e trata Atributo e Mídia como CRUD, decisão registrada na ADR-0015.
     - Reconhecer value object, entidade e agregado no código do Catálogo e dos Pedidos.
     - Encontrar uma invariante que o agregado não protege e reproduzi-la pela API.
     - Corrigir a invariante dentro do agregado, com o teste de unidade escrito antes.
@@ -151,7 +151,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba apresenta os três blocos do DDD tático usados no código: value object, entidade e agregado, e o critério para decidir quando cada um compensa. No repositório, a ADR-0004 registra o formato dos value objects e a ADR-0015 registra a escolha recurso a recurso.'
+    texto: Esta aba apresenta os três blocos do DDD tático (Domain-Driven Design, a abordagem que organiza o código em torno do modelo do negócio) usados no código, value object, entidade e agregado, e o critério para decidir quando cada um compensa. No `net-minimal-api`, os value objects seguem o formato `sealed record` com construtor privado, e só Produto, Categoria e Variante têm domínio rico, com Atributo e Mídia tratados como CRUD. Os blocos abaixo explicam cada conceito, e as ADRs que registram essas escolhas aparecem no fim como apoio.
+  - tipo: conceito
+    titulo: Value object
+    texto: Objeto do domínio definido só pelo valor que carrega, sem identidade própria, que valida esse valor na criação. No Catálogo, `PrecoProduto` e `EstoqueProduto` são value objects, criados por `Criar`, que devolve um `Result`, o tipo de retorno que informa sucesso ou falha sem exceção.
+  - tipo: conceito
+    titulo: Entidade
+    texto: Objeto do domínio com identidade própria, um `Id` que permanece o mesmo enquanto os outros dados mudam. `Produto` é uma entidade do Catálogo, com estoque e estado ativo, e `PedidoItem` é uma entidade que só existe dentro de um pedido.
+  - tipo: conceito
+    titulo: Agregado
+    texto: Grupo de objetos tratado como uma unidade de consistência, em que só a raiz pode ser chamada de fora e protege as regras do grupo. O `Pedido` é a raiz do agregado de pedido, e os `PedidoItem` só mudam pelos métodos dele, como `AdicionarItem`.
+  - tipo: conceito
+    titulo: Domínio rico e CRUD
+    texto: No domínio rico, as entidades guardam as regras de negócio nos próprios métodos, e no CRUD (Create, Read, Update, Delete) o recurso só grava e lê dados, sem regras próprias. O repositório usa domínio rico onde há invariantes que justificam o custo e CRUD nos recursos de nome e valor e de URL e tipo.
+  - tipo: conceito
+    titulo: Invariante
+    texto: Uma invariante é uma regra que precisa valer depois de qualquer operação, e não só na primeira. Quando o agregado confere a parcela nova e esquece o que já tinha, a regra vale na criação e falha na segunda chamada.
+  - tipo: conceito
+    titulo: Fronteira de consistência
+    texto: O `Pedido` recebe o `Produto` para conferir o estoque, mas não muda o estoque do produto. Duas instâncias de `Pedido` podem, cada uma, caber no estoque e juntas ultrapassá-lo, porque essa regra atravessa dois agregados.
   - tipo: comparativo
     colunas:
     - Value object
@@ -178,12 +196,6 @@ abas:
       - Preço maior que zero
       - Estoque não negativo
       - Até 20 itens, até 999 por item, estoque e status
-  - tipo: conceito
-    titulo: Invariante
-    texto: Uma invariante é uma regra que precisa valer depois de qualquer operação, e não só na primeira. Quando o agregado confere a parcela nova e esquece o que já tinha, a regra vale na criação e falha na segunda chamada.
-  - tipo: conceito
-    titulo: Fronteira de consistência
-    texto: O `Pedido` recebe o `Produto` para conferir o estoque, mas não muda o estoque do produto. Duas instâncias de `Pedido` podem, cada uma, caber no estoque e juntas ultrapassá-lo, porque essa regra atravessa dois agregados.
   - tipo: adr
     id: ADR-0004
     titulo: Value Objects como Sealed Records
@@ -205,6 +217,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra onde cada regra está escrita, para que você localize a brecha antes do laboratório: um value object, a consulta de estoque do produto e o método `AdicionarItem` do agregado `Pedido`, no commit `702145a`. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nos trechos abaixo, um construtor privado impede a criação do objeto fora da própria classe, `Criar` é o método de fábrica para dados novos, que devolve um `Result` com sucesso ou falha, e `Reconstituir` é a reidratação, a recriação do objeto a partir dos dados já gravados no banco. A raiz do agregado é o `Pedido`, único objeto do grupo que o código de fora chama, e a exceção é o mecanismo do .NET que interrompe a execução com um erro, usado pelo `PedidoItem` para proteger o limite de 999 unidades.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -348,6 +363,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, o caminho de duas chamadas de quatro unidades por dentro do agregado, até o pedido terminar com oito unidades de um produto com estoque cinco. Depois, classifique cada regra do sistema pelo lugar em que ela deve ficar: value object, agregado, serviço com acesso ao banco ou nenhum, no caso dos recursos tratados como CRUD.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas etapas abaixo, `AdicionarItem` é o método da raiz do agregado `Pedido` que inclui ou soma itens, e `TemEstoqueDisponivel` é o método do `Produto` que só responde se há quantidade suficiente. No classificador, value object é o objeto do domínio definido pelo valor, agregado é o grupo de objetos protegido pela raiz, serviço com acesso ao banco é a camada de aplicação que consulta dados antes de decidir, e CRUD (Create, Read, Update, Delete) é o recurso que só grava e lê dados.
   - tipo: fluxo
     titulo: Duas chamadas de quatro unidades, estoque cinco
     etapas:
@@ -362,7 +380,7 @@ abas:
     - titulo: Depois da correção
       descricao: A raiz calcula a quantidade final antes das regras, e a segunda chamada recebe 400 com `sem estoque suficiente`.
   - tipo: classificador
-    enunciado: Pela ADR-0015 e pelo código, onde cada regra fica?
+    enunciado: Pela decisão de domínio rico seletivo, registrada na ADR-0015, e pelo código, onde cada regra fica?
     categorias:
     - id: vo
       rotulo: Value object
@@ -381,10 +399,10 @@ abas:
       explicacao: '`Pedido.MaxItensPorPedido`.'
     - texto: Categoria com no máximo dois níveis
       categoria: servico
-      explicacao: A ADR-0015 registra que a regra precisa consultar o banco.
+      explicacao: A regra precisa consultar o banco, e por isso a ADR-0015 a deixou no serviço.
     - texto: Nome e valor de um atributo
       categoria: crud
-      explicacao: Atributo é CRUD pela ADR-0015.
+      explicacao: A ADR-0015 trata Atributo como CRUD, sem regras de domínio.
     - texto: Só pedidos em rascunho recebem itens
       categoria: agregado
       explicacao: Primeira verificação de `AdicionarItem`.
@@ -393,12 +411,15 @@ abas:
       explicacao: '`EstoqueProduto`.'
     - texto: URL e tipo de uma mídia
       categoria: crud
-      explicacao: Mídia é CRUD pela ADR-0015.
+      explicacao: A ADR-0015 trata Mídia como CRUD, sem regras de domínio.
 - id: laboratorio
   titulo: Laboratório
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é fazer o agregado `Pedido` conferir estoque e limite de quantidade sobre a quantidade final do item, porque hoje ele confere cada parcela isolada e aceita um pedido acima do estoque. Os passos 1 e 2 sobem a API com o banco de exemplo e reproduzem a brecha por `curl`, os passos 3 a 6 escrevem os testes de unidade e corrigem `Pedido.AdicionarItem`, e o passo 7 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório usa o seed, os dados de exemplo que a API grava no banco ao iniciar, em que o produto 1 tem estoque 5, e um JWT (JSON Web Token), o token de acesso obtido no login, para chamar as rotas de pedidos. Os testes deste laboratório são testes de unidade, que exercitam o agregado `Pedido` isolado, sem API nem banco, e a `InvalidOperationException` é a exceção que o `PedidoItem` lança quando a quantidade passa de 999. O `MSB3030` é um erro do MSBuild, o motor de compilação do .NET, que indica um arquivo ausente no momento da cópia para a saída, e apagar as pastas `bin/` e `obj/` força uma compilação do zero.
   - tipo: faixa
     estilo: objetivo
     problema: Em `src/Pedidos/Domain/Pedido.cs`, o `AdicionarItem` confere o limite de 999 unidades e o estoque do produto só para a quantidade da parcela nova, e soma essa parcela ao item existente depois das verificações. Quando a soma passa de 999, quem a percebe é o `PedidoItem.IncrementarQuantidade`, que lança exceção fora do padrão `Result` usado pelo agregado.
@@ -585,6 +606,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria em produção com esse domínio, cada uma com a saída ou o trecho de código que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas situações abaixo, o `Result` é o tipo de retorno que informa sucesso ou falha sem exceção, o xUnit é o framework de testes do repositório, e o middleware é o componente que transforma exceções não tratadas em respostas 500. Uma transação é um conjunto de gravações aplicado inteiro ou descartado inteiro, uma migration é um arquivo do EF Core, a biblioteca de acesso a banco, que muda o esquema ou os dados do banco de forma versionada, e `Reconstituir` recria um value object a partir do valor já gravado.
   - tipo: incidente
     titulo: Pedido com mais unidades que o estoque
     origem: executado
@@ -656,13 +680,16 @@ abas:
       explicacao: Não há filtro de produtos inválidos.
     - texto: A reidratação chama `Criar`, recebe falha e lança `InvalidOperationException`, e a leitura falha.
       correta: true
-      explicacao: A ADR-0004 diz que `Reconstituir` não revalida, e o código revalida.
+      explicacao: A ADR-0004, que definiu o formato dos value objects, diz que `Reconstituir` não revalida, e o código revalida.
     - texto: O produto aparece com preço 0.
       correta: false
       explicacao: '`Reconstituir` recusa o valor.'
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas perguntas abaixo, value object é o objeto do domínio definido pelo valor, entidade é o objeto com identidade própria, e o agregado é o grupo de objetos protegido pela raiz. Uma entidade anêmica é a que só carrega dados, sem regras, uma constraint é uma restrição declarada no banco, e a fronteira de consistência é o limite do que um agregado consegue garantir sozinho. O EF Core é a biblioteca de acesso a banco que mapeia as classes para tabelas, e Atributo e Mídia são recursos do Catálogo tratados como CRUD, sem regras de domínio.
   - tipo: quiz
     perguntas:
     - enunciado: Por que Atributo e Mídia não têm value objects?
@@ -673,7 +700,7 @@ abas:
       - texto: Porque são entidades sem `Id`.
         correta: false
         explicacao: Os dois têm `Id`.
-      - texto: Porque a ADR-0015 não encontrou invariantes de negócio que justificassem o custo.
+      - texto: Porque a análise registrada na ADR-0015 não encontrou invariantes de negócio que justificassem o custo.
         correta: true
         explicacao: São CRUD de nome e valor e de URL e tipo.
     - enunciado: Onde a correção deve ficar?
@@ -694,7 +721,7 @@ abas:
         explicacao: Value objects carregam valor.
       - texto: '`sealed record` com construtor privado e `Criar` que devolve `Result`.'
         correta: true
-        explicacao: É a decisão da ADR-0004.
+        explicacao: É o formato que a ADR-0004 adotou para os value objects.
       - texto: Uma classe com `Id` e setters públicos.
         correta: false
         explicacao: Isso descreve uma entidade anêmica.
@@ -724,7 +751,7 @@ abas:
   - tipo: checklist
     titulo: Checklist final
     itens:
-    - A decisão da ADR-0015 para cada recurso do Catálogo está clara.
+    - A escolha entre domínio rico e CRUD para cada recurso do Catálogo está clara.
     - A brecha de estoque foi reproduzida pela API antes da correção.
     - Os dois testes falharam antes da correção e passaram depois.
     - A API passou a recusar o segundo lote com 400.

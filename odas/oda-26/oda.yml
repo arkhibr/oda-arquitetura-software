@@ -141,7 +141,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica as três proteções de uma chamada à API Pix e o que acontece quando o cliente repete uma chamada sozinho. No repositório, a ADR-0008 registra a escolha do servidor simulado com mTLS, e a ADR-0014 registra a escolha da biblioteca de resiliência.
+    texto: Esta aba explica as três proteções de uma chamada à API Pix, o meio de pagamento instantâneo do Banco Central, e o que acontece quando o cliente HTTP repete uma chamada sozinho. Os blocos abaixo definem cada conceito antes do comparativo entre as proteções, e as duas ADRs (registros de decisão de arquitetura) do fim mostram que o repositório decidiu simular a API Pix num servidor próprio com mTLS e usar a biblioteca Microsoft.Extensions.Http.Resilience no cliente.
+  - tipo: conceito
+    titulo: Pix e a API Pix
+    texto: O Pix é o meio de pagamento instantâneo do Banco Central do Brasil, e as instituições trocam as mensagens dele pela API Pix. Nesta ODA aparecem a cobrança, pedido de pagamento identificado por um `txid`, a liquidação, que é o pagamento da cobrança, e a devolução, que retorna parte ou todo o valor pago. O `Pix.MockServer` do repositório simula essa API para estudo.
+  - tipo: conceito
+    titulo: TLS e handshake
+    texto: O TLS (Transport Layer Security) é o protocolo que cifra a conexão do HTTPS. O handshake é a negociação inicial da conexão, em que o servidor apresenta o certificado, assinado por uma autoridade certificadora em que o cliente confia, e as duas partes combinam as chaves antes de qualquer cabeçalho HTTP ser enviado.
+  - tipo: conceito
+    titulo: mTLS
+    texto: No TLS comum, só o servidor apresenta certificado. No mTLS, o TLS mútuo, o cliente também apresenta o seu durante o handshake, e o servidor recusa a conexão se o certificado não for assinado pela autoridade esperada, o que ocorre antes de qualquer cabeçalho HTTP chegar à aplicação.
+  - tipo: conceito
+    titulo: OAuth2 por client credentials
+    texto: 'O OAuth2 é o protocolo de autorização em que o cliente obtém um token de acesso e o envia nas chamadas à API no cabeçalho `Authorization: Bearer`. No fluxo client credentials, um sistema obtém o token com o próprio identificador e segredo, sem usuário humano, e no `Pix.MockServer` o token vem da rota `/oauth/token`.'
+  - tipo: conceito
+    titulo: Pipeline padrão de resiliência
+    texto: O `AddStandardResilienceHandler` envolve cada chamada com tempo total de 30 s, tempo por tentativa de 10 s, três novas tentativas com espera exponencial a partir de 2 s e variação aleatória, e um disjuntor, que suspende as chamadas por um intervalo depois de muitas falhas, que abre com 10% de falhas em 30 s e no mínimo 100 chamadas. As novas tentativas valem para falha de conexão, tempo esgotado, 408, 429 e respostas 5xx, em qualquer método HTTP.
+  - tipo: conceito
+    titulo: Por que a nova tentativa exige idempotência
+    texto: Quando a resposta não chega a tempo, o cliente não sabe se o servidor executou a operação. Repetir uma leitura não muda nada, mas repetir a criação de uma devolução só é seguro se a operação for idempotente, isto é, se o servidor reconhecer a repetição pela chave enviada no cabeçalho `Idempotency-Key` e devolver o resultado da primeira execução.
   - tipo: comparativo
     colunas:
     - O que garante
@@ -163,15 +181,6 @@ abas:
       valores:
       - Repetir a escrita não repete o efeito
       - Só nas cobranças, no commit `702145a`
-  - tipo: conceito
-    titulo: mTLS
-    texto: No TLS comum, só o servidor apresenta certificado. No mTLS, o cliente também apresenta o seu durante o handshake, e o servidor recusa a conexão se o certificado não for assinado pela autoridade esperada, o que ocorre antes de qualquer cabeçalho HTTP chegar à aplicação.
-  - tipo: conceito
-    titulo: Pipeline padrão de resiliência
-    texto: O `AddStandardResilienceHandler` envolve cada chamada com tempo total de 30 s, tempo por tentativa de 10 s, três novas tentativas com espera exponencial a partir de 2 s e variação aleatória, e um disjuntor que abre com 10% de falhas em 30 s e no mínimo 100 chamadas. As novas tentativas valem para falha de conexão, tempo esgotado, 408, 429 e respostas 5xx, em qualquer método HTTP.
-  - tipo: conceito
-    titulo: Por que a nova tentativa exige idempotência
-    texto: Quando a resposta não chega a tempo, o cliente não sabe se o servidor executou a operação. Repetir uma leitura não muda nada, mas repetir a criação de uma devolução só é seguro se o servidor reconhecer a repetição pela chave e devolver o resultado da primeira execução.
   - tipo: adr
     id: ADR-0008
     titulo: PIX Mock Server Customizado com mTLS
@@ -193,6 +202,50 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, onde o servidor exige o certificado, como o cliente monta a cadeia de handlers e por que a devolução fica sem proteção contra repetição. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Kestrel
+      definicao: Servidor web embutido nas aplicações ASP.NET Core, que recebe as conexões HTTP e HTTPS. No `Pix.MockServer`, é a configuração do Kestrel que exige o certificado do cliente.
+      referencia:
+        rotulo: 'Microsoft Learn: servidor web Kestrel'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/servers/kestrel
+    - termo: mTLS (TLS mútuo)
+      definicao: Variante do TLS em que o cliente também apresenta um certificado durante o handshake, e o servidor recusa a conexão se esse certificado não for assinado pela autoridade esperada. A API Pix do Banco Central exige mTLS, e o `Pix.MockServer` simula essa exigência.
+      referencia:
+        rotulo: 'Microsoft Learn: certificados de cliente no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/certauth
+    - termo: Autoridade certificadora (CA)
+      definicao: Entidade que assina certificados, de modo que quem confia nela confia também nos certificados que ela assinou. No laboratório, o servidor gera a própria autoridade em `certs/pix/` e só aceita certificados de cliente assinados por ela.
+      referencia:
+        rotulo: 'MDN: certificate authority'
+        url: https://developer.mozilla.org/en-US/docs/Glossary/Certificate_authority
+    - termo: Formatos DER, PEM e PFX
+      definicao: São formatos de arquivo de certificado. O DER é binário, o PEM é o mesmo conteúdo codificado em texto entre linhas `-----BEGIN CERTIFICATE-----`, e o PFX, também chamado PKCS#12, guarda o certificado junto com a chave privada, protegido por senha.
+    - termo: Servidor simulado (mock server)
+      definicao: Servidor que imita a API de um parceiro para desenvolvimento e testes, sem acesso ao serviço real. O `Pix.MockServer` é uma Minimal API própria do repositório, e WireMock.Net e Mockoon são ferramentas prontas com o mesmo propósito.
+    - termo: Pix
+      definicao: Meio de pagamento instantâneo do Banco Central do Brasil, em que as instituições trocam mensagens pela API Pix. Nesta ODA aparecem a cobrança, que é o pedido de pagamento identificado por um `txid`, a liquidação, que é o pagamento da cobrança, e a devolução, que é o retorno de parte ou de todo o valor pago.
+      referencia:
+        rotulo: 'Banco Central do Brasil: Pix'
+        url: https://www.bcb.gov.br/estabilidadefinanceira/pix
+    - termo: DelegatingHandler e cliente HTTP tipado
+      definicao: Um `DelegatingHandler` é um elo da cadeia de processamento do `HttpClient`, que pode alterar a requisição antes de passá-la ao próximo elo, como o `IdempotencyKeyHandler` faz com o cabeçalho. Um cliente HTTP tipado é uma classe, como o `PixProcessingClient`, registrada com o próprio `HttpClient` e a própria cadeia de handlers.
+      referencia:
+        rotulo: 'Microsoft Learn: IHttpClientFactory e handlers de saída'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/http-requests
+    - termo: Identificador de correlação
+      definicao: Valor único enviado num cabeçalho de cada requisição para que os logs do cliente e do servidor sobre a mesma operação possam ser ligados entre si.
+    - termo: Idempotência e chave de idempotência
+      definicao: Uma operação é idempotente quando repeti-la tem o mesmo efeito que executá-la uma vez. A chave de idempotência, enviada no cabeçalho `Idempotency-Key`, permite ao servidor reconhecer que uma requisição é a repetição de outra e devolver o resultado da primeira.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Política de resiliência e AddStandardResilienceHandler
+      definicao: Política de resiliência é o conjunto de regras que um cliente HTTP aplica para tolerar falhas temporárias, como tempo limite, novas tentativas e disjuntor. O `AddStandardResilienceHandler`, da biblioteca Microsoft.Extensions.Http.Resilience, registra um pipeline padrão com essas regras em volta de cada chamada.
+      referencia:
+        rotulo: 'Microsoft Learn: criar aplicativos HTTP resilientes'
+        url: https://learn.microsoft.com/pt-br/dotnet/core/resilience/http-resilience
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -291,6 +344,26 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, uma devolução cuja resposta demora mais que o tempo por tentativa, antes e depois da correção. Depois, classifique se cada chamada pode ser repetida pela política de resiliência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Pix
+      definicao: Meio de pagamento instantâneo do Banco Central do Brasil, em que as instituições trocam mensagens pela API Pix. Nesta ODA aparecem a cobrança, que é o pedido de pagamento identificado por um `txid`, a liquidação, que é o pagamento da cobrança, e a devolução, que é o retorno de parte ou de todo o valor pago.
+      referencia:
+        rotulo: 'Banco Central do Brasil: Pix'
+        url: https://www.bcb.gov.br/estabilidadefinanceira/pix
+    - termo: Idempotência e chave de idempotência
+      definicao: Uma operação é idempotente quando repeti-la tem o mesmo efeito que executá-la uma vez. A chave de idempotência, enviada no cabeçalho `Idempotency-Key`, permite ao servidor reconhecer que uma requisição é a repetição de outra e devolver o resultado da primeira.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Política de resiliência e AddStandardResilienceHandler
+      definicao: Política de resiliência é o conjunto de regras que um cliente HTTP aplica para tolerar falhas temporárias, como tempo limite, novas tentativas e disjuntor. O `AddStandardResilienceHandler`, da biblioteca Microsoft.Extensions.Http.Resilience, registra um pipeline padrão com essas regras em volta de cada chamada.
+      referencia:
+        rotulo: 'Microsoft Learn: criar aplicativos HTTP resilientes'
+        url: https://learn.microsoft.com/pt-br/dotnet/core/resilience/http-resilience
+    - termo: Novas tentativas com espera exponencial e variação aleatória
+      definicao: Estratégia em que o cliente repete uma chamada que falhou e dobra a espera a cada tentativa, somando uma variação aleatória, o jitter, para que muitos clientes não repitam ao mesmo tempo.
   - tipo: fluxo
     titulo: Devolução com resposta atrasada
     etapas:
@@ -337,6 +410,47 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é eliminar o risco de devolução em dobro quando a política de resiliência repete um POST, fazendo o servidor reconhecer a chave de idempotência da devolução e o cliente enviá-la, depois de provar o handshake mTLS e o token OAuth2. Os passos 1 a 4 provam o handshake e reproduzem a devolução duplicada, os passos 5 a 10 escrevem o teste e corrigem o servidor, e os passos 11 a 13 corrigem o cliente e mostram a política de resiliência repetindo uma chamada. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: mTLS (TLS mútuo)
+      definicao: Variante do TLS em que o cliente também apresenta um certificado durante o handshake, e o servidor recusa a conexão se esse certificado não for assinado pela autoridade esperada. A API Pix do Banco Central exige mTLS, e o `Pix.MockServer` simula essa exigência.
+      referencia:
+        rotulo: 'Microsoft Learn: certificados de cliente no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/certauth
+    - termo: OAuth2 e client credentials
+      definicao: OAuth2 é o protocolo de autorização em que o cliente obtém um token de acesso num servidor de autorização e o envia nas chamadas à API. No fluxo client credentials, um sistema obtém o token com o próprio identificador e segredo, sem usuário humano envolvido.
+      referencia:
+        rotulo: 'IETF: RFC 6749, seção 4.4, Client Credentials Grant'
+        url: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
+    - termo: Pix
+      definicao: Meio de pagamento instantâneo do Banco Central do Brasil, em que as instituições trocam mensagens pela API Pix. Nesta ODA aparecem a cobrança, que é o pedido de pagamento identificado por um `txid`, a liquidação, que é o pagamento da cobrança, e a devolução, que é o retorno de parte ou de todo o valor pago.
+      referencia:
+        rotulo: 'Banco Central do Brasil: Pix'
+        url: https://www.bcb.gov.br/estabilidadefinanceira/pix
+    - termo: Política de resiliência e AddStandardResilienceHandler
+      definicao: Política de resiliência é o conjunto de regras que um cliente HTTP aplica para tolerar falhas temporárias, como tempo limite, novas tentativas e disjuntor. O `AddStandardResilienceHandler`, da biblioteca Microsoft.Extensions.Http.Resilience, registra um pipeline padrão com essas regras em volta de cada chamada.
+      referencia:
+        rotulo: 'Microsoft Learn: criar aplicativos HTTP resilientes'
+        url: https://learn.microsoft.com/pt-br/dotnet/core/resilience/http-resilience
+    - termo: Servidor simulado (mock server)
+      definicao: Servidor que imita a API de um parceiro para desenvolvimento e testes, sem acesso ao serviço real. O `Pix.MockServer` é uma Minimal API própria do repositório, e WireMock.Net e Mockoon são ferramentas prontas com o mesmo propósito.
+    - termo: Autoridade certificadora (CA)
+      definicao: Entidade que assina certificados, de modo que quem confia nela confia também nos certificados que ela assinou. No laboratório, o servidor gera a própria autoridade em `certs/pix/` e só aceita certificados de cliente assinados por ela.
+      referencia:
+        rotulo: 'MDN: certificate authority'
+        url: https://developer.mozilla.org/en-US/docs/Glossary/Certificate_authority
+    - termo: Formatos DER, PEM e PFX
+      definicao: São formatos de arquivo de certificado. O DER é binário, o PEM é o mesmo conteúdo codificado em texto entre linhas `-----BEGIN CERTIFICATE-----`, e o PFX, também chamado PKCS#12, guarda o certificado junto com a chave privada, protegido por senha.
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, serviços e serialização, por meio de requisições HTTP. No repositório, os testes do servidor Pix ficam em `tests/Pix.MockServer.Tests`.
+    - termo: Idempotência e chave de idempotência
+      definicao: Uma operação é idempotente quando repeti-la tem o mesmo efeito que executá-la uma vez. A chave de idempotência, enviada no cabeçalho `Idempotency-Key`, permite ao servidor reconhecer que uma requisição é a repetição de outra e devolver o resultado da primeira.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Novas tentativas com espera exponencial e variação aleatória
+      definicao: Estratégia em que o cliente repete uma chamada que falhou e dobra a espera a cada tentativa, somando uma variação aleatória, o jitter, para que muitos clientes não repitam ao mesmo tempo.
   - tipo: faixa
     estilo: objetivo
     problema: No `Program.cs` do `Pix.MockServer`, a rota `POST /devolucoes` não lê o cabeçalho `Idempotency-Key` e cria uma devolução a cada chamada. No cliente, o `IdempotencyKeyHandler.cs` só acrescenta a chave aos caminhos de cobrança, e o `AddStandardResilienceHandler` repete falhas de conexão, tempo esgotado e respostas 5xx em qualquer método HTTP, inclusive no POST.
@@ -875,6 +989,56 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta cinco situações que um time encontraria ao integrar com a API Pix, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Kestrel
+      definicao: Servidor web embutido nas aplicações ASP.NET Core, que recebe as conexões HTTP e HTTPS. No `Pix.MockServer`, é a configuração do Kestrel que exige o certificado do cliente.
+      referencia:
+        rotulo: 'Microsoft Learn: servidor web Kestrel'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/servers/kestrel
+    - termo: mTLS (TLS mútuo)
+      definicao: Variante do TLS em que o cliente também apresenta um certificado durante o handshake, e o servidor recusa a conexão se esse certificado não for assinado pela autoridade esperada. A API Pix do Banco Central exige mTLS, e o `Pix.MockServer` simula essa exigência.
+      referencia:
+        rotulo: 'Microsoft Learn: certificados de cliente no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/certauth
+    - termo: TLS (Transport Layer Security) e handshake
+      definicao: O TLS é o protocolo que cifra a conexão do HTTPS. O handshake é a negociação inicial da conexão, em que o servidor apresenta o certificado e as duas partes combinam as chaves, antes de qualquer cabeçalho HTTP ser enviado.
+      referencia:
+        rotulo: 'MDN: TLS'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/TLS
+    - termo: Formatos DER, PEM e PFX
+      definicao: São formatos de arquivo de certificado. O DER é binário, o PEM é o mesmo conteúdo codificado em texto entre linhas `-----BEGIN CERTIFICATE-----`, e o PFX, também chamado PKCS#12, guarda o certificado junto com a chave privada, protegido por senha.
+    - termo: OAuth2 e client credentials
+      definicao: OAuth2 é o protocolo de autorização em que o cliente obtém um token de acesso num servidor de autorização e o envia nas chamadas à API. No fluxo client credentials, um sistema obtém o token com o próprio identificador e segredo, sem usuário humano envolvido.
+      referencia:
+        rotulo: 'IETF: RFC 6749, seção 4.4, Client Credentials Grant'
+        url: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
+    - termo: Idempotência e chave de idempotência
+      definicao: Uma operação é idempotente quando repeti-la tem o mesmo efeito que executá-la uma vez. A chave de idempotência, enviada no cabeçalho `Idempotency-Key`, permite ao servidor reconhecer que uma requisição é a repetição de outra e devolver o resultado da primeira.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Pix
+      definicao: Meio de pagamento instantâneo do Banco Central do Brasil, em que as instituições trocam mensagens pela API Pix. Nesta ODA aparecem a cobrança, que é o pedido de pagamento identificado por um `txid`, a liquidação, que é o pagamento da cobrança, e a devolução, que é o retorno de parte ou de todo o valor pago.
+      referencia:
+        rotulo: 'Banco Central do Brasil: Pix'
+        url: https://www.bcb.gov.br/estabilidadefinanceira/pix
+    - termo: Política de resiliência e AddStandardResilienceHandler
+      definicao: Política de resiliência é o conjunto de regras que um cliente HTTP aplica para tolerar falhas temporárias, como tempo limite, novas tentativas e disjuntor. O `AddStandardResilienceHandler`, da biblioteca Microsoft.Extensions.Http.Resilience, registra um pipeline padrão com essas regras em volta de cada chamada.
+      referencia:
+        rotulo: 'Microsoft Learn: criar aplicativos HTTP resilientes'
+        url: https://learn.microsoft.com/pt-br/dotnet/core/resilience/http-resilience
+    - termo: Disjuntor (circuit breaker)
+      definicao: Mecanismo que, depois de uma proporção de falhas, para de enviar chamadas a um serviço por um intervalo e falha na hora, para dar tempo ao serviço de se recuperar.
+      referencia:
+        rotulo: 'Martin Fowler: CircuitBreaker'
+        url: https://martinfowler.com/bliki/CircuitBreaker.html
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
   - tipo: incidente
     titulo: Conexão recusada sem resposta HTTP
     origem: executado
@@ -957,14 +1121,14 @@ abas:
       correta: false
       explicacao: Chaves diferentes são operações diferentes por definição.
   - tipo: incidente
-    titulo: Pipeline diferente da decisão registrada
+    titulo: Pipeline do cliente diferente do que a ADR-0014 decidiu
     origem: codigo
     rotulo_saida: arquivo
     saida: 'src/Pix/Pix.ClientDemo/Program.cs:44
 
       .AddStandardResilienceHandler();'
     pergunta: A ADR-0014 descreve 5 s por tentativa e um disjuntor que abre com 50% de falhas em no mínimo 5 chamadas e fica aberto 15 s. O que o cliente usa?
-    correcao: Configurar as opções no `AddStandardResilienceHandler(options => ...)` com os valores da ADR, ou atualizar a ADR para os valores padrão.
+    correcao: Configurar as opções no `AddStandardResilienceHandler(options => ...)` com os valores que a ADR-0014 decidiu, ou atualizar a ADR-0014 para os valores padrão da biblioteca.
     alternativas:
     - texto: Os valores da ADR, lidos do `appsettings.json`.
       correta: false
@@ -978,6 +1142,44 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: TLS (Transport Layer Security) e handshake
+      definicao: O TLS é o protocolo que cifra a conexão do HTTPS. O handshake é a negociação inicial da conexão, em que o servidor apresenta o certificado e as duas partes combinam as chaves, antes de qualquer cabeçalho HTTP ser enviado.
+      referencia:
+        rotulo: 'MDN: TLS'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/TLS
+    - termo: mTLS (TLS mútuo)
+      definicao: Variante do TLS em que o cliente também apresenta um certificado durante o handshake, e o servidor recusa a conexão se esse certificado não for assinado pela autoridade esperada. A API Pix do Banco Central exige mTLS, e o `Pix.MockServer` simula essa exigência.
+      referencia:
+        rotulo: 'Microsoft Learn: certificados de cliente no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/security/authentication/certauth
+    - termo: OAuth2 e client credentials
+      definicao: OAuth2 é o protocolo de autorização em que o cliente obtém um token de acesso num servidor de autorização e o envia nas chamadas à API. No fluxo client credentials, um sistema obtém o token com o próprio identificador e segredo, sem usuário humano envolvido.
+      referencia:
+        rotulo: 'IETF: RFC 6749, seção 4.4, Client Credentials Grant'
+        url: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
+    - termo: Política de resiliência e AddStandardResilienceHandler
+      definicao: Política de resiliência é o conjunto de regras que um cliente HTTP aplica para tolerar falhas temporárias, como tempo limite, novas tentativas e disjuntor. O `AddStandardResilienceHandler`, da biblioteca Microsoft.Extensions.Http.Resilience, registra um pipeline padrão com essas regras em volta de cada chamada.
+      referencia:
+        rotulo: 'Microsoft Learn: criar aplicativos HTTP resilientes'
+        url: https://learn.microsoft.com/pt-br/dotnet/core/resilience/http-resilience
+    - termo: DelegatingHandler e cliente HTTP tipado
+      definicao: Um `DelegatingHandler` é um elo da cadeia de processamento do `HttpClient`, que pode alterar a requisição antes de passá-la ao próximo elo, como o `IdempotencyKeyHandler` faz com o cabeçalho. Um cliente HTTP tipado é uma classe, como o `PixProcessingClient`, registrada com o próprio `HttpClient` e a própria cadeia de handlers.
+      referencia:
+        rotulo: 'Microsoft Learn: IHttpClientFactory e handlers de saída'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/http-requests
+    - termo: Idempotência e chave de idempotência
+      definicao: Uma operação é idempotente quando repeti-la tem o mesmo efeito que executá-la uma vez. A chave de idempotência, enviada no cabeçalho `Idempotency-Key`, permite ao servidor reconhecer que uma requisição é a repetição de outra e devolver o resultado da primeira.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Pix
+      definicao: Meio de pagamento instantâneo do Banco Central do Brasil, em que as instituições trocam mensagens pela API Pix. Nesta ODA aparecem a cobrança, que é o pedido de pagamento identificado por um `txid`, a liquidação, que é o pagamento da cobrança, e a devolução, que é o retorno de parte ou de todo o valor pago.
+      referencia:
+        rotulo: 'Banco Central do Brasil: Pix'
+        url: https://www.bcb.gov.br/estabilidadefinanceira/pix
   - tipo: quiz
     perguntas:
     - enunciado: O que o mTLS acrescenta ao TLS comum?

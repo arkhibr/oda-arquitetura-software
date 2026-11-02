@@ -152,7 +152,19 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba percorre as peças do pipeline de ofertas e explica as duas formas de mudar o roteamento: pela tabela de regras ou pelo código do roteador. O `README.md` do cenário 16 descreve o caso de negócio.'
+    texto: 'Esta aba percorre as peças do pipeline de ofertas, a sequência de serviços que leva cada oferta de crédito do agendador à fila do segmento, e explica as duas formas de mudar o roteamento, a escolha do destino de cada oferta: pela tabela de regras ou pelo código do roteador. Os blocos de conceito vêm antes do fluxo e da comparação, e o `README.md` do cenário 16 descreve o caso de negócio.'
+  - tipo: conceito
+    titulo: Os serviços do pipeline de ofertas
+    texto: O Amazon EventBridge Scheduler invoca um alvo por uma expressão de tempo, e no cenário 16 ele invoca a função produtora a cada 20 segundos. As funções são do AWS Lambda, serviço que executa uma função a cada evento, as ofertas passam por filas do Amazon SQS (Simple Queue Service), que entregam cada mensagem a um consumidor por vez, e as regras ficam numa tabela do Amazon DynamoDB, banco NoSQL que localiza itens pela chave. Nos testes, todos esses serviços são emulados pelo LocalStack, emulador da AWS que roda num contêiner Docker.
+  - tipo: conceito
+    titulo: Roteamento por regras em tabela
+    texto: O roteador é a função `roteador-de-ofertas`, que lê cada oferta da fila de entrada, procura o segmento dela na tabela `regras-de-roteamento` e envia a oferta à fila indicada pela regra. Como as regras são dados lidos a cada invocação, cadastrar ou alterar o destino de um segmento é gravar um item na tabela. Mudar o que o roteador faz, como o tratamento da oferta sem regra, exige mudar o código.
+  - tipo: conceito
+    titulo: Implantação e variável de ambiente
+    texto: A implantação é a publicação de uma nova versão do código da função no serviço, e toda mudança no código do roteador exige implantá-lo de novo. A variável de ambiente é um valor de configuração entregue à função na implantação, e as funções do cenário 16 recebem por variáveis as URLs das filas.
+  - tipo: conceito
+    titulo: Descarte silencioso
+    texto: Uma mensagem descartada com um aviso no log some do pipeline sem deixar nada que se possa consultar ou reprocessar. Uma fila de revisão guarda a oferta e torna a situação visível para quem acompanha a fila.
   - tipo: fluxo
     titulo: O caminho de uma oferta
     etapas:
@@ -183,14 +195,14 @@ abas:
       valores:
       - A área de negócio, por uma tela ou script
       - O time de desenvolvimento, com teste
-  - tipo: conceito
-    titulo: Descarte silencioso
-    texto: Uma mensagem descartada com um aviso no log some do pipeline sem deixar nada que se possa consultar ou reprocessar. Uma fila de revisão guarda a oferta e torna a situação visível para quem acompanha a fila.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os arquivos do cenário 16 que decidem para onde vai cada oferta de crédito: a Lambda roteadora, que consulta as regras no DynamoDB, e dois trechos da fixture, um com o agendador que gera as ofertas e outro com a Lambda de eco ligada à fila de consignado. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam o caminho de uma oferta e o ponto em que a regra desta ODA muda.'
+    texto: 'Esta aba mostra os arquivos do cenário 16 que decidem para onde vai cada oferta de crédito: a função roteadora, que consulta as regras numa tabela do DynamoDB, e dois trechos da fixture, a classe que monta o pipeline antes dos testes, um com o agendador que gera as ofertas e outro com a função de eco ligada à fila de consignado. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam o caminho de uma oferta e o ponto em que a regra desta ODA muda.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A função roteadora é escrita em Python e roda no AWS Lambda, e o log é o registro de texto que a função escreve a cada invocação. A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 16 cria o agendamento do EventBridge Scheduler e os mapeamentos de origem de eventos, recursos do Lambda que leem uma fila e invocam a função com as mensagens. O mapeamento apaga a mensagem da fila quando a invocação termina sem erro.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -272,7 +284,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, a oferta `oferta-003`, do segmento `pessoal`, antes e depois da mudança no roteador. Depois, classifique como implementar cada mudança de negócio.
+    texto: Esta aba simula, sem executar nada, a oferta `oferta-003`, do segmento `pessoal`, antes e depois da mudança no roteador, a função que escolhe a fila de destino de cada oferta. Depois, classifique como implementar cada mudança de negócio.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A função produtora publica a oferta na `fila-ofertas-credito`, e o roteador carrega as regras da tabela e procura o segmento da oferta. A fila de revisão, `fila-revisao`, é a fila que o laboratório cria para receber as ofertas sem regra, e o roteador recebe o endereço dela pela variável de ambiente `FILA_REVISAO_URL`.
   - tipo: fluxo
     titulo: A oferta `oferta-003`, segmento `pessoal`
     etapas:
@@ -311,6 +326,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é fazer as ofertas de segmento sem regra chegarem a uma fila de revisão, onde podem ser consultadas e reprocessadas, e provar a mudança com um teste de ponta a ponta escrito antes. Os passos 1 e 2 preparam o contêiner Linux e rodam o cenário 16, os passos 3 e 4 escrevem o teste e criam a fila de revisão, e o passo 5 muda o roteador. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório roda os testes num contêiner Linux, porque o repositório ignora os testes com Lambda, o serviço que executa as funções do pipeline, no macOS com Apple Silicon. O teste de ponta a ponta publica a oferta na entrada do pipeline e confere a fila de saída, e é escrito antes da mudança, para falhar enquanto a regra antiga vale. O `TimeoutException` é a falha do teste quando a oferta não aparece na fila dentro do tempo limite.
   - tipo: faixa
     estilo: objetivo
     problema: O roteador do cenário 16, em `src/lambdas/roteador_de_ofertas/handler.py`, descarta a oferta cujo segmento não tem regra na tabela `regras-de-roteamento` e deixa apenas um aviso no log. Como a invocação termina sem erro, a mensagem também é apagada da fila de ofertas.
@@ -456,6 +474,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria com esse pipeline, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O descarte silencioso acontece quando o roteador abandona a oferta sem erro, deixando só uma linha de log, e como a invocação termina sem erro a mensagem é apagada da fila de entrada. O SQS entrega cada mensagem a um consumidor por vez, e a função `eco-consignado` consome a mesma `fila-consignado` que o teste lê. O agendador do EventBridge Scheduler invoca a função produtora a cada 20 segundos, inclusive durante os testes.
   - tipo: incidente
     titulo: Ofertas que somem sem erro
     origem: executado
@@ -543,6 +564,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A implantação é a publicação de uma nova versão do código de uma função, e a variável de ambiente é um valor de configuração que a função recebe na implantação. O `SemeadorDeRegras` é a classe de apoio dos testes do cenário 16 que grava itens na tabela de regras, e o SQS é o serviço de filas da AWS.
   - tipo: quiz
     perguntas:
     - enunciado: Por que as regras de roteamento ficam numa tabela?

@@ -147,7 +147,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica como o shell vira uma imagem: dois estágios, o primeiro compila com Node e o segundo copia só o `dist/` para um Nginx, como registra a ADR-006. O `nginx.conf` é um template, e o `envsubst` substitui só as variáveis `CSP_*` no boot do contêiner.'
+    texto: Esta aba explica como uma mudança no `frontend-react` passa pela esteira de entrega até virar uma imagem de contêiner que serve o shell, a aplicação React que hospeda o portal. Os blocos abaixo ensinam esteira e Quality Gate, imagem e contêiner Docker, build em dois estágios, Nginx e `envsubst`, `npm ci` e o lock e healthcheck, e depois o comparativo separa as variáveis fixadas no build das resolvidas quando o contêiner inicia. A ADR do fim registra a tática de conteinerização que o repositório adotou.
+  - tipo: conceito
+    titulo: Esteira de entrega e Quality Gate
+    texto: 'A esteira de integração contínua é a sequência automática de verificações que roda a cada mudança enviada ao repositório, e no `frontend-react` ela fica em `.github/workflows/ci.yml` e roda no GitHub Actions. O Quality Gate é o job dessa esteira que reúne as verificações que uma mudança precisa passar: instalação com `npm ci`, conferência de tipos com `tsc`, ESLint e Stylelint, testes com cobertura e build com o Vite.'
+  - tipo: conceito
+    titulo: Imagem, contêiner e build em dois estágios
+    texto: 'Uma imagem Docker é um pacote com a aplicação, as dependências e a configuração necessárias para rodá-la, e um contêiner é a execução isolada dessa imagem. O `Dockerfile` do shell tem dois estágios: o primeiro usa `node:20-alpine` para compilar o `dist/`, e o segundo copia só esse resultado para `nginx:1.27-alpine`, de modo que a imagem final não leva o Node nem o `node_modules`.'
+  - tipo: conceito
+    titulo: Nginx, envsubst e CSP
+    texto: O Nginx é o servidor web que entrega os arquivos estáticos do shell e envia os cabeçalhos de segurança, entre eles a CSP (Content Security Policy), cabeçalho que diz ao navegador de onde a página pode carregar scripts e para onde pode se conectar. O `nginx.conf.template` é um modelo, e o `envsubst`, comando que substitui variáveis de ambiente num texto, preenche nele só as variáveis `CSP_*` quando o contêiner inicia, o que permite mudar a política por ambiente sem gerar outra imagem.
+  - tipo: conceito
+    titulo: npm ci e o lock
+    texto: O `npm ci` instala exatamente o que o `package-lock.json` descreve e recusa a instalação quando o lock não corresponde ao `package.json`. Isso torna a esteira reprodutível e exige que o lock seja atualizado e versionado sempre que as dependências mudam.
+  - tipo: conceito
+    titulo: Healthcheck
+    texto: Healthcheck é o comando que o Docker roda periodicamente dentro do contêiner para saber se a aplicação responde. O Docker roda o comando do `HEALTHCHECK` a cada 30 segundos e marca o contêiner como `unhealthy` depois de três falhas seguidas. Orquestradores e balanceadores usam esse estado para tirar a instância do tráfego.
   - tipo: comparativo
     colunas:
     - Variáveis de build
@@ -169,12 +184,6 @@ abas:
       valores:
       - O `config.json`, lido em tempo de execução
       - '`$request_id` e `$csp_nonce`, pelo `NGINX_ENVSUBST_FILTER=^CSP_`'
-  - tipo: conceito
-    titulo: npm ci e o lock
-    texto: O `npm ci` instala exatamente o que o `package-lock.json` descreve e recusa a instalação quando o lock não corresponde ao `package.json`. Isso torna a esteira reprodutível e exige que o lock seja atualizado e versionado sempre que as dependências mudam.
-  - tipo: conceito
-    titulo: Healthcheck
-    texto: O Docker roda o comando do `HEALTHCHECK` a cada 30 segundos e marca o contêiner como `unhealthy` depois de três falhas seguidas. Orquestradores e balanceadores usam esse estado para tirar a instância do tráfego.
   - tipo: adr
     id: ADR-006
     titulo: Tática de conteinerização
@@ -187,7 +196,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, a esteira de qualidade, o Dockerfile e a configuração de tipos da raiz, onde estão as três falhas que o laboratório encontra. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os quatro arquivos que decidem se uma mudança passa pela esteira de entrega, a sequência automática de verificações do GitHub Actions, e como o shell vira uma imagem de contêiner: o `ci.yml` com o Quality Gate, o `tsconfig.json` da raiz usado na etapa de tipos, o `Dockerfile` que constrói a imagem e o `nginx.conf.template` do servidor web Nginx. Nesses arquivos estão as falhas que o laboratório encontra, e cada editor traz acima dele o papel do arquivo, com os marcadores numerados ao lado das linhas explicando os trechos que importam.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -326,7 +335,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula o contêiner do shell sem executar o projeto. Envie as requisições abaixo, capturadas com a imagem do laboratório, e classifique em que etapa da esteira cada problema é encontrado.
+    texto: Esta aba simula o contêiner do shell, a execução isolada da imagem que serve o portal, sem executar o projeto. Envie as requisições abaixo, capturadas com a imagem do laboratório, acompanhe uma mudança do push à imagem saudável e classifique em que ponto da esteira de entrega cada problema é encontrado.
+  - tipo: conceito
+    titulo: Termos das requisições e das etapas
+    texto: As respostas trazem a CSP, cabeçalho que diz ao navegador de onde a página pode carregar scripts, com um nonce, valor aleatório por requisição que autoriza os scripts do HTML, e o `try_files` é a diretiva do Nginx que devolve o `index.html` para caminhos sem arquivo. Na esteira, o `npm ci` instala as dependências a partir do `package-lock.json`, o FSD (Feature-Sliced Design) é a organização em camadas que o ESLint confere, a cobertura é medida pelo Vitest com o motor V8 e o healthcheck é o comando que o Docker roda para saber se o contêiner responde.
   - tipo: console-api
     cenarios:
     - rotulo: Página inicial
@@ -414,7 +426,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é levar o Quality Gate ao verde com verificações que realmente conferem o código e subir a imagem do shell com o healthcheck correto. Os passos 1 a 5 rodam a esteira, sincronizam o lock e levam a cobertura de branches acima do limite, e os passos 6 a 8 provam que a etapa de tipos está vazia, corrigem essa etapa e o healthcheck e conferem os cabeçalhos da imagem. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+    texto: O objetivo do laboratório é levar o Quality Gate, o job da esteira de entrega que reúne as verificações de cada mudança, ao verde com verificações que realmente conferem o código e subir a imagem de contêiner do shell com um healthcheck correto, o comando com que o Docker confere se o contêiner responde. Os passos 1 a 5 rodam a esteira, sincronizam o `package-lock.json` e levam a cobertura de branches, percentual dos caminhos do código percorridos pelos testes, acima do limite, e os passos 6 a 8 provam que a etapa de tipos está vazia, corrigem essa etapa e o healthcheck e conferem os cabeçalhos da imagem. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
   - tipo: faixa
     estilo: objetivo
     problema: 'No commit `2179313`, o Quality Gate de `.github/workflows/ci.yml` tem três falhas: o `npm ci` do `docker build` para com `Missing: @emnapi/core@1.11.3 from lock file`, a cobertura de branches fica em 78,8%, abaixo do limite de 80% e o `npx tsc --noEmit` não confere arquivo nenhum, porque o `tsconfig.json` da raiz só tem referências. Na imagem, o healthcheck chama `localhost`, que no Alpine resolve para `::1`, e o Nginx só escuta em IPv4.'
@@ -732,7 +744,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Esta aba apresenta quatro situações que um time encontraria na esteira e na imagem, a partir de saídas do laboratório e de uma execução do shell no navegador contra a imagem. Escolha a causa de cada uma para ver a explicação e a correção.
+    texto: Esta aba apresenta quatro situações que um time encontraria na esteira de entrega e na imagem de contêiner do shell, a partir de saídas do laboratório e de uma execução do shell no navegador contra a imagem. O bloco abaixo resume os conceitos que os incidentes usam, e em cada incidente você escolhe a causa para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: Conceitos usados nos incidentes
+    texto: O healthcheck é o comando que o Docker roda dentro do contêiner para saber se a aplicação responde, e a imagem do shell usa o Alpine, distribuição Linux mínima. O `tsc` é o compilador TypeScript, e o `tsconfig.json` pode ter referências a outros arquivos de configuração. O manifesto de microfrontends lista de onde o shell baixa cada parte da interface, e o `package-lock.json` registra a versão exata de cada dependência que o `npm ci` instala.
   - tipo: incidente
     titulo: Contêiner que serve páginas e fica unhealthy
     origem: executado
@@ -828,6 +843,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: Termos das perguntas
+    texto: A imagem é o pacote que o Docker executa como contêiner, e o `Dockerfile` do shell a constrói em estágios. O `connect-src` é a diretiva da CSP que limita para onde a página pode abrir conexões, e o `envsubst` substitui variáveis de ambiente no template do Nginx quando o contêiner inicia. O nonce é o valor aleatório que autoriza os scripts da página, e o `sub_filter` e o `add_header` são diretivas do Nginx que reescrevem o corpo e acrescentam cabeçalhos à resposta. O `npm ci` e o `npm install` instalam dependências, e o orquestrador é o sistema que decide quais contêineres recebem tráfego.
   - tipo: quiz
     perguntas:
     - enunciado: Por que a imagem do shell tem dois estágios?

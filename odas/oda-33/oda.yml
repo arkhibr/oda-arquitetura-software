@@ -168,7 +168,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba descreve os saltos dos dois pipelines e o que cada ligação exige para a mensagem passar. Num pipeline assíncrono, nenhum serviço avisa quem enviou que a mensagem parou no caminho.
+    texto: Esta aba descreve os saltos, as passagens da mensagem de um serviço para o seguinte, dos dois pipelines do repositório e o que cada ligação exige para a mensagem passar. Num pipeline assíncrono, em que cada serviço entrega e segue sem esperar o próximo, nenhum serviço avisa quem enviou que a mensagem parou no caminho, e os blocos de conceito abaixo explicam as peças antes da comparação.
+  - tipo: conceito
+    titulo: Pipeline e salto
+    texto: Um pipeline de mensagens é uma sequência de serviços em que a saída de um é a entrada do seguinte, e cada passagem entre dois serviços é um salto. No pipeline 12, um arquivo criado num bucket gera uma mensagem numa fila, a fila aciona uma função e a função grava um item numa tabela, e no pipeline 13 a entrada é uma publicação num tópico.
+  - tipo: conceito
+    titulo: Os serviços dos dois pipelines
+    texto: O Amazon S3 (Simple Storage Service) guarda arquivos, chamados objetos, em buckets, e o Amazon SQS (Simple Queue Service) guarda mensagens numa fila até um consumidor lê-las e apagá-las. O AWS Lambda executa uma função a cada evento, o Amazon DynamoDB guarda itens em tabelas localizados pela chave, e o Amazon SNS (Simple Notification Service) copia cada mensagem publicada num tópico para as assinaturas dele. Nos testes, todos esses serviços são emulados pelo LocalStack, emulador da AWS que roda num contêiner Docker.
+  - tipo: conceito
+    titulo: Notificação, assinatura e política da fila
+    texto: A notificação de evento é a configuração do bucket que envia um aviso à fila quando acontece um tipo de evento, como a criação de um objeto, e ela pode filtrar os tipos aceitos. A assinatura liga o tópico do SNS à fila, e a política de acesso, documento JSON gravado na fila, autoriza o S3 ou o SNS a executar `sqs:SendMessage` nela. Na AWS, sem essa política o S3 e o SNS não conseguem gravar na fila, e o LocalStack Community, edição gratuita do emulador, não aplica essa regra.
+  - tipo: conceito
+    titulo: Localizar pelo salto
+    texto: Um teste de pipeline que só olha a saída diz que algo falhou, mas não onde. Conferir o primeiro salto e o último divide o caminho, e cada conferência intermediária elimina um trecho até sobrar uma ligação.
+  - tipo: conceito
+    titulo: Eventos de criação do S3
+    texto: O S3 distingue a criação por `Put`, `Post`, `Copy` e `CompleteMultipartUpload`. Uma notificação filtrada por `s3:ObjectCreated:Put` ignora arquivos copiados de outro bucket e arquivos grandes enviados em partes, e `s3:ObjectCreated:*` inclui todos.
   - tipo: comparativo
     colunas:
     - Pipeline 12
@@ -190,17 +205,14 @@ abas:
       valores:
       - Item no DynamoDB com o corpo da mensagem
       - Objeto em `results/` no S3
-  - tipo: conceito
-    titulo: Localizar pelo salto
-    texto: Um teste de pipeline que só olha a saída diz que algo falhou, mas não onde. Conferir o primeiro salto e o último divide o caminho, e cada conferência intermediária elimina um trecho até sobrar uma ligação.
-  - tipo: conceito
-    titulo: Eventos de criação do S3
-    texto: O S3 distingue a criação por `Put`, `Post`, `Copy` e `CompleteMultipartUpload`. Uma notificação filtrada por `s3:ObjectCreated:Put` ignora arquivos copiados de outro bucket e arquivos grandes enviados em partes, e `s3:ObjectCreated:*` inclui todos.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra onde ficam as ligações entre os serviços dos dois pipelines: a fixture do cenário 12, que liga o bucket à fila e a fila à Lambda, e a função Python do cenário 13, que recebe as mensagens vindas do SNS. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam qual evento entra no pipeline e como cada salto passa a mensagem adiante.'
+    texto: 'Esta aba mostra onde ficam as ligações entre os serviços dos dois pipelines: a fixture do cenário 12, classe que liga o bucket à fila e a fila à função antes dos testes, e a função Python do cenário 13, que recebe as mensagens vindas de um tópico. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam qual evento entra no pipeline e como cada salto passa a mensagem adiante.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 12 configura a notificação de evento do bucket, que avisa a fila quando um objeto é criado, filtrada pelo tipo `ObjectCreatedPut`, o da criação por `PutObject`. O mapeamento de origem de eventos é o recurso do Lambda que lê a fila e invoca a função, e a política de acesso da fila autoriza o S3 a enviar mensagens a ela, limitada ao ARN, identificador único, do bucket. Quando o SNS entrega a uma fila, a mensagem original chega dentro de um envelope JSON, no campo `Message`.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -284,7 +296,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, a busca pelo ponto em que um arquivo copiado parou no pipeline 12. Depois, classifique o que cada observação elimina.
+    texto: Esta aba simula, sem executar nada, a busca pelo ponto em que um arquivo copiado parou no pipeline 12, a sequência que vai do bucket até a tabela. Depois, classifique o que cada observação elimina da busca.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O `GetObjectMetadata` consulta os dados de um objeto do S3 sem baixá-lo e confirma o primeiro salto, a chegada do arquivo ao bucket. O `PutObject` envia um arquivo e gera o evento `s3:ObjectCreated:Put`, e a cópia de outro bucket gera o evento `s3:ObjectCreated:Copy`, que o filtro `ObjectCreatedPut` da notificação não inclui.
   - tipo: fluxo
     titulo: Onde parou o `invoice-002.pdf`
     etapas:
@@ -323,6 +338,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é fazer um arquivo copiado de outro bucket atravessar o pipeline 12, que hoje o ignora sem erro, com um teste que confere o primeiro e o último salto e por isso indica em que trecho a mensagem parou. Os passos 1 e 2 preparam o contêiner Linux e rodam o pipeline, o passo 3 escreve o teste e localiza a falha, e o passo 4 amplia o filtro da notificação do bucket. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório roda os testes num contêiner Linux, porque o repositório ignora os testes com Lambda, o serviço que executa as funções do pipeline, no macOS com Apple Silicon. O pipeline 12 começa no bucket, recipiente de arquivos do S3, e termina numa tabela do DynamoDB, e a notificação do bucket decide que tipos de criação de objeto entram no pipeline. `EventType.ObjectCreatedPut` aceita só a criação por envio, e `EventType.ObjectCreatedAll` aceita todos os tipos, inclusive a cópia.
   - tipo: faixa
     estilo: objetivo
     problema: A notificação do bucket `pipeline-uploads`, no cenário 12, é filtrada por `EventType.ObjectCreatedPut`, e só os arquivos enviados com `PutObject` geram mensagem para a fila. Um arquivo copiado de outro bucket com `CopyObject` chega ao bucket e não entra no pipeline.
@@ -459,7 +477,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: 'Esta aba apresenta quatro situações que um time encontraria nesses pipelines, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+    texto: Esta aba apresenta quatro situações que um time encontraria nesses pipelines, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas, e a explicação e a correção aparecem depois da escolha.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A notificação do bucket envia à fila o evento de criação de objeto, e o S3 distingue a criação por `Put`, `Post`, `Copy` e `CompleteMultipartUpload`, o fim de um upload multiparte, em que um arquivo grande é enviado em partes. A política de acesso da fila autoriza o principal `s3.amazonaws.com`, o serviço S3, a executar `sqs:SendMessage`, e o LocalStack Community não aplica essa política. A mensagem entregue pelo SNS chega dentro de um envelope JSON, e a função lê o campo `Message` desse envelope.
   - tipo: incidente
     titulo: Arquivos de um parceiro que nunca são processados
     origem: executado
@@ -559,6 +580,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O salto é a passagem da mensagem de um serviço para o seguinte no pipeline. O `CopyObject` e o `PutObject` são operações do S3 que criam objetos num bucket, por cópia e por envio, e a política de acesso da fila diz quais serviços podem enviar mensagens a ela. A entrega bruta é uma opção da assinatura do SNS que muda o formato com que a mensagem chega à fila.
   - tipo: quiz
     perguntas:
     - enunciado: Por que conferir o primeiro salto no teste do pipeline?

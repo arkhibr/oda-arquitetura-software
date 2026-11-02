@@ -9,6 +9,11 @@ abas:
   - tipo: glossario
     texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
     itens:
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
     - termo: Microfrontend
       definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
       referencia:
@@ -16,16 +21,6 @@ abas:
         url: https://martinfowler.com/articles/micro-frontends.html
     - termo: Shell
       definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
-    - termo: SHA-256 e campo `integrity`
-      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
-      referencia:
-        rotulo: MDN · Subresource Integrity
-        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
-    - termo: Origem (origin)
-      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
-      referencia:
-        rotulo: MDN · Origem
-        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
     - termo: Error boundary
       definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
       referencia:
@@ -36,6 +31,11 @@ abas:
       referencia:
         rotulo: React · createRoot
         url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
     - termo: Raiz React (`createRoot`)
       definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
       referencia:
@@ -52,64 +52,136 @@ abas:
       definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
     - termo: Bucket
       definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
-    - termo: LocalStack
-      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
-      referencia:
-        rotulo: LocalStack · Documentação
-        url: https://docs.localstack.cloud/getting-started/
-    - termo: Promessa (Promise)
-      definicao: Objeto do JavaScript que representa um resultado futuro, como o fim de um download, e termina resolvida com um valor ou rejeitada com um erro, tratado no `.catch`.
     - termo: Performance API e fases de carga
       definicao: API do navegador que registra marcas de tempo e mede o intervalo entre elas. As funções de `perf.ts` medem as fases `fetchEval`, `validate`, `mount` e `total` da carga de cada microfrontend.
       referencia:
         rotulo: MDN · Performance APIs
         url: https://developer.mozilla.org/en-US/docs/Web/API/Performance_API
+    - termo: Node.js
+      definicao: Ambiente que executa JavaScript fora do navegador. No repositório, ele roda o Vite, os testes, o script de deploy, o Gateway e os BFFs.
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: WSL (Windows Subsystem for Linux) e Git Bash
+      definicao: O WSL é um recurso do Windows que executa um ambiente Linux completo, e o Git Bash é o terminal bash que acompanha o Git para Windows. Os dois aceitam a sintaxe de comandos usada nos laboratórios.
+      referencia:
+        rotulo: Microsoft Learn · O que é o Subsistema do Windows para Linux
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: detached HEAD
+      definicao: Estado do Git em que a cópia de trabalho aponta para um commit específico, fora de qualquer branch. É o estado que o `git checkout` de um commit produz, e as alterações feitas nele não pertencem a nenhum branch até que um seja criado.
+      referencia:
+        rotulo: Git · git checkout
+        url: https://git-scm.com/docs/git-checkout
     - termo: Boot do shell
       definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
     - termo: Slow 3G
       definicao: Perfil de limitação de rede das ferramentas do Chromium que simula uma conexão móvel lenta, usado no relatório de performance para medir a carga em rede ruim.
-    - termo: Vitest
-      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+    - termo: Promessa (Promise)
+      definicao: Objeto do JavaScript que representa um resultado futuro, como o fim de um download, e termina resolvida com um valor ou rejeitada com um erro, tratado no `.catch`.
+    - termo: Blob
+      definicao: Objeto do navegador que guarda bytes em memória e pode receber uma URL própria. O carregador transforma o bundle já conferido num Blob e importa esse Blob como módulo.
       referencia:
-        rotulo: Vitest · Primeiros passos
-        url: https://vitest.dev/guide/
-    - termo: Simulação de módulo (`vi.mock`)
-      definicao: Recurso do Vitest que troca um módulo importado por uma versão controlada pelo teste. O laboratório troca o `EnderecoApp` por um componente que lança erro ao renderizar.
+        rotulo: MDN · Blob
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Blob
+    - termo: '`import()` dinâmico'
+      definicao: Forma de carregar um módulo ESM durante a execução, a partir de uma URL calculada pelo programa. Com `import(url)`, o navegador baixa e executa o módulo na mesma operação, sem oportunidade de conferir os bytes antes.
       referencia:
-        rotulo: Vitest · Mocking
-        url: https://vitest.dev/guide/mocking
-    - termo: '`onUncaughtError`'
-      definicao: Opção do `createRoot` do React 19 que recebe os erros de renderização que nenhum error boundary capturou naquela raiz.
+        rotulo: MDN · import()
+        url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
       referencia:
-        rotulo: React · createRoot
-        url: https://react.dev/reference/react-dom/client/createRoot
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
     - termo: '`fetch`'
       definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
       referencia:
         rotulo: MDN · Fetch API
         url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
-    - termo: CORS (Cross-Origin Resource Sharing)
-      definicao: Mecanismo de cabeçalhos HTTP com que um servidor autoriza páginas de outra origem a ler as respostas dele. Os buckets precisam de CORS porque o shell, na porta 5173, baixa bundles servidos pela porta 4566, que é outra origem.
+    - termo: '`onUncaughtError`'
+      definicao: Opção do `createRoot` do React 19 que recebe os erros de renderização que nenhum error boundary capturou naquela raiz.
       referencia:
-        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
-        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: Simulação de módulo (`vi.mock`)
+      definicao: Recurso do Vitest que troca um módulo importado por uma versão controlada pelo teste. O laboratório troca o `EnderecoApp` por um componente que lança erro ao renderizar.
+      referencia:
+        rotulo: Vitest · Mocking
+        url: https://vitest.dev/guide/mocking
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
+      referencia:
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Docker e Docker Compose
+      definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
+      referencia:
+        rotulo: Docker Docs · Docker Compose
+        url: https://docs.docker.com/compose/
     - termo: CSP (Content Security Policy)
       definicao: Cabeçalho HTTP com que o servidor informa ao navegador de quais origens a página pode carregar scripts, estilos e outros recursos e para onde ela pode abrir conexões. O navegador bloqueia o que a política não autoriza, e a ADR-012 do repositório adota uma política estrita.
       referencia:
         rotulo: MDN · Políticas de Segurança de Conteúdo (CSP)
         url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: CORS (Cross-Origin Resource Sharing)
+      definicao: Mecanismo de cabeçalhos HTTP com que um servidor autoriza páginas de outra origem a ler as respostas dele. Os buckets precisam de CORS porque o shell, na porta 5173, baixa bundles servidos pela porta 4566, que é outra origem.
+      referencia:
+        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
     - termo: StrictMode
       definicao: Modo de desenvolvimento do React que repete renderizações e efeitos para revelar efeitos colaterais indevidos, sem desligar os error boundaries.
       referencia:
         rotulo: React · StrictMode
         url: https://react.dev/reference/react/StrictMode
-    - termo: Deploy
-      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
     - termo: Playwright
       definicao: Ferramenta que controla navegadores para testes ponta a ponta e medições. O script `npm run test:perf` do repositório usa o Playwright para medir a carga dos microfrontends.
       referencia:
         rotulo: Playwright · Instalação
         url: https://playwright.dev/docs/intro
+    - termo: Roteador
+      definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
+    - termo: Contrato `mount`/`unmount`
+      definicao: 'Interface que todo microfrontend do portal cumpre: `mount(el, ctx)` renderiza a tela dentro do elemento entregue pelo shell, com o contexto recebido, e `unmount(el)` desmonta essa tela e libera o elemento. A ADR-009 define esse contrato.'
+    - termo: Vite
+      definicao: Ferramenta de build e servidor de desenvolvimento do shell e dos microfrontends, que responde em `npm run dev` na porta 5173 e também executa os testes por meio do Vitest.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -175,7 +247,46 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica os três momentos em que a falha de um microfrontend pode ser detectada: no boot, quando o manifesto é validado, na carga, quando o carregador baixa e confere o bundle, e na montagem, quando o microfrontend renderiza. O isolamento exigido pela ADR-008 cobre os dois últimos por meio do `MfeErrorBoundary`, com um limite que o laboratório demonstra.'
+    texto: 'Esta aba explica os três momentos em que a falha de um microfrontend pode ser detectada: no boot, quando o shell valida o manifesto, na carga, quando o carregador baixa e confere o bundle, e na montagem, quando o microfrontend renderiza a tela. Os conceitos abaixo mostram como o error boundary, componente React que captura erros de renderização e mostra um aviso, isola os dois últimos momentos e onde fica o limite desse isolamento.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Performance API e fases de carga
+      definicao: API do navegador que registra marcas de tempo e mede o intervalo entre elas. As funções de `perf.ts` medem as fases `fetchEval`, `validate`, `mount` e `total` da carga de cada microfrontend.
+      referencia:
+        rotulo: MDN · Performance APIs
+        url: https://developer.mozilla.org/en-US/docs/Web/API/Performance_API
+    - termo: Slow 3G
+      definicao: Perfil de limitação de rede das ferramentas do Chromium que simula uma conexão móvel lenta, usado no relatório de performance para medir a carga em rede ruim.
+  - tipo: conceito
+    titulo: Três momentos de falha
+    texto: 'A falha de um microfrontend pode ser detectada em três momentos: no boot, quando o shell valida o manifesto e um erro impede o portal de iniciar, na carga, quando o carregador baixa o bundle e confere o hash, e na montagem, quando o microfrontend renderiza a tela dentro do elemento recebido. As falhas de carga e as exceções do `mount` ficam isoladas na área do microfrontend, e as falhas de boot atingem o portal inteiro.'
+  - tipo: conceito
+    titulo: Error boundary e raiz React
+    texto: Um error boundary é um componente React que captura os erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`, que mostra o aviso de módulo indisponível sem derrubar o restante do portal. Esse componente só alcança a árvore do shell, e o microfrontend cria a própria árvore com `createRoot`, a função que inicia uma raiz React num elemento da página.
+  - tipo: conceito
+    titulo: Por que o boundary do shell não alcança o microfrontend
+    texto: Um error boundary do React captura erros de renderização dos componentes da mesma árvore. O microfrontend chama `createRoot` com o próprio React embutido, e a árvore dele não é filha do `MfeErrorBoundary`, que só recebe os erros que o `MfeHost` relança ao renderizar depois de uma falha de carga ou de `mount`.
+  - tipo: conceito
+    titulo: Fases medidas pelo shell
+    texto: As funções de `perf.ts`, chamadas pelo carregador e pelo `MfeHost`, registram as medidas `mfe:<id>:fetchEval`, `validate` e `mount`, e o `MfeHost` registra também `total`, com a Performance API. O relatório de 30/06/2026 em `docs/performance/` mediu o `emprestimo` com mediana total de 13 ms sem limite de rede e de 7 247 ms em Slow 3G, e concluiu que o custo está na transferência do bundle.
   - tipo: comparativo
     colunas:
     - Quem detecta
@@ -212,17 +323,58 @@ abas:
       - Ninguém no shell, porque o erro acontece noutra raiz React
       - A área do microfrontend fica vazia, sem aviso
       - Erro não tratado na janela
-  - tipo: conceito
-    titulo: Por que o boundary do shell não alcança o microfrontend
-    texto: Um error boundary do React captura erros de renderização dos componentes da mesma árvore. O microfrontend chama `createRoot` com o próprio React embutido, e a árvore dele não é filha do `MfeErrorBoundary`, que só recebe os erros que o `MfeHost` relança ao renderizar depois de uma falha de carga ou de `mount`.
-  - tipo: conceito
-    titulo: Fases medidas pelo shell
-    texto: As funções de `perf.ts`, chamadas pelo carregador e pelo `MfeHost`, registram as medidas `mfe:<id>:fetchEval`, `validate` e `mount`, e o `MfeHost` registra também `total`, com a Performance API. O relatório de 30/06/2026 em `docs/performance/` mediu o `emprestimo` com mediana total de 13 ms sem limite de rede e de 7 247 ms em Slow 3G, e concluiu que o custo está na transferência do bundle.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra como o shell isola a falha de um microfrontend: o componente que carrega e monta o bundle, o error boundary que exibe o aviso, o carregador com as fases medidas da carga e a função `mount` do microfrontend de endereço. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Error boundary
+      definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
+      referencia:
+        rotulo: React · Error boundary
+        url: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Promessa (Promise)
+      definicao: Objeto do JavaScript que representa um resultado futuro, como o fim de um download, e termina resolvida com um valor ou rejeitada com um erro, tratado no `.catch`.
+    - termo: Performance API e fases de carga
+      definicao: API do navegador que registra marcas de tempo e mede o intervalo entre elas. As funções de `perf.ts` medem as fases `fetchEval`, `validate`, `mount` e `total` da carga de cada microfrontend.
+      referencia:
+        rotulo: MDN · Performance APIs
+        url: https://developer.mozilla.org/en-US/docs/Web/API/Performance_API
+    - termo: Blob
+      definicao: Objeto do navegador que guarda bytes em memória e pode receber uma URL própria. O carregador transforma o bundle já conferido num Blob e importa esse Blob como módulo.
+      referencia:
+        rotulo: MDN · Blob
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Blob
+    - termo: Árvore React
+      definicao: Conjunto de componentes que uma raiz React renderiza, em que cada componente é filho de outro. Erros de renderização sobem por essa árvore até o error boundary mais próximo.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: '`import()` dinâmico'
+      definicao: Forma de carregar um módulo ESM durante a execução, a partir de uma URL calculada pelo programa. Com `import(url)`, o navegador baixa e executa o módulo na mesma operação, sem oportunidade de conferir os bytes antes.
+      referencia:
+        rotulo: MDN · import()
+        url: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -387,6 +539,57 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, dois caminhos de erro: uma exceção lançada pelo `mount`, que o shell captura, e um erro de renderização dentro da árvore React do microfrontend, que o shell não vê. Compare os dois e depois classifique as falhas pela forma como aparecem para a pessoa.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Árvore React
+      definicao: Conjunto de componentes que uma raiz React renderiza, em que cada componente é filho de outro. Erros de renderização sobem por essa árvore até o error boundary mais próximo.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Promessa (Promise)
+      definicao: Objeto do JavaScript que representa um resultado futuro, como o fim de um download, e termina resolvida com um valor ou rejeitada com um erro, tratado no `.catch`.
+    - termo: Error boundary
+      definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
+      referencia:
+        rotulo: React · Error boundary
+        url: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Raiz React (`createRoot`)
+      definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -477,6 +680,78 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é provar que um erro interno do microfrontend fica fora do error boundary do shell e corrigir isso no próprio microfrontend, porque só um componente da mesma árvore React captura os erros de renderização dessa árvore. Os passos 1 a 3 demonstram no shell o limite do error boundary, e os passos 4 a 9 criam um boundary interno no microfrontend de endereço com o teste escrito antes. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Error boundary
+      definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
+      referencia:
+        rotulo: React · Error boundary
+        url: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Árvore React
+      definicao: Conjunto de componentes que uma raiz React renderiza, em que cada componente é filho de outro. Erros de renderização sobem por essa árvore até o error boundary mais próximo.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: Raiz React (`createRoot`)
+      definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: '`onUncaughtError`'
+      definicao: Opção do `createRoot` do React 19 que recebe os erros de renderização que nenhum error boundary capturou naquela raiz.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: Simulação de módulo (`vi.mock`)
+      definicao: Recurso do Vitest que troca um módulo importado por uma versão controlada pelo teste. O laboratório troca o `EnderecoApp` por um componente que lança erro ao renderizar.
+      referencia:
+        rotulo: Vitest · Mocking
+        url: https://vitest.dev/guide/mocking
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
+      referencia:
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Docker e Docker Compose
+      definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
+      referencia:
+        rotulo: Docker Docs · Docker Compose
+        url: https://docs.docker.com/compose/
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
   - tipo: faixa
     estilo: objetivo
     problema: O `MfeErrorBoundary` do shell captura as falhas de carga e as exceções do `mount`, que o `MfeHost` relança ao renderizar, e não recebe os erros de renderização da raiz React que o microfrontend de endereço cria em `mfes/endereco/src/index.tsx`.
@@ -746,6 +1021,96 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria na carga de microfrontends. As duas primeiras reproduzem a tela e o console do portal com falhas de carga, e as duas últimas partem do laboratório e do relatório de performance: escolha a causa de cada uma para ver a explicação e a correção.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Promessa (Promise)
+      definicao: Objeto do JavaScript que representa um resultado futuro, como o fim de um download, e termina resolvida com um valor ou rejeitada com um erro, tratado no `.catch`.
+    - termo: CORS (Cross-Origin Resource Sharing)
+      definicao: Mecanismo de cabeçalhos HTTP com que um servidor autoriza páginas de outra origem a ler as respostas dele. Os buckets precisam de CORS porque o shell, na porta 5173, baixa bundles servidos pela porta 4566, que é outra origem.
+      referencia:
+        rotulo: MDN · Cross-Origin Resource Sharing (CORS)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CORS
+    - termo: CSP (Content Security Policy)
+      definicao: Cabeçalho HTTP com que o servidor informa ao navegador de quais origens a página pode carregar scripts, estilos e outros recursos e para onde ela pode abrir conexões. O navegador bloqueia o que a política não autoriza, e a ADR-012 do repositório adota uma política estrita.
+      referencia:
+        rotulo: MDN · Políticas de Segurança de Conteúdo (CSP)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
+    - termo: Error boundary
+      definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
+      referencia:
+        rotulo: React · Error boundary
+        url: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Raiz React (`createRoot`)
+      definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: StrictMode
+      definicao: Modo de desenvolvimento do React que repete renderizações e efeitos para revelar efeitos colaterais indevidos, sem desligar os error boundaries.
+      referencia:
+        rotulo: React · StrictMode
+        url: https://react.dev/reference/react/StrictMode
+    - termo: Performance API e fases de carga
+      definicao: API do navegador que registra marcas de tempo e mede o intervalo entre elas. As funções de `perf.ts` medem as fases `fetchEval`, `validate`, `mount` e `total` da carga de cada microfrontend.
+      referencia:
+        rotulo: MDN · Performance APIs
+        url: https://developer.mozilla.org/en-US/docs/Web/API/Performance_API
+    - termo: Playwright
+      definicao: Ferramenta que controla navegadores para testes ponta a ponta e medições. O script `npm run test:perf` do repositório usa o Playwright para medir a carga dos microfrontends.
+      referencia:
+        rotulo: Playwright · Instalação
+        url: https://playwright.dev/docs/intro
+    - termo: Blob
+      definicao: Objeto do navegador que guarda bytes em memória e pode receber uma URL própria. O carregador transforma o bundle já conferido num Blob e importa esse Blob como módulo.
+      referencia:
+        rotulo: MDN · Blob
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Blob
   - tipo: incidente
     titulo: Módulo indisponível depois de um deploy
     origem: executado
@@ -823,6 +1188,77 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Promessa (Promise)
+      definicao: Objeto do JavaScript que representa um resultado futuro, como o fim de um download, e termina resolvida com um valor ou rejeitada com um erro, tratado no `.catch`.
+    - termo: Error boundary
+      definicao: Componente React que captura erros de renderização dos componentes abaixo dele na mesma árvore e mostra uma tela alternativa. O shell envolve cada microfrontend no `MfeErrorBoundary`.
+      referencia:
+        rotulo: React · Error boundary
+        url: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Roteador
+      definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Árvore React
+      definicao: Conjunto de componentes que uma raiz React renderiza, em que cada componente é filho de outro. Erros de renderização sobem por essa árvore até o error boundary mais próximo.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Contrato `mount`/`unmount`
+      definicao: 'Interface que todo microfrontend do portal cumpre: `mount(el, ctx)` renderiza a tela dentro do elemento entregue pelo shell, com o contexto recebido, e `unmount(el)` desmonta essa tela e libera o elemento. A ADR-009 define esse contrato.'
+    - termo: Performance API e fases de carga
+      definicao: API do navegador que registra marcas de tempo e mede o intervalo entre elas. As funções de `perf.ts` medem as fases `fetchEval`, `validate`, `mount` e `total` da carga de cada microfrontend.
+      referencia:
+        rotulo: MDN · Performance APIs
+        url: https://developer.mozilla.org/en-US/docs/Web/API/Performance_API
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Vite
+      definicao: Ferramenta de build e servidor de desenvolvimento do shell e dos microfrontends, que responde em `npm run dev` na porta 5173 e também executa os testes por meio do Vitest.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: Raiz React (`createRoot`)
+      definicao: Ponto em que o React começa a renderizar uma árvore de componentes dentro de um elemento da página. Cada microfrontend cria a própria raiz com o React embutido no bundle, separada da árvore do shell.
+      referencia:
+        rotulo: React · createRoot
+        url: https://react.dev/reference/react-dom/client/createRoot
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
   - tipo: quiz
     perguntas:
     - enunciado: Como uma falha de carga, que acontece numa promessa, chega ao error boundary?
@@ -851,7 +1287,7 @@ abas:
       alternativas:
       - texto: Porque o contrato proíbe o shell de capturar erros.
         correta: false
-        explicacao: Nada na ADR-009 proíbe isso, e o boundary do shell já captura as falhas de carga e de `mount`.
+        explicacao: O contrato `mount`/`unmount` não proíbe isso, e o boundary do shell já captura as falhas de carga e de `mount`.
       - texto: Porque só um componente da mesma árvore React captura os erros de renderização dessa árvore.
         correta: true
         explicacao: A raiz do microfrontend é criada por ele, com o React embutido no bundle.
@@ -876,7 +1312,7 @@ abas:
         explicacao: O boundary vai dentro do bundle, e o manifesto precisa do hash novo.
       - texto: Recompilar o shell.
         correta: false
-        explicacao: O shell não muda, como prevê a ADR-008.
+        explicacao: O shell não muda, porque o boundary novo fica dentro do bundle do microfrontend.
       - texto: Nada, porque o Vite recarrega o microfrontend.
         correta: false
         explicacao: O portal baixa o bundle publicado no bucket, que só muda com novo build e deploy.

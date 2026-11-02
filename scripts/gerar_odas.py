@@ -235,10 +235,10 @@ def validar_oda(dados: dict, catalogo: dict) -> list[str]:
         if aba.get("id") == "missao" and COMO_OBTER not in titulos:
             erros.append(f"missao: falta a faixa {COMO_OBTER}.")
         if aba.get("id") == "laboratorio":
-            estilos = [b.get("estilo") if b.get("tipo") == "faixa" else b.get("tipo") for b in aba.get("blocos", []) if isinstance(b, dict)]
+            estilos = [b.get("estilo") if b.get("tipo") == "faixa" else b.get("tipo") for b in aba.get("blocos", []) if isinstance(b, dict) and b.get("tipo") != "glossario" and b.get("titulo") != "📘 Conceitos usados nesta aba"]
             esperado = 1 if estilos[:1] == ["legenda"] else 0
             if estilos[esperado:esperado + 1] != ["objetivo"]:
-                erros.append("laboratorio: a faixa de objetivo deve vir logo depois da legenda.")
+                erros.append("laboratorio: a faixa de objetivo deve vir logo depois da legenda e dos conceitos da aba.")
         if aba.get("id") == "missao":
             tipos = [b.get("tipo") for b in aba.get("blocos", []) if isinstance(b, dict)]
             esperado = 1 if tipos[:1] == ["legenda"] else 0

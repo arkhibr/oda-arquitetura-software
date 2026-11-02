@@ -95,7 +95,7 @@ abas:
     - Explicar como `AddEndpointsFromAssembly` e `MapRegisteredEndpoints` descobrem as fatias.
     - Criar uma fatia nova com o teste de integração escrito antes, sem alterar o `Program.cs`.
     - Reconhecer o risco de cada fatia repetir prefixo de versão e autorização.
-    - Aplicar um route group versionado aos Pedidos, como a ADR-0012 faz no Catálogo.
+    - Aplicar aos Pedidos um route group versionado, como o grupo `/api/v1/catalogo` que o Catálogo já usa.
     - Conferir que a refatoração manteve os 13 testes de integração anteriores.
   - tipo: faixa
     estilo: dica
@@ -154,7 +154,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica as duas técnicas: uma interface que cada endpoint implementa, descoberta por reflection na inicialização, no lugar do registro manual no `Program.cs`, e route groups, que dão a vários endpoints o mesmo prefixo de versão e as mesmas exigências. No repositório, as ADR-0009 e ADR-0012 registram essas escolhas.'
+    texto: Esta aba explica duas técnicas de organização de endpoints numa Minimal API, o estilo do ASP.NET Core em que cada rota é declarada por uma chamada como `app.MapGet`. A primeira é a auto-descoberta, em que cada endpoint implementa uma interface e é encontrado por reflection na inicialização, sem registro manual no `Program.cs`, e a segunda são os route groups, que dão a vários endpoints o mesmo prefixo de versão e as mesmas exigências. Os blocos abaixo explicam cada conceito, e as duas ADRs do repositório que adotaram essas técnicas aparecem no fim como registro da decisão.
+  - tipo: conceito
+    titulo: Endpoint e Minimal API
+    texto: Um endpoint é a combinação de método HTTP e caminho que a API atende, como `GET /api/v1/pedidos/{id}`, junto com a função que produz a resposta. Na Minimal API, essa associação é feita por chamadas como `app.MapGet` e `app.MapPost`, sem classes de controller, e por isso algum código precisa chamar esses métodos para cada rota existir.
+  - tipo: conceito
+    titulo: Auto-descoberta por reflection
+    texto: Reflection é o recurso do .NET que permite ao programa listar os próprios tipos em tempo de execução. Nos Pedidos, `AddEndpointsFromAssembly` usa esse recurso para encontrar no assembly da API, a DLL gerada pelo projeto, toda classe concreta que implementa `IEndpoint` e registrá-la, e `MapRegisteredEndpoints` pede a cada uma que mapeie as próprias rotas. O ganho é acrescentar uma fatia sem mudar o `Program.cs`, e o custo é que a descoberta não aplica política nenhuma às rotas encontradas.
+  - tipo: conceito
+    titulo: Injeção de dependência (DI)
+    texto: Mecanismo do ASP.NET Core em que um contêiner cria os objetos de que cada classe precisa a partir de registros feitos na inicialização, com métodos como `AddScoped` e `AddTransient`. As fatias descobertas são registradas nesse contêiner, e os handlers delas, as classes que executam cada operação, também precisam estar registrados para chegar ao endpoint.
+  - tipo: conceito
+    titulo: Versionamento de API
+    texto: Prática de incluir a versão do contrato no caminho, como o `/v1` de `/api/v1`, para publicar uma mudança incompatível numa versão nova sem quebrar os clientes da anterior. Quando cada endpoint escreve a versão no próprio caminho, mudar de versão exige editar todos eles, e um grupo de rotas concentra a versão num único lugar.
+  - tipo: conceito
+    titulo: Route group
+    texto: '`MapGroup` cria um `RouteGroupBuilder` com prefixo próprio, e tudo que se aplica ao grupo, como tags do Swagger, autorização e rate limiting (limite de requisições por intervalo), vale para cada endpoint mapeado nele. O grupo também implementa `IEndpointRouteBuilder`, e por isso as fatias o recebem sem mudar de assinatura.'
+  - tipo: conceito
+    titulo: Open/Closed na prática
+    texto: Com a auto-descoberta, uma fatia nova entra sem que o ponto de entrada mude, e o código que existe continua fechado para alteração. O custo é que nada no `Program.cs` mostra a fatia, e uma política esquecida nela não aparece em nenhuma revisão do ponto de entrada.
   - tipo: comparativo
     colunas:
     - Catálogo
@@ -176,12 +194,6 @@ abas:
       valores:
       - Opção B, route groups
       - Opção C, prefixo em cada endpoint, descartada pela ADR
-  - tipo: conceito
-    titulo: Route group
-    texto: '`MapGroup` cria um `RouteGroupBuilder` com prefixo próprio, e tudo que se aplica ao grupo, como tags, autorização e rate limiting, vale para cada endpoint mapeado nele. O grupo também implementa `IEndpointRouteBuilder`, e por isso as fatias o recebem sem mudar de assinatura.'
-  - tipo: conceito
-    titulo: Open/Closed na prática
-    texto: Com a auto-descoberta, uma fatia nova entra sem que o ponto de entrada mude, e o código que existe continua fechado para alteração. O custo é que nada no `Program.cs` mostra a fatia, e uma política esquecida nela não aparece em nenhuma revisão do ponto de entrada.
   - tipo: adr
     id: ADR-0009
     titulo: Minimal API com Auto-Discovery de Endpoints via Reflexão
@@ -203,6 +215,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, o código que descobre os endpoints, um endpoint dos Pedidos e o grupo versionado do Catálogo. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nos trechos abaixo, um assembly é a unidade compilada de um projeto .NET, e `IEndpoint` é a interface com o método `MapEndpoints` que cada fatia dos Pedidos implementa para declarar as próprias rotas. Uma fatia é a pasta de um caso de uso, com o endpoint e o handler, a classe que executa a operação, e os repositórios são as classes de acesso a dados que os handlers usam. `MapGroup` cria um route group, conjunto de rotas com prefixo e exigências comuns, e `RequireAuthorization` exige um JWT (JSON Web Token) válido para a rota responder.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -359,7 +374,7 @@ abas:
     - '            .RequireRateLimiting("leitura");'
     anotacoes:
     - linha: 12
-      texto: A assinatura exige um grupo, como registra a ADR-0012.
+      texto: A assinatura exige um grupo, e a versão da rota vem do grupo montado no `Program.cs`.
     - linha: 14
       texto: Subgrupo por recurso.
     inicio: 10
@@ -369,6 +384,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, como um endpoint descoberto por reflection chega à tabela de rotas da API. Acompanhe as etapas e depois classifique onde cada decisão deve ficar: no endpoint, no grupo ou no `Program.cs`.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas etapas abaixo, um serviço transitório é um registro da injeção de dependência que cria uma instância nova a cada vez que o serviço é pedido, e o Dapper é a biblioteca de acesso a dados com SQL escrito à mão que o repositório de leitura usa para contar os pedidos. O 401 é o status HTTP de requisição sem autenticação válida, devolvido antes de o handler rodar, e a tag do Swagger é o rótulo que agrupa as rotas na página de documentação da API. No classificador, o grupo é o route group criado por `MapGroup`, e a fatia é a pasta de um caso de uso com o próprio endpoint.
   - tipo: fluxo
     titulo: Da classe à rota
     etapas:
@@ -413,10 +431,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é fechar a brecha de autorização que a auto-descoberta abre nos Pedidos, levando a exigência de token e o prefixo de versão das fatias para um grupo de rotas que vale para todas. Os passos 1 a 5 criam o endpoint de contagem com o teste escrito antes e mostram que ele responde sem token, e os passos 6 a 9 tiram o prefixo das fatias, criam o grupo `v1.MapGroup("/pedidos")` com autorização e conferem o resultado com a API no ar. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório escreve testes de integração, que sobem a API em memória e fazem requisições HTTP a ela, antes de mudar o código, e a falha inicial mostra o que precisa mudar. `IEndpointRouteBuilder` é a interface comum a quem pode mapear rotas, implementada tanto pela `WebApplication`, o objeto da aplicação criado no `Program.cs`, quanto pelo grupo criado por `MapGroup`, e por isso a extensão passa a aceitá-la. O `MSB3030` é um erro do MSBuild, o motor de compilação do .NET, que indica um arquivo ausente no momento da cópia para a saída, e apagar as pastas `bin/` e `obj/` força uma compilação do zero.
   - tipo: faixa
     estilo: objetivo
     problema: Nos Pedidos, cada fatia escreve a rota completa, com `/api/v1/pedidos`, e repete `.RequireAuthorization()` dentro do próprio `MapEndpoints`. A auto-descoberta de `AddEndpointsFromAssembly` registra qualquer classe que implemente `IEndpoint` sem aplicar política nenhuma, e a extensão `MapRegisteredEndpoints` só aceita uma `WebApplication`, o que impede passar um grupo a ela.
-    impacto: Uma fatia nova que esqueça o `.RequireAuthorization()` fica pública, e a revisão do `Program.cs` não mostra a falha, porque a fatia não aparece ali. A versão repetida em cada arquivo torna a troca de versão uma edição em todas as fatias, e é por isso que a ADR-0012 descarta o prefixo escrito em cada endpoint.
+    impacto: Uma fatia nova que esqueça o `.RequireAuthorization()` fica pública, e a revisão do `Program.cs` não mostra a falha, porque a fatia não aparece ali. A versão repetida em cada arquivo torna a troca de versão uma edição em todas as fatias, e é por isso que a ADR-0012, ao adotar o versionamento por route groups, descarta o prefixo escrito em cada endpoint.
     mecanismo: O laboratório cria a fatia `ContarPedidos` com três testes de integração escritos antes, um deles sem token. Em seguida, tira o prefixo das seis fatias, muda a extensão para aceitar qualquer `IEndpointRouteBuilder` e cria no `Program.cs` o grupo `v1.MapGroup("/pedidos")` com tag e `RequireAuthorization`, de modo que toda fatia herde a regra.
     comprovacao: Antes do grupo, o teste sem token falha com `found HttpStatusCode.OK`, e depois dele os 3 testes novos passam junto com os 13 de integração anteriores, num total de 16 nos Pedidos e 146 na suíte. Com a API no ar, a contagem responde 401 sem token e `{"total":0}` com token, e o Swagger lista `/api/v1/pedidos/contagem`.
   - tipo: faixa
@@ -718,6 +739,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta quatro situações que um time encontraria com endpoints descobertos automaticamente, a partir de saídas do laboratório e de trechos do código de registro. Escolha a causa de cada uma para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas situações abaixo, `RequireAuthorization` é a chamada que exige um JWT (JSON Web Token) válido numa rota, `WebApplication` é o objeto da aplicação criado no `Program.cs`, e `RouteGroupBuilder` é o grupo de rotas que `MapGroup` devolve, e os dois implementam `IEndpointRouteBuilder`. O `app.ServiceProvider` dá acesso ao contêiner de injeção de dependência, e um assembly é a unidade compilada de cada projeto, de modo que uma classe do projeto `Catalogo.API` fica num assembly diferente do da API principal. Um teste de integração é o teste que sobe a API em memória e chama cada rota pelo caminho completo.
   - tipo: incidente
     titulo: Rota nova aberta sem token
     origem: executado
@@ -770,7 +794,7 @@ abas:
     alternativas:
     - texto: Nada é registrado e nenhum erro aparece, porque a varredura só olha o assembly de `Program`.
       correta: true
-      explicacao: É a falha silenciosa que a ADR-0009 registra como consequência negativa.
+      explicacao: A ADR-0009, que adotou a descoberta de endpoints por reflection, registra essa falha silenciosa como consequência negativa da decisão.
     - texto: A API não inicia.
       correta: false
       explicacao: A varredura simplesmente não encontra o tipo.
@@ -804,6 +828,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: 'Nas perguntas abaixo, uma fatia é a pasta de um caso de uso dos Pedidos com endpoint e handler, o handler é a classe que executa a operação e precisa estar registrada na injeção de dependência, e o grupo é o route group criado por `MapGroup`, que aplica prefixo e autorização a todas as rotas mapeadas nele. As duas ADRs citadas são registros de decisão do repositório: a ADR-0009 adotou a descoberta de endpoints por reflection, e a ADR-0012 adotou o versionamento da API por route groups.'
   - tipo: quiz
     perguntas:
     - enunciado: O que precisa mudar no `Program.cs` para uma fatia nova de Pedidos?
@@ -828,7 +855,7 @@ abas:
       - texto: Porque o grupo desliga a auto-descoberta.
         correta: false
         explicacao: A descoberta continua.
-    - enunciado: Por que a ADR-0012 descarta o prefixo em cada endpoint?
+    - enunciado: A ADR-0012 decidiu versionar a API por route groups. Por que essa decisão descarta o prefixo escrito em cada endpoint?
       alternativas:
       - texto: Porque o Swagger não aceita.
         correta: false
@@ -839,7 +866,7 @@ abas:
       - texto: Porque é mais lento.
         correta: false
         explicacao: O roteamento é o mesmo.
-    - enunciado: Que consequência negativa da ADR-0009 o laboratório tornou visível?
+    - enunciado: A ADR-0009 decidiu descobrir os endpoints por reflection. Que consequência negativa dessa decisão o laboratório tornou visível?
       alternativas:
       - texto: A reflection deixa a API lenta em produção.
         correta: false

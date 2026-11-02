@@ -135,7 +135,7 @@ class TestValidacao(unittest.TestCase):
         d = minima()
         d["abas"][4]["blocos"][0]["estilo"] = "dica"
         d["abas"][4]["blocos"][0]["texto"] = "t"
-        self.assertIn("laboratorio: a faixa de objetivo deve vir logo depois da legenda.", validar_oda(d, CATALOGO))
+        self.assertIn("laboratorio: a faixa de objetivo deve vir logo depois da legenda e dos conceitos da aba.", validar_oda(d, CATALOGO))
 
     def test_glossario_vem_primeiro_e_cita_portal_curado(self):
         d = minima()

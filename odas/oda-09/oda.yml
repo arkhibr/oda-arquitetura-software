@@ -124,7 +124,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica as opções para o estilo num portal de microfrontends. Concentrar todo o CSS no shell obriga o shell a conhecer o HTML de cada microfrontend, e deixar cada um com a própria identidade fragmenta o portal, por isso a ADR-014 combina tokens do shell com CSS local de cada microfrontend.
+    texto: Esta aba explica quem cuida da aparência num portal formado por um shell, a aplicação React que hospeda a navegação, e por microfrontends, partes da interface com build e deploy próprios carregadas em tempo de execução. Os blocos abaixo ensinam CSS com escopo, tokens de design, o token com fallback, o ciclo de vida `mount` e `unmount` e as classes utilitárias do Tailwind, e depois o comparativo mostra o que cabe ao shell e o que cabe a cada microfrontend. A ADR do fim registra a decisão do repositório, que combina tokens publicados pelo shell com CSS local de cada microfrontend.
+  - tipo: conceito
+    titulo: CSS com escopo
+    texto: O CSS (Cascading Style Sheets) é a linguagem que define a aparência dos elementos de uma página, e as regras dele valem para o documento inteiro, a menos que o seletor as restrinja. CSS com escopo é aquele cujas regras só alcançam os elementos de um componente ou de um microfrontend, por exemplo porque todos os seletores começam pelo nome dele, como `.endereco-botao`. Sem escopo, o estilo de um microfrontend pode alterar o de outro ou o do shell.
+  - tipo: conceito
+    titulo: Tokens de design e design system
+    texto: Tokens de design são valores nomeados que representam as decisões visuais do produto, como cores, espaçamentos e fontes, e um design system é o conjunto compartilhado desses tokens, de componentes e de regras de uso. No portal, o shell publica os tokens como propriedades CSS personalizadas, variáveis de CSS declaradas com `--nome` no `src/app/styles/tokens.css`, e cada microfrontend os lê pelo nome.
+  - tipo: conceito
+    titulo: Token com fallback
+    texto: 'Uma propriedade CSS personalizada é lida com `var()`, e o microfrontend lê o token do shell com `var(--color-primary, #1a56db)`. Quando o shell define o token, a cor do portal prevalece, e quando o microfrontend roda isolado, como num teste ou noutra aplicação, o valor local garante uma aparência coerente.'
+  - tipo: conceito
+    titulo: Ciclo de vida mount e unmount
+    texto: Todo microfrontend do portal exporta as funções `mount` e `unmount`. O shell chama `mount` para desenhar o microfrontend dentro de um elemento da página e `unmount` para removê-lo ao sair da rota, e um tema que entra no `mount` e sai no `unmount` não deixa CSS no documento depois que o microfrontend sai.
+  - tipo: conceito
+    titulo: Classes utilitárias do Tailwind
+    texto: O Tailwind CSS é uma ferramenta que gera, durante o build, as regras CSS das classes utilitárias encontradas nos arquivos que ele varre, como `flex` ou `bg-blue-600`, em que cada classe aplica um único estilo. No `frontend-react`, só o build do shell roda o Tailwind, e um microfrontend que usa essas classes passa a depender do CSS gerado para o shell.
   - tipo: comparativo
     colunas:
     - Shell
@@ -146,9 +161,6 @@ abas:
       valores:
       - '`tokens.css` com cinco tokens e `config.json` com as cores do ambiente'
       - Empréstimo com tema escopado, e endereço com classes do Tailwind do shell
-  - tipo: conceito
-    titulo: Token com fallback
-    texto: 'O microfrontend lê o token do shell com `var(--color-primary, #1a56db)`. Quando o shell define o token, a cor do portal prevalece, e quando o microfrontend roda isolado, como num teste ou noutra aplicação, o valor local garante uma aparência coerente.'
   - tipo: adr
     id: ADR-014
     titulo: CSS e contrato visual em microfrontends dinâmicos
@@ -161,7 +173,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os cinco arquivos que formam o contrato visual entre o shell e os microfrontends: os tokens CSS do shell e o carregamento de configuração que os altera, o tema do microfrontend de empréstimo, que segue o contrato, e o formulário do microfrontend de endereço, que não segue. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam como o CSS chega a cada microfrontend.'
+    texto: 'Esta aba mostra os cinco arquivos que formam o contrato visual entre o shell, a aplicação que hospeda o portal, e os microfrontends, as partes da interface carregadas por ele: os tokens CSS do shell, variáveis de cor e de fonte que os microfrontends leem pelo nome, e o carregamento de configuração que os altera, o tema do microfrontend de empréstimo, que segue o contrato, e o formulário do microfrontend de endereço, que não segue. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam como o CSS chega a cada microfrontend.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -264,7 +276,7 @@ abas:
     - '  )'
     anotacoes:
     - linha: 16
-      texto: 'Classes utilitárias do Tailwind, que o microfrontend não compila: o CSS delas vem do build do shell.'
+      texto: 'Classes utilitárias do Tailwind, ferramenta que gera o CSS de cada classe encontrada no código durante o build, e o microfrontend não roda essa geração: o CSS delas vem do build do shell.'
     inicio: 11
     contexto: O `mfes/endereco/src/EnderecoForm.tsx` é o formulário React do microfrontend de endereço, montado na rota `/endereco`. O trecho abaixo usa classes utilitárias do Tailwind, que o microfrontend não compila, e por isso a aparência dele depende do CSS que o build do shell gera.
   - tipo: faixa
@@ -274,7 +286,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, de onde vem a cor do botão Salvar do microfrontend de endereço antes e depois do laboratório. Percorra as etapas e depois classifique regras de CSS conforme o contrato de tokens do shell e CSS local.
+    texto: Esta aba simula, sem executar nada, de onde vem a cor do botão Salvar do microfrontend de endereço, parte da interface carregada pelo shell, antes e depois do laboratório. O bloco abaixo resume os termos do fluxo, e depois você classifica regras de CSS conforme o contrato visual do portal, em que o shell publica tokens e cada microfrontend mantém o próprio CSS com escopo.
+  - tipo: conceito
+    titulo: Termos do fluxo
+    texto: 'O Tailwind gera, no build do shell, o CSS das classes utilitárias que encontra nos arquivos, e `bg-blue-600` é uma dessas classes, com cor fixa da paleta dele. O token `--color-primary` é a variável CSS com que o shell publica a cor do portal, e `var(--color-primary, #1a56db)` lê o token com um valor de reserva. O tema do microfrontend é o CSS próprio dele, injetado no `mount`, quando o shell o desenha, e o `config.json` é o arquivo de configuração do ambiente que o shell lê ao iniciar e que pode trocar o valor do token.'
   - tipo: fluxo
     titulo: De onde vem a cor do botão Salvar
     etapas:
@@ -289,7 +304,7 @@ abas:
     - titulo: 'Depois: cor do ambiente'
       descricao: Com `primaryColor` igual a `#047857` no `config.json`, o mesmo bundle passa a mostrar `rgb(4, 120, 87)`, sem novo deploy.
   - tipo: classificador
-    enunciado: Cada regra de CSS respeita o contrato da ADR-014?
+    enunciado: Cada regra de CSS respeita o contrato visual do portal, em que o shell publica só tokens e estrutura externa e cada microfrontend estiliza apenas o próprio namespace?
     categorias:
     - id: sim
       rotulo: Respeita
@@ -315,7 +330,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é retirar do shell a responsabilidade pelo CSS do microfrontend de endereço, dando a ele um tema próprio que lê os tokens do shell e que um teste de contrato visual comprova. Os passos 1 a 3 mostram que a classe do botão Salvar só existe no CSS gerado para o shell, os passos 4 a 12 criam o tema, injetam-no no `mount` e trocam as classes com o teste escrito antes, e o passo 13 confere no portal a cor vinda do token. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+    texto: O objetivo do laboratório é retirar do shell, a aplicação que hospeda o portal, a responsabilidade pelo CSS do microfrontend de endereço, dando a ele um tema próprio que lê os tokens do shell, variáveis CSS de cor e de fonte publicadas por ele, e que um teste de contrato visual comprova. Os passos 1 a 3 mostram que a classe do botão Salvar só existe no CSS gerado para o shell, os passos 4 a 12 criam o tema, injetam-no no `mount` e trocam as classes com o teste escrito antes, e o passo 13 confere no portal a cor vinda do token. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
   - tipo: faixa
     estilo: objetivo
     problema: O microfrontend de endereço, em `mfes/endereco`, estiliza a tela com classes utilitárias do Tailwind, como `bg-blue-600`, que ele não compila. O CSS dessas classes só existe porque o build do shell lê os arquivos de `mfes/`, e um build do shell sem essa pasta deixa de gerar a classe do botão Salvar.
@@ -684,14 +699,17 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: 'Esta aba apresenta quatro situações que um time encontraria com o estilo entre microfrontends. As três primeiras partem de saídas do laboratório, e a última, de um trecho do tema do empréstimo: escolha a causa de cada uma para ver a explicação e a correção.'
+    texto: Esta aba apresenta quatro situações que um time encontraria com o estilo entre o shell e os microfrontends, as partes da interface carregadas por ele em tempo de execução. As três primeiras partem de saídas do laboratório, e a última, de um trecho do tema do empréstimo, e o bloco abaixo resume os conceitos que os incidentes usam antes de você escolher a causa de cada um.
+  - tipo: conceito
+    titulo: Conceitos usados nos incidentes
+    texto: O Tailwind gera, no build do shell, só as classes utilitárias que encontra nos arquivos que varre. O token `--color-primary` é a variável CSS com que o shell publica a cor do portal, e o `config.json` do ambiente pode trocar esse valor quando o shell inicia. O Vitest é o framework de testes do repositório, e o sufixo `?raw` num import pede o conteúdo do arquivo como texto. A cascata é a regra do CSS que decide qual declaração vale quando várias se aplicam à mesma propriedade do mesmo elemento.
   - tipo: incidente
     titulo: Botão sem estilo depois da separação dos repositórios
     origem: executado
     rotulo_saida: log
     saida: "$ npm run build > /dev/null && grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l\n       1\n\n$ test ! -e ../mfes-fora && mv mfes ../mfes-fora && { rm -rf dist; npm run build > /dev/null; grep -o '\\.bg-blue-600' dist/assets/*.css | wc -l; mv ../mfes-fora mfes; }\n       0"
-    pergunta: A ADR-011 recomenda um repositório por microfrontend em produção. O que acontece com o botão do endereço nesse cenário?
-    correcao: Levar o endereço ao contrato da ADR-014, com CSS próprio no bundle e tokens do shell com fallback, como no laboratório.
+    pergunta: A ADR-011 do repositório recomenda um repositório separado para cada microfrontend em produção. O que acontece com o botão do endereço quando ele sai do repositório do shell?
+    correcao: Levar o endereço ao contrato visual do portal, com CSS próprio no bundle e tokens do shell com fallback, como no laboratório.
     alternativas:
     - texto: O shell deixa de iniciar.
       correta: false
@@ -756,16 +774,19 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: Termos das perguntas
+    texto: O shell é a aplicação que hospeda o portal, e os microfrontends são as partes da interface que ele carrega em tempo de execução, cada uma com `mount` e `unmount`, as funções que a desenham e a removem. Tokens são as variáveis CSS com que o shell publica cores e fontes, lidas com `var(--nome, reserva)`. O Tailwind gera no build do shell o CSS das classes utilitárias encontradas nos arquivos, e o `config.json` é a configuração do ambiente que o shell lê ao iniciar.
   - tipo: quiz
     perguntas:
-    - enunciado: Pela ADR-014, o que o shell publica para os microfrontends?
+    - enunciado: No contrato visual do portal, o que o shell publica para os microfrontends?
       alternativas:
       - texto: As classes de cada tela de domínio.
         correta: false
-        explicacao: A ADR proíbe o shell de conhecer classes internas.
+        explicacao: A ADR-014 do repositório proíbe o shell de referenciar classes internas dos microfrontends, e o `visualContract.test.ts` confere essa regra.
       - texto: Um arquivo CSS por microfrontend no manifesto.
         correta: false
-        explicacao: A ADR exclui CSS separado no manifesto como requisito.
+        explicacao: A ADR-014 recusa exigir que um microfrontend publique arquivos CSS separados no manifesto.
       - texto: Tokens e estrutura externa, sem estilizar seletores internos.
         correta: true
         explicacao: O shell governa o vocabulário visual, e o microfrontend governa a implementação local.
@@ -817,7 +838,7 @@ abas:
   - tipo: checklist
     titulo: Checklist final
     itens:
-    - A divisão de responsabilidades visuais da ADR-014 está clara.
+    - A divisão de responsabilidades visuais entre o shell e os microfrontends está clara.
     - A dependência do endereço em relação ao build do shell foi demonstrada com a contagem da classe.
     - O teste do contrato visual falhou antes do tema e passou depois, com o CSS bruto configurado.
     - O botão mostrou no portal a cor do token do shell e a cor trocada pelo `config.json`.

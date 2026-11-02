@@ -182,14 +182,26 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica a diferença entre fila e tópico: a fila entrega cada mensagem a um consumidor, e o tópico entrega uma cópia a cada assinante, por isso o fan-out combina os dois. As árvores abaixo reproduzem as pastas do repositório `aspire-aws` no commit `50a5344` que tratam de mensageria, à esquerda os cenários de fila e de tópico e à direita a infraestrutura de teste comum a todos eles. Clique numa pasta ou num arquivo para ver o papel dele.'
-  - tipo: faixa
-    estilo: dica
-    titulo: 📂 Onde está o código
-    texto: As pastas e os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
-    links:
-    - rotulo: aspire-aws no GitHub, commit 50a5344
-      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+    texto: Esta aba explica a diferença entre fila e tópico, as duas formas da AWS de trocar mensagens entre programas, e o fan-out, a distribuição de uma publicação para várias filas, que combina as duas. Os blocos de conceito vêm primeiro, e as árvores depois reproduzem as pastas do repositório `aspire-aws` no commit `50a5344` que tratam de mensageria, à esquerda os cenários, projetos de teste de cada integração, e à direita a infraestrutura de teste comum a eles. Clique numa pasta ou num arquivo para ver o papel dele.
+  - tipo: conceito
+    titulo: Fila e tópico
+    texto: Uma fila guarda cada mensagem até que um consumidor a leia e a apague, e cada mensagem é processada por um único consumidor, no ritmo dele. Um tópico copia cada mensagem publicada para todos os assinantes registrados naquele momento e não guarda a mensagem para quem assinar depois. Na AWS, as filas são do Amazon SQS (Simple Queue Service) e os tópicos são do Amazon SNS (Simple Notification Service), e o cenário 09 do repositório combina os dois.
+  - tipo: conceito
+    titulo: Como o repositório testa a mensageria
+    texto: Os testes do `aspire-aws` chamam o LocalStack, um emulador dos serviços da AWS que roda num contêiner Docker na porta 4566, e o .NET Aspire sobe esse contêiner a partir do AppHost, o projeto `src/AppHost`. Cada pasta numerada de `scenarios/` é um cenário, um projeto de testes xUnit, e a fixture do cenário é a classe que cria os recursos, como filas e tópicos, antes dos testes. A variável `AWS_TARGET=aws` desvia os mesmos testes para a AWS real, e no macOS com processador ARM64 os testes que dependem de funções Lambda ficam ignorados, porque a execução delas no LocalStack 3.8 não é confiável nesse ambiente.
+  - tipo: conceito
+    titulo: Política de acesso, ARN e assinatura
+    texto: Para o tópico entregar a uma fila, duas configurações separadas precisam existir. A assinatura, criada com `SubscribeAsync`, registra a fila como destino do tópico, e a política de acesso, um documento JSON gravado na fila, autoriza o serviço SNS a executar `sqs:SendMessage` nela. As duas identificam os recursos pelo ARN (Amazon Resource Name), o identificador único de cada recurso da AWS.
+  - tipo: conceito
+    titulo: Execução sequencial dos cenários
+    texto: Todos os cenários usam o mesmo LocalStack na porta fixa 4566, e dois cenários ao mesmo tempo tentariam subir dois contêineres nessa porta. O repositório impede isso com `MaxCpuCount=1` no `test.runsettings`, que faz o `dotnet test` rodar um projeto por vez, e com um bloqueio de arquivo que a `LocalStackFixture` adquire antes de subir o ambiente. A ADR-004 do repositório registra essa escolha, que torna a suíte determinística e a deixa sequencial, com cerca de três minutos.
+  - tipo: conceito
+    titulo: Outros cenários de mensageria
+    texto: O cenário 02 cria uma fila de mensagens mortas, a fila que recebe as mensagens que falharam repetidas vezes, e o cenário 10 recebe numa fila o aviso de objeto criado num bucket do Amazon S3 (Simple Storage Service), o serviço de armazenamento de arquivos da AWS. O AppHost também declara um contêiner PostgreSQL, banco relacional usado por cenários que esta ODA não exercita.
+  - tipo: conceito
+    titulo: Fan-out de SNS para SQS
+    texto: O produtor publica uma vez no tópico, e cada fila assinante recebe a própria cópia, consumida no ritmo de cada consumidor. Para que o SNS consiga gravar na fila, a fila precisa de uma política que autorize `sqs:SendMessage` para o serviço SNS, restrita ao ARN do tópico.
+    analogia: O tópico funciona como um aviso enviado a todos os inscritos de uma lista, e a fila funciona como uma caixa postal que guarda a carta até alguém retirá-la.
   - tipo: comparativo
     colunas:
     - Fila (Amazon SQS)
@@ -215,6 +227,13 @@ abas:
       valores:
       - Cada fila recebe e guarda a cópia
       - O tópico distribui a publicação
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: arvores
     esquerda:
       titulo: Cenários de mensageria
@@ -244,10 +263,6 @@ abas:
         descricao: Sobe o ambiente, espera o LocalStack ficar saudável e adquire o bloqueio da porta 4566.
       - caminho: src/Shared/AwsClientFactory.cs
         descricao: Cria os clientes do SDK apontando para o LocalStack.
-  - tipo: conceito
-    titulo: Fan-out de SNS para SQS
-    texto: O produtor publica uma vez no tópico, e cada fila assinante recebe a própria cópia, consumida no ritmo de cada consumidor. Para que o SNS consiga gravar na fila, a fila precisa de uma política que autorize `sqs:SendMessage` para o serviço SNS, restrita ao ARN do tópico.
-    analogia: O tópico funciona como um aviso enviado a todos os inscritos de uma lista, e a fila funciona como uma caixa postal que guarda a carta até alguém retirá-la.
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Fluxo
@@ -273,7 +288,10 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os três arquivos que montam e conferem o fan-out do cenário 09: a fixture que cria o tópico, as filas, as políticas e as assinaturas, o teste que publica uma mensagem e conta as cópias, e o AppHost que sobe o LocalStack. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que você vai alterar ao acrescentar a terceira fila.'
+    texto: Esta aba mostra os três arquivos que montam e conferem o fan-out do cenário 09, a distribuição de uma mensagem publicada num tópico para várias filas. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam os trechos que você vai alterar ao acrescentar a terceira fila.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes para preparar recursos, e a do cenário 09 cria o tópico `fanout-topic` e as filas. O ARN é o identificador único de um recurso da AWS, usado pela política de acesso, documento JSON gravado na fila que autoriza o SNS a enviar mensagens a ela, e pela assinatura, que registra a fila como destino do tópico. O AppHost é o projeto do .NET Aspire que declara o contêiner do LocalStack, o emulador dos serviços da AWS, e a montagem do arquivo `/var/run/docker.sock`, canal pelo qual o LocalStack cria contêineres no Docker da máquina.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -434,14 +452,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, o fan-out evento por evento, da publicação no tópico à leitura em cada fila. Ative as falhas para ver o que acontece com cada mensagem e depois percorra a preparação feita pela fixture.
-  - tipo: faixa
-    estilo: dica
-    titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
-    links:
-    - rotulo: aspire-aws no GitHub, commit 50a5344
-      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+    texto: Esta aba simula, sem executar nada, o fan-out, a distribuição de uma publicação para várias filas, evento por evento, da publicação no tópico à leitura em cada fila. Ative as falhas para ver o que acontece com cada mensagem e depois percorra a preparação dos recursos feita antes do teste.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Um tópico do Amazon SNS copia cada mensagem publicada com `PublishAsync` para as filas que o assinam, e cada fila do Amazon SQS guarda a cópia até o consumidor lê-la com `ReceiveMessageAsync`. A fixture, classe que prepara os recursos antes do teste, cria o tópico e as filas, grava em cada fila a política de acesso que autoriza o SNS a usar `sqs:SendMessage` e faz a assinatura da fila no tópico. A política e a assinatura identificam a fila pelo ARN, o identificador único do recurso na AWS, e o teste lê a fila pela URL dela.
   - tipo: linha-do-tempo
     titulo: Fan-out do cenário 09
     atores:
@@ -489,6 +503,13 @@ abas:
     - id: produtor-parado
       rotulo: O teste não publica a mensagem
       ator: teste
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: fluxo
     titulo: Preparação do fan-out na Fixture
     etapas:
@@ -576,7 +597,10 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é fazer o fan-out entregar a mensagem a três filas e provar com teste que uma fila sem assinatura fica sem a cópia, a falha silenciosa que o teste passa a revelar. Os passos 1 a 3 clonam o repositório e rodam os cenários de mensageria, os passos 4 a 6 criam e verificam a terceira fila, e os passos 7 a 9 retiram a assinatura, rodam de novo e desfazem as alterações. O terminal simulado responde aos mesmos comandos, e os passos 5, 7 e 9 mudam a saída do cenário 09.
+    texto: O objetivo do laboratório é fazer o fan-out, a distribuição de uma publicação para várias filas, entregar a mensagem a três filas e provar com teste que uma fila sem assinatura fica sem a cópia, a falha silenciosa que o teste passa a revelar. Os passos 1 a 3 clonam o repositório e rodam os cenários de mensageria, os passos 4 a 6 criam e verificam a terceira fila, e os passos 7 a 9 retiram a assinatura, rodam de novo e desfazem as alterações. O terminal simulado responde aos mesmos comandos, e os passos 5, 7 e 9 mudam a saída do cenário 09.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os cenários de mensageria são os projetos de teste 02, 04, 09 e 10 da pasta `scenarios/`, e cada um tem uma fixture, a classe que cria os recursos no LocalStack, emulador local da AWS, antes dos testes. Na fixture do cenário 09, um laço grava em cada fila a política de acesso, que autoriza o tópico do SNS a enviar mensagens à fila, e chama `SubscribeAsync`, que faz a assinatura da fila no tópico. O `Assert.Single` do xUnit exige que a leitura da fila traga exatamente uma mensagem.
   - tipo: faixa
     estilo: objetivo
     problema: O cenário 09 do `aspire-aws` confere o fan-out com duas filas, e a `Fixture.cs` liga cada fila ao tópico num único laço, que grava a política de acesso e faz a assinatura. Uma fila criada fora desse laço existe, mas não recebe cópia das publicações, e nenhuma etapa do código avisa sobre isso.
@@ -721,7 +745,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: 'Esta aba apresenta quatro situações que um time encontraria com mensageria emulada. As duas primeiras mostram falhas reais deste laboratório, e as duas últimas reproduzem limitações registradas no README do repositório: escolha a causa de cada uma para ver a explicação e a correção.'
+    texto: Esta aba apresenta quatro situações que um time encontraria com mensageria emulada, isto é, com filas e tópicos atendidos por um emulador local da AWS. As duas primeiras mostram falhas reais deste laboratório, e as duas últimas reproduzem limitações registradas no README do repositório. Escolha a causa de cada uma para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O LocalStack, emulador dos serviços da AWS que roda num contêiner Docker, precisa ficar saudável, isto é, responder à verificação de saúde, antes de os cenários criarem os recursos. O AppHost do .NET Aspire monta no contêiner do LocalStack o arquivo `/var/run/docker.sock`, canal pelo qual programas falam com o Docker, e o LocalStack usa esse canal para criar os contêineres das funções do AWS Lambda, o serviço que executa uma função a cada evento. Todos os cenários usam a porta 4566, e o repositório os executa um por vez com `MaxCpuCount=1` e com um bloqueio de arquivo, e os testes com Lambda ficam marcados com `Skip`, ignorados, quando o processo de teste roda no macOS com processador ARM64.
   - tipo: incidente
     titulo: LocalStack não fica saudável
     origem: executado
@@ -773,7 +800,7 @@ abas:
     alternativas:
     - texto: É uma limitação documentada do LocalStack 3.8 em macOS ARM64, e os cenários são marcados como Skip.
       correta: true
-      explicacao: A ADR-003 registra a limitação e a marcação por `EnvironmentLimitations.cs`, para evitar falso negativo.
+      explicacao: A ADR-003 do repositório decidiu marcar esses cenários com `Skip` por meio de `EnvironmentLimitations.cs`, para que a instabilidade da Lambda no macOS ARM64 não produza falsos negativos.
     - texto: Os cenários estão quebrados no commit de referência.
       correta: false
       explicacao: O README indica que eles rodam em Linux e na esteira.
@@ -798,10 +825,13 @@ abas:
       explicacao: A `LocalStackFixture` tenta obter o bloqueio a cada 250 ms por até 15 minutos e, ao fim do prazo, falha com `Timed out waiting for exclusive access to LocalStack port 4566.`
     - texto: Ele sobe um segundo LocalStack numa porta livre.
       correta: false
-      explicacao: A porta aleatória foi uma alternativa descartada na ADR-004.
+      explicacao: A ADR-004 do repositório decidiu manter a porta fixa 4566 com execução sequencial e descartou a porta aleatória por cenário.
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: SQS é o serviço de filas da AWS, e SNS é o serviço de tópicos da AWS. O `BuildQueuePolicy` é o método da fixture do cenário 09, a classe que prepara os recursos antes do teste, que monta em JSON a política de acesso gravada na fila, e na política o principal é quem recebe a permissão e `aws:SourceArn` compara o ARN, identificador único, do recurso de origem. O AppHost do .NET Aspire sobe o LocalStack, emulador da AWS num contêiner Docker, e monta nele o arquivo `/var/run/docker.sock`, canal de comunicação com o Docker.
   - tipo: quiz
     perguntas:
     - enunciado: Qual afirmação diferencia corretamente SQS e SNS?

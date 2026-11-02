@@ -127,13 +127,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica o que um teste de integração com `WebApplicationFactory` executa de verdade e as duas decisões que definem o banco desses testes: onde ele fica e quem cria o esquema. O repositório documenta a estratégia de testes em `docs/05-TESTES.md`, sem ADR específica.'
+    texto: Esta aba explica o que um teste de integração com `WebApplicationFactory` executa de verdade e as duas decisões que definem o banco desses testes, onde ele fica e quem cria o esquema. Os blocos abaixo definem cada conceito antes do comparativo entre `EnsureCreated` e `Migrate`, e o repositório descreve a estratégia de testes no arquivo `docs/05-TESTES.md`.
+  - tipo: conceito
+    titulo: Teste de integração
+    texto: Um teste de integração exercita várias partes reais do sistema juntas, como rotas, middlewares, autenticação e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests`, e cada classe de teste recebe a própria `ApiFactory` pelo `IClassFixture` do xUnit, o framework de testes usado.
   - tipo: conceito
     titulo: WebApplicationFactory
-    texto: A factory executa o `Program.cs` da API com o ambiente escolhido e troca o Kestrel por um `TestServer`, que atende o `HttpClient` do teste na memória. Rotas, middlewares, autenticação, validação e banco são os reais, e só a rede fica de fora.
+    texto: A `WebApplicationFactory` executa o `Program.cs` da API com o ambiente escolhido e troca o Kestrel, o servidor web do ASP.NET Core, por um `TestServer`, que atende o `HttpClient` do teste na memória. Rotas, middlewares, autenticação, validação e banco são os reais, e só a rede fica de fora.
   - tipo: conceito
     titulo: ConfigureTestServices
     texto: O `ConfigureTestServices` roda depois dos registros do `Program.cs` e permite remover e substituir serviços só nos testes. É o ponto para trocar o banco, um relógio ou um cliente HTTP externo sem condicionais de ambiente no código da API.
+  - tipo: conceito
+    titulo: Migrations, EnsureCreated e Migrate
+    texto: O EF Core (Entity Framework Core), a biblioteca de acesso a dados da API, descreve cada mudança no esquema do banco numa migration. O `Database.Migrate()` aplica as migrations em ordem e se recusa a seguir quando o modelo tem mudança sem migration, e o `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations.
+  - tipo: conceito
+    titulo: SQLite em memória
+    texto: O SQLite é um banco relacional que roda dentro do processo da aplicação e normalmente guarda os dados num arquivo. Com `Data Source=:memory:`, ele guarda o banco na conexão, e o banco deixa de existir quando a conexão fecha, e por isso uma conexão aberta por factory dá a cada classe de teste um banco próprio, descartado com a factory.
   - tipo: comparativo
     colunas:
     - EnsureCreated
@@ -155,14 +164,48 @@ abas:
       valores:
       - Na `ApiFactory` dos testes
       - No `Program.cs`, fora do ambiente Testing
-  - tipo: conceito
-    titulo: SQLite em memória
-    texto: Com `Data Source=:memory:`, o SQLite guarda o banco na conexão, e o banco deixa de existir quando a conexão fecha. Uma conexão aberta por factory dá a cada classe de teste um banco próprio, que é descartado com a factory.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, como o `Program.cs` escolhe o banco no ambiente Testing e como a `ApiFactory` prepara esse banco. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Ambiente de execução (Testing)
+      definicao: Nome do ambiente em que a aplicação ASP.NET Core roda, como `Development`, `Production` ou `Testing`, que o código consulta para escolher configurações. No repositório, o ambiente `Testing` faz a API usar um banco próprio e não aplicar as migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: usar vários ambientes no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/environments
+    - termo: SQLite e SQLite em memória
+      definicao: O SQLite é um banco relacional que roda dentro do processo da aplicação e guarda os dados num arquivo. Com a string de conexão `Data Source=:memory:`, ele guarda o banco na memória da conexão, e o banco deixa de existir quando a conexão fecha.
+      referencia:
+        rotulo: 'SQLite: in-memory databases'
+        url: https://www.sqlite.org/inmemorydb.html
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, com um método que aplica a mudança e outro que a desfaz. A API aplica as migrations em ordem ao subir.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a seguir quando o modelo tem mudanças que nenhuma migration descreve.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros que a aplicação insere num banco novo para que ele já tenha dados de exemplo. Cada banco de teste do repositório recebe os oito produtos do seed.
+    - termo: Factory de testes (ApiFactory)
+      definicao: Classe do projeto de testes que sobe a API para os testes de integração e prepara o banco de cada execução. No repositório, a `ApiFactory` estende a `WebApplicationFactory`.
+    - termo: WebApplicationFactory e TestServer
+      definicao: A `WebApplicationFactory` executa o `Program.cs` da API dentro do processo de teste e troca o Kestrel, o servidor web do ASP.NET Core, por um `TestServer`. O `TestServer` atende o `HttpClient` do teste na memória, sem abrir porta de rede.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: EF Core (Entity Framework Core), DbContext e modelo
+      definicao: O EF Core é a biblioteca de mapeamento objeto-relacional da Microsoft para .NET. O `DbContext`, que no repositório é o `AppDbContext`, representa a sessão com o banco, e o modelo é a descrição das entidades, tabelas e índices que o EF Core monta a partir das classes e do mapeamento.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -234,6 +277,36 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, o que acontece quando alguém altera o modelo do EF Core e esquece a migration, com a factory antiga e com a nova. Depois, classifique o que cada técnica de teste prova.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: EF Core (Entity Framework Core), DbContext e modelo
+      definicao: O EF Core é a biblioteca de mapeamento objeto-relacional da Microsoft para .NET. O `DbContext`, que no repositório é o `AppDbContext`, representa a sessão com o banco, e o modelo é a descrição das entidades, tabelas e índices que o EF Core monta a partir das classes e do mapeamento.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, com um método que aplica a mudança e outro que a desfaz. A API aplica as migrations em ordem ao subir.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a seguir quando o modelo tem mudanças que nenhuma migration descreve.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: Factory de testes (ApiFactory)
+      definicao: Classe do projeto de testes que sobe a API para os testes de integração e prepara o banco de cada execução. No repositório, a `ApiFactory` estende a `WebApplicationFactory`.
+    - termo: WebApplicationFactory e TestServer
+      definicao: A `WebApplicationFactory` executa o `Program.cs` da API dentro do processo de teste e troca o Kestrel, o servidor web do ASP.NET Core, por um `TestServer`. O `TestServer` atende o `HttpClient` do teste na memória, sem abrir porta de rede.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: SQLite e SQLite em memória
+      definicao: O SQLite é um banco relacional que roda dentro do processo da aplicação e guarda os dados num arquivo. Com a string de conexão `Data Source=:memory:`, ele guarda o banco na memória da conexão, e o banco deixa de existir quando a conexão fecha.
+      referencia:
+        rotulo: 'SQLite: in-memory databases'
+        url: https://www.sqlite.org/inmemorydb.html
   - tipo: fluxo
     titulo: Um índice alterado sem migration
     etapas:
@@ -278,6 +351,45 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é fazer a suíte parar de deixar bancos no diretório temporário e passar a recusar mudanças de modelo sem migration, trocando o banco dos testes por um SQLite em memória criado pelas migrations. Os passos 1 a 4 medem os arquivos deixados pela suíte e mostram uma mudança de modelo que a suíte não percebe, os passos 5 a 8 escrevem os testes e trocam a factory, e os passos 9 e 10 repetem a mudança de modelo com a factory nova. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, middlewares, autenticação e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: SQLite e SQLite em memória
+      definicao: O SQLite é um banco relacional que roda dentro do processo da aplicação e guarda os dados num arquivo. Com a string de conexão `Data Source=:memory:`, ele guarda o banco na memória da conexão, e o banco deixa de existir quando a conexão fecha.
+      referencia:
+        rotulo: 'SQLite: in-memory databases'
+        url: https://www.sqlite.org/inmemorydb.html
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, com um método que aplica a mudança e outro que a desfaz. A API aplica as migrations em ordem ao subir.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Factory de testes (ApiFactory)
+      definicao: Classe do projeto de testes que sobe a API para os testes de integração e prepara o banco de cada execução. No repositório, a `ApiFactory` estende a `WebApplicationFactory`.
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a seguir quando o modelo tem mudanças que nenhuma migration descreve.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: Snapshot do modelo e HasPendingModelChanges
+      definicao: A cada migration, o EF Core grava um snapshot, uma fotografia em código do modelo naquele ponto. O método `HasPendingModelChanges` compara o modelo atual com esse snapshot e indica se existe mudança sem migration, a mesma condição que gera o aviso `PendingModelChangesWarning`.
+    - termo: ConfigureTestServices
+      definicao: Método da factory de testes que roda depois dos registros de serviços do `Program.cs` e permite remover e substituir serviços só nos testes, como o registro do `AppDbContext`.
+    - termo: EF Core (Entity Framework Core), DbContext e modelo
+      definicao: O EF Core é a biblioteca de mapeamento objeto-relacional da Microsoft para .NET. O `DbContext`, que no repositório é o `AppDbContext`, representa a sessão com o banco, e o modelo é a descrição das entidades, tabelas e índices que o EF Core monta a partir das classes e do mapeamento.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: xUnit e IClassFixture
+      definicao: O xUnit é o framework de testes do repositório. Uma classe que declara `IClassFixture<T>` recebe uma instância de `T` criada uma vez para a classe, e por isso o repositório cria uma factory, e um banco, por classe de teste.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
   - tipo: faixa
     estilo: objetivo
     problema: No ambiente `Testing`, o `Program.cs` registra um arquivo SQLite com nome aleatório no diretório temporário a cada host criado, e nenhum código o apaga. A `ApiFactory.cs` cria o esquema com `EnsureCreated`, a partir do modelo, e as migrations nunca rodam nos testes.
@@ -601,6 +713,45 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria com essa suíte de testes, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Agente de CI (integração contínua)
+      definicao: Máquina que executa automaticamente a compilação e os testes a cada alteração enviada ao repositório. Por rodar a suíte muitas vezes, ele acumula os arquivos que os testes deixam no diretório temporário.
+      referencia:
+        rotulo: 'Martin Fowler: Continuous Integration'
+        url: https://martinfowler.com/articles/continuousIntegration.html
+    - termo: SQLite e SQLite em memória
+      definicao: O SQLite é um banco relacional que roda dentro do processo da aplicação e guarda os dados num arquivo. Com a string de conexão `Data Source=:memory:`, ele guarda o banco na memória da conexão, e o banco deixa de existir quando a conexão fecha.
+      referencia:
+        rotulo: 'SQLite: in-memory databases'
+        url: https://www.sqlite.org/inmemorydb.html
+    - termo: Factory de testes (ApiFactory)
+      definicao: Classe do projeto de testes que sobe a API para os testes de integração e prepara o banco de cada execução. No repositório, a `ApiFactory` estende a `WebApplicationFactory`.
+    - termo: xUnit e IClassFixture
+      definicao: O xUnit é o framework de testes do repositório. Uma classe que declara `IClassFixture<T>` recebe uma instância de `T` criada uma vez para a classe, e por isso o repositório cria uma factory, e um banco, por classe de teste.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros que a aplicação insere num banco novo para que ele já tenha dados de exemplo. Cada banco de teste do repositório recebe os oito produtos do seed.
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a seguir quando o modelo tem mudanças que nenhuma migration descreve.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: Snapshot do modelo e HasPendingModelChanges
+      definicao: A cada migration, o EF Core grava um snapshot, uma fotografia em código do modelo naquele ponto. O método `HasPendingModelChanges` compara o modelo atual com esse snapshot e indica se existe mudança sem migration, a mesma condição que gera o aviso `PendingModelChangesWarning`.
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, com um método que aplica a mudança e outro que a desfaz. A API aplica as migrations em ordem ao subir.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: EF Core (Entity Framework Core), DbContext e modelo
+      definicao: O EF Core é a biblioteca de mapeamento objeto-relacional da Microsoft para .NET. O `DbContext`, que no repositório é o `AppDbContext`, representa a sessão com o banco, e o modelo é a descrição das entidades, tabelas e índices que o EF Core monta a partir das classes e do mapeamento.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
   - tipo: incidente
     titulo: Diretório temporário cheio de bancos
     origem: executado
@@ -712,6 +863,33 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: WebApplicationFactory e TestServer
+      definicao: A `WebApplicationFactory` executa o `Program.cs` da API dentro do processo de teste e troca o Kestrel, o servidor web do ASP.NET Core, por um `TestServer`. O `TestServer` atende o `HttpClient` do teste na memória, sem abrir porta de rede.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a seguir quando o modelo tem mudanças que nenhuma migration descreve.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: SQLite e SQLite em memória
+      definicao: O SQLite é um banco relacional que roda dentro do processo da aplicação e guarda os dados num arquivo. Com a string de conexão `Data Source=:memory:`, ele guarda o banco na memória da conexão, e o banco deixa de existir quando a conexão fecha.
+      referencia:
+        rotulo: 'SQLite: in-memory databases'
+        url: https://www.sqlite.org/inmemorydb.html
+    - termo: ConfigureTestServices
+      definicao: Método da factory de testes que roda depois dos registros de serviços do `Program.cs` e permite remover e substituir serviços só nos testes, como o registro do `AppDbContext`.
+    - termo: Snapshot do modelo e HasPendingModelChanges
+      definicao: A cada migration, o EF Core grava um snapshot, uma fotografia em código do modelo naquele ponto. O método `HasPendingModelChanges` compara o modelo atual com esse snapshot e indica se existe mudança sem migration, a mesma condição que gera o aviso `PendingModelChangesWarning`.
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, com um método que aplica a mudança e outro que a desfaz. A API aplica as migrations em ordem ao subir.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
   - tipo: quiz
     perguntas:
     - enunciado: O que o `WebApplicationFactory` deixa de fora da API real?

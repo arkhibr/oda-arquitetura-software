@@ -131,7 +131,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica o papel de um BFF: adaptar o formato do sistema legado ao microfrontend que ele atende, enquanto o Gateway continua genérico, sem conhecer campo de nenhum contrato, como registra a ADR-015. O BFF de empréstimo transforma o contrato, e o de endereço apenas repassa um formato que já é limpo.'
+    texto: Esta aba explica como um BFF traduz o formato de um sistema legado para o contrato que o microfrontend lê, e por que essa tradução fica nele. Os blocos abaixo ensinam sistema legado e contrato, BFF e Gateway, as convenções PascalCase e camelCase, a camada anticorrupção, o tratamento de campo ausente e o micro-benchmark, e depois o comparativo põe lado a lado o formato do legado e o do contrato. A ADR do fim registra a decisão do repositório de pôr a transformação no BFF.
+  - tipo: conceito
+    titulo: Sistema legado e contrato
+    texto: Sistema legado é o sistema mais antigo, já em produção, cujo formato de dados o portal precisa consumir sem poder alterá-lo, e neste repositório ele é simulado por arquivos de fixture, dados fixos de exemplo em `bffs/emprestimo/src/fixtures/`. Contrato é o formato combinado de uma resposta, com os campos, os nomes e os tipos de cada um, que o consumidor pode esperar.
+  - tipo: conceito
+    titulo: BFF e Gateway de API
+    texto: O BFF (Backend for Frontend) é o serviço de back-end dedicado a uma interface, que adapta os dados dos sistemas internos ao formato de que ela precisa, e o BFF de empréstimo, em `bffs/emprestimo/`, atende o microfrontend de empréstimo. O Gateway de API é a porta única entre o portal e os BFFs, que autentica a chamada e a repassa ao BFF com cabeçalhos internos sem conhecer os campos dos contratos.
+  - tipo: conceito
+    titulo: PascalCase e camelCase
+    texto: São convenções para escrever nomes compostos sem espaço. Em PascalCase cada palavra começa com maiúscula, como `VencimentoDoContrato`, o formato do legado, e em camelCase a primeira palavra começa com minúscula, como `vencimentoFinal`, o formato do contrato do BFF.
+  - tipo: conceito
+    titulo: Camada anticorrupção (anticorruption layer)
+    texto: A camada anticorrupção traduz o modelo de um sistema externo para o modelo de quem o consome, para que o vocabulário externo não se espalhe pelo código interno. No BFF de empréstimo, o `transform.ts` cumpre esse papel e isola o microfrontend do vocabulário do legado. Quando o legado muda um nome, a correção fica num mapeamento do BFF, e o microfrontend continua a ler o mesmo contrato.
+  - tipo: conceito
+    titulo: Ausente, null e valor padrão
+    texto: O contrato do BFF escolhe, campo a campo, o que fazer quando o legado não envia o dado. `cetMensal` vira `0` e `temAtraso` vira `false`, o que esconde a ausência, e `proximaParcela` vira `null`, o que obriga a tela a tratar a falta do dado.
+  - tipo: conceito
+    titulo: Micro-benchmark
+    texto: Benchmark é a medição repetida do tempo de execução de um trecho de código, feita para comparar versões, e o micro-benchmark mede uma função isolada. O `vitest bench`, do framework de testes Vitest, repete uma função milhões de vezes e informa a vazão em `hz` e o erro relativo em `rme`. Os números absolutos dependem da máquina, e por isso a ADR-005 do repositório definiu que o benchmark serve para comparar medições feitas no mesmo ambiente.
   - tipo: comparativo
     colunas:
     - Legado
@@ -153,15 +171,6 @@ abas:
       valores:
       - Tudo que o sistema de origem tem, inclusive `Conta` e `CpfDoCliente`
       - Só o que a tela usa
-  - tipo: conceito
-    titulo: Anticorruption layer
-    texto: O `transform.ts` isola o microfrontend do vocabulário do legado. Quando o legado muda um nome, a correção fica num mapeamento do BFF, e o microfrontend continua a ler o mesmo contrato.
-  - tipo: conceito
-    titulo: Ausente, null e valor padrão
-    texto: O contrato do BFF escolhe, campo a campo, o que fazer quando o legado não envia o dado. `cetMensal` vira `0` e `temAtraso` vira `false`, o que esconde a ausência, e `proximaParcela` vira `null`, o que obriga a tela a tratar a falta do dado.
-  - tipo: conceito
-    titulo: Micro-benchmark
-    texto: O `vitest bench` repete uma função milhões de vezes e informa a vazão em `hz` e o erro relativo em `rme`. A ADR-005 registra que os números absolutos dependem da máquina e que o uso do benchmark está na comparação entre medições do mesmo ambiente.
   - tipo: adr
     id: ADR-015
     titulo: Gateway de API com BFFs
@@ -174,7 +183,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os arquivos da pasta `bffs/emprestimo/src/` que adaptam o contrato legado ao contrato do portal: o tipo do legado em `legacyBackend.ts`, a função de transformação em `transform.ts`, as rotas que a usam e o benchmark que mede o custo dela. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam cada adaptação feita pelo BFF.'
+    texto: 'Esta aba mostra os arquivos da pasta `bffs/emprestimo/src/`, o BFF que adapta o back-end ao microfrontend de empréstimo, que traduzem o formato do sistema legado para o contrato do portal, o formato de resposta que o microfrontend espera: o tipo do legado em `legacyBackend.ts`, a função de transformação em `transform.ts`, as rotas que a usam e o benchmark que mede o custo dela. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam cada adaptação feita pelo BFF.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -313,7 +322,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula o BFF sem executar o projeto. Envie as requisições abaixo, capturadas antes e depois do laboratório, acompanhe um contrato da fixture até a resposta e classifique o que o BFF faz com cada campo do legado.
+    texto: Esta aba simula o BFF de empréstimo, serviço que traduz o formato do sistema legado para o contrato do microfrontend, sem executar o projeto. Envie as requisições abaixo, capturadas antes e depois do laboratório, acompanhe um contrato da fixture, o arquivo de dados que simula o legado, até a resposta e classifique o que o BFF faz com cada campo do legado.
+  - tipo: conceito
+    titulo: Termos das requisições e das etapas
+    texto: 'O BFF só aceita chamadas que tragam os cabeçalhos internos que o Gateway de API, a porta única do portal, envia: `X-Internal-Gateway-Key`, a chave que prova a origem da chamada, e `X-Authenticated-Subject`, o usuário autenticado. O `toContrato` é a função que converte cada contrato do legado, em PascalCase, para o contrato do BFF, em camelCase, renomeando campos, completando valores padrão, achatando objetos aninhados e descartando o que a tela não usa.'
   - tipo: console-api
     cenarios:
     - rotulo: Antes · lista de contratos
@@ -454,7 +466,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é acrescentar ao contrato do BFF o campo `vencimentoFinal`, com o formato e o comportamento na ausência do dado fixados por teste, e comprovar com benchmark que a transformação não ficou mais lenta. Os passos 1 a 4 medem o ponto de partida e mostram o campo descartado, os passos 5 a 10 acrescentam o campo com o teste escrito antes, e os passos 11 e 12 comparam o benchmark e conferem a resposta do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+    texto: O objetivo do laboratório é acrescentar ao contrato do BFF, o formato de resposta que o serviço de back-end do microfrontend entrega, o campo `vencimentoFinal`, com o formato e o comportamento na ausência do dado fixados por teste, e comprovar com benchmark, medição repetida do tempo de execução, que a transformação não ficou mais lenta. Os passos 1 a 4 medem o ponto de partida e mostram o campo descartado, os passos 5 a 10 acrescentam o campo com o teste escrito antes, e os passos 11 e 12 comparam o benchmark e conferem a resposta do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
   - tipo: faixa
     estilo: objetivo
     problema: O legado de empréstimo envia `VencimentoDoContrato` na lista de contratos, e o `transform.ts` do BFF descarta esse campo ao montar o contrato em camelCase. O microfrontend não tem como mostrar a data de término do empréstimo, e o detalhe do contrato no legado nem traz esse dado.
@@ -741,7 +753,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Esta aba apresenta quatro situações que um time encontraria ao adaptar contratos num BFF, a partir de saídas do laboratório e de chamadas aos dois BFFs. Escolha a causa de cada uma para ver a explicação e a correção.
+    texto: Esta aba apresenta quatro situações que um time encontraria ao adaptar contratos num BFF, o serviço que traduz o formato do legado para o microfrontend, a partir de saídas do laboratório e de chamadas aos dois BFFs. O bloco abaixo resume os conceitos que os incidentes usam, e em cada incidente você escolhe a causa para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: Conceitos usados nos incidentes
+    texto: O legado de empréstimo é simulado por arquivos de fixture, e a lista e o detalhe de contratos vêm de arquivos diferentes, `contratos.list.json` e `contratos.detail.json`. O `vitest bench` mede a vazão em `hz`, execuções por segundo da função de benchmark inteira, e o erro relativo em `rme`, a margem de variação entre rodadas, e o `--compare` mostra a razão entre a medição atual e uma gravada antes. O V8 é o motor JavaScript do Node.js, que otimiza o código durante a execução, e o BFF de endereço, em `bffs/endereco/`, responde na porta 4002.
   - tipo: incidente
     titulo: Vencimento presente na lista e ausente no detalhe
     origem: executado
@@ -793,7 +808,7 @@ abas:
     alternativas:
     - texto: 'Os dois casos não medem o mesmo trabalho: o resultado nunca é lido, e o otimizador do V8 pode eliminar parte de um trabalho cujo resultado ninguém usa.'
       correta: true
-      explicacao: A ADR-005 registra números parecidos, com 46,2 M e 1,7 M de operações por segundo.
+      explicacao: A tabela de medições da ADR-005 do repositório traz números parecidos, com 46,2 M e 1,7 M de operações por segundo.
     - texto: Transformar cem itens é quatro vezes mais barato por item, e o BFF deveria agrupar as chamadas.
       correta: false
       explicacao: O laço repete o mesmo objeto, e a diferença vem da forma de medir.
@@ -826,19 +841,22 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: Termos das perguntas
+    texto: O BFF é o serviço que traduz o formato do sistema legado para o contrato do microfrontend, o formato de resposta que a tela espera, e o Gateway de API é a porta única do portal. O `transform.test.ts` é o teste do BFF que compara com `toEqual` o contrato inteiro gerado pela transformação. O benchmark mede repetidamente o tempo de execução de uma função, e o `ContratoLegacy` é o tipo TypeScript do formato do legado.
   - tipo: quiz
     perguntas:
     - enunciado: Por que a transformação do contrato fica no BFF?
       alternativas:
       - texto: Porque o Gateway não consegue ler JSON.
         correta: false
-        explicacao: O Gateway poderia ler, e a ADR decide não fazer isso.
+        explicacao: O Gateway poderia ler, e a ADR-015 do repositório decidiu manter o Gateway sem conhecimento de nenhum contrato.
       - texto: Porque o microfrontend não roda TypeScript.
         correta: false
         explicacao: O microfrontend é escrito em TypeScript.
       - texto: Para manter o Gateway genérico e isolar o microfrontend do formato do legado.
         correta: true
-        explicacao: É a justificativa da ADR-015.
+        explicacao: É a justificativa com que a ADR-015 do repositório pôs a transformação de mensagem no BFF.
     - enunciado: Por que o campo novo é `string | null`, e não `string` opcional?
       alternativas:
       - texto: Para que a ausência do dado apareça na resposta e no tipo, e a tela tenha de tratá-la.
@@ -861,15 +879,15 @@ abas:
       - texto: O tipo `ContratoLegacy` ficou inválido.
         correta: false
         explicacao: O `tsc` não acusou erro no estado do passo 8.
-    - enunciado: Que leitura do benchmark a ADR-005 recomenda?
+    - enunciado: Que leitura dos números do benchmark faz sentido?
       alternativas:
       - texto: Exigir pelo menos 40 milhões de operações por segundo.
         correta: false
-        explicacao: A ADR não fixa um valor mínimo.
+        explicacao: Os números absolutos dependem da máquina, e a ADR-005 do repositório não fixa um valor mínimo.
       - texto: Rodar o benchmark com carga HTTP.
         correta: false
-        explicacao: A ADR descarta ferramentas de carga para unidade.
-      - texto: Comparar medições do mesmo ambiente ao longo do tempo, e não os valores absolutos.
+        explicacao: Ferramentas de carga medem endpoints inteiros, e a ADR-005 do repositório as descartou para medir uma função isolada.
+      - texto: Comparar medições do mesmo ambiente ao longo do tempo, sem tomar os valores absolutos como meta.
         correta: true
         explicacao: Os números dependem da máquina.
     - enunciado: Depois do laboratório, o que falta para a tela do microfrontend usar `vencimentoFinal` com tipos?

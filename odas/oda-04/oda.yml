@@ -19,6 +19,13 @@ abas:
       referencia:
         rotulo: MDN · 401 Unauthorized
         url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
     - termo: '`sessionStorage`'
       definicao: Área de armazenamento do navegador isolada por aba, apagada quando a aba é fechada e acessível por JavaScript. O shell guarda nela o token, na chave `portal_access_token`.
       referencia:
@@ -53,92 +60,171 @@ abas:
       referencia:
         rotulo: Vitest · Timers
         url: https://vitest.dev/guide/mocking/timers
-    - termo: Microfrontend
-      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
-      referencia:
-        rotulo: martinfowler.com · Micro Frontends
-        url: https://martinfowler.com/articles/micro-frontends.html
     - termo: MSW (Mock Service Worker)
       definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
       referencia:
         rotulo: Mock Service Worker · Introdução
         url: https://mswjs.io/docs/
-    - termo: ADR (Architecture Decision Record)
-      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+    - termo: Node.js
+      definicao: Ambiente que executa JavaScript fora do navegador. No repositório, ele roda o Vite, os testes, o script de deploy, o Gateway e os BFFs.
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: Docker e Docker Compose
+      definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
       referencia:
-        rotulo: adr.github.io · Architectural Decision Records
-        url: https://adr.github.io/
-    - termo: Evento DOM e `CustomEvent`
-      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+        rotulo: Docker Docs · Docker Compose
+        url: https://docs.docker.com/compose/
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
       referencia:
-        rotulo: MDN · CustomEvent
-        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
-    - termo: '`localStorage`'
-      definicao: Área de armazenamento do navegador compartilhada por todas as abas da mesma origem e mantida depois de fechar o navegador. A ADR-004 a descartou para o token por ampliar a exposição.
-      referencia:
-        rotulo: MDN · Window.localStorage
-        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/localStorage
-    - termo: XSS (Cross-Site Scripting)
-      definicao: Ataque em que um script malicioso é injetado na página e roda com as permissões dela, podendo ler o que o JavaScript da página acessa, como o `sessionStorage`. A CSP e o cookie `httpOnly` são defesas contra os efeitos desse ataque.
-      referencia:
-        rotulo: OWASP · Cross Site Scripting (XSS)
-        url: https://owasp.org/www-community/attacks/xss/
-    - termo: Cookie `httpOnly`
-      definicao: Cookie que o navegador envia ao servidor em cada requisição e que o JavaScript da página não consegue ler. A ADR-004 o descartou porque exigiria mudanças no back-end.
-      referencia:
-        rotulo: MDN · Cookies HTTP
-        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/Cookies
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
     - termo: BFF (Backend for Frontend)
       definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
       referencia:
         rotulo: Microsoft Learn · Padrão Backends for Frontends
         url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: detached HEAD
+      definicao: Estado do Git em que a cópia de trabalho aponta para um commit específico, fora de qualquer branch. É o estado que o `git checkout` de um commit produz, e as alterações feitas nele não pertencem a nenhum branch até que um seja criado.
+      referencia:
+        rotulo: Git · git checkout
+        url: https://git-scm.com/docs/git-checkout
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: WSL (Windows Subsystem for Linux) e Git Bash
+      definicao: O WSL é um recurso do Windows que executa um ambiente Linux completo, e o Git Bash é o terminal bash que acompanha o Git para Windows. Os dois aceitam a sintaxe de comandos usada nos laboratórios.
+      referencia:
+        rotulo: Microsoft Learn · O que é o Subsistema do Windows para Linux
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: Base64
+      definicao: Codificação que representa bytes com 64 caracteres de texto, usada para escrever hashes e tokens em formato legível. O hash do campo `integrity` tem 43 caracteres em Base64 seguidos de `=`.
+      referencia:
+        rotulo: MDN · Base64
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Base64
     - termo: '`exp`, `iat` e `sub`'
       definicao: Campos do conteúdo de um JWT que informam a expiração, o momento de emissão e o identificador do usuário. O `tokenParser` do shell trata como expirado o token sem esses campos válidos.
       referencia:
         rotulo: jwt.io · Introdução ao JSON Web Token
         url: https://jwt.io/introduction
-    - termo: Store
-      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
-      referencia:
-        rotulo: Redux · Store
-        url: https://redux.js.org/tutorials/fundamentals/part-4-store
-    - termo: Callback `onUnauthorized`
-      definicao: Função que o shell entrega ao microfrontend no contexto de montagem e que o microfrontend chama quando a API responde 401. O shell a implementa com o `dispatch(logout())`.
     - termo: 'Cabeçalho `Authorization: Bearer`'
       definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
       referencia:
         rotulo: MDN · Cabeçalho Authorization
         url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
-    - termo: HS256, RS256 e JWKS
-      definicao: HS256 assina o token com um segredo compartilhado, e RS256 assina com uma chave privada e confere com a chave pública correspondente. O JWKS é o endereço que publica essas chaves públicas, e o Gateway usa HS256 com `JWT_SHARED_SECRET` quando não há JWKS configurado.
+    - termo: Fatia (slice)
+      definicao: Parte do estado do Redux com o próprio estado inicial, reducers e ações, criada com `createSlice`. O store do shell tem três fatias, `auth`, `ui` e `session`.
       referencia:
-        rotulo: IETF · RFC 7518, JSON Web Algorithms
-        url: https://datatracker.ietf.org/doc/html/rfc7518
+        rotulo: Redux Toolkit · createSlice
+        url: https://redux-toolkit.js.org/api/createSlice
+    - termo: Store
+      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: XSS (Cross-Site Scripting)
+      definicao: Ataque em que um script malicioso é injetado na página e roda com as permissões dela, podendo ler o que o JavaScript da página acessa, como o `sessionStorage`. A CSP e o cookie `httpOnly` são defesas contra os efeitos desse ataque.
+      referencia:
+        rotulo: OWASP · Cross Site Scripting (XSS)
+        url: https://owasp.org/www-community/attacks/xss/
     - termo: Emissor e audiência de um JWT (`iss` e `aud`)
       definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
       referencia:
         rotulo: jwt.io · Introdução ao JSON Web Token
         url: https://jwt.io/introduction
-    - termo: Teste E2E (ponta a ponta)
-      definicao: Teste que abre a aplicação num navegador real e percorre telas como uma pessoa faria. O repositório os escreve com o Playwright, em `tests/e2e/`.
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
       referencia:
-        rotulo: Playwright · Instalação
-        url: https://playwright.dev/docs/intro
-    - termo: Cobertura de testes
-      definicao: Medida de quais linhas do código os testes executam. O `vitest.config.ts` exclui alguns arquivos dessa medida, entre eles o `sessionMonitor`.
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
       referencia:
-        rotulo: Vitest · Primeiros passos
-        url: https://vitest.dev/guide/
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: DOM (Document Object Model)
+      definicao: Representação da página como uma árvore de objetos que o JavaScript lê e altera, por meio de funções como `createElement` e `addEventListener`.
+      referencia:
+        rotulo: MDN · DOM
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/DOM
+    - termo: '`localStorage`'
+      definicao: Área de armazenamento do navegador compartilhada por todas as abas da mesma origem e mantida depois de fechar o navegador. A ADR-004 a descartou para o token por ampliar a exposição.
+      referencia:
+        rotulo: MDN · Window.localStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/localStorage
+    - termo: Cookie `httpOnly`
+      definicao: Cookie que o navegador envia ao servidor em cada requisição e que o JavaScript da página não consegue ler. A ADR-004 o descartou porque exigiria mudanças no back-end.
+      referencia:
+        rotulo: MDN · Cookies HTTP
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/Cookies
+    - termo: Payload
+      definicao: Parte de uma mensagem que carrega os dados. No JWT, é o conteúdo em JSON com campos como `sub` e `exp`, legível por quem tem o token, e numa ação do Redux é o valor que acompanha o `type`.
+    - termo: Reducer e ação
+      definicao: A ação é um objeto que descreve o que aconteceu, com um `type` e um `payload`, e o reducer é a função que recebe o estado atual e a ação e devolve o estado novo. O guia de estilo do Redux exige que o reducer não tenha efeitos fora da função.
+      referencia:
+        rotulo: Redux · Estado, ações e reducers
+        url: https://redux.js.org/tutorials/fundamentals/part-3-state-actions-reducers
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Callback `onUnauthorized`
+      definicao: Função que o shell entrega ao microfrontend no contexto de montagem e que o microfrontend chama quando a API responde 401. O shell a implementa com o `dispatch(logout())`.
+    - termo: HS256, RS256 e JWKS
+      definicao: HS256 assina o token com um segredo compartilhado, e RS256 assina com uma chave privada e confere com a chave pública correspondente. O JWKS é o endereço que publica essas chaves públicas, e o Gateway usa HS256 com `JWT_SHARED_SECRET` quando não há JWKS configurado.
+      referencia:
+        rotulo: IETF · RFC 7518, JSON Web Algorithms
+        url: https://datatracker.ietf.org/doc/html/rfc7518
+    - termo: Middleware
+      definicao: Função que processa a requisição antes ou depois do tratador final e pode encerrá-la com uma resposta. No Gateway, os middlewares rodam em sequência, do identificador de correlação até o proxy que encaminha ao BFF.
+      referencia:
+        rotulo: Hono · Middleware
+        url: https://hono.dev/docs/guides/middleware
+    - termo: Provider
+      definicao: Componente React que disponibiliza um recurso, como o store do Redux ou o cliente do React Query, para todos os componentes abaixo dele na árvore. O shell reúne os providers em `src/app/providers/index.tsx`.
     - termo: Vitest
       definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
       referencia:
         rotulo: Vitest · Primeiros passos
         url: https://vitest.dev/guide/
-    - termo: DevTools do navegador
-      definicao: Ferramentas de desenvolvedor embutidas no navegador, abertas com F12, com o console para executar JavaScript e a aba Application para ver o `sessionStorage`.
+    - termo: Cobertura de testes
+      definicao: Medida de quais linhas do código os testes executam. O `vitest.config.ts` exclui alguns arquivos dessa medida, entre eles o `sessionMonitor`.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: Teste E2E (ponta a ponta)
+      definicao: Teste que abre a aplicação num navegador real e percorre telas como uma pessoa faria. O repositório os escreve com o Playwright, em `tests/e2e/`.
+      referencia:
+        rotulo: Playwright · Instalação
+        url: https://playwright.dev/docs/intro
+    - termo: '`dispatch`'
+      definicao: Função do store que entrega uma ação aos reducers para atualizar o estado. Uma exceção lançada dentro do reducer chega a quem chamou `dispatch`, e o estado anterior continua intacto.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
     - termo: Revogação de token
       definicao: Invalidação de um token antes da data de expiração, por exemplo depois de um logout ou de uma senha trocada, o que exige uma lista consultada a cada requisição. Nenhum trecho lido nesta ODA faz essa consulta.
+    - termo: Teste de caracterização
+      definicao: Teste que registra o comportamento atual de um código, sem julgar se ele está certo, para que uma mudança posterior que altere esse comportamento seja detectada. Ele passa desde a primeira execução.
+    - termo: Hooks do React (`useState`, `useEffect`)
+      definicao: Funções que dão a um componente React estado próprio, com `useState`, ou efeitos que rodam depois da renderização, com `useEffect`. Os microfrontends buscam dados com esses dois hooks.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
+      referencia:
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: DevTools do navegador
+      definicao: Ferramentas de desenvolvedor embutidas no navegador, abertas com F12, com o console para executar JavaScript e a aba Application para ver o `sessionStorage`.
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -204,7 +290,85 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica as duas decisões de uma autenticação por token no navegador: onde guardar o token e como perceber que a sessão terminou. No repositório, a ADR-004 registra essas escolhas, e a Atualização 1.1 dela acrescenta que o `sessionStorage` não é fronteira de autorização, porque quem valida é o Gateway.'
+    texto: 'Esta aba explica as duas decisões de uma autenticação por token no navegador: onde guardar o JWT, token assinado que identifica o usuário, e como perceber que a sessão terminou. Os conceitos abaixo mostram por que o `sessionStorage`, área de armazenamento do navegador isolada por aba, guarda o token sem servir de controle de autorização, que fica com o Gateway de API, e como o monitor de sessão do shell encerra a sessão.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Base64
+      definicao: Codificação que representa bytes com 64 caracteres de texto, usada para escrever hashes e tokens em formato legível. O hash do campo `integrity` tem 43 caracteres em Base64 seguidos de `=`.
+      referencia:
+        rotulo: MDN · Base64
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Base64
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: Fatia (slice)
+      definicao: Parte do estado do Redux com o próprio estado inicial, reducers e ações, criada com `createSlice`. O store do shell tem três fatias, `auth`, `ui` e `session`.
+      referencia:
+        rotulo: Redux Toolkit · createSlice
+        url: https://redux-toolkit.js.org/api/createSlice
+    - termo: Redux e Redux Toolkit
+      definicao: O Redux guarda o estado global de uma aplicação num único objeto, que só muda por meio de ações tratadas por reducers. O Redux Toolkit é o pacote oficial que simplifica esse uso, e o shell o usa em `src/shared/lib/store/`.
+      referencia:
+        rotulo: Redux Toolkit · Primeiros passos
+        url: https://redux-toolkit.js.org/introduction/getting-started
+    - termo: Store
+      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
+      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+      referencia:
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: DOM (Document Object Model)
+      definicao: Representação da página como uma árvore de objetos que o JavaScript lê e altera, por meio de funções como `createElement` e `addEventListener`.
+      referencia:
+        rotulo: MDN · DOM
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/DOM
+    - termo: '`localStorage`'
+      definicao: Área de armazenamento do navegador compartilhada por todas as abas da mesma origem e mantida depois de fechar o navegador. A ADR-004 a descartou para o token por ampliar a exposição.
+      referencia:
+        rotulo: MDN · Window.localStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/localStorage
+    - termo: Cookie `httpOnly`
+      definicao: Cookie que o navegador envia ao servidor em cada requisição e que o JavaScript da página não consegue ler. A ADR-004 o descartou porque exigiria mudanças no back-end.
+      referencia:
+        rotulo: MDN · Cookies HTTP
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/Cookies
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+  - tipo: conceito
+    titulo: JWT (JSON Web Token)
+    texto: O JWT é um token em três partes codificadas em Base64, cabeçalho, conteúdo e assinatura, em que o conteúdo traz campos como `sub`, o identificador do usuário, e `exp`, a data de expiração. A assinatura é calculada com uma chave a partir das duas primeiras partes, e só quem tem a chave consegue produzir uma assinatura válida. O portal recebe o JWT no login e o envia no cabeçalho `Authorization` a cada chamada protegida.
+  - tipo: conceito
+    titulo: 'Onde o token fica: o sessionStorage'
+    texto: O `sessionStorage` é uma área de armazenamento do navegador isolada por aba e apagada quando a aba fecha, acessível pelo JavaScript da página. O shell guarda o token nela, na chave `portal_access_token`, e a fatia `auth` do Redux, o store global do shell, lê esse valor ao carregar para manter a sessão depois de uma recarga. Por ser legível por JavaScript, o token fica exposto a um script injetado na página, o ataque chamado XSS, e por isso esse armazenamento não serve como controle de autorização.
+  - tipo: conceito
+    titulo: Quem valida o token e quem encerra a sessão
+    texto: O shell só decodifica o conteúdo do token e confere a expiração pelo relógio do navegador, o que serve para levar a pessoa de volta ao login no momento certo. Quem decide se o token vale é o Gateway de API, em `gateway/src/auth.ts`, que confere o algoritmo, a assinatura, o emissor e a audiência e responde 401 em qualquer falha. O encerramento da sessão no shell depende do monitor de sessão, `src/shared/auth/sessionMonitor.ts`, que só age depois de iniciado.
+  - tipo: conceito
+    titulo: Dois mecanismos de encerramento
+    texto: O `sessionMonitor` combina uma verificação pelo relógio do navegador a cada 60 segundos com a escuta do evento `auth:unauthorized`, que o `httpClient` do shell emite ao receber 401. Os dois só funcionam depois de `sessionMonitor.start()`, e o diagrama de sequência da ADR-004 mostra essa chamada logo após o login. Como o `httpClient` do shell ainda não tem chamadores, o efeito prático do monitor está na verificação de 60 segundos, que encerra a sessão quando o token expira com o portal aberto.
   - tipo: comparativo
     colunas:
     - Shell (navegador)
@@ -231,9 +395,6 @@ abas:
     tipo_diagrama: Sequência
     titulo: Fluxo de autenticação da ADR-004 (docs/architecture/adrs/ADR-004-autenticacao.md)
     mermaid: "sequenceDiagram\n    actor U as Usuário\n    participant SPA as Portal Web\n    participant TS as tokenStorage\n    participant SM as sessionMonitor\n    participant API as API de Clientes\n\n    U->>SPA: login(usuário, senha)\n    SPA->>API: POST /auth/token\n    API-->>SPA: { access_token }\n    SPA->>TS: set(token)\n    SPA->>SM: start()\n\n    loop a cada 60s\n        SM->>TS: get()\n        SM->>SM: isTokenExpired?\n        alt token expirado\n            SM->>SPA: dispatch(logout())\n            SPA->>TS: clear()\n        end\n    end\n\n    SPA->>API: GET /recurso (Bearer token)\n    alt 401 Unauthorized\n        API-->>SPA: 401\n        SPA-->>SPA: event(auth:unauthorized)\n        SPA->>SPA: dispatch(logout())\n        SPA->>TS: clear()\n    end"
-  - tipo: conceito
-    titulo: Dois mecanismos de encerramento
-    texto: O `sessionMonitor` combina uma verificação pelo relógio do navegador a cada 60 segundos com a escuta do evento `auth:unauthorized`, que o `httpClient` do shell emite ao receber 401. Os dois só funcionam depois de `sessionMonitor.start()`, e o diagrama da ADR mostra essa chamada logo após o login. Como o `httpClient` do shell ainda não tem chamadores, o efeito prático do monitor está na verificação de 60 segundos, que encerra a sessão quando o token expira com o portal aberto.
   - tipo: adr
     id: ADR-004
     titulo: Tática de autenticação
@@ -247,6 +408,127 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba segue o token JWT pelos arquivos do shell, do microfrontend de endereço e do Gateway: onde ele é guardado, como o payload é lido, como a sessão volta depois de uma recarga, como o fim da sessão é detectado e onde a assinatura é verificada. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: Payload
+      definicao: Parte de uma mensagem que carrega os dados. No JWT, é o conteúdo em JSON com campos como `sub` e `exp`, legível por quem tem o token, e numa ação do Redux é o valor que acompanha o `type`.
+    - termo: Assinatura do JWT
+      definicao: Parte final do token, calculada com uma chave a partir do cabeçalho e do conteúdo, que prova que o token não foi alterado e foi emitido por quem tem a chave. O shell só lê o conteúdo, e quem confere a assinatura é o Gateway.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: '`sessionStorage`'
+      definicao: Área de armazenamento do navegador isolada por aba, apagada quando a aba é fechada e acessível por JavaScript. O shell guarda nela o token, na chave `portal_access_token`.
+      referencia:
+        rotulo: MDN · Window.sessionStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/sessionStorage
+    - termo: Reducer e ação
+      definicao: A ação é um objeto que descreve o que aconteceu, com um `type` e um `payload`, e o reducer é a função que recebe o estado atual e a ação e devolve o estado novo. O guia de estilo do Redux exige que o reducer não tenha efeitos fora da função.
+      referencia:
+        rotulo: Redux · Estado, ações e reducers
+        url: https://redux.js.org/tutorials/fundamentals/part-3-state-actions-reducers
+    - termo: '`exp`, `iat` e `sub`'
+      definicao: Campos do conteúdo de um JWT que informam a expiração, o momento de emissão e o identificador do usuário. O `tokenParser` do shell trata como expirado o token sem esses campos válidos.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Store
+      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: Callback `onUnauthorized`
+      definicao: Função que o shell entrega ao microfrontend no contexto de montagem e que o microfrontend chama quando a API responde 401. O shell a implementa com o `dispatch(logout())`.
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+      referencia:
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: DOM (Document Object Model)
+      definicao: Representação da página como uma árvore de objetos que o JavaScript lê e altera, por meio de funções como `createElement` e `addEventListener`.
+      referencia:
+        rotulo: MDN · DOM
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/DOM
+    - termo: Monitor de sessão (`sessionMonitor`)
+      definicao: Módulo do shell em `src/shared/auth/sessionMonitor.ts` que encerra a sessão quando o token expira, conferindo a cada 60 segundos, ou quando recebe o evento `auth:unauthorized`. Ele só age depois de `sessionMonitor.start()`.
+    - termo: HS256, RS256 e JWKS
+      definicao: HS256 assina o token com um segredo compartilhado, e RS256 assina com uma chave privada e confere com a chave pública correspondente. O JWKS é o endereço que publica essas chaves públicas, e o Gateway usa HS256 com `JWT_SHARED_SECRET` quando não há JWKS configurado.
+      referencia:
+        rotulo: IETF · RFC 7518, JSON Web Algorithms
+        url: https://datatracker.ietf.org/doc/html/rfc7518
+    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
+      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Fatia (slice)
+      definicao: Parte do estado do Redux com o próprio estado inicial, reducers e ações, criada com `createSlice`. O store do shell tem três fatias, `auth`, `ui` e `session`.
+      referencia:
+        rotulo: Redux Toolkit · createSlice
+        url: https://redux-toolkit.js.org/api/createSlice
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Provider
+      definicao: Componente React que disponibiliza um recurso, como o store do Redux ou o cliente do React Query, para todos os componentes abaixo dele na árvore. O shell reúne os providers em `src/app/providers/index.tsx`.
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: Cobertura de testes
+      definicao: Medida de quais linhas do código os testes executam. O `vitest.config.ts` exclui alguns arquivos dessa medida, entre eles o `sessionMonitor`.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: Teste E2E (ponta a ponta)
+      definicao: Teste que abre a aplicação num navegador real e percorre telas como uma pessoa faria. O repositório os escreve com o Playwright, em `tests/e2e/`.
+      referencia:
+        rotulo: Playwright · Instalação
+        url: https://playwright.dev/docs/intro
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -306,7 +588,7 @@ abas:
     - linha: 14
       texto: Decodifica o payload sem verificar a assinatura, que fica a cargo do Gateway.
     - linha: 21
-      texto: Token sem `exp`, `iat` ou `sub` válidos é tratado como expirado, que é a falha segura citada pela ADR.
+      texto: Token sem `exp`, `iat` ou `sub` válidos é tratado como expirado, o que encerra a sessão sempre que o token não pode ser lido.
     - linha: 22
       texto: A expiração usa o relógio do navegador.
     inicio: 9
@@ -521,6 +803,83 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar o projeto, as chamadas de login e de endereço. Envie pelo console as requisições ao back-end simulado pelo MSW e ao Gateway e compare as respostas para o mesmo token. Depois, acompanhe na linha do tempo o caminho que um 401 recebido pelo `httpClient` do shell percorreria, com e sem o `sessionMonitor` iniciado.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
+      referencia:
+        rotulo: Mock Service Worker · Introdução
+        url: https://mswjs.io/docs/
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Monitor de sessão (`sessionMonitor`)
+      definicao: Módulo do shell em `src/shared/auth/sessionMonitor.ts` que encerra a sessão quando o token expira, conferindo a cada 60 segundos, ou quando recebe o evento `auth:unauthorized`. Ele só age depois de `sessionMonitor.start()`.
+    - termo: HS256, RS256 e JWKS
+      definicao: HS256 assina o token com um segredo compartilhado, e RS256 assina com uma chave privada e confere com a chave pública correspondente. O JWKS é o endereço que publica essas chaves públicas, e o Gateway usa HS256 com `JWT_SHARED_SECRET` quando não há JWKS configurado.
+      referencia:
+        rotulo: IETF · RFC 7518, JSON Web Algorithms
+        url: https://datatracker.ietf.org/doc/html/rfc7518
+    - termo: Assinatura do JWT
+      definicao: Parte final do token, calculada com uma chave a partir do cabeçalho e do conteúdo, que prova que o token não foi alterado e foi emitido por quem tem a chave. O shell só lê o conteúdo, e quem confere a assinatura é o Gateway.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Payload
+      definicao: Parte de uma mensagem que carrega os dados. No JWT, é o conteúdo em JSON com campos como `sub` e `exp`, legível por quem tem o token, e numa ação do Redux é o valor que acompanha o `type`.
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
+      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: '`dispatch`'
+      definicao: Função do store que entrega uma ação aos reducers para atualizar o estado. Uma exceção lançada dentro do reducer chega a quem chamou `dispatch`, e o estado anterior continua intacto.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+      referencia:
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: Store
+      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Reducer e ação
+      definicao: A ação é um objeto que descreve o que aconteceu, com um `type` e um `payload`, e o reducer é a função que recebe o estado atual e a ação e devolve o estado novo. O guia de estilo do Redux exige que o reducer não tenha efeitos fora da função.
+      referencia:
+        rotulo: Redux · Estado, ações e reducers
+        url: https://redux.js.org/tutorials/fundamentals/part-3-state-actions-reducers
+    - termo: Revogação de token
+      definicao: Invalidação de um token antes da data de expiração, por exemplo depois de um logout ou de uma senha trocada, o que exige uma lista consultada a cada requisição. Nenhum trecho lido nesta ODA faz essa consulta.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
   - tipo: console-api
     cenarios:
     - rotulo: MSW · login com a senha correta
@@ -660,6 +1019,67 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é fazer o shell encerrar a sessão quando o token deixa de valer, com testes que provam a falha e a correção, porque no commit de referência nenhum código chama `sessionMonitor.start()` e os dois mecanismos de encerramento ficam desligados. Os passos 1 a 4 caracterizam o `sessionMonitor`, os passos 5 a 9 corrigem o shell com o teste escrito antes da correção, e o passo 10 confere o resultado no navegador. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Monitor de sessão (`sessionMonitor`)
+      definicao: Módulo do shell em `src/shared/auth/sessionMonitor.ts` que encerra a sessão quando o token expira, conferindo a cada 60 segundos, ou quando recebe o evento `auth:unauthorized`. Ele só age depois de `sessionMonitor.start()`.
+    - termo: Teste de caracterização
+      definicao: Teste que registra o comportamento atual de um código, sem julgar se ele está certo, para que uma mudança posterior que altere esse comportamento seja detectada. Ele passa desde a primeira execução.
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: Relógio simulado (fake timers)
+      definicao: Recurso do Vitest que substitui o relógio real durante o teste e permite avançar o tempo pelo intervalo que o teste indicar, sem esperar. O laboratório avança 60 segundos para disparar a verificação do monitor.
+      referencia:
+        rotulo: Vitest · Timers
+        url: https://vitest.dev/guide/mocking/timers
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+      referencia:
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: Provider
+      definicao: Componente React que disponibiliza um recurso, como o store do Redux ou o cliente do React Query, para todos os componentes abaixo dele na árvore. O shell reúne os providers em `src/app/providers/index.tsx`.
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Hooks do React (`useState`, `useEffect`)
+      definicao: Funções que dão a um componente React estado próprio, com `useState`, ou efeitos que rodam depois da renderização, com `useEffect`. Os microfrontends buscam dados com esses dois hooks.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
+      referencia:
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: DevTools do navegador
+      definicao: Ferramentas de desenvolvedor embutidas no navegador, abertas com F12, com o console para executar JavaScript e a aba Application para ver o `sessionStorage`.
+    - termo: '`sessionStorage`'
+      definicao: Área de armazenamento do navegador isolada por aba, apagada quando a aba é fechada e acessível por JavaScript. O shell guarda nela o token, na chave `portal_access_token`.
+      referencia:
+        rotulo: MDN · Window.sessionStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/sessionStorage
   - tipo: faixa
     estilo: objetivo
     problema: O `src/shared/auth/sessionMonitor.ts` tem dois mecanismos de encerramento, a verificação da expiração a cada 60 segundos e a escuta do evento `auth:unauthorized`, e nenhum arquivo de `src/` chama `sessionMonitor.start()` no commit `2179313`. O README de `shared/auth` e o diagrama da ADR-004 afirmam o contrário, e o `vitest.config.ts` exclui o monitor da cobertura.
@@ -948,6 +1368,89 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta situações que um time encontraria com essa autenticação, cada uma com uma saída do navegador, do Gateway, do MSW ou um trecho do código no commit `2179313`. Em cada uma, escolha a causa para ver a explicação e a correção.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
+      referencia:
+        rotulo: Mock Service Worker · Introdução
+        url: https://mswjs.io/docs/
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+      referencia:
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: '`sessionStorage`'
+      definicao: Área de armazenamento do navegador isolada por aba, apagada quando a aba é fechada e acessível por JavaScript. O shell guarda nela o token, na chave `portal_access_token`.
+      referencia:
+        rotulo: MDN · Window.sessionStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/sessionStorage
+    - termo: Monitor de sessão (`sessionMonitor`)
+      definicao: Módulo do shell em `src/shared/auth/sessionMonitor.ts` que encerra a sessão quando o token expira, conferindo a cada 60 segundos, ou quando recebe o evento `auth:unauthorized`. Ele só age depois de `sessionMonitor.start()`.
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Fatia (slice)
+      definicao: Parte do estado do Redux com o próprio estado inicial, reducers e ações, criada com `createSlice`. O store do shell tem três fatias, `auth`, `ui` e `session`.
+      referencia:
+        rotulo: Redux Toolkit · createSlice
+        url: https://redux-toolkit.js.org/api/createSlice
+    - termo: Provider
+      definicao: Componente React que disponibiliza um recurso, como o store do Redux ou o cliente do React Query, para todos os componentes abaixo dele na árvore. O shell reúne os providers em `src/app/providers/index.tsx`.
+    - termo: Guard de rota (`AuthGuard`)
+      definicao: Componente que decide se uma rota pode ser exibida e redireciona para outra quando a condição falha. O `AuthGuard` do shell lê `isAuthenticated` no store e leva para `/login` quem não está autenticado.
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
+      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Payload
+      definicao: Parte de uma mensagem que carrega os dados. No JWT, é o conteúdo em JSON com campos como `sub` e `exp`, legível por quem tem o token, e numa ação do Redux é o valor que acompanha o `type`.
+    - termo: '`exp`, `iat` e `sub`'
+      definicao: Campos do conteúdo de um JWT que informam a expiração, o momento de emissão e o identificador do usuário. O `tokenParser` do shell trata como expirado o token sem esses campos válidos.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Assinatura do JWT
+      definicao: Parte final do token, calculada com uma chave a partir do cabeçalho e do conteúdo, que prova que o token não foi alterado e foi emitido por quem tem a chave. O shell só lê o conteúdo, e quem confere a assinatura é o Gateway.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: HS256, RS256 e JWKS
+      definicao: HS256 assina o token com um segredo compartilhado, e RS256 assina com uma chave privada e confere com a chave pública correspondente. O JWKS é o endereço que publica essas chaves públicas, e o Gateway usa HS256 com `JWT_SHARED_SECRET` quando não há JWKS configurado.
+      referencia:
+        rotulo: IETF · RFC 7518, JSON Web Algorithms
+        url: https://datatracker.ietf.org/doc/html/rfc7518
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
   - tipo: incidente
     titulo: Evento auth:unauthorized sem efeito
     origem: executado
@@ -1038,30 +1541,146 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: Assinatura do JWT
+      definicao: Parte final do token, calculada com uma chave a partir do cabeçalho e do conteúdo, que prova que o token não foi alterado e foi emitido por quem tem a chave. O shell só lê o conteúdo, e quem confere a assinatura é o Gateway.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
+      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Payload
+      definicao: Parte de uma mensagem que carrega os dados. No JWT, é o conteúdo em JSON com campos como `sub` e `exp`, legível por quem tem o token, e numa ação do Redux é o valor que acompanha o `type`.
+    - termo: '`sessionStorage`'
+      definicao: Área de armazenamento do navegador isolada por aba, apagada quando a aba é fechada e acessível por JavaScript. O shell guarda nela o token, na chave `portal_access_token`.
+      referencia:
+        rotulo: MDN · Window.sessionStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/sessionStorage
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: '`localStorage`'
+      definicao: Área de armazenamento do navegador compartilhada por todas as abas da mesma origem e mantida depois de fechar o navegador. A ADR-004 a descartou para o token por ampliar a exposição.
+      referencia:
+        rotulo: MDN · Window.localStorage
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Window/localStorage
+    - termo: Cookie `httpOnly`
+      definicao: Cookie que o navegador envia ao servidor em cada requisição e que o JavaScript da página não consegue ler. A ADR-004 o descartou porque exigiria mudanças no back-end.
+      referencia:
+        rotulo: MDN · Cookies HTTP
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/Cookies
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Callback `onUnauthorized`
+      definicao: Função que o shell entrega ao microfrontend no contexto de montagem e que o microfrontend chama quando a API responde 401. O shell a implementa com o `dispatch(logout())`.
+    - termo: Reducer e ação
+      definicao: A ação é um objeto que descreve o que aconteceu, com um `type` e um `payload`, e o reducer é a função que recebe o estado atual e a ação e devolve o estado novo. O guia de estilo do Redux exige que o reducer não tenha efeitos fora da função.
+      referencia:
+        rotulo: Redux · Estado, ações e reducers
+        url: https://redux.js.org/tutorials/fundamentals/part-3-state-actions-reducers
+    - termo: '`dispatch`'
+      definicao: Função do store que entrega uma ação aos reducers para atualizar o estado. Uma exceção lançada dentro do reducer chega a quem chamou `dispatch`, e o estado anterior continua intacto.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Provider
+      definicao: Componente React que disponibiliza um recurso, como o store do Redux ou o cliente do React Query, para todos os componentes abaixo dele na árvore. O shell reúne os providers em `src/app/providers/index.tsx`.
+    - termo: Evento DOM e `CustomEvent`
+      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
+      referencia:
+        rotulo: MDN · CustomEvent
+        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+    - termo: Hooks do React (`useState`, `useEffect`)
+      definicao: Funções que dão a um componente React estado próprio, com `useState`, ou efeitos que rodam depois da renderização, com `useEffect`. Os microfrontends buscam dados com esses dois hooks.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Monitor de sessão (`sessionMonitor`)
+      definicao: Módulo do shell em `src/shared/auth/sessionMonitor.ts` que encerra a sessão quando o token expira, conferindo a cada 60 segundos, ou quando recebe o evento `auth:unauthorized`. Ele só age depois de `sessionMonitor.start()`.
+    - termo: '`exp`, `iat` e `sub`'
+      definicao: Campos do conteúdo de um JWT que informam a expiração, o momento de emissão e o identificador do usuário. O `tokenParser` do shell trata como expirado o token sem esses campos válidos.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Store
+      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
+      referencia:
+        rotulo: Redux · Store
+        url: https://redux.js.org/tutorials/fundamentals/part-4-store
+    - termo: Redux e Redux Toolkit
+      definicao: O Redux guarda o estado global de uma aplicação num único objeto, que só muda por meio de ações tratadas por reducers. O Redux Toolkit é o pacote oficial que simplifica esse uso, e o shell o usa em `src/shared/lib/store/`.
+      referencia:
+        rotulo: Redux Toolkit · Primeiros passos
+        url: https://redux-toolkit.js.org/introduction/getting-started
+    - termo: Relógio simulado (fake timers)
+      definicao: Recurso do Vitest que substitui o relógio real durante o teste e permite avançar o tempo pelo intervalo que o teste indicar, sem esperar. O laboratório avança 60 segundos para disparar a verificação do monitor.
+      referencia:
+        rotulo: Vitest · Timers
+        url: https://vitest.dev/guide/mocking/timers
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
+    - termo: Guard de rota (`AuthGuard`)
+      definicao: Componente que decide se uma rota pode ser exibida e redireciona para outra quando a condição falha. O `AuthGuard` do shell lê `isAuthenticated` no store e leva para `/login` quem não está autenticado.
   - tipo: quiz
     perguntas:
-    - enunciado: Pela Atualização 1.1 da ADR-004, quem é a autoridade para aceitar ou recusar um JWT?
+    - enunciado: No portal, quem é a autoridade para aceitar ou recusar um JWT?
       alternativas:
       - texto: O `tokenParser` do shell.
         correta: false
         explicacao: O `tokenParser` só decodifica o payload e serve à experiência do usuário.
       - texto: O `sessionStorage`.
         correta: false
-        explicacao: A ADR registra que o `sessionStorage` não é fronteira de autorização.
+        explicacao: A Atualização 1.1 da ADR-004 registra que o `sessionStorage` não é fronteira de autorização.
       - texto: O Gateway.
         correta: true
         explicacao: Ele valida assinatura, algoritmo, emissor, audiência e expiração antes de encaminhar aos BFFs.
-    - enunciado: Por que a ADR-004 escolheu `sessionStorage` e não `localStorage`?
+    - enunciado: Por que o shell guarda o token no `sessionStorage` e descarta o `localStorage`?
       alternativas:
       - texto: Porque o `sessionStorage` é isolado por aba e é limpo ao fechar a aba.
         correta: true
-        explicacao: A ADR cita o isolamento de sessão e a menor janela de exposição.
+        explicacao: A ADR-004 registra o isolamento de sessão e a menor janela de exposição como razões da escolha.
       - texto: Porque o `sessionStorage` não é acessível por JavaScript.
         correta: false
         explicacao: O `sessionStorage` é acessível por JavaScript, e essa proteção é do cookie `httpOnly`.
       - texto: Porque o `sessionStorage` tem mais espaço.
         correta: false
-        explicacao: Espaço não aparece entre os drivers da ADR.
+        explicacao: Espaço não aparece entre os critérios registrados na ADR-004.
     - enunciado: Num microfrontend, o que acontece quando o BFF responde 401?
       alternativas:
       - texto: Nada, porque só o shell trata 401.

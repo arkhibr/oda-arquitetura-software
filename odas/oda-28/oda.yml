@@ -138,13 +138,19 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica as três peças que separam um teste de um serviço da AWS emulado e o que define quantas vezes o ambiente sobe. No repositório, a ADR-002 registra a escolha do Aspire, a ADR-003 a do LocalStack e a ADR-004 a execução de um cenário por vez.
+    texto: Esta aba explica as peças que ligam um teste a um serviço da AWS (Amazon Web Services) emulado na sua máquina e o que define quantas vezes esse ambiente sobe durante a suíte. Os blocos abaixo definem cada conceito antes do comparativo entre os dois escopos de fixture, e a ADR (registro de decisão de arquitetura) do fim mostra por que o repositório decidiu executar um cenário de teste por vez, com a porta 4566 fixa.
   - tipo: conceito
-    titulo: AppHost
-    texto: 'O `src/AppHost/Program.cs` declara os contêineres que o ambiente precisa: o LocalStack na porta 4566 e um PostgreSQL na porta 5433. O teste não roda o AppHost como programa: o builder de testes do Aspire, chamado na `LocalStackFixture`, lê essa declaração e sobe os contêineres dentro do processo de teste.'
+    titulo: Teste de integração e fixture
+    texto: Um teste de integração exercita o código junto com os serviços de que ele depende, aqui os serviços da AWS emulados num contêiner. A fixture é o objeto que prepara esse ambiente antes dos testes e o descarta depois, e no repositório a `LocalStackFixture` sobe os contêineres e cria os recursos de cada cenário, com um custo de vários segundos a cada vez que sobe.
   - tipo: conceito
     titulo: LocalStack
-    texto: O LocalStack responde na porta 4566 às mesmas chamadas HTTP que a AWS, para os serviços listados na variável `SERVICES`. O SDK da AWS só precisa apontar para `http://localhost:4566`, o que o `AwsClientFactory` faz em cada cliente.
+    texto: O LocalStack é um emulador que roda num contêiner Docker, um processo isolado que traz tudo de que precisa, e responde na porta 4566 às mesmas chamadas HTTP que a AWS, para os serviços listados na variável `SERVICES`. O SDK da AWS para .NET, conjunto de bibliotecas com um cliente por serviço, só precisa apontar para `http://localhost:4566`, o que o `AwsClientFactory` faz em cada cliente.
+  - tipo: conceito
+    titulo: .NET Aspire e AppHost
+    texto: O .NET Aspire é um conjunto de ferramentas da Microsoft para declarar e subir os serviços e contêineres de que uma aplicação depende. O `src/AppHost/Program.cs` é o AppHost do repositório e declara o LocalStack na porta 4566 e um PostgreSQL na porta 5433. O teste não roda o AppHost como programa, porque o builder de testes do Aspire, chamado na `LocalStackFixture`, lê essa declaração e sobe os contêineres dentro do processo de teste.
+  - tipo: conceito
+    titulo: IClassFixture e ICollectionFixture
+    texto: No xUnit, o framework de testes do repositório, uma classe que declara `IClassFixture<T>` recebe uma fixture própria, criada antes do primeiro teste da classe e descartada depois do último. Com `ICollectionFixture<T>`, todas as classes marcadas com a mesma coleção compartilham uma única fixture, o que poupa a subida do ambiente e faz os testes de classes diferentes enxergarem os mesmos recursos.
   - tipo: comparativo
     colunas:
     - IClassFixture
@@ -175,6 +181,55 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra, no commit `50a5344`, os três arquivos que definem o custo e o isolamento dos testes: o AppHost, que declara os contêineres, a `LocalStackFixture`, que sobe esses contêineres antes do primeiro teste de cada classe, e um teste do cenário 01 que depende de o bucket ser exclusivo da classe. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: .NET Aspire e AppHost
+      definicao: O .NET Aspire é um conjunto de ferramentas da Microsoft para declarar e subir os serviços e contêineres de que uma aplicação distribuída depende. O AppHost é o projeto do Aspire em que essa declaração fica, no repositório em `src/AppHost/Program.cs`.
+      referencia:
+        rotulo: 'Aspire: what is Aspire'
+        url: https://aspire.dev/get-started/what-is-aspire/
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa funções sob demanda, sem servidor para administrar. O LocalStack executa essas funções em contêineres e por isso precisa acessar o Docker da máquina pelo arquivo `/var/run/docker.sock`.
+      referencia:
+        rotulo: 'AWS: o que é o AWS Lambda'
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: Socket do Docker e Colima
+      definicao: O arquivo `/var/run/docker.sock` é o canal pelo qual programas falam com o Docker da máquina. O Colima é uma forma de rodar o Docker no macOS que, por padrão, cria esse canal noutro caminho, e por isso a montagem do AppHost falha com ele.
+    - termo: PostgreSQL
+      definicao: Banco de dados relacional de código aberto. O AppHost do repositório sobe um contêiner do PostgreSQL na porta 5433 em todo cenário, junto com o LocalStack.
+      referencia:
+        rotulo: 'PostgreSQL: about'
+        url: https://www.postgresql.org/about/
+    - termo: Docker, contêiner e imagem
+      definicao: O Docker executa aplicações em contêineres, processos isolados que trazem tudo de que precisam para rodar. Cada contêiner nasce de uma imagem, como `localstack/localstack`, que o Docker baixa na primeira execução.
+      referencia:
+        rotulo: 'Docker Docs: what is a container'
+        url: https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/
+    - termo: Lock de arquivo
+      definicao: Trava obtida ao abrir um arquivo com exclusividade, que faz outro processo esperar até o arquivo ser liberado. A `LocalStackFixture` usa um lock desse tipo para que só um processo de teste ocupe a porta 4566 por vez.
+    - termo: Endpoint de saúde (health check)
+      definicao: Rota que informa se um serviço está pronto para receber chamadas. A fixture consulta `/_localstack/health` até receber 200, com limite de 120 segundos.
+    - termo: Fixture
+      definicao: Objeto que prepara o ambiente de que os testes precisam antes de eles rodarem e o descarta depois. No repositório, a `LocalStackFixture` sobe os contêineres e cria os recursos de cada cenário.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: xUnit, IClassFixture e ICollectionFixture
+      definicao: O xUnit é o framework de testes do repositório. Com `IClassFixture<T>`, cada classe de teste recebe uma fixture própria, criada antes do primeiro teste da classe, e com `ICollectionFixture<T>` todas as classes marcadas com a mesma coleção compartilham uma única fixture.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Amazon S3 e bucket
+      definicao: O S3 é o serviço de armazenamento de arquivos da AWS, chamados de objetos e identificados por uma chave. Os objetos ficam em buckets, que são recipientes com nome, e o cenário 01 grava e lista objetos em buckets do LocalStack.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -292,6 +347,43 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, o que acontece entre o `dotnet test` e o primeiro teste, com uma e com duas classes de teste. Depois, classifique onde cada recurso precisa de nome único.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Fixture
+      definicao: Objeto que prepara o ambiente de que os testes precisam antes de eles rodarem e o descarta depois. No repositório, a `LocalStackFixture` sobe os contêineres e cria os recursos de cada cenário.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Lock de arquivo
+      definicao: Trava obtida ao abrir um arquivo com exclusividade, que faz outro processo esperar até o arquivo ser liberado. A `LocalStackFixture` usa um lock desse tipo para que só um processo de teste ocupe a porta 4566 por vez.
+    - termo: .NET Aspire e AppHost
+      definicao: O .NET Aspire é um conjunto de ferramentas da Microsoft para declarar e subir os serviços e contêineres de que uma aplicação distribuída depende. O AppHost é o projeto do Aspire em que essa declaração fica, no repositório em `src/AppHost/Program.cs`.
+      referencia:
+        rotulo: 'Aspire: what is Aspire'
+        url: https://aspire.dev/get-started/what-is-aspire/
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: PostgreSQL
+      definicao: Banco de dados relacional de código aberto. O AppHost do repositório sobe um contêiner do PostgreSQL na porta 5433 em todo cenário, junto com o LocalStack.
+      referencia:
+        rotulo: 'PostgreSQL: about'
+        url: https://www.postgresql.org/about/
+    - termo: Endpoint de saúde (health check)
+      definicao: Rota que informa se um serviço está pronto para receber chamadas. A fixture consulta `/_localstack/health` até receber 200, com limite de 120 segundos.
+    - termo: Amazon S3 e bucket
+      definicao: O S3 é o serviço de armazenamento de arquivos da AWS, chamados de objetos e identificados por uma chave. Os objetos ficam em buckets, que são recipientes com nome, e o cenário 01 grava e lista objetos em buckets do LocalStack.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: xUnit, IClassFixture e ICollectionFixture
+      definicao: O xUnit é o framework de testes do repositório. Com `IClassFixture<T>`, cada classe de teste recebe uma fixture própria, criada antes do primeiro teste da classe, e com `ICollectionFixture<T>` todas as classes marcadas com a mesma coleção compartilham uma única fixture.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
   - tipo: fluxo
     titulo: Do `dotnet test` ao primeiro teste
     etapas:
@@ -333,6 +425,43 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é cortar o tempo que cada classe de teste gasta subindo o próprio ambiente, compartilhando a fixture entre as classes, e eliminar a interferência entre testes que esse compartilhamento revela, dando a cada teste recursos com nome único. Os passos 1 e 2 medem o cenário 01 com uma e com duas classes, os passos 3 e 4 compartilham a fixture e mostram o teste que quebra, e o passo 5 corrige o teste novo. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Fixture
+      definicao: Objeto que prepara o ambiente de que os testes precisam antes de eles rodarem e o descarta depois. No repositório, a `LocalStackFixture` sobe os contêineres e cria os recursos de cada cenário.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Teste de integração
+      definicao: Teste que exercita o código junto com os serviços reais de que ele depende, aqui os serviços da AWS emulados num contêiner. No repositório, cada cenário é um projeto de testes desse tipo.
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: Socket do Docker e Colima
+      definicao: O arquivo `/var/run/docker.sock` é o canal pelo qual programas falam com o Docker da máquina. O Colima é uma forma de rodar o Docker no macOS que, por padrão, cria esse canal noutro caminho, e por isso a montagem do AppHost falha com ele.
+    - termo: AWS Lambda
+      definicao: Serviço da AWS que executa funções sob demanda, sem servidor para administrar. O LocalStack executa essas funções em contêineres e por isso precisa acessar o Docker da máquina pelo arquivo `/var/run/docker.sock`.
+      referencia:
+        rotulo: 'AWS: o que é o AWS Lambda'
+        url: https://docs.aws.amazon.com/pt_br/lambda/latest/dg/welcome.html
+    - termo: Docker, contêiner e imagem
+      definicao: O Docker executa aplicações em contêineres, processos isolados que trazem tudo de que precisam para rodar. Cada contêiner nasce de uma imagem, como `localstack/localstack`, que o Docker baixa na primeira execução.
+      referencia:
+        rotulo: 'Docker Docs: what is a container'
+        url: https://docs.docker.com/get-started/docker-concepts/the-basics/what-is-a-container/
+    - termo: Amazon S3 e bucket
+      definicao: O S3 é o serviço de armazenamento de arquivos da AWS, chamados de objetos e identificados por uma chave. Os objetos ficam em buckets, que são recipientes com nome, e o cenário 01 grava e lista objetos em buckets do LocalStack.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: xUnit, IClassFixture e ICollectionFixture
+      definicao: O xUnit é o framework de testes do repositório. Com `IClassFixture<T>`, cada classe de teste recebe uma fixture própria, criada antes do primeiro teste da classe, e com `ICollectionFixture<T>` todas as classes marcadas com a mesma coleção compartilham uma única fixture.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
   - tipo: faixa
     estilo: objetivo
     problema: No `S3BasicTests.cs`, a classe de teste declara `IClassFixture<Fixture>`, e a `LocalStackFixture` sobe o AppHost com o LocalStack e o PostgreSQL para cada classe. O teste de listagem grava num bucket de nome fixo, `test-bucket-list`, e espera exatamente dois objetos.
@@ -489,6 +618,40 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria com esses testes, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: xUnit, IClassFixture e ICollectionFixture
+      definicao: O xUnit é o framework de testes do repositório. Com `IClassFixture<T>`, cada classe de teste recebe uma fixture própria, criada antes do primeiro teste da classe, e com `ICollectionFixture<T>` todas as classes marcadas com a mesma coleção compartilham uma única fixture.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Amazon S3 e bucket
+      definicao: O S3 é o serviço de armazenamento de arquivos da AWS, chamados de objetos e identificados por uma chave. Os objetos ficam em buckets, que são recipientes com nome, e o cenário 01 grava e lista objetos em buckets do LocalStack.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: PostgreSQL
+      definicao: Banco de dados relacional de código aberto. O AppHost do repositório sobe um contêiner do PostgreSQL na porta 5433 em todo cenário, junto com o LocalStack.
+      referencia:
+        rotulo: 'PostgreSQL: about'
+        url: https://www.postgresql.org/about/
+    - termo: Socket do Docker e Colima
+      definicao: O arquivo `/var/run/docker.sock` é o canal pelo qual programas falam com o Docker da máquina. O Colima é uma forma de rodar o Docker no macOS que, por padrão, cria esse canal noutro caminho, e por isso a montagem do AppHost falha com ele.
+    - termo: Endpoint de saúde (health check)
+      definicao: Rota que informa se um serviço está pronto para receber chamadas. A fixture consulta `/_localstack/health` até receber 200, com limite de 120 segundos.
+    - termo: Lock de arquivo
+      definicao: Trava obtida ao abrir um arquivo com exclusividade, que faz outro processo esperar até o arquivo ser liberado. A `LocalStackFixture` usa um lock desse tipo para que só um processo de teste ocupe a porta 4566 por vez.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/architecture/adrs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
   - tipo: incidente
     titulo: Teste antigo que quebra sem ter mudado
     origem: executado
@@ -567,7 +730,7 @@ abas:
 
       failureMessage: "Timed out waiting for exclusive access to LocalStack port 4566.")'
     pergunta: Um desenvolvedor roda o cenário 01 num terminal e o 02 noutro. O que acontece com o segundo?
-    correcao: 'Nenhuma correção: é a decisão da ADR-004. Para paralelizar, cada cenário precisaria de porta própria.'
+    correcao: 'Nenhuma correção: a ADR-004 do repositório decidiu usar a porta 4566 fixa e executar um cenário por vez. Para paralelizar, cada cenário precisaria de porta própria.'
     alternativas:
     - texto: Falha na hora com porta ocupada.
       correta: false
@@ -581,6 +744,31 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: .NET Aspire e AppHost
+      definicao: O .NET Aspire é um conjunto de ferramentas da Microsoft para declarar e subir os serviços e contêineres de que uma aplicação distribuída depende. O AppHost é o projeto do Aspire em que essa declaração fica, no repositório em `src/AppHost/Program.cs`.
+      referencia:
+        rotulo: 'Aspire: what is Aspire'
+        url: https://aspire.dev/get-started/what-is-aspire/
+    - termo: LocalStack
+      definicao: Emulador que roda num contêiner Docker e responde, na porta 4566, às mesmas chamadas HTTP que os serviços da AWS. Os testes do repositório falam com ele no lugar da conta real, com credenciais de teste.
+      referencia:
+        rotulo: 'LocalStack: documentação'
+        url: https://docs.localstack.cloud/
+    - termo: xUnit, IClassFixture e ICollectionFixture
+      definicao: O xUnit é o framework de testes do repositório. Com `IClassFixture<T>`, cada classe de teste recebe uma fixture própria, criada antes do primeiro teste da classe, e com `ICollectionFixture<T>` todas as classes marcadas com a mesma coleção compartilham uma única fixture.
+      referencia:
+        rotulo: 'xUnit.net: compartilhando contexto entre testes'
+        url: https://xunit.net/docs/shared-context
+    - termo: Amazon S3 e bucket
+      definicao: O S3 é o serviço de armazenamento de arquivos da AWS, chamados de objetos e identificados por uma chave. Os objetos ficam em buckets, que são recipientes com nome, e o cenário 01 grava e lista objetos em buckets do LocalStack.
+      referencia:
+        rotulo: 'AWS: o que é o Amazon S3'
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Lock de arquivo
+      definicao: Trava obtida ao abrir um arquivo com exclusividade, que faz outro processo esperar até o arquivo ser liberado. A `LocalStackFixture` usa um lock desse tipo para que só um processo de teste ocupe a porta 4566 por vez.
   - tipo: quiz
     perguntas:
     - enunciado: O que o builder de testes do Aspire faz com o projeto `AppHost`?

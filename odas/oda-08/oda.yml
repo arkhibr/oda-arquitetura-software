@@ -69,7 +69,7 @@ abas:
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
-    - Explicar o build em Vite lib mode e a publicação num bucket S3 por microfrontend, conforme a ADR-011.
+    - Explicar o build em Vite lib mode e a publicação num bucket S3 por microfrontend, e o que cada escolha permite publicar sem recompilar o shell.
     - Distinguir o deploy do microfrontend, que só publica o bundle, do deploy da raiz, que também atualiza o manifesto.
     - Reproduzir no portal a falha causada por um bundle novo com manifesto antigo e corrigi-la com a promoção conjunta.
     - Conferir o hash do bundle publicado contra o campo `integrity` do manifesto.
@@ -130,11 +130,30 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica como cada microfrontend é construído e hospedado e a ligação entre a publicação e o hash do manifesto: um bundle publicado sem o manifesto correspondente é recusado pelo shell. No repositório, a ADR-011 e a Atualização 1.1 dela registram essas decisões.'
+    texto: Esta aba explica como cada microfrontend do `frontend-react` é construído, onde ele fica hospedado e por que a publicação do arquivo precisa andar junto com o manifesto que o shell usa para conferi-lo. Os blocos abaixo ensinam microfrontend e shell, bundle e manifesto, build e deploy, o armazenamento no S3 emulado pelo LocalStack, o hash de integridade e a promoção conjunta, e depois o diagrama e o comparativo mostram os dois caminhos de deploy do repositório. A ADR do fim registra por que o repositório escolheu esse desenho.
+  - tipo: conceito
+    titulo: Microfrontend e shell
+    texto: Um microfrontend é uma parte da interface com build e deploy próprios, carregada numa rota do portal enquanto o usuário navega, e no `frontend-react` eles ficam em `mfes/endereco/` e `mfes/emprestimo/`. O shell é a aplicação React da pasta `src/` que cuida do login, do layout e das rotas e carrega os microfrontends em tempo de execução, sem precisar ser recompilado quando um deles muda.
+    analogia: O shell funciona como o prédio de um shopping, e os microfrontends funcionam como as lojas, que abrem e trocam de vitrine sem obra na estrutura do prédio.
+  - tipo: conceito
+    titulo: Bundle e manifesto
+    texto: O bundle é o arquivo JavaScript gerado a partir do código-fonte de um microfrontend, com tudo de que ele precisa para rodar no navegador. O manifesto é o arquivo `public/mfe-manifest.json`, que o shell baixa ao iniciar para saber quais microfrontends existem, de onde baixar o bundle de cada um, em que rota montá-lo e qual hash o bundle precisa ter.
+  - tipo: conceito
+    titulo: Build e deploy de um microfrontend
+    texto: O build transforma o código-fonte em arquivos prontos para o navegador, e o deploy publica esses arquivos no lugar de onde eles serão servidos. Cada microfrontend usa o modo biblioteca do Vite, ferramenta de build do portal, que gera um único módulo ESM, o formato padrão de módulo do JavaScript, com `import` e `export`, que o shell consegue baixar e importar diretamente.
+  - tipo: conceito
+    titulo: S3, bucket e LocalStack
+    texto: O Amazon S3 (Simple Storage Service) é o serviço de armazenamento de objetos da AWS, em que cada arquivo fica num bucket e é acessado por uma URL. No portal, cada microfrontend tem um bucket próprio, e em desenvolvimento o S3 é emulado pelo LocalStack, emulador dos serviços da AWS que roda num contêiner Docker na porta 4566. O deploy de cada microfrontend aplica ao bucket uma policy, documento que libera a leitura pública do bundle, e uma regra de CORS (Cross-Origin Resource Sharing), que autoriza o shell, rodando em outra origem, a ler o arquivo pelo navegador.
+  - tipo: conceito
+    titulo: Hash de integridade
+    texto: Um hash é um resumo de tamanho fixo calculado a partir do conteúdo de um arquivo, que muda por completo quando um único byte muda. O campo `integrity` do manifesto guarda o hash SHA-256 de cada bundle, e o shell calcula o hash do arquivo baixado e o recusa quando ele não confere com esse valor, o que impede a execução de um bundle diferente do que foi registrado.
+  - tipo: conceito
+    titulo: Promoção conjunta
+    texto: Promoção é o deploy de uma versão nova para o ambiente em uso. O shell lê o manifesto no boot de cada carga da página e confere o hash de cada bundle baixado contra ele, de modo que, se o bundle muda e o manifesto não, a carga falha, e se o manifesto muda antes do bundle, a falha também acontece. Por isso o repositório registrou, na Atualização 1.1 da ADR-011, a regra de que esteiras de produção devem publicar bundle e manifesto juntos, numa única etapa atômica.
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Pipeline
-    titulo: Pipeline de deploy da ADR-011 (docs/architecture/adrs/ADR-011-deploy-s3-localstack.md)
+    titulo: Pipeline de deploy dos microfrontends
     mermaid: "graph LR\n    src[\"mfes/endereco/src\"] -->|\"vite build (lib)\"| dist[\"dist/endereco.js\"]\n    dist -->|\"AWS SDK v3 PutObject\"| bucket[\"S3 bucket\\nmfe-endereco (LocalStack)\"]\n    bucket -->|\"fetch + CORS\"| shell[\"Shell\"]\n    dist -->|\"SHA-256\"| manifest[\"mfe-manifest.json\"]"
   - tipo: comparativo
     colunas:
@@ -161,22 +180,19 @@ abas:
       valores:
       - Não
       - Sim, com o SHA-256 do arquivo em `dist/`
-  - tipo: conceito
-    titulo: Promoção conjunta
-    texto: O shell lê o manifesto no boot de cada carga da página e confere o hash de cada bundle baixado contra ele. Se o bundle muda e o manifesto não, a carga falha, e se o manifesto muda antes do bundle, a falha também acontece. A Atualização 1.1 da ADR-011 registra que pipelines de produção devem executar as duas etapas de forma atômica.
   - tipo: adr
     id: ADR-011
     titulo: Build independente e deploy de MFEs em S3 (LocalStack)
     status: Proposed
     contexto: Cada microfrontend é um bundle ESM carregado em tempo de execução, e faltava definir como ele é construído, onde fica hospedado e como é publicado sem reacoplar o deploy ao do shell.
     decisao: Build em Vite lib mode e um bucket S3 por microfrontend, com LocalStack em desenvolvimento e publicação pelo AWS SDK v3, num repositório único com uma pasta por microfrontend para fins didáticos.
-    alternativas: Servir os bundles pelo próprio shell, descartado por reacoplar os deploys, e um repositório isolado por microfrontend, recomendado pela ADR para produção.
+    alternativas: Servir os bundles pelo próprio shell, descartado por reacoplar os deploys, e um repositório isolado por microfrontend, recomendado pela própria ADR-011 para produção.
     consequencias: Cada microfrontend compila e publica sozinho, ao custo de configurar policy e CORS por bucket. A Atualização 1.1 acrescenta a atualização do `integrity` no deploy da raiz e a exigência de promover bundle e manifesto juntos.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os três arquivos que levam um microfrontend do código-fonte ao S3 local: o `vite.config.ts` do microfrontend de endereço, que gera o bundle, o `deploy.ts` próprio dele, que publica o bundle no bucket, e o `scripts/deploy.ts` da raiz, que publica todos os microfrontends e atualiza o manifesto. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para o build e o deploy independentes.'
+    texto: 'Esta aba mostra os três arquivos que levam um microfrontend, parte da interface com build e deploy próprios, do código-fonte ao S3 local, o armazenamento da AWS emulado pelo LocalStack: o `vite.config.ts` do microfrontend de endereço, que gera o bundle, arquivo JavaScript publicado, o `deploy.ts` próprio dele, que publica o bundle no bucket, e o `scripts/deploy.ts` da raiz, que publica todos os microfrontends e atualiza o manifesto, a lista que o shell lê para encontrar e conferir cada bundle. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para o build e o deploy independentes.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -206,11 +222,11 @@ abas:
     - linha: 11
       texto: Sem esta definição, o React embutido quebra no navegador com `process is not defined`.
     - linha: 15
-      texto: Um único módulo ESM, que o shell importa como Blob.
+      texto: Um único módulo ESM, o formato padrão de módulo do JavaScript, que o shell importa como Blob, um bloco de dados em memória.
     - linha: 19
       texto: 'Tudo num arquivo só. O Vite 8 avisa no build que a opção está obsoleta e sugere `codeSplitting: false`.'
     inicio: 8
-    contexto: O `mfes/endereco/vite.config.ts` configura o build do microfrontend de endereço, que compila sozinho, separado do shell, com o React embutido no bundle. O trecho abaixo é o modo biblioteca do Vite, que gera um único arquivo ESM, o formato que o shell baixa e importa em tempo de execução.
+    contexto: O `mfes/endereco/vite.config.ts` configura o build do microfrontend de endereço, que compila sozinho, separado do shell, com o React embutido no bundle. O trecho abaixo é o modo biblioteca do Vite, que gera um único arquivo ESM, o formato padrão de módulo do JavaScript, que o shell baixa e importa em tempo de execução.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/endereco/scripts/deploy.ts
@@ -258,11 +274,11 @@ abas:
     - linha: 32
       texto: Leitura pública dos objetos, para o navegador baixar o bundle.
     - linha: 39
-      texto: CORS para o `fetch` do shell, que roda noutra origem.
+      texto: CORS, a regra que autoriza outra origem a ler as respostas pelo navegador, para o `fetch` do shell, que roda noutra origem.
     - linha: 49
       texto: Publica o arquivo de `dist/` com a mesma chave, sobrescrevendo a versão anterior.
     inicio: 20
-    contexto: O `mfes/endereco/scripts/deploy.ts` é o script de deploy próprio do microfrontend de endereço, que publica o bundle no bucket `mfe-endereco` do S3 emulado pelo LocalStack. O trecho abaixo cria o bucket, libera a leitura pública e o CORS e grava o arquivo de `dist/`, as quatro operações que tornam o bundle acessível ao navegador.
+    contexto: O `mfes/endereco/scripts/deploy.ts` é o script de deploy próprio do microfrontend de endereço, que publica o bundle no bucket `mfe-endereco` do S3 emulado pelo LocalStack. O trecho abaixo cria o bucket, libera a leitura pública e o CORS, regra que autoriza o shell, em outra origem, a ler o arquivo, e grava o arquivo de `dist/`, as quatro operações que tornam o bundle acessível ao navegador.
   - tipo: editor
     rotulo: arquivo
     caminho: scripts/deploy.ts
@@ -305,7 +321,7 @@ abas:
     - linha: 77
       texto: Confere que o bundle responde no bucket antes de mexer no manifesto.
     - linha: 88
-      texto: Calcula o hash do arquivo local publicado.
+      texto: Calcula o hash SHA-256, resumo do conteúdo do arquivo, sobre o arquivo local publicado.
     - linha: 94
       texto: Grava o manifesto em `public/`, que é versionado no Git.
     inicio: 66
@@ -317,7 +333,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, as etapas do deploy da raiz para um microfrontend, do build à gravação do hash no manifesto. Percorra as etapas e depois classifique cada situação pelo resultado que ela produz no portal.
+    texto: Esta aba simula, sem executar nada, as etapas do deploy da raiz, o `npm run deploy` que publica todos os microfrontends e atualiza o manifesto, para um microfrontend, do build à gravação do hash no manifesto. O bloco abaixo resume os termos das etapas, e depois você classifica cada situação pelo resultado que ela produz no portal.
+  - tipo: conceito
+    titulo: Termos das etapas
+    texto: O LocalStack emula o S3 da AWS num contêiner Docker, e o deploy publica o bundle, arquivo JavaScript do microfrontend, num bucket desse S3, com uma policy que libera a leitura pública e uma regra de CORS que deixa o shell, em outra origem, baixar o arquivo. O manifesto `public/mfe-manifest.json` guarda no campo `integrity` o hash SHA-256 de cada bundle, e o shell recusa o bundle cujo hash não confere com esse valor.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -423,7 +442,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é provar que a promoção parcial derruba o microfrontend e que a promoção conjunta de bundle e manifesto o restaura, comparando o hash do bundle com o do manifesto a cada etapa. Os passos 1 a 4 partem de um deploy consistente, os passos 5 a 8 publicam só o bundle e mostram a recusa por integridade, e os passos 9 e 10 promovem bundle e manifesto juntos. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo, com o `npm run dev` rodando num terminal separado.
+    texto: O objetivo do laboratório é provar que a promoção parcial, a publicação de uma versão nova só do bundle, derruba o microfrontend e que a promoção conjunta de bundle e manifesto o restaura, comparando a cada etapa o hash do bundle, resumo SHA-256 do arquivo JavaScript publicado, com o que o manifesto lido pelo shell registra. Os passos 1 a 4 partem de um deploy consistente, os passos 5 a 8 publicam só o bundle e mostram a recusa por integridade, e os passos 9 e 10 promovem bundle e manifesto juntos. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo, com o `npm run dev` rodando num terminal separado.
   - tipo: faixa
     estilo: objetivo
     problema: O shell só executa o bundle de um microfrontend quando o hash SHA-256 do arquivo baixado confere com o campo `integrity` do `public/mfe-manifest.json`. O `npm run deploy` de `mfes/endereco` publica só o bundle no bucket, e quem promove uma versão nova por ele deixa no manifesto o hash da versão anterior.
@@ -591,7 +610,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Esta aba apresenta situações que um time encontraria ao publicar microfrontends, a partir das saídas do laboratório e de dois pontos do código e da documentação. Escolha a causa de cada uma para ver a explicação e a correção.
+    texto: Esta aba apresenta situações que um time encontraria ao publicar microfrontends, a partir das saídas do laboratório e de dois pontos do código e da documentação. O bloco abaixo resume os conceitos que os incidentes usam, e em cada incidente você escolhe a causa para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: Conceitos usados nos incidentes
+    texto: 'O repositório tem dois comandos de deploy: o `npm run deploy` dentro de `mfes/endereco`, script próprio do microfrontend, e o `npm run deploy` na raiz, que trata todos os microfrontends. O bucket é o espaço do S3, emulado pelo LocalStack, onde o bundle fica, e o campo `integrity` do manifesto guarda o hash SHA-256 do bundle, que o shell confere antes de executar o arquivo. A ADR-009 do repositório define o contrato `mount` e `unmount` entre o shell e cada microfrontend e registra o tamanho do bundle de exemplo como custo de cada microfrontend levar o próprio React.'
   - tipo: incidente
     titulo: Endereço indisponível depois de uma entrega
     origem: executado
@@ -619,7 +641,7 @@ abas:
     rotulo_saida: log
     saida: "$ printf 'sha256-%s\\n' \"$(openssl dgst -sha256 -binary mfes/endereco/dist/endereco.js | openssl base64 -A)\"\nsha256-+mvU7BTnqjJqM684m1pOBjoyutPPAy14guWBbJU/w+4=\n\n$ grep -A4 '\"id\": \"endereco\"' public/mfe-manifest.json\n      \"id\": \"endereco\",\n      \"name\": \"Alteração de Endereço\",\n      \"state\": \"active\",\n      \"url\": \"http://localhost:4566/mfe-endereco/endereco.js\",\n      \"integrity\": \"sha256-dK2p5Vm48WkUzvjw6kZZh5eoONWmTxFA8RKXB5FO6bM=\","
     pergunta: O que a diferença entre as duas saídas indica?
-    correcao: Promover bundle e manifesto juntos e, numa esteira de produção, tornar as duas etapas atômicas, como pede a Atualização 1.1 da ADR-011.
+    correcao: Promover bundle e manifesto juntos e, numa esteira de produção, tornar as duas etapas atômicas, regra que o repositório registrou na Atualização 1.1 da ADR-011.
     alternativas:
     - texto: O `openssl` e o Node calculam hashes diferentes.
       correta: false
@@ -648,25 +670,28 @@ abas:
       correta: false
       explicacao: O erro é de conexão recusada na porta 4599, e não de arquivo ausente.
   - tipo: incidente
-    titulo: Tamanho do bundle na ADR
+    titulo: Tamanho do bundle registrado na ADR-009
     origem: executado
     rotulo_saida: log
     saida: "docs/architecture/adrs/ADR-009-contrato-mount-unmount.md\n  O bundle de exemplo (`endereco.js`) tem ~800 kB não comprimido (~200 kB gzip)\n\n$ (cd mfes/endereco && npm run build && npm run deploy)\n  ...\ndist/endereco.js  296.41 kB │ gzip: 78.85 kB"
-    pergunta: Como tratar a diferença entre o tamanho citado na ADR e o do build?
+    pergunta: A ADR-009 registra cerca de 800 kB para o bundle do endereço, e o build mostra 296,41 kB. Como tratar a diferença?
     correcao: Atualizar o número na ADR-009 com a medição atual e registrar a data, porque o custo da autonomia continua sendo o React embutido.
     alternativas:
     - texto: Concluir que o build falhou.
       correta: false
       explicacao: O build terminou com `✓ built` e o deploy validou o bundle.
-    - texto: Tratar o build como fonte atual e atualizar a ADR, porque o número registrado não corresponde ao código.
+    - texto: Tratar o build como fonte atual e atualizar a ADR-009, porque o número registrado não corresponde ao código.
       correta: true
-      explicacao: A saída do Vite 8 mede o arquivo gerado agora, com a alteração do laboratório, e o build do commit sem alteração fica na mesma faixa, perto de 296 kB. A ADR registra uma medição anterior.
+      explicacao: A saída do Vite 8 mede o arquivo gerado agora, com a alteração do laboratório, e o build do commit sem alteração fica na mesma faixa, perto de 296 kB. A ADR-009 registra uma medição anterior.
     - texto: Concluir que o React deixou de ir no bundle.
       correta: false
       explicacao: O `vite.config.ts` continua sem marcar o React como externo.
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: Termos das perguntas
+    texto: O manifesto `public/mfe-manifest.json` lista os microfrontends e guarda no campo `integrity` o hash SHA-256 de cada bundle, o arquivo JavaScript publicado. O bucket é o espaço do S3, emulado pelo LocalStack, que guarda o bundle, e o CORS é a regra que autoriza uma página de outra origem a ler um arquivo pelo navegador. O lib mode é o modo biblioteca do Vite, que gera um único módulo ESM, o formato padrão de módulo do JavaScript.
   - tipo: quiz
     perguntas:
     - enunciado: Qual comando atualiza o `integrity` do manifesto?
@@ -691,14 +716,14 @@ abas:
       - texto: Porque o Gateway lê o bucket.
         correta: false
         explicacao: O Gateway não participa do download dos bundles.
-    - enunciado: O que a ADR-011 pede para pipelines de produção?
+    - enunciado: Que regra de promoção o repositório adota para as esteiras de produção que publicam microfrontends?
       alternativas:
       - texto: Que cada microfrontend tenha o próprio manifesto.
         correta: false
         explicacao: O manifesto é único e lido pelo shell.
       - texto: Que bundle e manifesto sejam promovidos juntos, de forma atômica.
         correta: true
-        explicacao: É o texto da Atualização 1.1.
+        explicacao: É a regra que o repositório registrou na Atualização 1.1 da ADR-011.
       - texto: Que o manifesto seja publicado antes do bundle.
         correta: false
         explicacao: Nessa ordem, o manifesto aponta para um bundle que ainda não existe com aquele hash.
@@ -732,4 +757,4 @@ abas:
     - O portal recusou o bundle publicado sem o manifesto correspondente.
     - O deploy da raiz alinhou o hash do bundle e o do manifesto, e o endereço voltou a funcionar.
     - O manifesto alterado foi identificado como parte do mesmo commit do código.
-    - O efeito do `catch` vazio em `ensureBucket` e a divergência de tamanho na ADR-009 foram identificados.
+    - O efeito do `catch` vazio em `ensureBucket` e a diferença entre o tamanho do bundle registrado na ADR-009 e o do build foram identificados.

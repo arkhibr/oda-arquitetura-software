@@ -177,7 +177,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba compara as duas formas de execução e apresenta os elementos da Amazon States Language usados no laboratório. A ADR-003 do repositório registra que os cenários com Lambda ficam ignorados no macOS ARM64 e que o cenário 15 exige suporte que o LocalStack Community nem sempre oferece.
+    texto: Esta aba compara duas formas de executar um processo na AWS, a máquina de estados do AWS Step Functions, fluxo de etapas guardado pelo serviço, e a tarefa em contêiner do Amazon ECS, programa que roda enquanto o contêiner estiver no ar. Os blocos de conceito explicam cada peça e os elementos da Amazon States Language, a linguagem JSON das máquinas de estados, antes da tabela comparativa.
+  - tipo: conceito
+    titulo: Máquina de estados e Step Functions
+    texto: Uma máquina de estados descreve um processo como etapas, os estados, e transições que dizem qual etapa vem depois. O AWS Step Functions executa máquinas de estados e guarda o estado de cada execução, que pode ser consultada etapa por etapa e termina em `SUCCEEDED` ou `FAILED`. No tipo Standard, uma execução pode durar até um ano.
+  - tipo: conceito
+    titulo: Tarefa em contêiner e ECS
+    texto: O Amazon ECS (Elastic Container Service) executa contêineres, processos isolados criados a partir de uma imagem, e uma tarefa é uma execução desses contêineres. No cenário 18, o worker de pedidos, programa que roda em laço buscando trabalho numa fila do Amazon SQS, roda como contêiner Docker na sua máquina, porque a API de controle do ECS não existe no LocalStack Community, a edição gratuita do emulador da AWS usado nos testes. O fluxo, os erros e as novas tentativas ficam no código do worker.
+  - tipo: conceito
+    titulo: Amazon States Language
+    texto: A Amazon States Language (ASL) define a máquina de estados em JSON. O estado `Task` executa um trabalho, como chamar uma função do AWS Lambda ou outro serviço, o `Pass` acrescenta dados à saída e o `Choice` escolhe o próximo estado por uma condição. O `Retry` repete um estado que falhou, e o `Catch` desvia a execução para outro estado quando o erro está na lista `ErrorEquals`.
+  - tipo: conceito
+    titulo: Por que os testes do cenário 15 ficam ignorados
+    texto: A máquina de estados original do cenário 15 tem um estado `Task` que chama uma Lambda, e o repositório ignora com `Skip` os testes que dependem de Lambda no macOS com processador ARM64, porque a invocação de Lambda no LocalStack 3.8 não é confiável nesse ambiente. A ADR-003 do repositório atribui o `Skip` do cenário 15 à falta de suporte ao Step Functions no LocalStack Community, e o laboratório desta ODA mostra uma máquina de estados sem Lambda respondendo no Community.
+  - tipo: conceito
+    titulo: Integração direta com serviços
+    texto: 'Um estado `Task` pode chamar outro serviço da AWS sem código, pelo recurso arn:aws:states:::dynamodb:putItem, por exemplo. Os parâmetros da chamada saem da entrada da execução com a notação `.$`, como em `"S.$": "$.id"`.'
+  - tipo: conceito
+    titulo: Catch
+    texto: Quando um estado falha, o `Catch` compara o nome do erro com a lista `ErrorEquals` e desvia a execução para outro estado, guardando o erro no caminho indicado por `ResultPath`. Sem `Catch`, a execução inteira termina em `FAILED`.
   - tipo: comparativo
     colunas:
     - Step Functions
@@ -203,17 +221,14 @@ abas:
       valores:
       - Cenário 15
       - Cenário 18, com o worker de `src/tasks/pedido_processor`
-  - tipo: conceito
-    titulo: Integração direta com serviços
-    texto: 'Um estado `Task` pode chamar outro serviço da AWS sem código, pelo recurso arn:aws:states:::dynamodb:putItem, por exemplo. Os parâmetros da chamada saem da entrada da execução com a notação `.$`, como em `"S.$": "$.id"`.'
-  - tipo: conceito
-    titulo: Catch
-    texto: Quando um estado falha, o `Catch` compara o nome do erro com a lista `ErrorEquals` e desvia a execução para outro estado, guardando o erro no caminho indicado por `ResultPath`. Sem `Catch`, a execução inteira termina em `FAILED`.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os arquivos das duas formas de executar um processo comparadas nesta ODA: a fixture do cenário 15, que define a máquina de estados, e, do cenário 18, a fixture que sobe o worker em contêiner e o programa Python desse worker. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam como cada forma executa o passo e trata o erro.'
+    texto: 'Esta aba mostra os arquivos das duas formas de executar um processo comparadas nesta ODA: a fixture do cenário 15, classe que define a máquina de estados antes dos testes, e, do cenário 18, a fixture que sobe o worker em contêiner e o programa Python desse worker, que consome uma fila. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam como cada forma executa o passo e trata o erro.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 15 implanta uma função do AWS Lambda e registra a máquina de estados, cujo estado `Task` chama essa função e cujo estado `Choice` decide o próximo passo pelo resultado. A fixture do cenário 18 constrói a imagem Docker do worker, programa que lê pedidos de uma fila em laço, e o inicia como contêiner, que alcança o LocalStack e o PostgreSQL pelo nome `host.docker.internal`, o endereço da máquina hospedeira visto de dentro do contêiner. O `try` do Python envolve o código cujos erros o programa trata.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -341,7 +356,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, duas execuções da máquina de estados com o mesmo pedido, sem e com o `Catch`. Depois, classifique onde cada tipo de processo fica melhor.
+    texto: Esta aba simula, sem executar nada, duas execuções da máquina de estados com o mesmo pedido, sem e com o `Catch`, o campo que desvia a execução para outro estado quando um erro acontece. Depois, classifique onde cada tipo de processo fica melhor.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A condição `attribute_not_exists(id)` faz o DynamoDB, banco NoSQL da AWS, gravar o pedido só se ainda não existir item com aquele `id`, e a recusa gera `ConditionalCheckFailedException`. Sem `Catch`, o erro encerra a execução em `FAILED`, e com `Catch` o erro é guardado no caminho `$.erro`, indicado pelo `ResultPath`, e a execução segue para o estado `Duplicado`. Uma tarefa no ECS é um contêiner que roda o processo enquanto estiver no ar.
   - tipo: fluxo
     titulo: O mesmo pedido duas vezes
     etapas:
@@ -383,6 +401,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é dar ao cenário 15 uma máquina de estados testável no LocalStack, sem a Lambda que deixa os testes originais ignorados, e transformar a recusa de um pedido repetido, que encerraria a execução em `FAILED`, num estado de negócio. O passo 1 roda o cenário 15, os passos 2 a 4 criam a fixture, o teste e a primeira definição, e o passo 5 acrescenta o `Catch`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A máquina de estados do laboratório usa integração direta com o DynamoDB, um estado `Task` que chama o serviço sem função intermediária, e a gravação tem a condição `attribute_not_exists(id)`, que recusa o pedido repetido. A fixture cria a tabela `pedidos-sfn` e os clientes do SDK da AWS para o Step Functions e o DynamoDB, e o `Catch` desvia a execução para um estado de negócio quando o erro previsto acontece.
   - tipo: faixa
     estilo: objetivo
     problema: A máquina de estados do cenário 15 chama uma Lambda, e por isso os dois testes do cenário ficam ignorados no macOS ARM64, sem nenhum teste da orquestração nesse ambiente. Uma gravação condicional recusada por pedido repetido encerra a execução do Step Functions em `FAILED` quando a máquina não tem `Catch`.
@@ -639,6 +660,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria com essas duas formas de execução, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O `Catch` de um estado compara o nome do erro com a lista `ErrorEquals` e desvia a execução para outro estado. O atributo `Skip` faz o teste não rodar, `AWS_TARGET=aws` desvia os testes para a AWS real, e no macOS com processador ARM64 o repositório ignora os testes que dependem de Lambda. A fila de mensagens mortas recebe as mensagens recebidas `maxReceiveCount` vezes sem serem apagadas, e o `WaitTimeSeconds` é o tempo que a leitura da fila espera por mensagens novas.
   - tipo: incidente
     titulo: Execução que falha num pedido repetido
     origem: executado
@@ -727,6 +751,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O recurso `arn:aws:states:::dynamodb:putItem` identifica a integração direta do Step Functions com a gravação de itens do DynamoDB. O papel do IAM é a identidade com permissões que um serviço da AWS assume para agir, e o `ResultPath` indica onde o `Catch` guarda o erro. O worker do cenário 18 é o programa que lê pedidos de uma fila em laço e os grava no PostgreSQL.
   - tipo: quiz
     perguntas:
     - enunciado: Quando uma máquina de estados é a melhor escolha?

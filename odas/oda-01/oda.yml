@@ -34,13 +34,8 @@ abas:
       referencia:
         rotulo: Microsoft Learn · Padrão Backends for Frontends
         url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
-    - termo: Shell
-      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
-    - termo: Microfrontend
-      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
-      referencia:
-        rotulo: martinfowler.com · Micro Frontends
-        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
     - termo: Node.js
       definicao: Ambiente que executa JavaScript fora do navegador. No repositório, ele roda o Vite, os testes, o script de deploy, o Gateway e os BFFs.
     - termo: curl
@@ -55,25 +50,57 @@ abas:
       referencia:
         rotulo: React · Início rápido
         url: https://react.dev/learn
-    - termo: TypeScript
-      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
       referencia:
-        rotulo: TypeScript · Documentação
-        url: https://www.typescriptlang.org/docs/
-    - termo: Vite
-      definicao: Ferramenta de build e servidor de desenvolvimento do shell e dos microfrontends, que responde em `npm run dev` na porta 5173 e também executa os testes por meio do Vitest.
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: detached HEAD
+      definicao: Estado do Git em que a cópia de trabalho aponta para um commit específico, fora de qualquer branch. É o estado que o `git checkout` de um commit produz, e as alterações feitas nele não pertencem a nenhum branch até que um seja criado.
       referencia:
-        rotulo: Vite · Build em modo biblioteca
-        url: https://vite.dev/guide/build#library-mode
-    - termo: Vue
-      definicao: Framework JavaScript para construção de interfaces, alternativa ao React avaliada e descartada na ADR-001 do repositório.
-    - termo: Driver arquitetural
-      definicao: Requisito, restrição ou objetivo de qualidade que orienta uma decisão de arquitetura, como a experiência da equipe ou a exigência de isolamento entre módulos. As ADRs do repositório listam os drivers antes de comparar as opções.
+        rotulo: Git · git checkout
+        url: https://git-scm.com/docs/git-checkout
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
     - termo: Status de uma ADR
       definicao: Situação da decisão registrada, como Proposed para proposta, Accepted para aceita e Superseded para substituída. No commit de referência, todas as ADRs do repositório estão como Proposed.
       referencia:
         rotulo: adr.github.io · Architectural Decision Records
         url: https://adr.github.io/
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Driver arquitetural
+      definicao: Requisito, restrição ou objetivo de qualidade que orienta uma decisão de arquitetura, como a experiência da equipe ou a exigência de isolamento entre módulos. As ADRs do repositório listam os drivers antes de comparar as opções.
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: Vue
+      definicao: Framework JavaScript para construção de interfaces, alternativa ao React avaliada e descartada na ADR-001 do repositório.
+    - termo: Proxy reverso
+      definicao: Componente que recebe a requisição do cliente e a repassa a outro servidor, devolvendo a resposta dele. O `proxy.ts` do Gateway faz esse papel, escolhendo o BFF pelo prefixo `/bff/<nome>` do caminho.
+    - termo: Identificador de correlação (`X-Correlation-Id`)
+      definicao: Valor único associado a uma requisição e repassado a todos os serviços que ela atravessa, para que os registros de cada serviço possam ser ligados entre si. O Gateway reaproveita o valor recebido ou cria um novo e o devolve na resposta.
     - termo: Hono
       definicao: Framework web leve para JavaScript e TypeScript, que define rotas e middlewares de um servidor HTTP. O Gateway e os BFFs do repositório são aplicações Hono.
       referencia:
@@ -84,22 +111,13 @@ abas:
       referencia:
         rotulo: Hono · Middleware
         url: https://hono.dev/docs/guides/middleware
-    - termo: Identificador de correlação (`X-Correlation-Id`)
-      definicao: Valor único associado a uma requisição e repassado a todos os serviços que ela atravessa, para que os registros de cada serviço possam ser ligados entre si. O Gateway reaproveita o valor recebido ou cria um novo e o devolve na resposta.
-    - termo: JWT (JSON Web Token)
-      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+    - termo: Roteador
+      definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
       referencia:
-        rotulo: jwt.io · Introdução ao JSON Web Token
-        url: https://jwt.io/introduction
-    - termo: HTTP 401 (Unauthorized)
-      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
-      referencia:
-        rotulo: MDN · 401 Unauthorized
-        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
-    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
-      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
-    - termo: Manifesto de microfrontends
-      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
     - termo: 'Cabeçalho `Authorization: Bearer`'
       definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
       referencia:
@@ -110,27 +128,25 @@ abas:
       referencia:
         rotulo: jwt.io · Introdução ao JSON Web Token
         url: https://jwt.io/introduction
+    - termo: Assinatura do JWT
+      definicao: Parte final do token, calculada com uma chave a partir do cabeçalho e do conteúdo, que prova que o token não foi alterado e foi emitido por quem tem a chave. O shell só lê o conteúdo, e quem confere a assinatura é o Gateway.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
     - termo: Limite de taxa (rate limiting)
       definicao: Controle que restringe quantas requisições um cliente pode fazer numa janela de tempo e responde HTTP 429 quando o limite é ultrapassado. O Gateway aplica um limite global e outro para os métodos que alteram dados.
       referencia:
         rotulo: MDN · 429 Too Many Requests
         url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/429
-    - termo: Proxy reverso
-      definicao: Componente que recebe a requisição do cliente e a repassa a outro servidor, devolvendo a resposta dele. O `proxy.ts` do Gateway faz esse papel, escolhendo o BFF pelo prefixo `/bff/<nome>` do caminho.
-    - termo: Redux e Redux Toolkit
-      definicao: O Redux guarda o estado global de uma aplicação num único objeto, que só muda por meio de ações tratadas por reducers. O Redux Toolkit é o pacote oficial que simplifica esse uso, e o shell o usa em `src/shared/lib/store/`.
-      referencia:
-        rotulo: Redux Toolkit · Primeiros passos
-        url: https://redux-toolkit.js.org/introduction/getting-started
     - termo: '`eslint-plugin-boundaries`'
       definicao: Plugin do ESLint que associa cada pasta a um elemento, como uma camada, e acusa as importações entre elementos que a configuração não permite. O erro dele aparece com o nome de regra `boundaries/dependencies`.
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
     - termo: Amazon S3 (Simple Storage Service)
       definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica dentro de um bucket e é acessado por uma URL. No portal, o S3 guarda os bundles publicados dos microfrontends.
       referencia:
         rotulo: AWS · O que é o Amazon S3?
         url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
-    - termo: Bucket
-      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
     - termo: LocalStack
       definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
       referencia:
@@ -141,13 +157,35 @@ abas:
       referencia:
         rotulo: MDN · Políticas de Segurança de Conteúdo (CSP)
         url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
+    - termo: Docker e Docker Compose
+      definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
+      referencia:
+        rotulo: Docker Docs · Docker Compose
+        url: https://docs.docker.com/compose/
     - termo: Nginx
       definicao: Servidor web que, em produção, entrega os arquivos compilados do shell e aplica os cabeçalhos de segurança. O `Dockerfile` do repositório gera uma imagem com o Nginx a partir do build do Vite.
       referencia:
         rotulo: nginx · Documentação
         url: https://nginx.org/en/docs/
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: Integração em tempo de execução
+      definicao: Forma de compor o portal em que o shell baixa o bundle de cada microfrontend quando a página roda, sem recompilar o shell. A ADR-008 escolheu essa forma, e a integração na compilação exigiria um novo build do shell a cada mudança de microfrontend.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
     - termo: Comparação em tempo constante
       definicao: Comparação de segredos cujo tempo de execução não depende de quantos caracteres coincidem, o que impede descobrir a chave medindo o tempo de resposta. O BFF de endereço compara a chave interna com `timingSafeEqual`, do módulo `node:crypto`.
+    - termo: Vite e modo biblioteca (lib mode)
+      definicao: O Vite é a ferramenta de build e o servidor de desenvolvimento do shell e dos microfrontends, o mesmo que responde em `npm run dev`. O modo biblioteca gera um único arquivo a partir de um ponto de entrada, e é assim que cada microfrontend vira um bundle ESM.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -207,7 +245,52 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica os dois artefatos que a documentação usa. O modelo C4 descreve um sistema em quatro níveis de zoom, do contexto até o código, e as ADRs registram por que cada escolha foi feita, de modo que o diagrama mostra o que existe e a ADR mostra a razão.
+    texto: 'Esta aba explica os dois artefatos que a documentação do repositório usa: o modelo C4, forma de desenhar a arquitetura em quatro níveis de detalhe, do contexto até o código, e as ADRs, documentos curtos que registram cada decisão de arquitetura com o contexto, as opções e as consequências. Os conceitos abaixo explicam como ler cada um, e o diagrama de containers mostra as peças que o laboratório chama pelo terminal.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Driver arquitetural
+      definicao: Requisito, restrição ou objetivo de qualidade que orienta uma decisão de arquitetura, como a experiência da equipe ou a exigência de isolamento entre módulos. As ADRs do repositório listam os drivers antes de comparar as opções.
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Vite
+      definicao: Ferramenta de build e servidor de desenvolvimento do shell e dos microfrontends, que responde em `npm run dev` na porta 5173 e também executa os testes por meio do Vitest.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: Vue
+      definicao: Framework JavaScript para construção de interfaces, alternativa ao React avaliada e descartada na ADR-001 do repositório.
+  - tipo: conceito
+    titulo: Modelo C4
+    texto: 'O modelo C4 descreve a arquitetura de um sistema em quatro níveis de detalhe: o contexto mostra o sistema, os usuários e os sistemas externos, os containers mostram as aplicações e os armazenamentos que se comunicam pela rede, os componentes mostram as partes de cada container, e o código mostra classes e arquivos. Em `docs/architecture/README.md`, o nível de containers mostra o shell, o Gateway, os BFFs e o armazenamento dos bundles. É nesse nível que se acompanha o caminho de uma requisição entre as peças do portal.'
+  - tipo: conceito
+    titulo: ADR, o registro de decisão de arquitetura
+    texto: Uma ADR, sigla de Architecture Decision Record, é um documento curto que registra uma decisão de arquitetura com o contexto, as opções avaliadas, a decisão e as consequências. O repositório guarda 17 ADRs em `docs/architecture/adrs/`, e o índice de `docs/architecture/README.md` mostra o status de cada uma, que no commit de referência é `Proposed` para todas. Ler a ADR junto com o diagrama permite conferir se o código ainda segue a razão registrada para cada escolha.
+  - tipo: conceito
+    titulo: Gateway de API e BFF
+    texto: O Gateway de API é o ponto único de entrada do back-end, que valida o JWT, o token assinado enviado pelo navegador, e encaminha a chamada, e um BFF, sigla de Backend for Frontend, é um serviço que adapta os dados do back-end ao formato de uma interface. No repositório, o Gateway em `gateway/` remove o JWT e envia ao BFF a chave interna e a identidade do usuário, e o BFF recusa com 401 qualquer chamada que não traga esses cabeçalhos. É esse caminho que o laboratório confere contra o diagrama de containers.
+  - tipo: conceito
+    titulo: Como ler uma ADR
+    texto: 'Toda ADR do repositório tem contexto, opções avaliadas, decisão e consequências, e a ordem das seções varia: a ADR-001, mostrada abaixo, apresenta a decisão antes das opções, e a ADR-015 começa por contexto, drivers e opções. O índice em `docs/architecture/README.md` mostra o status de cada uma, e no commit de referência todas estão como Proposed.'
+    analogia: O diagrama funciona como a planta de uma casa, e a ADR funciona como o memorial que explica por que a escada ficou naquela parede.
   - tipo: comparativo
     colunas:
     - O que mostra
@@ -238,10 +321,6 @@ abas:
     tipo_diagrama: C4 · Containers
     titulo: Diagrama de containers do portal (docs/architecture/README.md)
     mermaid: "graph LR\n    user([\"\U0001F464 Usuário\"])\n\n    subgraph infra[\"Infraestrutura de produção\"]\n        nginx[\"Nginx\\nservidor HTTP estático\"]\n        shell[\"Shell nuclear\\nReact 19 + TypeScript\\nexecutado no navegador\"]\n        mfe[\"MFE autônomo\\nbundle ESM (ex: endereço)\"]\n    end\n\n    subgraph storage[\"Object storage (S3 / LocalStack)\"]\n        manifest[\"mfe-manifest.json\"]\n        bundle[\"bundles dos MFEs\\n(um bucket por MFE)\"]\n    end\n\n    gateway[\"Gateway\\nJWT · auditoria · rate limit\"]\n    bff[\"BFFs internos\\ncontrato + autorização\"]\n\n    user -->|\"HTTPS\"| nginx\n    nginx -->|\"HTML + JS + CSS\"| shell\n    shell -->|\"fetch manifesto\"| manifest\n    shell -->|\"fetch + SHA-256 + import Blob\"| bundle\n    bundle -->|\"monta na rota\"| mfe\n    shell -->|\"HTTPS + Bearer JWT\"| gateway\n    mfe -->|\"HTTPS + Bearer JWT\"| gateway\n    gateway -->|\"identidade interna\"| bff"
-  - tipo: conceito
-    titulo: Como ler uma ADR
-    texto: 'Toda ADR do repositório tem contexto, opções avaliadas, decisão e consequências, e a ordem das seções varia: a ADR-001, mostrada abaixo, apresenta a decisão antes das opções, e a ADR-015 começa por contexto, drivers e opções. O índice em `docs/architecture/README.md` mostra o status de cada uma, e no commit de referência todas estão como Proposed.'
-    analogia: O diagrama funciona como a planta de uma casa, e a ADR funciona como o memorial que explica por que a escada ficou naquela parede.
   - tipo: adr
     id: ADR-001
     titulo: Tática de plataforma tecnológica
@@ -255,6 +334,60 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra, no código, o caminho de uma requisição entre os containers que os diagramas C4 descrevem: o `app.ts` e o `proxy.ts` do Gateway, a autenticação interna do BFF de endereço e a função do shell que carrega o manifesto de microfrontends. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que ligam o diagrama ao código.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Container (no modelo C4)
+      definicao: Aplicação ou armazenamento de dados que roda separadamente e se comunica pela rede, como o shell, o Gateway, cada BFF e o S3. O termo do C4 não se refere a contêineres Docker, embora um container possa rodar dentro de um.
+      referencia:
+        rotulo: C4 model · Página oficial
+        url: https://c4model.com/
+    - termo: Modelo C4
+      definicao: Forma de diagramar arquitetura de software em quatro níveis de detalhe, contexto, containers, componentes e código, em que cada nível amplia uma parte do anterior. A documentação do repositório traz os níveis de contexto e de containers em `docs/architecture/README.md`.
+      referencia:
+        rotulo: C4 model · Página oficial
+        url: https://c4model.com/
+    - termo: Proxy reverso
+      definicao: Componente que recebe a requisição do cliente e a repassa a outro servidor, devolvendo a resposta dele. O `proxy.ts` do Gateway faz esse papel, escolhendo o BFF pelo prefixo `/bff/<nome>` do caminho.
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Identificador de correlação (`X-Correlation-Id`)
+      definicao: Valor único associado a uma requisição e repassado a todos os serviços que ela atravessa, para que os registros de cada serviço possam ser ligados entre si. O Gateway reaproveita o valor recebido ou cria um novo e o devolve na resposta.
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -360,6 +493,93 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, o caminho de uma requisição autenticada: do navegador ao Gateway, que valida o token, e do Gateway ao BFF de endereço, que só aceita chamadas com a chave interna. Percorra as etapas e depois envie pelo console três requisições, cada uma com a resposta que o Gateway e o BFF devolvem.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
+    - termo: Identificador de correlação (`X-Correlation-Id`)
+      definicao: Valor único associado a uma requisição e repassado a todos os serviços que ela atravessa, para que os registros de cada serviço possam ser ligados entre si. O Gateway reaproveita o valor recebido ou cria um novo e o devolve na resposta.
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
+      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Assinatura do JWT
+      definicao: Parte final do token, calculada com uma chave a partir do cabeçalho e do conteúdo, que prova que o token não foi alterado e foi emitido por quem tem a chave. O shell só lê o conteúdo, e quem confere a assinatura é o Gateway.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Limite de taxa (rate limiting)
+      definicao: Controle que restringe quantas requisições um cliente pode fazer numa janela de tempo e responde HTTP 429 quando o limite é ultrapassado. O Gateway aplica um limite global e outro para os métodos que alteram dados.
+      referencia:
+        rotulo: MDN · 429 Too Many Requests
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/429
+    - termo: Proxy reverso
+      definicao: Componente que recebe a requisição do cliente e a repassa a outro servidor, devolvendo a resposta dele. O `proxy.ts` do Gateway faz esse papel, escolhendo o BFF pelo prefixo `/bff/<nome>` do caminho.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Vue
+      definicao: Framework JavaScript para construção de interfaces, alternativa ao React avaliada e descartada na ADR-001 do repositório.
+    - termo: '`eslint-plugin-boundaries`'
+      definicao: Plugin do ESLint que associa cada pasta a um elemento, como uma camada, e acusa as importações entre elementos que a configuração não permite. O erro dele aparece com o nome de regra `boundaries/dependencies`.
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica dentro de um bucket e é acessado por uma URL. No portal, o S3 guarda os bundles publicados dos microfrontends.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: CSP (Content Security Policy)
+      definicao: Cabeçalho HTTP com que o servidor informa ao navegador de quais origens a página pode carregar scripts, estilos e outros recursos e para onde ela pode abrir conexões. O navegador bloqueia o que a política não autoriza, e a ADR-012 do repositório adota uma política estrita.
+      referencia:
+        rotulo: MDN · Políticas de Segurança de Conteúdo (CSP)
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Guides/CSP
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -492,6 +712,61 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é confirmar, com chamadas reais, que o diagrama de containers descreve o caminho de uma requisição, porque a seta única entre o Gateway e o BFF esconde a chave interna e a identidade do usuário que o código exige. Os passos 1 a 3 percorrem a documentação e o índice das ADRs, e os passos 4 a 7 sobem o BFF de endereço e o Gateway e conferem no terminal as respostas de cada um. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Container (no modelo C4)
+      definicao: Aplicação ou armazenamento de dados que roda separadamente e se comunica pela rede, como o shell, o Gateway, cada BFF e o S3. O termo do C4 não se refere a contêineres Docker, embora um container possa rodar dentro de um.
+      referencia:
+        rotulo: C4 model · Página oficial
+        url: https://c4model.com/
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Status de uma ADR
+      definicao: Situação da decisão registrada, como Proposed para proposta, Accepted para aceita e Superseded para substituída. No commit de referência, todas as ADRs do repositório estão como Proposed.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Docker e Docker Compose
+      definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
+      referencia:
+        rotulo: Docker Docs · Docker Compose
+        url: https://docs.docker.com/compose/
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Identificador de correlação (`X-Correlation-Id`)
+      definicao: Valor único associado a uma requisição e repassado a todos os serviços que ela atravessa, para que os registros de cada serviço possam ser ligados entre si. O Gateway reaproveita o valor recebido ou cria um novo e o devolve na resposta.
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
   - tipo: faixa
     estilo: objetivo
     problema: 'A documentação do `frontend-react` diverge do código em dois pontos: o diagrama coloca o manifesto no armazenamento de objetos, e o shell o busca em `public/`, e o README da raiz cita 15 ADRs para uma pasta que tem 17. O diagrama de containers também mostra numa única seta a identidade interna entre o Gateway e o BFF.'
@@ -624,6 +899,97 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um leitor da documentação encontraria. As duas primeiras partem de respostas reais do Gateway e do BFF, e as duas últimas mostram divergências entre a documentação e o código: escolha a causa de cada uma para ver a explicação e a correção.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
+    - termo: Container (no modelo C4)
+      definicao: Aplicação ou armazenamento de dados que roda separadamente e se comunica pela rede, como o shell, o Gateway, cada BFF e o S3. O termo do C4 não se refere a contêineres Docker, embora um container possa rodar dentro de um.
+      referencia:
+        rotulo: C4 model · Página oficial
+        url: https://c4model.com/
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: Identificador de correlação (`X-Correlation-Id`)
+      definicao: Valor único associado a uma requisição e repassado a todos os serviços que ela atravessa, para que os registros de cada serviço possam ser ligados entre si. O Gateway reaproveita o valor recebido ou cria um novo e o devolve na resposta.
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica dentro de um bucket e é acessado por uma URL. No portal, o S3 guarda os bundles publicados dos microfrontends.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Vite
+      definicao: Ferramenta de build e servidor de desenvolvimento do shell e dos microfrontends, que responde em `npm run dev` na porta 5173 e também executa os testes por meio do Vitest.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: Nginx
+      definicao: Servidor web que, em produção, entrega os arquivos compilados do shell e aplica os cabeçalhos de segurança. O `Dockerfile` do repositório gera uma imagem com o Nginx a partir do build do Vite.
+      referencia:
+        rotulo: nginx · Documentação
+        url: https://nginx.org/en/docs/
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: '`fetch`'
+      definicao: 'Função do navegador que faz requisições HTTP e devolve uma promessa. A falha `TypeError: Failed to fetch` indica que não houve resposta utilizável, por servidor parado ou por bloqueio de CORS ou de CSP.'
+      referencia:
+        rotulo: MDN · Fetch API
+        url: https://developer.mozilla.org/pt-BR/docs/Web/API/Fetch_API
+    - termo: Integração em tempo de execução
+      definicao: Forma de compor o portal em que o shell baixa o bundle de cada microfrontend quando a página roda, sem recompilar o shell. A ADR-008 escolheu essa forma, e a integração na compilação exigiria um novo build do shell a cada mudança de microfrontend.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Status de uma ADR
+      definicao: Situação da decisão registrada, como Proposed para proposta, Accepted para aceita e Superseded para substituída. No commit de referência, todas as ADRs do repositório estão como Proposed.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
   - tipo: incidente
     titulo: Quem respondeu 401?
     origem: executado
@@ -706,6 +1072,87 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Modelo C4
+      definicao: Forma de diagramar arquitetura de software em quatro níveis de detalhe, contexto, containers, componentes e código, em que cada nível amplia uma parte do anterior. A documentação do repositório traz os níveis de contexto e de containers em `docs/architecture/README.md`.
+      referencia:
+        rotulo: C4 model · Página oficial
+        url: https://c4model.com/
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
+      definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
+    - termo: Comparação em tempo constante
+      definicao: Comparação de segredos cujo tempo de execução não depende de quantos caracteres coincidem, o que impede descobrir a chave medindo o tempo de resposta. O BFF de endereço compara a chave interna com `timingSafeEqual`, do módulo `node:crypto`.
+    - termo: 'Cabeçalho `Authorization: Bearer`'
+      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
+      referencia:
+        rotulo: MDN · Cabeçalho Authorization
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
+    - termo: JWT (JSON Web Token)
+      definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
+      referencia:
+        rotulo: jwt.io · Introdução ao JSON Web Token
+        url: https://jwt.io/introduction
+    - termo: Identificador de correlação (`X-Correlation-Id`)
+      definicao: Valor único associado a uma requisição e repassado a todos os serviços que ela atravessa, para que os registros de cada serviço possam ser ligados entre si. O Gateway reaproveita o valor recebido ou cria um novo e o devolve na resposta.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica dentro de um bucket e é acessado por uma URL. No portal, o S3 guarda os bundles publicados dos microfrontends.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Vite e modo biblioteca (lib mode)
+      definicao: O Vite é a ferramenta de build e o servidor de desenvolvimento do shell e dos microfrontends, o mesmo que responde em `npm run dev`. O modo biblioteca gera um único arquivo a partir de um ponto de entrada, e é assim que cada microfrontend vira um bundle ESM.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: TypeScript
+      definicao: Linguagem que acrescenta tipos estáticos ao JavaScript e é convertida em JavaScript antes de rodar. O compilador `tsc` confere os tipos sem gerar arquivos quando é chamado com `--noEmit`.
+      referencia:
+        rotulo: TypeScript · Documentação
+        url: https://www.typescriptlang.org/docs/
+    - termo: Status de uma ADR
+      definicao: Situação da decisão registrada, como Proposed para proposta, Accepted para aceita e Superseded para substituída. No commit de referência, todas as ADRs do repositório estão como Proposed.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: HTTP 401 (Unauthorized)
+      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
+      referencia:
+        rotulo: MDN · 401 Unauthorized
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
   - tipo: quiz
     perguntas:
     - enunciado: Qual nível do C4 mostra o shell, o Gateway, os BFFs e o armazenamento como peças que se comunicam pela rede?

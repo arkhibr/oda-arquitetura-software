@@ -125,7 +125,9 @@ abas:
       relativo não contorna a regra.
   - tipo: conceito
     titulo: conceito
-    texto: Explica um conceito com titulo e texto e admite analogia.
+    texto: Explica um conceito com titulo e texto e admite analogia. Toda aba explica os conceitos que usa na primeira vez
+      que eles aparecem nela, num bloco `conceito` anterior ou num aposto na própria frase, porque o aluno pode abrir qualquer
+      aba direto, e a aba Conceito abre ensinando os conceitos centrais antes de comparativos, diagramas e ADRs.
   - tipo: editor
     rotulo: terminal
     linhas:
@@ -140,7 +142,9 @@ abas:
       pertencem a um único componente, e a página de login os mantém com `react-hook-form` e `useState`, sem passar pelo store.
   - tipo: conceito
     titulo: adr
-    texto: Apresenta uma decisão arquitetural recolhível com contexto, decisão, alternativas e consequências.
+    texto: 'Apresenta uma decisão arquitetural recolhível com contexto, decisão, alternativas e consequências. A ADR é apoio
+      e nunca pré-requisito: o texto da ODA só cita uma ADR quando a própria frase diz o que ela decidiu, e os conceitos que
+      a decisão usa são explicados antes, em blocos `conceito` da mesma aba.'
   - tipo: editor
     rotulo: terminal
     linhas:

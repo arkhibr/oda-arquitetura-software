@@ -157,7 +157,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica a regra de dependência da Clean Architecture: o código de dentro, o domínio e a aplicação, não conhece o de fora, a infraestrutura e a API. No repositório, a ADR-0001 faz esse padrão conviver com Vertical Slice em contextos diferentes, e a ADR-0011 detalha as camadas do Catálogo.'
+    texto: Esta aba explica a regra de dependência da Clean Architecture, o estilo em camadas em que o código de dentro, o domínio e a aplicação, não conhece o de fora, a infraestrutura e a API. No `net-minimal-api`, o Catálogo segue esse estilo em quatro subprojetos, e os Pedidos seguem outro, o Vertical Slice, organizado por caso de uso. Os blocos abaixo explicam primeiro cada conceito, e as ADRs que registram essas escolhas aparecem no fim como apoio.
+  - tipo: conceito
+    titulo: Camadas do Catálogo
+    texto: O Catálogo tem quatro subprojetos .NET, e cada um é compilado num assembly, a DLL própria do projeto. O `Catalogo.Domain` guarda entidades como `Produto` e value objects, objetos definidos só pelo valor, como `PrecoProduto`, o `Catalogo.Application` guarda serviços, validadores e interfaces de repositório, o `Catalogo.Infrastructure` implementa essas interfaces com o EF Core, a biblioteca de mapeamento objeto-relacional da Microsoft, na escrita e com o Dapper, biblioteca de SQL escrito à mão, na leitura, e o `Catalogo.API` declara os endpoints.
+  - tipo: conceito
+    titulo: Regra de dependência
+    texto: 'Na Clean Architecture, uma camada só referencia camadas mais internas: a API conhece a Application, a Application conhece o Domain, e o Domain não conhece nenhuma outra. Uma referência na direção contrária deixa a regra de negócio depender de detalhe técnico, e o compilador não acusa isso sozinho, porque uma referência de projeto é só uma linha `ProjectReference` no `.csproj`.'
+  - tipo: conceito
+    titulo: Injeção de dependência (DI)
+    texto: Mecanismo do ASP.NET Core em que um contêiner cria os objetos de que cada classe precisa, a partir de registros como `services.AddScoped<IProdutoCommandRepository, EfProdutoCommandRepository>()`. Quem faz esse registro precisa conhecer a classe concreta, e por isso o lugar do registro decide qual projeto referencia a Infrastructure.
+  - tipo: conceito
+    titulo: Vertical Slice
+    texto: Organização por caso de uso, em que o endpoint, a validação e o handler de uma operação ficam juntos numa pasta, chamada fatia. Os Pedidos usam esse estilo, e a convivência dos dois estilos no mesmo repositório permite comparar a estrutura de cada um no mesmo código.
+  - tipo: conceito
+    titulo: Inversão de dependência
+    texto: A Application declara `IProdutoCommandRepository` e a Infrastructure o implementa, e por isso a seta de referência vai da Infrastructure para a Application. O serviço de produto chama a interface e não sabe se do outro lado há EF Core, Dapper ou um dublê de teste, objeto que substitui a dependência real durante o teste.
+  - tipo: conceito
+    titulo: Raiz de composição
+    texto: Algum ponto do sistema precisa conhecer as implementações para registrá-las no DI, e esse ponto é o host, o projeto executável `ProdutosAPI.csproj` com o `Program.cs`, que já referencia tudo. Quando o registro fica na camada de API, ela passa a depender da Infrastructure, embora nenhum endpoint use as classes dela.
   - tipo: comparativo
     colunas:
     - Responsabilidade
@@ -183,12 +201,6 @@ abas:
       valores:
       - '`Program.cs`, `AppDbContext` e migrations'
       - Todos os subprojetos
-  - tipo: conceito
-    titulo: Inversão de dependência
-    texto: A Application declara `IProdutoCommandRepository` e a Infrastructure o implementa, e por isso a seta de referência vai da Infrastructure para a Application. O serviço de produto chama a interface e não sabe se do outro lado há EF Core, Dapper ou um dublê de teste.
-  - tipo: conceito
-    titulo: Raiz de composição
-    texto: Algum ponto do sistema precisa conhecer as implementações para registrá-las no DI, e esse ponto é o host, que já referencia tudo. Quando o registro fica na camada de API, ela passa a depender da Infrastructure, embora nenhum endpoint use as classes dela.
   - tipo: adr
     id: ADR-0001
     titulo: Coexistência de Clean Architecture e Vertical Slice Architecture
@@ -210,6 +222,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, as referências do projeto de API, o registro no contêiner de injeção de dependência, a interface de dados da Application e o contexto do EF Core no projeto principal. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nos trechos abaixo, `ProjectReference` é a linha do `.csproj` que faz um projeto depender de outro, e um método de extensão como `AddCatalogo` é um método estático que acrescenta registros à coleção de serviços da injeção de dependência, o mecanismo que entrega a cada classe os objetos de que ela precisa. O Dapper é a biblioteca de leitura com SQL escrito à mão, o EF Core é a biblioteca de acesso a banco da Microsoft, e o `DbContext` é a classe do EF Core que representa a sessão com o banco. `IQueryable` é a interface do .NET para consultas que o provedor, aqui o EF Core, traduz para SQL só quando o resultado é pedido, LINQ é a sintaxe de consulta do C# usada para escrevê-las, e `Produto.Criar` é um método de fábrica, que cria a entidade e devolve um `Result` com sucesso ou falha.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -357,6 +372,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, a criação de um produto atravessando as camadas, do endpoint ao banco. Acompanhe as etapas e depois classifique em que camada cada peça deve ficar.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas etapas abaixo, o FluentValidation é a biblioteca de validação de entrada usada pelo endpoint, e `Result<Produto>` é o retorno que informa sucesso, com o produto, ou falha, com a mensagem. O SQLite é o banco em arquivo único que a API usa, e as migrations são os arquivos do EF Core que descrevem cada mudança de esquema do banco. No classificador, invariante é a regra que a entidade precisa manter em qualquer operação, value object é o objeto do domínio definido pelo próprio valor, e composição é o registro das implementações no contêiner de injeção de dependência, feito pelo host, o projeto executável da API.
   - tipo: fluxo
     titulo: POST /api/v1/catalogo/produtos pelas camadas
     etapas:
@@ -408,6 +426,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é impedir que uma camada do Catálogo passe a depender de outra que não deveria, porque hoje nada no build acusa uma referência na direção errada, e a camada de API já tem uma. Os passos 1 a 4 leem o grafo e escrevem testes que leem as referências dos assemblies compilados, e os passos 5 a 7 movem o registro dos repositórios para uma extensão da Infrastructure chamada pelo host e conferem o resultado. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O grafo de referências é o conjunto das linhas `ProjectReference` de cada subprojeto, lido como setas de um projeto para outro. Os testes de arquitetura deste laboratório leem, com `GetReferencedAssemblies`, as referências gravadas pelo compilador em cada assembly, a DLL gerada por um projeto, e o compilador só grava as referências cujos tipos o código usa. A raiz de composição é o `Program.cs` do host, o projeto executável que já referencia todos os subprojetos, onde as implementações são registradas na injeção de dependência. O `MSB3030` é um erro do MSBuild, o motor de compilação do .NET, que indica um arquivo ausente no momento da cópia para a saída, e apagar as pastas `bin/` e `obj/` força uma compilação do zero.
   - tipo: faixa
     estilo: objetivo
     problema: No commit `702145a`, o `Catalogo.API.csproj` referencia a `Catalogo.Infrastructure`, e o único uso dessa referência é o `CatalogoServiceExtensions.cs`, que registra os repositórios de EF Core e de Dapper no contêiner de injeção de dependência. Nenhum teste verifica a direção das referências entre os subprojetos do Catálogo.
@@ -644,6 +665,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta situações que um time encontraria com essas camadas, a partir de saídas do laboratório e de trechos do código de dados do Catálogo. Escolha a causa de cada uma para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas situações abaixo, `ValidateOnBuild` é a opção da injeção de dependência que confere, ao construir a aplicação, se todo serviço registrado pode ser criado, e o ASP.NET Core a liga por padrão no ambiente `Development`, e os testes rodam no ambiente `Testing`, sem essa opção. O `DbContext` é a classe do EF Core que representa a sessão com o banco, as migrations descrevem cada mudança do esquema, e `IQueryable` é a interface de consulta que o provedor, aqui o EF Core, traduz para SQL só na execução. O middleware de exceções é o componente do repositório que transforma uma exceção não tratada numa resposta 500, e o MSBuild é o motor de compilação que lê os arquivos `.csproj`.
   - tipo: incidente
     titulo: Vinte e seis testes com 500 depois da mudança
     origem: executado
@@ -753,6 +777,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas perguntas abaixo, Domain é a camada das entidades e regras de negócio, Application é a camada dos casos de uso e das interfaces de repositório, e Infrastructure é a camada que implementa o acesso a dados. A inversão de dependência é o arranjo em que a camada de dentro declara a interface e a de fora a implementa, o host é o projeto executável que compõe a aplicação, e o Dapper é a biblioteca de leitura com SQL escrito à mão. Um assembly é a DLL gerada por um projeto, com as referências que o compilador gravou nela.
   - tipo: quiz
     perguntas:
     - enunciado: Para onde apontam as dependências na Clean Architecture?
@@ -799,7 +826,7 @@ abas:
       - texto: As referências gravadas no assembly compilado de cada camada.
         correta: true
         explicacao: Só entram as referências cujos tipos o código usa.
-    - enunciado: Qual consequência negativa da ADR-0011 os testes ajudam a conter?
+    - enunciado: A ADR-0011 adotou no Catálogo a arquitetura híbrida, com Clean Architecture nas camadas e um arquivo por grupo de endpoints na API. Qual consequência negativa dessa decisão os testes ajudam a conter?
       alternativas:
       - texto: O risco de misturar responsabilidades se a disciplina de camadas não for mantida.
         correta: true

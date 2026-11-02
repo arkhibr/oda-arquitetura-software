@@ -140,7 +140,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica o custo da autonomia dos microfrontends: cada um guarda uma cópia local dos contratos, e nenhuma compilação compara a cópia com o original. A alternativa, proposta pela ADR-017, é o BFF publicar o tipo das próprias rotas e o microfrontend importá-lo só como tipo, sem levar código do BFF ao bundle.'
+    texto: Esta aba explica por que uma mudança de formato num BFF pode chegar ao portal sem nenhum aviso e como o compilador TypeScript pode passar a detectá-la. Os blocos abaixo ensinam contrato e quebra de contrato, BFF e microfrontend, o compilador `tsc`, o Hono RPC e o tipo que carrega as rotas, o `import type` e o alias de caminho, e depois o comparativo põe lado a lado a cópia manual do tipo e o tipo derivado do BFF. A ADR do fim registra a proposta do repositório, que publica o tipo das rotas no BFF sem levar código dele ao bundle do microfrontend.
+  - tipo: conceito
+    titulo: Contrato e quebra de contrato
+    texto: Contrato é o formato combinado de uma resposta, com os campos, os nomes e os tipos de cada um, que quem consome pode esperar de quem produz. Há quebra de contrato quando quem produz muda esse formato, por exemplo renomeando um campo, sem que quem consome seja ajustado, e a quebra é silenciosa quando nenhum teste nem compilação a acusa.
+  - tipo: conceito
+    titulo: BFF, microfrontend e a cópia local do tipo
+    texto: O BFF (Backend for Frontend) é o serviço de back-end dedicado a uma interface, e o BFF de endereço, em `bffs/endereco/`, atende o microfrontend de endereço, a parte da interface em `mfes/endereco/` com build e deploy próprios. Para manter cada microfrontend autônomo, o repositório faz cada um guardar uma cópia local dos tipos que recebe, e nenhuma compilação compara essa cópia com o tipo do BFF.
+  - tipo: conceito
+    titulo: TypeScript e o compilador tsc
+    texto: O TypeScript acrescenta tipos estáticos ao JavaScript, e o compilador `tsc` confere esses tipos antes da execução, apontando erros com códigos como `TS2339`, propriedade inexistente no tipo, e `TS2741`, propriedade obrigatória ausente. O build do microfrontend roda o `tsc --noEmit` antes do `vite build`, e por isso um erro de tipo impede que o bundle, o arquivo JavaScript publicado, seja gerado.
+  - tipo: conceito
+    titulo: Tipo que carrega as rotas
+    texto: 'O Hono é o framework web do Gateway e dos BFFs, e o Hono RPC (Remote Procedure Call) é o recurso dele que deriva do próprio código das rotas um tipo com caminho, método e resposta de cada uma, usado pelo cliente `hc` para chamar o servidor com tipos conferidos pelo compilador. Cada `.get` e cada `.put` encadeados devolvem uma instância do Hono cujo tipo acumula caminho, método e resposta. Uma anotação de retorno com um tipo genérico, tipo que recebe outros tipos como parâmetro, como `: Hono<BffEnv>`, troca esse tipo pelo tipo genérico, sem rotas, e o cliente `hc` passa a enxergar `unknown`.'
+  - tipo: conceito
+    titulo: Dependência de build sem dependência de execução
+    texto: O `import type` é a forma de importação do TypeScript que traz só tipos de outro módulo, e o alias de caminho é um nome curto configurado no `paths` do `tsconfig.json` que o compilador traduz para uma pasta. O `import type` existe apenas para o compilador e desaparece no JavaScript gerado. O microfrontend continua a ser publicado sozinho no S3, e a esteira de integração contínua, sequência automática de verificações a cada mudança, passa a precisar do código e do `node_modules` do BFF para checar os tipos.
   - tipo: comparativo
     colunas:
     - Cópia manual do tipo
@@ -162,12 +177,6 @@ abas:
       valores:
       - Só o código do microfrontend
       - O mesmo, porque o `import type` é apagado
-  - tipo: conceito
-    titulo: Tipo que carrega as rotas
-    texto: 'Cada `.get` e cada `.put` encadeados devolvem uma instância do Hono cujo tipo acumula caminho, método e resposta. Uma anotação de retorno como `: Hono<BffEnv>` troca esse tipo pelo tipo genérico, sem rotas, e o cliente `hc` passa a enxergar `unknown`.'
-  - tipo: conceito
-    titulo: Dependência de build sem dependência de execução
-    texto: O `import type` existe apenas para o compilador e desaparece no JavaScript gerado. O microfrontend continua a ser publicado sozinho no S3, e a esteira passa a precisar do código e do `node_modules` do BFF para checar os tipos.
   - tipo: adr
     id: ADR-017
     titulo: Contrato de tipos entre MFE e BFF via Hono RPC
@@ -180,7 +189,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os dois lados do contrato de endereço: no BFF, em `bffs/endereco/src/`, o tipo da resposta e as rotas Hono, e no microfrontend, em `mfes/endereco/src/`, os tipos copiados à mão e a chamada que os usa. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam por que hoje nenhuma mudança no BFF chega ao compilador do microfrontend.'
+    texto: 'Esta aba mostra os dois lados do contrato de endereço, o formato de resposta combinado entre o serviço e a tela: no BFF, serviço de back-end dedicado ao microfrontend, em `bffs/endereco/src/`, o tipo da resposta e as rotas do Hono, framework web do BFF, e no microfrontend, em `mfes/endereco/src/`, os tipos copiados à mão e a chamada que os usa. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam por que hoje nenhuma mudança no BFF chega ao compilador do microfrontend.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -300,12 +309,15 @@ abas:
     contexto: O `mfes/endereco/src/contract.ts` é a cópia local, dentro do microfrontend, do contrato de montagem publicado pelo shell. O arquivo aparece inteiro e mostra que o microfrontend usa a mesma estratégia de cópia manual também no contrato com o shell.
   - tipo: faixa
     estilo: dica
-    texto: O cabeçalho da ADR-017 registra que nenhum código foi alterado para ela. O laboratório executa a prova de conceito no BFF de endereço, que a seção de riscos da própria ADR indica como primeiro passo, antes do BFF de empréstimo.
+    texto: A ADR-017 do repositório, que propõe derivar o tipo do microfrontend das rotas do BFF, está com status de proposta e registra no cabeçalho que nenhum código foi alterado para ela. O laboratório executa a prova de conceito no BFF de endereço, que tem duas rotas, porque a tabela de riscos da ADR-017 indica esse BFF como primeiro passo, antes do BFF de empréstimo.
 - id: simulacao
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, o caminho de um tipo do BFF até o build do microfrontend com o Hono RPC. Acompanhe as etapas e depois classifique o resultado de cada mudança no BFF antes e depois da prova de conceito.
+    texto: Esta aba simula, sem executar nada, o caminho de um tipo do BFF, serviço de back-end do microfrontend, até o build do microfrontend com o Hono RPC, recurso que deriva das rotas um tipo com caminho, método e resposta. O bloco abaixo resume os termos das etapas, e depois você classifica o resultado de cada mudança no BFF antes e depois da prova de conceito.
+  - tipo: conceito
+    titulo: Termos das etapas
+    texto: O `createRoutes` é a função do BFF que registra as rotas no Hono, e o `contract.ts` é o arquivo novo que exporta o tipo delas como `AppType`. O `InferResponseType` é o utilitário do cliente do Hono que extrai desse tipo a resposta de uma rota. O alias de caminho é o nome curto configurado no `paths` do `tsconfig.json`, e o `tsc --noEmit` é o compilador TypeScript conferindo tipos sem gerar arquivos, enquanto o Vitest, framework de testes do repositório, executa os testes sem conferir tipos.
   - tipo: fluxo
     titulo: Do encadeamento de rotas ao erro no build do microfrontend
     etapas:
@@ -352,7 +364,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é transformar uma quebra de contrato silenciosa num erro de compilação do microfrontend, ligando o tipo que ele usa às rotas do BFF. Os passos 1 a 4 mostram a renomeação passando pelos testes e pelo `tsc`, os passos 5 a 10 aplicam a prova de conceito com o Hono RPC acompanhando cada erro de compilação, e os passos 11 e 12 repetem a quebra e conferem que o bundle não leva código do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+    texto: O objetivo do laboratório é transformar uma quebra de contrato silenciosa, a mudança de formato no BFF que nenhum teste acusa, num erro de compilação do microfrontend, ligando o tipo que ele usa às rotas do BFF, o serviço de back-end que ele consome. Os passos 1 a 4 mostram a renomeação passando pelos testes e pelo `tsc`, os passos 5 a 10 aplicam a prova de conceito com o Hono RPC, recurso que deriva das rotas um tipo com caminho, método e resposta, acompanhando cada erro de compilação, e os passos 11 e 12 repetem a quebra e conferem que o bundle não leva código do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
   - tipo: faixa
     estilo: objetivo
     problema: O microfrontend de endereço declara à mão, em `mfes/endereco/src/EnderecoForm.tsx`, o formato da resposta do BFF de endereço. Quando o BFF renomeia `numero` para `numeroDoImovel`, os testes e o `tsc` dos dois lados continuam passando, porque cada lado confere o código contra a própria cópia do tipo.
@@ -739,7 +751,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Esta aba apresenta quatro situações que um time encontraria com contratos entre BFF e microfrontend, a partir de saídas do laboratório e de mudanças no BFF feitas com o contrato aplicado. Escolha a causa de cada uma para ver a explicação e a correção.
+    texto: Esta aba apresenta quatro situações que um time encontraria com o contrato de tipos entre um BFF, serviço de back-end dedicado à tela, e o microfrontend que o consome, a partir de saídas do laboratório e de mudanças no BFF feitas com o contrato aplicado. O bloco abaixo resume os conceitos que os incidentes usam, e em cada incidente você escolhe a causa para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: Conceitos usados nos incidentes
+    texto: O contrato de tipos é o `contract.ts` do BFF, que exporta pelo Hono RPC o tipo das rotas, e o microfrontend o importa com `import type`, que traz só tipos e desaparece do JavaScript gerado. O MSW (Mock Service Worker) é a biblioteca que simula as respostas HTTP nos testes do microfrontend, e o `client<Endereco>` é a chamada que declara pelo tipo genérico o formato esperado da resposta. A esteira de integração contínua é a sequência automática de instalação, conferência de tipos, testes e build que roda a cada mudança, e o `Pick` é o utilitário do TypeScript que monta um tipo com só alguns campos de outro.
   - tipo: incidente
     titulo: Campo vazio na tela depois de um deploy do BFF
     origem: executado
@@ -790,7 +805,7 @@ abas:
     alternativas:
     - texto: O `node_modules` do BFF, de onde o TypeScript resolve `hono` e `hono/client` para os arquivos do BFF.
       correta: true
-      explicacao: A ADR-017 registra essa dependência de build como risco e como passo permanente de CI.
+      explicacao: A ADR-017 do repositório já previa essa dependência de build e registrou a instalação das dependências do BFF como passo permanente da esteira do microfrontend.
     - texto: O `hono` no `package.json` do microfrontend.
       correta: false
       explicacao: Os imports partem de arquivos do BFF e são resolvidos a partir da pasta do BFF.
@@ -817,13 +832,16 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: Termos das perguntas
+    texto: O BFF é o serviço de back-end dedicado ao microfrontend, a parte da interface com build e deploy próprios. O Hono é o framework web do BFF, e o cliente `hc` chama as rotas com os tipos derivados delas pelo Hono RPC. O `import type` traz de outro módulo só tipos, e o bundle é o arquivo JavaScript publicado do microfrontend. O `tsc` é o compilador TypeScript, o Vitest é o framework de testes, e o MSW simula as respostas HTTP nos testes.
   - tipo: quiz
     perguntas:
-    - enunciado: Que problema a ADR-017 quer resolver?
+    - enunciado: Que problema o contrato de tipos pelo Hono RPC resolve?
       alternativas:
       - texto: A latência entre microfrontend e BFF.
         correta: false
-        explicacao: A ADR não muda o transporte HTTP.
+        explicacao: As chamadas continuam pelo mesmo HTTP, e a ADR-017 do repositório preserva esse transporte.
       - texto: O tamanho do bundle.
         correta: false
         explicacao: O bundle não muda.
@@ -863,7 +881,7 @@ abas:
       - texto: O Vitest não roda o `tsc`, e o MSW do microfrontend responde com o formato antigo.
         correta: true
         explicacao: A detecção acontece no `tsc --noEmit` do `npm run build`.
-    - enunciado: Qual custo a ADR-017 aceita?
+    - enunciado: Que custo o contrato de tipos pelo Hono RPC impõe ao microfrontend?
       alternativas:
       - texto: O build do microfrontend passa a depender do código e das dependências instaladas do BFF.
         correta: true

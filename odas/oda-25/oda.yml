@@ -129,7 +129,19 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica o que torna uma operação idempotente e o que um mecanismo de chave de idempotência precisa garantir. No repositório, a ADR-0006 registra a escolha de um middleware com o cabeçalho `Idempotency-Key`.
+    texto: Esta aba explica o que torna uma operação idempotente, isto é, segura para repetir sem repetir o efeito, e o que um mecanismo de chave de idempotência precisa garantir. Os blocos abaixo definem cada conceito antes do comparativo entre a garantia esperada e o comportamento do commit, e a ADR (registro de decisão de arquitetura) do fim mostra que o repositório decidiu tratar a idempotência num middleware, com as respostas guardadas por 24 horas.
+  - tipo: conceito
+    titulo: Idempotência
+    texto: Uma operação é idempotente quando executá-la várias vezes tem o mesmo efeito que executá-la uma vez. GET, PUT e DELETE são idempotentes pela definição do HTTP, e um POST de criação só fica idempotente se o servidor reconhecer a repetição. A propriedade importa porque o cliente que recebe um tempo esgotado (timeout) não sabe se o pedido foi criado e costuma reenviá-lo.
+  - tipo: conceito
+    titulo: Chave de idempotência
+    texto: O cliente gera uma chave única por operação e a envia no cabeçalho `Idempotency-Key`, repetindo a mesma chave em cada reenvio. O contrato esperado é que a mesma chave com o mesmo corpo receba a mesma resposta, inclusive o cabeçalho `Location`, que aponta para o recurso criado, e que a mesma chave com outro corpo seja recusada, o que exige guardar uma impressão digital, um hash, do corpo original.
+  - tipo: conceito
+    titulo: Middleware e cache em memória
+    texto: Um middleware é um componente do pipeline HTTP do ASP.NET Core que recebe cada requisição antes do endpoint e pode responder sozinho. O `IdempotencyMiddleware` do repositório guarda num `IMemoryCache`, um cache na memória do processo, a resposta 2xx de cada chave e a devolve quando a chave chega de novo.
+  - tipo: conceito
+    titulo: Verificar e depois agir
+    texto: Consultar o cache e, se não houver resposta, executar a operação são dois passos separados. Duas requisições que consultam ao mesmo tempo encontram o cache vazio e executam as duas, uma condição de corrida, e só uma trava por chave, que deixa uma requisição por vez passar, impede essa duplicação.
   - tipo: comparativo
     colunas:
     - Garantia esperada
@@ -151,12 +163,6 @@ abas:
       valores:
       - Usuário, método e rota
       - Só o valor do cabeçalho, comum a todos
-  - tipo: conceito
-    titulo: Idempotência
-    texto: Uma operação é idempotente quando executá-la várias vezes tem o mesmo efeito que executá-la uma vez. GET, PUT e DELETE são idempotentes pela definição do HTTP, e um POST de criação só fica idempotente se o servidor reconhecer a repetição.
-  - tipo: conceito
-    titulo: Verificar e depois agir
-    texto: Consultar o cache e, se não houver resposta, executar a operação são dois passos separados. Duas requisições que consultam ao mesmo tempo encontram o cache vazio e executam as duas, e só uma trava por chave impede essa corrida.
   - tipo: adr
     id: ADR-0006
     titulo: Idempotência via Middleware com Idempotency-Key
@@ -170,6 +176,33 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra, no commit `702145a`, os três pontos do middleware que explicam as falhas: a chave do cache, a repetição da resposta e a gravação depois da execução. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Cabeçalho Idempotency-Key
+      definicao: Cabeçalho HTTP em que o cliente envia uma chave única por operação, que ele repete em cada reenvio. O servidor usa a chave para reconhecer a repetição e devolver a resposta da primeira execução, e a IETF descreve esse contrato num rascunho de norma.
+      referencia:
+        rotulo: 'IETF: The Idempotency-Key HTTP Header Field'
+        url: https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/
+    - termo: Middleware
+      definicao: Componente do pipeline HTTP do ASP.NET Core que recebe cada requisição, pode agir antes e depois do próximo componente e decide se passa a requisição adiante. A ordem de registro no `Program.cs` define a ordem de execução.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware do ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/middleware/
+    - termo: Cache em memória (IMemoryCache)
+      definicao: Armazenamento de pares chave e valor na memória do processo da API, com prazo de expiração. Os dados se perdem quando o processo reinicia e não são vistos por outras instâncias.
+      referencia:
+        rotulo: 'Microsoft Learn: cache em memória no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/caching/memory
+    - termo: Condição de corrida (verificar e depois agir)
+      definicao: Falha que ocorre quando duas execuções simultâneas consultam um estado e agem com base nele antes que a outra termine. No middleware, as duas requisições encontram o cache vazio e executam a operação.
+    - termo: Exclusão mútua (trava)
+      definicao: Mecanismo que permite que só uma requisição por vez execute um trecho de código. No laboratório, uma trava por chave faz as requisições repetidas esperarem a primeira terminar.
+    - termo: Cabeçalho Location
+      definicao: Cabeçalho que acompanha uma resposta 201 Created com o endereço do recurso criado, que o cliente usa para consultá-lo depois.
+      referencia:
+        rotulo: 'MDN: Location'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Location
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -260,6 +293,33 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, cinco reenvios simultâneos do mesmo pedido antes e depois da correção. Depois, classifique o que o servidor deve fazer em cada repetição.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Cabeçalho Idempotency-Key
+      definicao: Cabeçalho HTTP em que o cliente envia uma chave única por operação, que ele repete em cada reenvio. O servidor usa a chave para reconhecer a repetição e devolver a resposta da primeira execução, e a IETF descreve esse contrato num rascunho de norma.
+      referencia:
+        rotulo: 'IETF: The Idempotency-Key HTTP Header Field'
+        url: https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/
+    - termo: Cache em memória (IMemoryCache)
+      definicao: Armazenamento de pares chave e valor na memória do processo da API, com prazo de expiração. Os dados se perdem quando o processo reinicia e não são vistos por outras instâncias.
+      referencia:
+        rotulo: 'Microsoft Learn: cache em memória no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/caching/memory
+    - termo: Exclusão mútua (trava)
+      definicao: Mecanismo que permite que só uma requisição por vez execute um trecho de código. No laboratório, uma trava por chave faz as requisições repetidas esperarem a primeira terminar.
+    - termo: Cabeçalho Location
+      definicao: Cabeçalho que acompanha uma resposta 201 Created com o endereço do recurso criado, que o cliente usa para consultá-lo depois.
+      referencia:
+        rotulo: 'MDN: Location'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Location
+    - termo: Impressão digital do corpo
+      definicao: Hash calculado sobre o corpo da requisição e guardado junto com a resposta. Quando a mesma chave chega com um corpo de hash diferente, o servidor sabe que é outra operação e recusa a chamada.
+    - termo: HTTP 409 Conflict
+      definicao: Status que indica conflito da requisição com o estado atual do recurso. Depois da correção, a API responde 409 quando a mesma chave chega com outro corpo.
+      referencia:
+        rotulo: 'MDN: 409 Conflict'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/409
   - tipo: fluxo
     titulo: Cinco reenvios com a chave corrida-1
     etapas:
@@ -306,6 +366,53 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é eliminar os pedidos duplicados e as respostas enganosas do middleware de idempotência, fazendo-o cumprir o contrato do `Idempotency-Key` com chave por usuário e rota, impressão digital do corpo e trava por chave. Os passos 1 a 3 reproduzem as falhas pela API, os passos 4 a 7 escrevem o teste e trocam o middleware, e o passo 8 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Cabeçalho Idempotency-Key
+      definicao: Cabeçalho HTTP em que o cliente envia uma chave única por operação, que ele repete em cada reenvio. O servidor usa a chave para reconhecer a repetição e devolver a resposta da primeira execução, e a IETF descreve esse contrato num rascunho de norma.
+      referencia:
+        rotulo: 'IETF: The Idempotency-Key HTTP Header Field'
+        url: https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/
+    - termo: Middleware
+      definicao: Componente do pipeline HTTP do ASP.NET Core que recebe cada requisição, pode agir antes e depois do próximo componente e decide se passa a requisição adiante. A ordem de registro no `Program.cs` define a ordem de execução.
+      referencia:
+        rotulo: 'Microsoft Learn: middleware do ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/fundamentals/middleware/
+    - termo: Idempotência
+      definicao: Propriedade de uma operação que tem o mesmo efeito no servidor quando executada uma vez ou várias vezes. Pela definição do HTTP, GET, PUT e DELETE são idempotentes, e um POST de criação só fica idempotente quando o servidor reconhece a repetição.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Token JWT (JSON Web Token)
+      definicao: 'Token assinado que a API emite no login e que o cliente envia no cabeçalho `Authorization: Bearer <token>`. Os pedidos exigem esse token, e o laboratório o obtém antes de criar pedidos.'
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: Cache em memória (IMemoryCache)
+      definicao: Armazenamento de pares chave e valor na memória do processo da API, com prazo de expiração. Os dados se perdem quando o processo reinicia e não são vistos por outras instâncias.
+      referencia:
+        rotulo: 'Microsoft Learn: cache em memória no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/caching/memory
+    - termo: Cabeçalho Location
+      definicao: Cabeçalho que acompanha uma resposta 201 Created com o endereço do recurso criado, que o cliente usa para consultá-lo depois.
+      referencia:
+        rotulo: 'MDN: Location'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Location
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, middlewares e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: Impressão digital do corpo
+      definicao: Hash calculado sobre o corpo da requisição e guardado junto com a resposta. Quando a mesma chave chega com um corpo de hash diferente, o servidor sabe que é outra operação e recusa a chamada.
+    - termo: Exclusão mútua (trava)
+      definicao: Mecanismo que permite que só uma requisição por vez execute um trecho de código. No laboratório, uma trava por chave faz as requisições repetidas esperarem a primeira terminar.
+    - termo: HTTP 409 Conflict
+      definicao: Status que indica conflito da requisição com o estado atual do recurso. Depois da correção, a API responde 409 quando a mesma chave chega com outro corpo.
+      referencia:
+        rotulo: 'MDN: 409 Conflict'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/409
   - tipo: faixa
     estilo: objetivo
     problema: O `IdempotencyMiddleware.cs` monta a chave do cache só com o valor do cabeçalho `Idempotency-Key`, guarda apenas o status, o tipo e o corpo da resposta e grava no cache só depois de executar a requisição, sem trava entre a verificação e a execução.
@@ -724,6 +831,35 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que um time encontraria com esse mecanismo em produção, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Impressão digital do corpo
+      definicao: Hash calculado sobre o corpo da requisição e guardado junto com a resposta. Quando a mesma chave chega com um corpo de hash diferente, o servidor sabe que é outra operação e recusa a chamada.
+    - termo: HTTP 409 Conflict
+      definicao: Status que indica conflito da requisição com o estado atual do recurso. Depois da correção, a API responde 409 quando a mesma chave chega com outro corpo.
+      referencia:
+        rotulo: 'MDN: 409 Conflict'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/409
+    - termo: Cache em memória (IMemoryCache)
+      definicao: Armazenamento de pares chave e valor na memória do processo da API, com prazo de expiração. Os dados se perdem quando o processo reinicia e não são vistos por outras instâncias.
+      referencia:
+        rotulo: 'Microsoft Learn: cache em memória no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/caching/memory
+    - termo: Exclusão mútua (trava)
+      definicao: Mecanismo que permite que só uma requisição por vez execute um trecho de código. No laboratório, uma trava por chave faz as requisições repetidas esperarem a primeira terminar.
+    - termo: Cabeçalho Idempotency-Key
+      definicao: Cabeçalho HTTP em que o cliente envia uma chave única por operação, que ele repete em cada reenvio. O servidor usa a chave para reconhecer a repetição e devolver a resposta da primeira execução, e a IETF descreve esse contrato num rascunho de norma.
+      referencia:
+        rotulo: 'IETF: The Idempotency-Key HTTP Header Field'
+        url: https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/
+    - termo: Redis
+      definicao: Banco de dados em memória, acessado pela rede, usado com frequência como cache compartilhado entre várias instâncias de uma aplicação. O Diagnóstico o cita como armazenamento durável e comum para as chaves de idempotência.
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura com o contexto, a decisão, as alternativas e as consequências. O repositório guarda as ADRs em `docs/ADRs/`.
+      referencia:
+        rotulo: 'ADR GitHub: Architectural Decision Records'
+        url: https://adr.github.io/
   - tipo: incidente
     titulo: Pedido novo que nunca foi criado
     origem: executado
@@ -810,13 +946,42 @@ abas:
       explicacao: O cache não é gravado em disco.
     - texto: O pedido é criado de novo, porque o `IMemoryCache` perdeu as chaves no reinício.
       correta: true
-      explicacao: A ADR-0006 registra a limitação, e a trava em memória do laboratório tem o mesmo limite entre instâncias.
+      explicacao: A ADR-0006 do repositório registra que o cache é volátil, perdido em reinícios e separado por instância, e a trava em memória do laboratório tem o mesmo limite entre instâncias.
     - texto: A API devolve 409.
       correta: false
       explicacao: Não há registro da chave depois do reinício.
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Idempotência
+      definicao: Propriedade de uma operação que tem o mesmo efeito no servidor quando executada uma vez ou várias vezes. Pela definição do HTTP, GET, PUT e DELETE são idempotentes, e um POST de criação só fica idempotente quando o servidor reconhece a repetição.
+      referencia:
+        rotulo: 'MDN: idempotente'
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Idempotent
+    - termo: Impressão digital do corpo
+      definicao: Hash calculado sobre o corpo da requisição e guardado junto com a resposta. Quando a mesma chave chega com um corpo de hash diferente, o servidor sabe que é outra operação e recusa a chamada.
+    - termo: HTTP 409 Conflict
+      definicao: Status que indica conflito da requisição com o estado atual do recurso. Depois da correção, a API responde 409 quando a mesma chave chega com outro corpo.
+      referencia:
+        rotulo: 'MDN: 409 Conflict'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Status/409
+    - termo: Exclusão mútua (trava)
+      definicao: Mecanismo que permite que só uma requisição por vez execute um trecho de código. No laboratório, uma trava por chave faz as requisições repetidas esperarem a primeira terminar.
+    - termo: Condição de corrida (verificar e depois agir)
+      definicao: Falha que ocorre quando duas execuções simultâneas consultam um estado e agem com base nele antes que a outra termine. No middleware, as duas requisições encontram o cache vazio e executam a operação.
+    - termo: Cabeçalho Location
+      definicao: Cabeçalho que acompanha uma resposta 201 Created com o endereço do recurso criado, que o cliente usa para consultá-lo depois.
+      referencia:
+        rotulo: 'MDN: Location'
+        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Headers/Location
+    - termo: Cache em memória (IMemoryCache)
+      definicao: Armazenamento de pares chave e valor na memória do processo da API, com prazo de expiração. Os dados se perdem quando o processo reinicia e não são vistos por outras instâncias.
+      referencia:
+        rotulo: 'Microsoft Learn: cache em memória no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/performance/caching/memory
   - tipo: quiz
     perguntas:
     - enunciado: Quando uma operação é idempotente?

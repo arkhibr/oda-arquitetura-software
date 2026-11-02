@@ -9,30 +9,15 @@ abas:
   - tipo: glossario
     texto: Os termos abaixo aparecem nas abas desta ODA e estão na ordem em que surgem pela primeira vez. Os conceitos mais extensos trazem um link para uma referência de portal mantido pelo autor da tecnologia ou por uma organização de referência, e a busca do topo da página, acionada pela tecla /, leva de volta a qualquer termo.
     itens:
-    - termo: Manifesto de microfrontends
-      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
     - termo: Microfrontend
       definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
       referencia:
         rotulo: martinfowler.com · Micro Frontends
         url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
     - termo: Shell
       definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
-    - termo: Bundle
-      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
-    - termo: SHA-256 e campo `integrity`
-      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
-      referencia:
-        rotulo: MDN · Subresource Integrity
-        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
-    - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
-      definicao: 'Campo `state` do manifesto: `active` carrega o bundle, `maintenance` mostra um aviso de manutenção no lugar dele, e `disabled` tira o microfrontend do menu e das rotas.'
-    - termo: '`dependsOn`'
-      definicao: Lista, em cada entrada do manifesto, dos `id` de microfrontends de que aquela entrada depende. O shell usa essa lista para ordenar as entradas e recusa dependências inexistentes e ciclos.
-    - termo: Boot do shell
-      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
-    - termo: Ordenação topológica e algoritmo de Kahn
-      definicao: Ordenação topológica é uma ordem em que cada item aparece depois de todos os itens de que depende. O algoritmo de Kahn a calcula pondo numa fila os itens sem dependência pendente e liberando os dependentes à medida que a fila esvazia.
     - termo: Ciclo de dependências
       definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
     - termo: Origem (origin)
@@ -40,51 +25,119 @@ abas:
       referencia:
         rotulo: MDN · Origem
         url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Ordenação topológica e algoritmo de Kahn
+      definicao: Ordenação topológica é uma ordem em que cada item aparece depois de todos os itens de que depende. O algoritmo de Kahn a calcula pondo numa fila os itens sem dependência pendente e liberando os dependentes à medida que a fila esvazia.
+    - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
+      definicao: 'Campo `state` do manifesto: `active` carrega o bundle, `maintenance` mostra um aviso de manutenção no lugar dele, e `disabled` tira o microfrontend do menu e das rotas.'
     - termo: Teste escrito antes (TDD)
       definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
       referencia:
         rotulo: martinfowler.com · Test Driven Development
         url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
-    - termo: '`config.json`'
-      definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
     - termo: ADR (Architecture Decision Record)
       definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
       referencia:
         rotulo: adr.github.io · Architectural Decision Records
         url: https://adr.github.io/
-    - termo: Grau de entrada
-      definicao: Número de dependências ainda pendentes de um item durante o algoritmo de Kahn. Um item entra na fila quando esse número chega a zero.
+    - termo: '`config.json`'
+      definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
+    - termo: '`dependsOn`'
+      definicao: Lista, em cada entrada do manifesto, dos `id` de microfrontends de que aquela entrada depende. O shell usa essa lista para ordenar as entradas e recusa dependências inexistentes e ciclos.
+    - termo: Node.js
+      definicao: Ambiente que executa JavaScript fora do navegador. No repositório, ele roda o Vite, os testes, o script de deploy, o Gateway e os BFFs.
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: Docker e Docker Compose
+      definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
+      referencia:
+        rotulo: Docker Docs · Docker Compose
+        url: https://docs.docker.com/compose/
+    - termo: WSL (Windows Subsystem for Linux) e Git Bash
+      definicao: O WSL é um recurso do Windows que executa um ambiente Linux completo, e o Git Bash é o terminal bash que acompanha o Git para Windows. Os dois aceitam a sintaxe de comandos usada nos laboratórios.
+      referencia:
+        rotulo: Microsoft Learn · O que é o Subsistema do Windows para Linux
+        url: https://learn.microsoft.com/pt-br/windows/wsl/about
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
+    - termo: Gateway de API
+      definicao: Serviço que funciona como ponto único de entrada do back-end, recebe as chamadas do portal, valida a autenticação e encaminha cada chamada ao serviço de destino. No repositório, ele fica em `gateway/` e responde na porta 4000.
+      referencia:
+        rotulo: Microsoft Learn · Gateways de API
+        url: https://learn.microsoft.com/pt-br/azure/architecture/microservices/design/gateway
+    - termo: BFF (Backend for Frontend)
+      definicao: Serviço de back-end dedicado a uma interface ou a um domínio, que adapta os dados de outros sistemas ao formato de que a tela precisa. Os BFFs do repositório ficam em `bffs/`, respondem nas portas 4001 e 4002 e só aceitam chamadas que passaram pelo Gateway.
+      referencia:
+        rotulo: Microsoft Learn · Padrão Backends for Frontends
+        url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
+    - termo: detached HEAD
+      definicao: Estado do Git em que a cópia de trabalho aponta para um commit específico, fora de qualquer branch. É o estado que o `git checkout` de um commit produz, e as alterações feitas nele não pertencem a nenhum branch até que um seja criado.
+      referencia:
+        rotulo: Git · git checkout
+        url: https://git-scm.com/docs/git-checkout
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
     - termo: Versão do esquema (`schemaVersion`)
       definicao: Número que identifica o formato do manifesto, conferido pelo shell no boot para garantir que ele sabe ler o arquivo.
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: Grau de entrada
+      definicao: Número de dependências ainda pendentes de um item durante o algoritmo de Kahn. Um item entra na fila quando esse número chega a zero.
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
     - termo: Base64
       definicao: Codificação que representa bytes com 64 caracteres de texto, usada para escrever hashes e tokens em formato legível. O hash do campo `integrity` tem 43 caracteres em Base64 seguidos de `=`.
       referencia:
         rotulo: MDN · Base64
         url: https://developer.mozilla.org/pt-BR/docs/Glossary/Base64
+    - termo: Roteador
+      definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
     - termo: LocalStack
       definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
       referencia:
         rotulo: LocalStack · Documentação
         url: https://docs.localstack.cloud/getting-started/
-    - termo: Roteador
-      definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
-    - termo: Deploy
-      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
-    - termo: Vitest
-      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
       referencia:
-        rotulo: Vitest · Primeiros passos
-        url: https://vitest.dev/guide/
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica dentro de um bucket e é acessado por uma URL. No portal, o S3 guarda os bundles publicados dos microfrontends.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
     - termo: MSW (Mock Service Worker)
       definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
       referencia:
         rotulo: Mock Service Worker · Introdução
         url: https://mswjs.io/docs/
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
     - termo: Vite
       definicao: Ferramenta de build e servidor de desenvolvimento do shell e dos microfrontends, que responde em `npm run dev` na porta 5173 e também executa os testes por meio do Vitest.
       referencia:
         rotulo: Vite · Build em modo biblioteca
         url: https://vite.dev/guide/build#library-mode
+    - termo: Vitest
+      definicao: Ferramenta de testes integrada ao Vite, que roda os testes do shell e dos microfrontends com `npm test` e oferece simulação de módulos e de relógio.
+      referencia:
+        rotulo: Vitest · Primeiros passos
+        url: https://vitest.dev/guide/
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -150,7 +203,49 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica as duas fontes que o shell lê no boot. O manifesto é um catálogo de produto, que muda quando um microfrontend entra ou sai, e o `config.json` é configuração de ambiente, que muda a cada deploy, por isso ficam em arquivos separados, como registra a ADR-010 do repositório.
+    texto: 'Esta aba explica as duas fontes que o shell lê no boot, a inicialização feita quando a página abre: o manifesto, catálogo dos microfrontends que muda quando um deles entra ou sai, e o `config.json`, configuração do ambiente que muda a cada deploy. Os conceitos abaixo explicam por que os dois ficam em arquivos separados, como o shell valida o manifesto e como ordena os microfrontends pelas dependências declaradas.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Versão do esquema (`schemaVersion`)
+      definicao: Número que identifica o formato do manifesto, conferido pelo shell no boot para garantir que ele sabe ler o arquivo.
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: '`dependsOn`'
+      definicao: Lista, em cada entrada do manifesto, dos `id` de microfrontends de que aquela entrada depende. O shell usa essa lista para ordenar as entradas e recusa dependências inexistentes e ciclos.
+    - termo: Ordenação topológica e algoritmo de Kahn
+      definicao: Ordenação topológica é uma ordem em que cada item aparece depois de todos os itens de que depende. O algoritmo de Kahn a calcula pondo numa fila os itens sem dependência pendente e liberando os dependentes à medida que a fila esvazia.
+    - termo: Grau de entrada
+      definicao: Número de dependências ainda pendentes de um item durante o algoritmo de Kahn. Um item entra na fila quando esse número chega a zero.
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+  - tipo: conceito
+    titulo: Manifesto e config.json
+    texto: O manifesto `public/mfe-manifest.json` é o catálogo dos microfrontends do portal, com a URL do bundle, o hash, a rota, o estado e as dependências de cada um, e o `public/config.json` é a configuração do ambiente, com a URL da API e a lista `mfeAllowedOrigins`, das origens de onde o shell aceita bundles. O shell lê os dois no boot, a inicialização feita em `src/main.tsx` quando a página abre. Eles ficam em arquivos separados porque o catálogo muda quando um microfrontend entra ou sai, e a configuração muda a cada ambiente de deploy.
+  - tipo: conceito
+    titulo: Estados de um microfrontend
+    texto: 'Cada entrada do manifesto tem um estado: `active` carrega o bundle na rota, `maintenance` mostra um aviso de manutenção sem baixar o bundle, e `disabled` tira o microfrontend do menu e das rotas. O laboratório usa `maintenance` para registrar um microfrontend sem publicar o bundle dele.'
+  - tipo: conceito
+    titulo: Validação que falha cedo
+    texto: No boot, `validateManifest` confere a versão do esquema, os campos obrigatórios, o formato do `integrity`, o protocolo e a origem da URL, a rota, o estado, o tipo de `dependsOn`, a unicidade dos `id` e a existência de cada dependência. Qualquer erro interrompe o boot com a mensagem `Falha ao iniciar o portal`, o que evita um portal que funciona pela metade.
+  - tipo: conceito
+    titulo: Ordenação topológica de Kahn
+    texto: O `resolveLoadOrder` coloca na fila os microfrontends sem dependências, na ordem do arquivo, e a cada saída da fila reduz o grau de entrada dos dependentes, que entram na fila quando chegam a zero. Se sobrar algum microfrontend fora da ordem, há um ciclo, e o erro lista os que sobraram.
   - tipo: comparativo
     colunas:
     - Aparece no menu
@@ -172,12 +267,6 @@ abas:
       - Não
       - Não
       - Fica fora do menu e das rotas
-  - tipo: conceito
-    titulo: Validação que falha cedo
-    texto: No boot, `validateManifest` confere a versão do esquema, os campos obrigatórios, o formato do `integrity`, o protocolo e a origem da URL, a rota, o estado, o tipo de `dependsOn`, a unicidade dos `id` e a existência de cada dependência. Qualquer erro interrompe o boot com a mensagem `Falha ao iniciar o portal`, o que evita um portal que funciona pela metade.
-  - tipo: conceito
-    titulo: Ordenação topológica de Kahn
-    texto: O `resolveLoadOrder` coloca na fila os microfrontends sem dependências, na ordem do arquivo, e a cada saída da fila reduz o grau de entrada dos dependentes, que entram na fila quando chegam a zero. Se sobrar algum microfrontend fora da ordem, há um ciclo, e o erro lista os que sobraram.
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Dependências
@@ -196,6 +285,57 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba segue o manifesto de microfrontends pelo shell: o próprio `public/mfe-manifest.json`, a validação em `manifest.ts`, a ordenação por dependências em `dependencyResolver.ts` e o uso da ordem no boot, no menu e no componente que hospeda cada microfrontend. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: Base64
+      definicao: Codificação que representa bytes com 64 caracteres de texto, usada para escrever hashes e tokens em formato legível. O hash do campo `integrity` tem 43 caracteres em Base64 seguidos de `=`.
+      referencia:
+        rotulo: MDN · Base64
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Base64
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: '`config.json`'
+      definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: Roteador
+      definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
+    - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
+      definicao: 'Campo `state` do manifesto: `active` carrega o bundle, `maintenance` mostra um aviso de manutenção no lugar dele, e `disabled` tira o microfrontend do menu e das rotas.'
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: '`dependsOn`'
+      definicao: Lista, em cada entrada do manifesto, dos `id` de microfrontends de que aquela entrada depende. O shell usa essa lista para ordenar as entradas e recusa dependências inexistentes e ciclos.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -431,6 +571,41 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, a ordenação de Kahn que o shell aplica ao manifesto: os microfrontends sem dependência pendente entram primeiro, e um ciclo impede a ordenação. Acompanhe a ordenação do manifesto do laboratório e depois classifique alterações de manifesto pelo efeito que causam no boot.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Ordenação topológica e algoritmo de Kahn
+      definicao: Ordenação topológica é uma ordem em que cada item aparece depois de todos os itens de que depende. O algoritmo de Kahn a calcula pondo numa fila os itens sem dependência pendente e liberando os dependentes à medida que a fila esvazia.
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Grau de entrada
+      definicao: Número de dependências ainda pendentes de um item durante o algoritmo de Kahn. Um item entra na fila quando esse número chega a zero.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
+      definicao: 'Campo `state` do manifesto: `active` carrega o bundle, `maintenance` mostra um aviso de manutenção no lugar dele, e `disabled` tira o microfrontend do menu e das rotas.'
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
   - tipo: fluxo
     titulo: Kahn sobre o manifesto com minimo, endereco e emprestimo, nessa ordem no arquivo
     etapas:
@@ -474,6 +649,58 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é acrescentar uma entrada ao manifesto, provar com teste que ela é aceita e ver no navegador o efeito da ordem e das validações, porque uma entrada nova muda o menu de todo o portal e, se estiver errada, impede o boot. Os passos 1 a 6 registram um microfrontend mínimo em manutenção com o teste escrito antes, e os passos 7 a 9 conferem no navegador o menu, o aviso de manutenção e as falhas de boot. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
+      definicao: 'Campo `state` do manifesto: `active` carrega o bundle, `maintenance` mostra um aviso de manutenção no lugar dele, e `disabled` tira o microfrontend do menu e das rotas.'
+    - termo: Teste escrito antes (TDD)
+      definicao: Prática em que o teste do comportamento novo é escrito e rodado antes da implementação, para confirmar que ele falha pela razão esperada. Depois, a implementação mínima faz o teste passar.
+      referencia:
+        rotulo: martinfowler.com · Test Driven Development
+        url: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+    - termo: npm
+      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
+    - termo: '`package-lock.json` e `npm ci`'
+      definicao: O `package-lock.json` registra a versão exata de cada dependência instalada, e o `npm ci` instala exatamente essas versões e falha quando o arquivo não traz algum pacote exigido. Neste commit, isso acontece em Linux e no WSL, e o `npm install --no-save` instala as dependências sem alterar o arquivo.
+      referencia:
+        rotulo: npm Docs · npm ci
+        url: https://docs.npmjs.com/cli/v10/commands/npm-ci
+    - termo: '`config.json`'
+      definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
+    - termo: ESLint e lint
+      definicao: O ESLint é a ferramenta que analisa o código sem executá-lo e acusa trechos que violam regras configuradas, e lint é o nome dessa análise. No repositório, `npm run lint` roda o ESLint sobre `src/` com a configuração de `eslint.config.ts`.
+      referencia:
+        rotulo: ESLint · Documentação
+        url: https://eslint.org/docs/latest/
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: '`dependsOn`'
+      definicao: Lista, em cada entrada do manifesto, dos `id` de microfrontends de que aquela entrada depende. O shell usa essa lista para ordenar as entradas e recusa dependências inexistentes e ciclos.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
   - tipo: faixa
     estilo: objetivo
     problema: O `public/mfe-manifest.json` é validado no boot por `validateManifest`, e qualquer erro, como um `dependsOn` que fecha um ciclo ou uma URL fora de `mfeAllowedOrigins`, interrompe a inicialização com `Falha ao iniciar o portal`. A ADR-010 fala em ordem de carga, e no commit `2179313` a ordem calculada define apenas as rotas e o menu.
@@ -638,6 +865,59 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta quatro situações que um time encontraria ao editar o manifesto. As duas primeiras mostram mensagens reais de boot, exibidas pelo navegador com o manifesto alterado, e as duas últimas tratam do que o manifesto controla e do que ele não controla.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: '`dependsOn`'
+      definicao: Lista, em cada entrada do manifesto, dos `id` de microfrontends de que aquela entrada depende. O shell usa essa lista para ordenar as entradas e recusa dependências inexistentes e ciclos.
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: Grau de entrada
+      definicao: Número de dependências ainda pendentes de um item durante o algoritmo de Kahn. Um item entra na fila quando esse número chega a zero.
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: '`config.json`'
+      definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
+      definicao: 'Campo `state` do manifesto: `active` carrega o bundle, `maintenance` mostra um aviso de manutenção no lugar dele, e `disabled` tira o microfrontend do menu e das rotas.'
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: SHA-256 e campo `integrity`
+      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
+      referencia:
+        rotulo: MDN · Subresource Integrity
+        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
+    - termo: ADR (Architecture Decision Record)
+      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
+      referencia:
+        rotulo: adr.github.io · Architectural Decision Records
+        url: https://adr.github.io/
+    - termo: Ordenação topológica e algoritmo de Kahn
+      definicao: Ordenação topológica é uma ordem em que cada item aparece depois de todos os itens de que depende. O algoritmo de Kahn a calcula pondo numa fila os itens sem dependência pendente e liberando os dependentes à medida que a fila esvazia.
+    - termo: React
+      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
+      referencia:
+        rotulo: React · Início rápido
+        url: https://react.dev/learn
   - tipo: incidente
     titulo: Portal que não inicia depois de uma dependência nova
     origem: executado
@@ -703,7 +983,7 @@ abas:
     alternativas:
     - texto: Sim, porque os dois compartilham o mesmo React.
       correta: false
-      explicacao: Cada microfrontend embute o próprio React, conforme a ADR-009.
+      explicacao: Cada microfrontend embute o próprio React no bundle.
     - texto: Não, cada rota tem um `MfeHost` que baixa apenas o bundle da própria entrada.
       correta: true
       explicacao: O `dependsOn` define a ordem das rotas e do menu e é validado no boot, sem disparar downloads.
@@ -713,9 +993,67 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    itens:
+    - termo: Microfrontend
+      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
+      referencia:
+        rotulo: martinfowler.com · Micro Frontends
+        url: https://martinfowler.com/articles/micro-frontends.html
+    - termo: Manifesto de microfrontends
+      definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
+    - termo: '`config.json`'
+      definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
+    - termo: Deploy
+      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
+    - termo: Origem (origin)
+      definicao: Combinação de protocolo, domínio e porta de uma URL, como `http://localhost:4566`. O shell só aceita bundles de origens listadas em `mfeAllowedOrigins`, no `config.json`.
+      referencia:
+        rotulo: MDN · Origem
+        url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
+    - termo: Amazon S3 (Simple Storage Service)
+      definicao: Serviço de armazenamento de objetos da AWS, em que cada arquivo fica dentro de um bucket e é acessado por uma URL. No portal, o S3 guarda os bundles publicados dos microfrontends.
+      referencia:
+        rotulo: AWS · O que é o Amazon S3?
+        url: https://docs.aws.amazon.com/pt_br/AmazonS3/latest/userguide/Welcome.html
+    - termo: Shell
+      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
+    - termo: Grau de entrada
+      definicao: Número de dependências ainda pendentes de um item durante o algoritmo de Kahn. Um item entra na fila quando esse número chega a zero.
+    - termo: Ciclo de dependências
+      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
+    - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
+      definicao: 'Campo `state` do manifesto: `active` carrega o bundle, `maintenance` mostra um aviso de manutenção no lugar dele, e `disabled` tira o microfrontend do menu e das rotas.'
+    - termo: Roteador
+      definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
+    - termo: Boot do shell
+      definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
+    - termo: Bundle
+      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
+    - termo: Carregador de microfrontends (`loadMfeModule`)
+      definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
+    - termo: MSW (Mock Service Worker)
+      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
+      referencia:
+        rotulo: Mock Service Worker · Introdução
+        url: https://mswjs.io/docs/
+    - termo: Bucket
+      definicao: Contêiner de objetos do S3, identificado por um nome único. O deploy do repositório usa um bucket por microfrontend, `mfe-endereco` e `mfe-emprestimo`.
+    - termo: Vite
+      definicao: Ferramenta de build e servidor de desenvolvimento do shell e dos microfrontends, que responde em `npm run dev` na porta 5173 e também executa os testes por meio do Vitest.
+      referencia:
+        rotulo: Vite · Build em modo biblioteca
+        url: https://vite.dev/guide/build#library-mode
+    - termo: LocalStack
+      definicao: Emulador que reproduz serviços da AWS num contêiner Docker na máquina local, sem conta na nuvem. No repositório, ele responde na porta 4566, emula só o S3 e não guarda dados entre reinícios, porque o compose não ativa a persistência.
+      referencia:
+        rotulo: LocalStack · Documentação
+        url: https://docs.localstack.cloud/getting-started/
   - tipo: quiz
     perguntas:
-    - enunciado: Por que a ADR-010 não embutiu a lista de microfrontends no `config.json`?
+    - enunciado: Por que a lista de microfrontends fica no manifesto, separada do `config.json`?
       alternativas:
       - texto: Porque o `config.json` não aceita listas.
         correta: false

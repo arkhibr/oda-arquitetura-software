@@ -155,7 +155,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica como a API divide o acesso a dados, como a exclusão lógica funciona e de onde vem o esquema do banco. No repositório, a ADR-0002 registra a divisão entre EF Core e Dapper, e a ADR-0005 registra a exclusão lógica pela coluna `Ativo`.
+    texto: Esta aba explica como a API `net-minimal-api` separa a escrita e a leitura de dados, como a exclusão lógica funciona e de onde vem o esquema do banco. Os blocos abaixo definem cada conceito antes do comparativo entre os dois lados, e as duas ADRs (registros de decisão de arquitetura) do fim mostram o que o repositório decidiu sobre a divisão entre EF Core e Dapper e sobre a exclusão lógica.
+  - tipo: conceito
+    titulo: Separação entre escrita e leitura (CQRS)
+    texto: O CQRS, sigla de Command Query Responsibility Segregation, separa o código que altera dados, os comandos, do código que os lê, as consultas. Na API, cada entidade tem um repositório de comando, como `IVarianteCommandRepository`, e um repositório de consulta, como `IVarianteQueryRepository`, cada um com a própria ferramenta de acesso ao banco. A separação permite escolher a melhor ferramenta para cada lado, e o custo é manter as duas de acordo com o mesmo esquema.
+  - tipo: conceito
+    titulo: EF Core e Dapper
+    texto: O EF Core (Entity Framework Core) é a biblioteca de mapeamento objeto-relacional da Microsoft, que traduz consultas em C# para SQL, acompanha as mudanças nos objetos e gera as migrations. O Dapper executa SQL escrito à mão e converte as linhas em objetos, sem rastrear mudanças. Na API, o EF Core atende os repositórios de comando, e o Dapper atende os de consulta.
+  - tipo: conceito
+    titulo: Consultas LINQ traduzidas para SQL
+    texto: O LINQ (Language Integrated Query) permite escrever consultas como expressões do C#, como `AnyAsync(v => v.ProdutoId == id)`. O EF Core só traduz essas expressões para SQL quando a consulta executa, e uma expressão que acessa algo que não é coluna, como uma propriedade dentro de um value object, objeto do domínio definido só pelos seus valores, falha nesse momento, mesmo com o código compilando sem erro.
+  - tipo: conceito
+    titulo: Exclusão lógica
+    texto: Na exclusão lógica, excluir um produto ou uma variante muda a coluna `Ativo` ou `Ativa` para falso, e o registro continua no banco para auditoria e para os pedidos antigos. Toda consulta e toda regra de unicidade precisa então decidir se considera ou não os registros inativos.
+  - tipo: conceito
+    titulo: Índice único e índice filtrado
+    texto: Um índice único faz o banco recusar duas linhas com a mesma combinação de valores, aqui produto e SKU (Stock Keeping Unit, o código de estoque da variante). Um índice filtrado, chamado de índice parcial no SQLite, aplica a regra só às linhas que atendem a uma condição, como `WHERE Ativa = 1`, e é assim que uma regra de unicidade passa a respeitar a exclusão lógica.
+  - tipo: conceito
+    titulo: Migrations, EnsureCreated e Migrate
+    texto: Uma migration é uma classe gerada pelo EF Core que descreve uma mudança no esquema do banco. A API cria e atualiza o banco com `Database.Migrate()`, que aplica as migrations em ordem, e os testes de integração, que exercitam a API real com o banco, usam `EnsureCreated`, que monta o banco direto do modelo atual e ignora as migrations. Por isso um teste verde não garante que exista migration para a mudança.
   - tipo: comparativo
     colunas:
     - Escrita (comandos)
@@ -177,12 +195,6 @@ abas:
       valores:
       - Pelas migrations geradas do modelo
       - Pelo SQL, revisado à mão a cada mudança
-  - tipo: conceito
-    titulo: Exclusão lógica
-    texto: Excluir um produto ou uma variante muda a coluna `Ativo` ou `Ativa` para falso, e o registro continua no banco para auditoria e para os pedidos antigos. Toda consulta e toda regra de unicidade precisa decidir se considera ou não os registros inativos.
-  - tipo: conceito
-    titulo: Migrations e EnsureCreated
-    texto: A API cria e atualiza o banco com `Database.Migrate()`, que aplica as migrations em ordem. Os testes de integração usam `EnsureCreated`, que monta o banco direto do modelo atual e ignora as migrations, e por isso um teste verde não garante que exista migration para a mudança.
   - tipo: adr
     id: ADR-0002
     titulo: 'CQRS: EF Core para Escrita e Dapper para Leitura'
@@ -204,6 +216,55 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a consulta de escrita que falha, o mapeamento do SKU como value object e o índice único do banco, que juntos explicam as duas falhas do laboratório. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: SKU (Stock Keeping Unit)
+      definicao: Código que identifica de forma única um item de estoque. Na API, cada variante de produto, como uma cor ou um tamanho, tem um SKU próprio, como `MOUSE-ROSA`.
+    - termo: Repositório (padrão Repository)
+      definicao: Classe que concentra o acesso a dados de uma entidade atrás de métodos com nomes do domínio, como `SkuExisteParaProdutoAsync`, e isola o resto do código da forma como o banco é consultado.
+      referencia:
+        rotulo: 'Martin Fowler: Repository'
+        url: https://martinfowler.com/eaaCatalog/repository.html
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional (ORM) da Microsoft para .NET, que traduz consultas escritas em C# para SQL e acompanha as mudanças nos objetos para gravá-las no banco. Na API, ela cuida das escritas e das migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: LINQ (Language Integrated Query)
+      definicao: Recurso do C# para escrever consultas como expressões da própria linguagem, como `Where` e `AnyAsync`. O EF Core traduz essas expressões para SQL durante a execução, e uma expressão que ele não sabe traduzir gera erro nesse momento.
+      referencia:
+        rotulo: 'Microsoft Learn: avaliação de consultas no cliente e no servidor'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/client-eval
+    - termo: Value object (objeto de valor)
+      definicao: Objeto do domínio definido apenas pelos seus valores, sem identidade própria, e por isso dois value objects com os mesmos valores são iguais. Na API, o SKU é um value object que o EF Core grava como texto por meio de uma conversão.
+      referencia:
+        rotulo: 'Martin Fowler: Value Object'
+        url: https://martinfowler.com/bliki/ValueObject.html
+    - termo: SQLite
+      definicao: Banco de dados relacional que guarda tudo num único arquivo e roda dentro do próprio processo da aplicação, sem servidor separado. A API grava os dados no arquivo `produtos-api.db`.
+      referencia:
+        rotulo: 'SQLite: about SQLite'
+        url: https://www.sqlite.org/about.html
+    - termo: Índice único e índice filtrado
+      definicao: Um índice único impede que duas linhas tenham a mesma combinação de valores nas colunas indexadas. Um índice filtrado, chamado de índice parcial no SQLite, só considera as linhas que atendem a uma condição, como `WHERE Ativa = 1`.
+      referencia:
+        rotulo: 'SQLite: partial indexes'
+        url: https://www.sqlite.org/partialindex.html
+    - termo: Dapper
+      definicao: Biblioteca .NET que executa SQL escrito à mão e converte as linhas do resultado em objetos, sem rastrear mudanças. Na API, ela atende as consultas de leitura.
+    - termo: Exclusão lógica (soft delete)
+      definicao: Técnica em que excluir um registro apenas marca uma coluna, como `Ativo` ou `Ativa`, com falso, e a linha continua na tabela. Toda consulta e toda regra de unicidade precisa então decidir se considera ou não as linhas marcadas.
+      referencia:
+        rotulo: 'Microsoft Learn: filtros de consulta globais no EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/filters
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, como criar uma tabela ou trocar um índice, com um método `Up` que aplica a mudança e um `Down` que a desfaz. As migrations são aplicadas em ordem, e o histórico delas fica gravado no próprio banco.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros que a aplicação insere num banco novo para que ele já tenha dados de exemplo. Na API, o seed roda depois das migrations e cria, entre outros, o produto 2 usado no laboratório.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -298,6 +359,38 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, o caminho de um SKU desativado e recriado em cada estado do laboratório, para separar o que a aplicação confere do que o banco confere. Depois, classifique cada consulta pelo modo como trata os registros excluídos.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: SKU (Stock Keeping Unit)
+      definicao: Código que identifica de forma única um item de estoque. Na API, cada variante de produto, como uma cor ou um tamanho, tem um SKU próprio, como `MOUSE-ROSA`.
+    - termo: Exclusão lógica (soft delete)
+      definicao: Técnica em que excluir um registro apenas marca uma coluna, como `Ativo` ou `Ativa`, com falso, e a linha continua na tabela. Toda consulta e toda regra de unicidade precisa então decidir se considera ou não as linhas marcadas.
+      referencia:
+        rotulo: 'Microsoft Learn: filtros de consulta globais no EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/filters
+    - termo: Value object (objeto de valor)
+      definicao: Objeto do domínio definido apenas pelos seus valores, sem identidade própria, e por isso dois value objects com os mesmos valores são iguais. Na API, o SKU é um value object que o EF Core grava como texto por meio de uma conversão.
+      referencia:
+        rotulo: 'Martin Fowler: Value Object'
+        url: https://martinfowler.com/bliki/ValueObject.html
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional (ORM) da Microsoft para .NET, que traduz consultas escritas em C# para SQL e acompanha as mudanças nos objetos para gravá-las no banco. Na API, ela cuida das escritas e das migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: Índice único e índice filtrado
+      definicao: Um índice único impede que duas linhas tenham a mesma combinação de valores nas colunas indexadas. Um índice filtrado, chamado de índice parcial no SQLite, só considera as linhas que atendem a uma condição, como `WHERE Ativa = 1`.
+      referencia:
+        rotulo: 'SQLite: partial indexes'
+        url: https://www.sqlite.org/partialindex.html
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, como criar uma tabela ou trocar um índice, com um método `Up` que aplica a mudança e um `Down` que a desfaz. As migrations são aplicadas em ordem, e o histórico delas fica gravado no próprio banco.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Dapper
+      definicao: Biblioteca .NET que executa SQL escrito à mão e converte as linhas do resultado em objetos, sem rastrear mudanças. Na API, ela atende as consultas de leitura.
   - tipo: fluxo
     titulo: Reaproveitar o SKU MOUSE-ROSA
     etapas:
@@ -342,6 +435,56 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é fazer a criação de variantes voltar a funcionar e liberar o SKU das variantes excluídas, corrigindo a consulta que o EF Core não traduz e filtrando o índice único pelas variantes ativas por meio de uma migration. Os passos 1 e 2 reproduzem a falha pela API, os passos 3 a 7 escrevem o teste e mudam consulta e modelo, e os passos 8 a 10 geram a migration e conferem o banco. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, como criar uma tabela ou trocar um índice, com um método `Up` que aplica a mudança e um `Down` que a desfaz. As migrations são aplicadas em ordem, e o histórico delas fica gravado no próprio banco.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: SKU (Stock Keeping Unit)
+      definicao: Código que identifica de forma única um item de estoque. Na API, cada variante de produto, como uma cor ou um tamanho, tem um SKU próprio, como `MOUSE-ROSA`.
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional (ORM) da Microsoft para .NET, que traduz consultas escritas em C# para SQL e acompanha as mudanças nos objetos para gravá-las no banco. Na API, ela cuida das escritas e das migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: LINQ (Language Integrated Query)
+      definicao: Recurso do C# para escrever consultas como expressões da própria linguagem, como `Where` e `AnyAsync`. O EF Core traduz essas expressões para SQL durante a execução, e uma expressão que ele não sabe traduzir gera erro nesse momento.
+      referencia:
+        rotulo: 'Microsoft Learn: avaliação de consultas no cliente e no servidor'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/client-eval
+    - termo: Índice único e índice filtrado
+      definicao: Um índice único impede que duas linhas tenham a mesma combinação de valores nas colunas indexadas. Um índice filtrado, chamado de índice parcial no SQLite, só considera as linhas que atendem a uma condição, como `WHERE Ativa = 1`.
+      referencia:
+        rotulo: 'SQLite: partial indexes'
+        url: https://www.sqlite.org/partialindex.html
+    - termo: JWT (JSON Web Token) e token Bearer
+      definicao: 'Token assinado que a API emite no login e que o cliente envia no cabeçalho `Authorization: Bearer <token>` para provar quem é. O laboratório obtém esse token antes de criar variantes.'
+      referencia:
+        rotulo: 'IETF: RFC 7519, JSON Web Token'
+        url: https://datatracker.ietf.org/doc/html/rfc7519
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, serviços e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests` e sobem a API com a classe `ApiFactory`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a subir quando o modelo tem mudanças que nenhuma migration descreve, o aviso `PendingModelChangesWarning`.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: dotnet-ef
+      definicao: Ferramenta de linha de comando do EF Core que gera, lista e aplica migrations, instalada como ferramenta local do repositório pelo arquivo `dotnet-tools.json`.
+      referencia:
+        rotulo: 'Microsoft Learn: referência da CLI do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/cli/dotnet
+    - termo: SQLite
+      definicao: Banco de dados relacional que guarda tudo num único arquivo e roda dentro do próprio processo da aplicação, sem servidor separado. A API grava os dados no arquivo `produtos-api.db`.
+      referencia:
+        rotulo: 'SQLite: about SQLite'
+        url: https://www.sqlite.org/about.html
   - tipo: faixa
     estilo: objetivo
     problema: Em `EfVarianteCommandRepository.cs`, a consulta `SkuExisteParaProdutoAsync` compara `v.Sku.Valor`, que não é coluna, e o EF Core recusa a tradução com `could not be translated`. Em `AppDbContext.cs`, o índice único `idx_variante_produto_sku` vale para todas as linhas, inclusive as variantes desativadas com `Ativa = 0`.
@@ -685,6 +828,58 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta quatro situações que aparecem ao manter escrita, leitura e esquema nesse projeto, cada uma com a saída que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional (ORM) da Microsoft para .NET, que traduz consultas escritas em C# para SQL e acompanha as mudanças nos objetos para gravá-las no banco. Na API, ela cuida das escritas e das migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: LINQ (Language Integrated Query)
+      definicao: Recurso do C# para escrever consultas como expressões da própria linguagem, como `Where` e `AnyAsync`. O EF Core traduz essas expressões para SQL durante a execução, e uma expressão que ele não sabe traduzir gera erro nesse momento.
+      referencia:
+        rotulo: 'Microsoft Learn: avaliação de consultas no cliente e no servidor'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/client-eval
+    - termo: Value object (objeto de valor)
+      definicao: Objeto do domínio definido apenas pelos seus valores, sem identidade própria, e por isso dois value objects com os mesmos valores são iguais. Na API, o SKU é um value object que o EF Core grava como texto por meio de uma conversão.
+      referencia:
+        rotulo: 'Martin Fowler: Value Object'
+        url: https://martinfowler.com/bliki/ValueObject.html
+    - termo: SKU (Stock Keeping Unit)
+      definicao: Código que identifica de forma única um item de estoque. Na API, cada variante de produto, como uma cor ou um tamanho, tem um SKU próprio, como `MOUSE-ROSA`.
+    - termo: Seed (dados iniciais)
+      definicao: Conjunto de registros que a aplicação insere num banco novo para que ele já tenha dados de exemplo. Na API, o seed roda depois das migrations e cria, entre outros, o produto 2 usado no laboratório.
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, serviços e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests` e sobem a API com a classe `ApiFactory`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a subir quando o modelo tem mudanças que nenhuma migration descreve, o aviso `PendingModelChangesWarning`.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, como criar uma tabela ou trocar um índice, com um método `Up` que aplica a mudança e um `Down` que a desfaz. As migrations são aplicadas em ordem, e o histórico delas fica gravado no próprio banco.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Esteira de CI (integração contínua)
+      definicao: Processo automático que compila e testa o código a cada alteração enviada ao repositório, antes de ela ser incorporada. O Diagnóstico sugere incluir nela a verificação de mudanças de modelo sem migration.
+      referencia:
+        rotulo: 'Martin Fowler: Continuous Integration'
+        url: https://martinfowler.com/articles/continuousIntegration.html
+    - termo: Exclusão lógica (soft delete)
+      definicao: Técnica em que excluir um registro apenas marca uma coluna, como `Ativo` ou `Ativa`, com falso, e a linha continua na tabela. Toda consulta e toda regra de unicidade precisa então decidir se considera ou não as linhas marcadas.
+      referencia:
+        rotulo: 'Microsoft Learn: filtros de consulta globais no EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/filters
+    - termo: Índice único e índice filtrado
+      definicao: Um índice único impede que duas linhas tenham a mesma combinação de valores nas colunas indexadas. Um índice filtrado, chamado de índice parcial no SQLite, só considera as linhas que atendem a uma condição, como `WHERE Ativa = 1`.
+      referencia:
+        rotulo: 'SQLite: partial indexes'
+        url: https://www.sqlite.org/partialindex.html
   - tipo: incidente
     titulo: Nenhuma variante pode ser criada
     origem: executado
@@ -788,6 +983,46 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: glossario
+    titulo: 📘 Conceitos usados nesta aba
+    itens:
+    - termo: Dapper
+      definicao: Biblioteca .NET que executa SQL escrito à mão e converte as linhas do resultado em objetos, sem rastrear mudanças. Na API, ela atende as consultas de leitura.
+    - termo: EF Core (Entity Framework Core)
+      definicao: Biblioteca de mapeamento objeto-relacional (ORM) da Microsoft para .NET, que traduz consultas escritas em C# para SQL e acompanha as mudanças nos objetos para gravá-las no banco. Na API, ela cuida das escritas e das migrations.
+      referencia:
+        rotulo: 'Microsoft Learn: Entity Framework Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/
+    - termo: LINQ (Language Integrated Query)
+      definicao: Recurso do C# para escrever consultas como expressões da própria linguagem, como `Where` e `AnyAsync`. O EF Core traduz essas expressões para SQL durante a execução, e uma expressão que ele não sabe traduzir gera erro nesse momento.
+      referencia:
+        rotulo: 'Microsoft Learn: avaliação de consultas no cliente e no servidor'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/client-eval
+    - termo: Migration (migração de esquema)
+      definicao: Classe gerada pelo EF Core que descreve uma mudança no esquema do banco, como criar uma tabela ou trocar um índice, com um método `Up` que aplica a mudança e um `Down` que a desfaz. As migrations são aplicadas em ordem, e o histórico delas fica gravado no próprio banco.
+      referencia:
+        rotulo: 'Microsoft Learn: visão geral das migrations do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/migrations/
+    - termo: Índice único e índice filtrado
+      definicao: Um índice único impede que duas linhas tenham a mesma combinação de valores nas colunas indexadas. Um índice filtrado, chamado de índice parcial no SQLite, só considera as linhas que atendem a uma condição, como `WHERE Ativa = 1`.
+      referencia:
+        rotulo: 'SQLite: partial indexes'
+        url: https://www.sqlite.org/partialindex.html
+    - termo: Teste de integração
+      definicao: Teste que exercita várias partes reais do sistema juntas, como rotas, serviços e banco, por meio de requisições HTTP à API. No repositório, esses testes ficam em `tests/ProdutosAPI.Tests` e sobem a API com a classe `ApiFactory`.
+      referencia:
+        rotulo: 'Microsoft Learn: testes de integração no ASP.NET Core'
+        url: https://learn.microsoft.com/pt-br/aspnet/core/test/integration-tests
+    - termo: EnsureCreated e Migrate
+      definicao: São duas formas de o EF Core criar o banco. O `EnsureCreated` monta as tabelas direto do modelo atual e ignora as migrations, e o `Database.Migrate()` aplica as migrations pendentes e se recusa a subir quando o modelo tem mudanças que nenhuma migration descreve, o aviso `PendingModelChangesWarning`.
+      referencia:
+        rotulo: 'Microsoft Learn: criar e descartar APIs do EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/managing-schemas/ensure-created
+    - termo: Exclusão lógica (soft delete)
+      definicao: Técnica em que excluir um registro apenas marca uma coluna, como `Ativo` ou `Ativa`, com falso, e a linha continua na tabela. Toda consulta e toda regra de unicidade precisa então decidir se considera ou não as linhas marcadas.
+      referencia:
+        rotulo: 'Microsoft Learn: filtros de consulta globais no EF Core'
+        url: https://learn.microsoft.com/pt-br/ef/core/querying/filters
   - tipo: quiz
     perguntas:
     - enunciado: Por que a API usa Dapper na leitura?

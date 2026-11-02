@@ -158,7 +158,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba resume as regras dos dois guias do repositório. O `MELHORES-PRATICAS-API.md` fixa substantivos no plural, o verbo no protocolo, paginação obrigatória e uma tabela de status por situação, e o `JSON-COMPLEXO-E-BOAS-PRATICAS.md` acrescenta erros em `application/problem+json`, com mensagens por campo.
+    texto: Esta aba resume as regras dos dois guias de API do repositório `net-minimal-api`, que servem de referência para a sondagem desta ODA. O `MELHORES-PRATICAS-API.md` fixa substantivos no plural, o método HTTP como verbo, paginação obrigatória e uma tabela de status por situação, e o `JSON-COMPLEXO-E-BOAS-PRATICAS.md` pede erros em `application/problem+json`, um formato padronizado de resposta de erro, com mensagens por campo. Os blocos abaixo explicam primeiro esses conceitos, e o quadro seguinte compara o Catálogo e os Pedidos.
+  - tipo: conceito
+    titulo: API REST
+    texto: REST (Representational State Transfer) é o estilo de API HTTP em que cada recurso tem um endereço próprio, como `/api/v1/catalogo/produtos`, e as operações usam os métodos do protocolo, com GET para ler, POST para criar, PUT para alterar e DELETE para remover. Os guias do repositório acrescentam a esse estilo regras próprias, como nomes de recurso no plural e paginação obrigatória nas listagens.
+  - tipo: conceito
+    titulo: Código de status HTTP
+    texto: Número de três dígitos que a resposta traz para indicar o resultado. O 201 indica recurso criado, com o cabeçalho `Location` apontando para ele, o 204 indica sucesso sem corpo, o 400 e o 422 indicam erro do cliente, o 404 indica recurso inexistente e o 500 indica falha do servidor, e a sondagem compara o status recebido com o que a tabela do guia prevê para cada situação.
+  - tipo: conceito
+    titulo: Paginação
+    texto: Divisão de uma listagem em páginas, pedidas pelos parâmetros `page` e `pageSize`, com metadados na resposta que informam a página, o tamanho usado e o total de itens. O cliente só percebe que o servidor trocou o tamanho pedido se ler esses metadados.
+  - tipo: conceito
+    titulo: Problem Details e `ValidationProblem`
+    texto: Problem Details é o formato da RFC 9457 para respostas de erro, com campos como `type`, `title`, `status` e `detail` e o tipo de conteúdo `application/problem+json`. O `ValidationProblem` do ASP.NET Core usa esse formato para erros de validação, com status 400 e um objeto `errors` que lista as mensagens de cada campo, e o Catálogo responde com um `ErrorResponse` próprio, de status 422.
+  - tipo: conceito
+    titulo: 400 ou 422
+    texto: O guia reserva o 400 para a requisição que não pode ser lida e o 422 para a requisição bem formada que viola uma regra. Os Pedidos usam o `ValidationProblem` padrão do ASP.NET, que responde 400 também para a regra violada, e o contrato do mesmo erro muda conforme o contexto.
+  - tipo: conceito
+    titulo: Comportamento silencioso
+    texto: Um parâmetro que a API corrige ou ignora sem avisar faz o cliente acreditar que recebeu o que pediu. Um `pageSize=1000` que volta como 20, ou um `status` desconhecido que devolve a lista inteira, só aparece para quem lê os metadados da resposta.
   - tipo: comparativo
     colunas:
     - Catálogo
@@ -180,17 +198,14 @@ abas:
       valores:
       - '`pageSize` acima de 100 vira 20'
       - '`pageSize` limitado entre 1 e 100'
-  - tipo: conceito
-    titulo: 400 ou 422
-    texto: O guia reserva o 400 para a requisição que não pode ser lida e o 422 para a requisição bem formada que viola uma regra. Os Pedidos usam o `ValidationProblem` padrão do ASP.NET, que responde 400 também para a regra violada, e o contrato do mesmo erro muda conforme o contexto.
-  - tipo: conceito
-    titulo: Comportamento silencioso
-    texto: Um parâmetro que a API corrige ou ignora sem avisar faz o cliente acreditar que recebeu o que pediu. Um `pageSize=1000` que volta como 20, ou um `status` desconhecido que devolve a lista inteira, só aparece para quem lê os metadados da resposta.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, os retornos de criação e validação nos dois contextos, o tratamento do filtro de status e o exemplo do guia, que são a base da sondagem. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nos trechos abaixo, o `ErrorResponse` é a classe de erro do Catálogo, o cabeçalho `Location` traz o endereço do recurso criado numa resposta 201, e `application/problem+json` é o tipo de conteúdo do formato padronizado de erro da RFC 9457. O handler é a classe que executa a consulta de listagem, `StatusPedido` é o enum, tipo C# com valores fixos, que lista os status de um pedido, e `Results.Problem` produz uma resposta de erro nesse formato, aqui com status 500.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -310,6 +325,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula a API sem executar o projeto. Envie as requisições da sondagem, com respostas capturadas no commit de referência, e classifique cada resultado como de acordo ou em desacordo com os guias.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: 'As requisições abaixo enviam o JWT (JSON Web Token), o token de acesso obtido no login, no cabeçalho `Authorization: Bearer`. Nas respostas de erro, `detail` é o texto descritivo do problema e `errors` é o objeto com as mensagens de cada campo, e na paginação `pageSize` é o tamanho de página que o servidor aplicou. No classificador, divergência é o código que contraria o guia, guia desatualizado é o exemplo do guia que contraria o código, e comportamento silencioso é o parâmetro corrigido ou ignorado sem aviso ao cliente.'
   - tipo: console-api
     cenarios:
     - rotulo: Criar produto
@@ -425,6 +443,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é documentar com evidência onde a API diverge dos guias e corrigir o filtro de status que é descartado sem aviso, porque um relatório que pede `status=Cancelados` recebe pedidos de todos os status. Os passos 1 a 4 sobem a API, sondam os dois contextos e montam o quadro de avaliação, e os passos 5 a 8 escrevem o teste do filtro, fazem o handler recusar o status inexistente com `ValidationProblem` e conferem a resposta com a API no ar. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa Antes de começar, logo abaixo.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório sobe a API no ambiente `Development`, o modo de execução local do ASP.NET Core, e parte de um banco SQLite recriado pelo seed, os dados de exemplo gravados na inicialização. O middleware de exceções é o componente do repositório que transforma exceções não tratadas em respostas JSON, e a correção usa `ValidationProblem`, a resposta padrão de validação com status 400 e mensagens por campo, guiada por um teste de integração escrito antes da mudança. O `MSB3030` é um erro do MSBuild, o motor de compilação do .NET, que indica um arquivo ausente no momento da cópia para a saída, e apagar as pastas `bin/` e `obj/` força uma compilação do zero.
   - tipo: faixa
     estilo: objetivo
     problema: 'No commit `702145a`, o handler de `ListPedidosQuery.cs` descarta sem aviso um `status` que não converte para `StatusPedido`, e o `Enum.TryParse` ainda aceita números como `7`, que não correspondem a nenhum membro do enum. A sondagem mostra outras divergências dos guias: um JSON ilegível recebe 500, o Catálogo responde 422 com `errors` vazio, os Pedidos respondem 400 com mensagens por campo, e um `pageSize=1000` volta como 20 sem aviso.'
@@ -680,6 +701,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta quatro situações que um time encontraria ao revisar essa API, a partir da sondagem e de uma chamada feita depois da correção. Escolha a causa de cada uma para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas situações abaixo, `application/problem+json` é o tipo de conteúdo do formato padronizado de erro da RFC 9457, e `errors` é o objeto desse formato com as mensagens por campo. `StatusPedido` é um enum, tipo C# com os valores fixos `Rascunho`, `Confirmado` e `Cancelado`, o `Enum.TryParse` converte texto ou número num valor do enum, e o `Enum.IsDefined` confere se o valor convertido é um desses membros. O cabeçalho `Location` é o endereço do recurso criado que a resposta 201 devolve, e um redirecionamento é a resposta que manda o cliente para outro endereço.
   - tipo: incidente
     titulo: Cliente que trata dois formatos de erro
     origem: executado
@@ -697,7 +721,7 @@ abas:
 
       400'
     pergunta: Um aplicativo móvel usa as duas partes da API. Que problema ele enfrenta ao mostrar erros de validação?
-    correcao: Escolher um contrato de validação para a API inteira, com o status e o formato de `errors` por campo, e registrar a escolha numa ADR.
+    correcao: Escolher um contrato de validação para a API inteira, com o status e o formato de `errors` por campo, e registrar a escolha numa ADR (Architecture Decision Record, documento curto que registra uma decisão de arquitetura e o motivo dela).
     alternativas:
     - texto: Os Pedidos não devolvem mensagem.
       correta: false
@@ -772,6 +796,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas perguntas abaixo, o 400 é o status de requisição que não pode ser lida, e o 422 é o status de requisição bem formada que viola uma regra, como define a tabela do guia de API do repositório. `ValidationProblem` é a resposta padrão de validação do ASP.NET Core, com status 400 e mensagens por campo, `Results.Problem` produz uma resposta de erro com status 500, e o middleware de exceções é o componente que transforma exceções não tratadas em respostas JSON no ambiente `Development`, o modo de execução local.
   - tipo: quiz
     perguntas:
     - enunciado: Pela tabela do guia, que status cabe a um JSON que não pode ser lido?

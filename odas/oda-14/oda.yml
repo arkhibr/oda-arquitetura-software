@@ -144,7 +144,22 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Esta aba explica o que cada ferramenta de teste do repositório mede. O MSW intercepta a rede tanto no Node, nos testes do Vitest, quanto no navegador, e o benchmark do Vitest mede a vazão de funções puras, sem rede, renderização nem carga, como registra a ADR-005.
+    texto: Esta aba explica o que cada ferramenta de teste do `frontend-react` mede e como escolher o nível de teste que responde a cada pergunta sobre o portal. Os blocos abaixo ensinam os níveis de teste, o Vitest, o Playwright, o MSW e a rede simulada, os handlers e o `server.use`, o benchmark e a escala dele e o `config.json` com o fallback do Nginx, e depois o comparativo associa perguntas a níveis e ferramentas. A ADR do fim registra a tática de testes que o repositório adotou.
+  - tipo: conceito
+    titulo: Níveis de teste
+    texto: O teste unitário exercita uma função ou um componente isolado, o de integração exercita várias partes juntas com a rede simulada e o de ponta a ponta usa a aplicação inteira num navegador real. Cada nível responde a um tipo de pergunta e tem custo e velocidade próprios, e escolher o nível errado produz um teste lento demais ou que não enxerga o defeito.
+  - tipo: conceito
+    titulo: Vitest, Playwright e MSW
+    texto: O Vitest é o framework de testes do repositório, integrado ao Vite, que roda os testes unitários e de integração e também os benchmarks com `vitest bench`, sem rede, renderização nem carga. O Playwright controla um navegador real para os testes de ponta a ponta. O MSW (Mock Service Worker) é a biblioteca que intercepta as requisições HTTP e devolve respostas definidas no próprio teste, tanto no Node.js, nos testes do Vitest, quanto no navegador, o que permite simular a rede sem substituir o `fetch` do código testado.
+  - tipo: conceito
+    titulo: Handlers do MSW e server.use
+    texto: Handler é a função do MSW que decide a resposta de uma requisição a um endereço. O `src/test-setup.ts` inicia o servidor do MSW antes de cada arquivo e chama `resetHandlers` depois de cada teste. Um teste acrescenta handlers próprios com `server.use`, que valem só até o fim daquele teste.
+  - tipo: conceito
+    titulo: Escala de um benchmark
+    texto: Benchmark é a medição repetida do tempo de execução de um trecho de código, e o `vitest bench` informa a vazão em `hz`, execuções por segundo, e o erro relativo em `rme`. Medir a mesma função com entradas de tamanho 10, 100 e 1000 mostra como o custo cresce. Se a vazão cai cerca de dez vezes a cada passo, o custo é linear, e uma queda bem maior indica custo superlinear, trabalho repetido proporcional ao tamanho da entrada.
+  - tipo: conceito
+    titulo: config.json e o fallback do Nginx
+    texto: O `config.json` é o arquivo de configuração que o shell, a aplicação que hospeda o portal, baixa ao iniciar, com valores que mudam por ambiente sem novo build. O Nginx, servidor web que entrega o shell em produção, usa a diretiva `try_files` para devolver o `index.html` sempre que o arquivo pedido não existe, o que faz as rotas da aplicação de página única funcionarem e também alcança o `/config.json` ausente.
   - tipo: comparativo
     colunas:
     - Pergunta
@@ -166,12 +181,6 @@ abas:
       valores:
       - Vazão do `resolveLoadOrder` com 10, 100 e 1000 itens
       - Micro-benchmark, com `vitest bench`
-  - tipo: conceito
-    titulo: server.use
-    texto: O `src/test-setup.ts` inicia o servidor do MSW antes de cada arquivo e chama `resetHandlers` depois de cada teste. Um teste acrescenta handlers próprios com `server.use`, que valem só até o fim daquele teste.
-  - tipo: conceito
-    titulo: Escala de um benchmark
-    texto: Medir a mesma função com entradas de tamanho 10, 100 e 1000 mostra como o custo cresce. Se a vazão cai cerca de dez vezes a cada passo, o custo é linear, e uma queda bem maior indica trabalho repetido proporcional ao tamanho da entrada.
   - tipo: adr
     id: ADR-005
     titulo: Tática de testes
@@ -184,7 +193,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Esta aba mostra os arquivos do shell que o laboratório testa e mede: a preparação dos testes com o MSW em `src/test-setup.ts`, o carregamento do `config.json`, o fallback do Nginx que interfere nele, a ordenação dos microfrontends e um benchmark existente que serve de modelo. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os comportamentos que os testes e os benchmarks precisam capturar.'
+    texto: 'Esta aba mostra os arquivos do shell, a aplicação que hospeda o portal, que o laboratório testa e mede: a preparação dos testes com o MSW, biblioteca que simula a rede nos testes, em `src/test-setup.ts`, o carregamento do `config.json`, configuração do ambiente lida no boot, o fallback do Nginx, servidor web de produção, que interfere nele, a ordenação dos microfrontends, as partes da interface carregadas pelo shell, e um benchmark existente, medição repetida do tempo de uma função, que serve de modelo. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os comportamentos que os testes e os benchmarks precisam capturar.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -336,7 +345,10 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Esta aba simula, sem executar nada, o boot do shell quando o `config.json` falta atrás do Nginx, que devolve o `index.html` no lugar. Acompanhe as etapas e depois classifique o nível de teste adequado para cada pergunta.
+    texto: Esta aba simula, sem executar nada, o boot do shell, a aplicação que hospeda o portal, quando o `config.json`, arquivo de configuração do ambiente, falta atrás do Nginx, servidor web de produção que devolve o `index.html` no lugar. O bloco abaixo resume os termos das etapas e do classificador, e depois você classifica o nível de teste adequado para cada pergunta.
+  - tipo: conceito
+    titulo: Termos das etapas e do classificador
+    texto: O `loadConfig` é a função do shell que lê o `config.json`, e o `try_files` é a diretiva do Nginx que devolve o `index.html` para caminhos sem arquivo. O `content-type` é o cabeçalho HTTP que diz o formato do corpo da resposta, como `application/json` ou `text/html`. No classificador, o teste unitário exercita uma função isolada, o de integração com MSW controla as respostas de rede, o de ponta a ponta usa o servidor e o navegador reais e o benchmark mede custo e escala, e o `--compare` do `vitest bench` compara uma medição com outra gravada antes.
   - tipo: fluxo
     titulo: Boot do shell sem config.json atrás do Nginx
     etapas:
@@ -387,7 +399,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: O objetivo do laboratório é evitar que um ambiente sem `config.json` derrube o boot do portal e reduzir o custo superlinear da ordenação dos microfrontends, com um teste e um benchmark que comprovam cada mudança. Os passos 1 a 7 cobrem o teste com MSW, a correção do `loadConfig` e a regra de fronteiras, e os passos 8 a 11 cobrem o benchmark e a correção da ordenação. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
+    texto: O objetivo do laboratório é evitar que um ambiente sem `config.json`, o arquivo de configuração lido no boot, derrube o portal e reduzir o custo superlinear, que cresce mais rápido que a entrada, da ordenação dos microfrontends, com um teste e um benchmark que comprovam cada mudança. Os passos 1 a 7 cobrem o teste com MSW, biblioteca que simula a rede nos testes, a correção do `loadConfig` e a regra de fronteiras do ESLint entre as camadas do shell, e os passos 8 a 11 cobrem o benchmark e a correção da ordenação. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa Antes de começar, logo abaixo.
   - tipo: faixa
     estilo: objetivo
     problema: O `loadConfig`, em `src/shared/config/index.ts`, ignora o `public/config.json` quando a resposta não é 200, e atrás do Nginx um arquivo ausente volta como `index.html` com status 200 por causa do `try_files`, e a leitura do JSON lança `SyntaxError`. Além disso, o `dependencyResolver.ts` copia a lista de dependentes a cada dependência acrescentada, e o custo da ordenação dos microfrontends cresce mais rápido que o manifesto.
@@ -678,7 +690,10 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Esta aba apresenta quatro situações que um time encontraria ao escolher e manter testes, a partir de saídas do laboratório e de uma verificação feita depois da mudança no ESLint. Escolha a causa de cada uma para ver a explicação e a correção.
+    texto: Esta aba apresenta quatro situações que um time encontraria ao escolher e manter testes, a partir de saídas do laboratório e de uma verificação feita depois da mudança no ESLint, ferramenta de análise estática do código. O bloco abaixo resume os conceitos que os incidentes usam, e em cada incidente você escolhe a causa para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: Conceitos usados nos incidentes
+    texto: O ESLint do shell usa a regra `boundaries/dependencies`, que classifica cada arquivo num elemento, como `shared` ou `features`, pelo primeiro padrão de caminho que casa com ele, e diz que elementos podem importar quais. Essas camadas seguem o Feature-Sliced Design, metodologia que organiza o código em camadas com dependência num único sentido. O `HttpResponse.html` é o utilitário do MSW que monta uma resposta HTML, e o benchmark da ordenação mede a função `resolveLoadOrder`, que usa o algoritmo de Kahn para pôr cada microfrontend depois das dependências que ele declara.
   - tipo: incidente
     titulo: Portal que não inicia num ambiente novo
     origem: executado
@@ -750,6 +765,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: Termos das perguntas
+    texto: O MSW é a biblioteca que intercepta as requisições HTTP nos testes e responde com handlers, e o `vi.stubGlobal('fetch')` do Vitest troca a função `fetch` inteira por uma substituta. O `afterEach` do Vitest executa uma função depois de cada teste, e o `beforeAll` e o `afterAll` executam antes e depois do arquivo inteiro. A lista `boundaries/elements` do ESLint, ferramenta de análise estática, define os padrões de caminho que classificam os arquivos nas camadas do shell, e o `--compare` do `vitest bench` mostra cada medição nova ao lado da linha de base gravada antes, com um valor entre colchetes e uma seta.
   - tipo: quiz
     perguntas:
     - enunciado: Por que o teste do `loadConfig` usa MSW e não `vi.stubGlobal('fetch')`?

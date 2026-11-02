@@ -157,7 +157,25 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica por que o repositório tem três organizações diferentes: ele resolve o mesmo problema, uma API REST com persistência, validação e testes, com graus diferentes de estrutura, para que cada padrão possa ser comparado. O `docs/00-VISAO-GERAL.md` descreve os três contextos e os caminhos de estudo.'
+    texto: Esta aba explica por que o repositório `net-minimal-api` tem três organizações de código diferentes. Ele resolve o mesmo problema, uma API REST (o estilo de API HTTP em que cada recurso tem um endereço e as operações usam os métodos do protocolo) com persistência, validação e testes, em três bounded contexts, partes do sistema com modelo e vocabulário próprios, cada um com um grau diferente de estrutura. Os blocos abaixo explicam primeiro cada conceito, e o quadro seguinte compara os três contextos.
+  - tipo: conceito
+    titulo: API em ASP.NET Core com Minimal APIs
+    texto: A API do repositório é um programa ASP.NET Core, o framework web da Microsoft sobre o .NET 10, que recebe requisições HTTP e devolve JSON. As rotas são declaradas no estilo Minimal API, com chamadas como `app.MapGet` que associam um caminho a uma função, sem classes de controller. O `Program.cs` da raiz monta os serviços e as rotas dos três contextos, e é por ele que a leitura do código começa.
+  - tipo: conceito
+    titulo: Clean Architecture no Catálogo
+    texto: Organização em camadas concêntricas em que o domínio e as regras de aplicação ficam no centro e não dependem de banco nem de framework, com as referências entre projetos apontando para dentro. No Catálogo, isso aparece como quatro subprojetos, Domain, Application, Infrastructure e API, e o repositório chama o padrão de híbrido porque a camada de API organiza os endpoints por recurso.
+  - tipo: conceito
+    titulo: Vertical Slice nos Pedidos
+    texto: Organização por caso de uso, em que a requisição, a validação, o handler, que é a classe que executa a operação, e o endpoint de uma operação ficam juntos numa pasta, chamada fatia. Os Pedidos seguem esse padrão, com pastas como `src/Pedidos/CreatePedido` e `src/Pedidos/CancelPedido`, e cada fatia muda sem tocar nas outras.
+  - tipo: conceito
+    titulo: Servidor simulado no Pix
+    texto: O Pix é o sistema de pagamentos instantâneos do Banco Central do Brasil, e o contexto Pix do repositório tem dois projetos. O `Pix.MockServer` é um servidor que imita a API Pix do Banco Central, e o `Pix.ClientDemo` é um programa de console que consome essa API com um HttpClient tipado e políticas de resiliência, o que permite estudar a integração sem acesso ao sistema real.
+  - tipo: conceito
+    titulo: Bounded context
+    texto: Um bounded context é a fronteira dentro da qual um modelo e o seu vocabulário valem sem ambiguidade. No repositório, cada contexto tem pasta, rotas e testes próprios, e o `Produto` do Catálogo é uma entidade diferente do item de um pedido.
+  - tipo: conceito
+    titulo: Solução e projetos
+    texto: O `ProdutosAPI.slnx` lista onze projetos, e o `dotnet build` e o `dotnet test` sem argumento percorrem todos. A API é o `ProdutosAPI.csproj` da raiz, que compila `src/Pedidos` e `src/Shared` e referencia os subprojetos do Catálogo.
   - tipo: comparativo
     colunas:
     - Catálogo
@@ -184,17 +202,14 @@ abas:
       - Métodos `Map...Endpoints` chamados no `Program.cs`
       - '`IEndpoint` descoberto por reflection'
       - Próprio `Program.cs`
-  - tipo: conceito
-    titulo: Bounded context
-    texto: Um bounded context é a fronteira dentro da qual um modelo e o seu vocabulário valem sem ambiguidade. No repositório, cada contexto tem pasta, rotas e testes próprios, e o `Produto` do Catálogo é uma entidade diferente do item de um pedido.
-  - tipo: conceito
-    titulo: Solução e projetos
-    texto: O `ProdutosAPI.slnx` lista onze projetos, e o `dotnet build` e o `dotnet test` sem argumento percorrem todos. A API é o `ProdutosAPI.csproj` da raiz, que compila `src/Pedidos` e `src/Shared` e referencia os subprojetos do Catálogo.
 - id: codigo
   titulo: No código
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a montagem da API, o contrato de auto-registro dos endpoints dos Pedidos e as duas origens das falhas de build que o laboratório corrige. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O `Program.cs` é o ponto de entrada da API, onde os serviços são registrados na injeção de dependência, o mecanismo do ASP.NET Core que entrega a cada classe os objetos de que ela precisa, e onde as rotas são mapeadas. Um grupo de rotas, criado com `MapGroup`, dá a vários endpoints o mesmo prefixo, como `/api/v1/catalogo`, e `IEndpoint` é a interface que cada fatia dos Pedidos implementa para declarar as próprias rotas, encontrada por reflection, a leitura dos tipos do programa em tempo de execução. O arquivo `.csproj` descreve um projeto .NET e lista em `ProjectReference` os projetos de que ele depende, e o SDK Web, declarado no `ProdutosAPI.csproj`, trata como conteúdo copiado para a saída os arquivos `.json` das subpastas. O Swagger é a página que documenta as rotas da API a partir do código.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
@@ -323,6 +338,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula a API sem executar o projeto. Envie as requisições abaixo, capturadas com a API no ar, e depois classifique cada pasta de `src/` pelo padrão arquitetural que ela segue.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: 'As requisições usam o login em `/api/v1/auth/login`, que devolve um JWT (JSON Web Token), um token assinado que o cliente envia no cabeçalho `Authorization: Bearer <token>` para acessar as rotas protegidas dos Pedidos. No classificador, Clean Architecture designa a organização do Catálogo em subprojetos por camada, com o domínio no centro e os repositórios do EF Core, a biblioteca de acesso a banco da Microsoft, atrás de interfaces da camada Application. Vertical Slice designa a organização dos Pedidos, com uma pasta por caso de uso, e o Pix reúne um servidor que simula a API Pix do Banco Central do Brasil (BCB) e um cliente de console com HttpClient tipado, uma classe de acesso HTTP dedicada a uma única API, e políticas de resiliência, como novas tentativas e tempo limite.'
   - tipo: console-api
     cenarios:
     - rotulo: Saúde
@@ -423,6 +441,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: O objetivo do laboratório é deixar o build e a suíte de testes confiáveis, porque no commit de referência a solução não compila e o resumo do `dotnet test` esconde um projeto inteiro de testes que não rodou. Os passos 1 a 7 clonam o repositório, apontam os testes de Pedidos para o Catálogo e excluem da compilação da API os arquivos gerados pelos outros projetos, e os passos 8 a 10 sobem a API, chamam os três contextos e leem a estrutura de pastas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: O laboratório usa o `dotnet`, a ferramenta de linha de comando do .NET SDK, para compilar, testar e rodar a API, e o `setup.sh`, script do repositório que confere o SDK, restaura os pacotes NuGet e compila a solução em Release. Os erros `CS0234` e `CS0246` vêm do compilador C# e indicam namespace ou tipo inexistente, e o `MSB3030` vem do MSBuild, o motor de compilação, e indica um arquivo ausente no momento da cópia para a saída. As pastas `bin/` e `obj/` guardam o resultado de cada compilação, o build incremental reaproveita esse resultado nas execuções seguintes, e a propriedade `DefaultItemExcludes` do `.csproj` retira arquivos da lista que o projeto compila e copia. Com a API no ar, o JWT (JSON Web Token) obtido no login autoriza as chamadas aos Pedidos, e o Swagger publica em JSON a lista de caminhos da API.
   - tipo: faixa
     estilo: objetivo
     problema: No commit `702145a`, o `tests/Pedidos.Tests/Pedidos.Tests.csproj` referencia `src/Produtos/Produtos.Domain`, pasta removida no refactor `d378512`, e a compilação da solução para com `CS0234`. O `ProdutosAPI.csproj` usa o SDK Web, que trata como conteúdo os `.json` dos `bin/` e `obj/` dos outros projetos, e o build incremental falha em parte das execuções com `MSB3030`.
@@ -721,6 +742,9 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta quatro situações que alguém encontraria ao preparar o ambiente, a partir de saídas do laboratório e de uma chamada feita com a API parada. Escolha a causa de cada uma para ver a explicação e a correção.
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: A suíte de testes é o conjunto de projetos de teste que o `dotnet test` compila e executa, com uma linha de resumo por projeto, e um projeto que não compila não aparece nesse resumo. O SDK Web, regra de compilação do `ProdutosAPI.csproj`, copia para a saída da API os `.json` de todas as subpastas, e o `MSB3030` é o erro do MSBuild para um arquivo que deixou de existir antes da cópia. O Receptor AirPlay é um serviço do macOS que escuta na porta 5000 e se identifica no cabeçalho `Server` como `AirTunes`, e o Kestrel é o servidor web embutido no ASP.NET Core, que ocupa essa porta quando a API está no ar.
   - tipo: incidente
     titulo: Suíte verde com 47 testes a menos
     origem: executado
@@ -806,6 +830,9 @@ abas:
 - id: verificacao
   titulo: Verificação
   blocos:
+  - tipo: conceito
+    titulo: 📘 Conceitos usados nesta aba
+    texto: Nas perguntas abaixo, Vertical Slice é a organização por caso de uso dos Pedidos, com uma pasta por operação, e `MapRegisteredEndpoints` é o método que mapeia as rotas de toda classe que implementa `IEndpoint`. A reflection é a leitura dos tipos de um assembly, a unidade compilada de um projeto .NET, em tempo de execução, e o Swagger é a página que documenta as rotas da API. O `DefaultItemExcludes` é a propriedade do `.csproj` que retira arquivos da compilação e do conteúdo copiado, e o restore do NuGet é a etapa que baixa os pacotes declarados no projeto.
   - tipo: quiz
     perguntas:
     - enunciado: Qual contexto usa Vertical Slice?
