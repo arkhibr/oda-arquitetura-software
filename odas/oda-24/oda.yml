@@ -1,0 +1,642 @@
+id: '24'
+titulo: Segurança da API com JWT e rate limiting
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: 'O objetivo desta ODA é aprender a proteger uma API em duas frentes: a autenticação por token JWT, que diz quem pode chamar cada rota, e o rate limiting, que limita quantas vezes uma rota pode ser chamada por minuto. Na API `net-minimal-api`, o login aceita trinta senhas erradas seguidas, os pedidos não têm limite, e você vai criar uma política de login por IP e aplicar a política de escrita aos pedidos, com o teste escrito antes.'
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar o que a API confere num token JWT e o que acontece quando a conferência falha.
+    - Escolher entre janela fixa, janela deslizante e balde de tokens para cada tipo de rota.
+    - Reconhecer uma política sem partição, em que um cliente consome a cota de todos.
+    - Criar uma política de login particionada por IP e aplicá-la, com o teste escrito antes.
+    - Identificar rotas sem política e a tolerância de relógio na expiração do token.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e do Python 3, usado para montar tokens de teste. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório chama a API por `127.0.0.1` e por `[::1]` para simular dois clientes, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · trinta senhas erradas
+    comandos:
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: 'Reinicie a API antes de cada bloco de chamadas: os contadores ficam na memória do processo.'
+    - entrada: 'for i in $(seq 1 30); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"chute''$i''"}'' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c'
+      saida: '  30 401'
+      origem: executado
+    cenarios:
+    - rotulo: Subir a API
+      comando: rm -f produtos-api.db && dotnet run --launch-profile http
+    - rotulo: Trinta tentativas de login
+      comando: 'for i in $(seq 1 30); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"chute''$i''"}'' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba explica as duas proteções e como escolher o algoritmo de limite para cada rota. No repositório, a ADR-0007 registra o uso de JWT com credenciais em configuração, e a ADR-0013 registra as três políticas de rate limiting do Catálogo.
+  - tipo: comparativo
+    colunas:
+    - Como conta
+    - Uso na API
+    linhas:
+    - dimensao: Janela fixa
+      valores:
+      - Zera o contador a cada minuto cheio, e admite rajada na virada
+      - '`leitura`, 60 por minuto, e `login`, 5 por minuto por IP'
+    - dimensao: Janela deslizante
+      valores:
+      - Divide o minuto em seis segmentos e descarta os mais antigos
+      - '`escrita`, 20 por minuto'
+    - dimensao: Balde de tokens
+      valores:
+      - Gasta um token por chamada e repõe os tokens por período
+      - '`criacao-produto`, 5 por minuto'
+    - dimensao: Particionada
+      valores:
+      - Um contador por chave, como o IP ou o usuário
+      - Só a política `login`, depois do laboratório
+  - tipo: conceito
+    titulo: O que o JWT prova
+    texto: A API aceita o token se a assinatura confere com a chave, se o emissor e a audiência são os esperados e se ele não venceu. A validação de expiração tolera, por padrão, cinco minutos de diferença de relógio entre quem emitiu e quem valida.
+  - tipo: conceito
+    titulo: Partição
+    texto: Uma política registrada com `AddFixedWindowLimiter` tem um contador único para toda a API, e o cliente que esgota a cota bloqueia todos os outros. Com `AddPolicy` e `RateLimitPartition`, cada chave ganha o próprio contador, e o limite passa a valer por cliente.
+  - tipo: adr
+    id: ADR-0013
+    titulo: Rate Limiting no Servidor com Três Políticas Diferenciadas
+    status: accepted
+    contexto: O Catálogo expõe leituras públicas e escritas protegidas, com padrões de tráfego e de risco diferentes.
+    decisao: 'Três políticas nativas do ASP.NET: `leitura`, `escrita` e `criacao-produto`.'
+    alternativas: Uma política global e uma biblioteca externa com limites por IP e por usuário.
+    consequencias: Sem dependências externas, com contadores por processo, que não se somam entre instâncias.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `702145a`, a validação do token, as políticas de limite e duas rotas que não usam nenhuma delas. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - var jwtKey = builder.Configuration["Jwt:Key"] ?? "MinhaChaveSuperSecretaDePeloMenos32BytesAki123!";
+    - builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    - '    .AddJwtBearer(options =>'
+    - '    {'
+    - '        options.TokenValidationParameters = new TokenValidationParameters'
+    - '        {'
+    - '            ValidateIssuer = true,'
+    - '            ValidateAudience = true,'
+    - '            ValidateLifetime = true,'
+    - '            ValidateIssuerSigningKey = true,'
+    - '            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "ProdutosAPI",'
+    - '            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "TodosOsClientes",'
+    - '            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))'
+    - '        };'
+    - '    });'
+    anotacoes:
+    - linha: 137
+      texto: Confere a expiração, com a tolerância padrão de relógio.
+    - linha: 141
+      texto: A mesma chave assina e valida, lida de `appsettings.json`.
+    inicio: 129
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.API/Extensions/RateLimitingExtensions.cs
+    commit: 702145a
+    linhas:
+    - '            // Política 1: leitura — fixed window, 60 req/min'
+    - '            options.AddFixedWindowLimiter("leitura", opt =>'
+    - '            {'
+    - '                opt.Window = TimeSpan.FromMinutes(1);'
+    - '                opt.PermitLimit = 60;'
+    - '                opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;'
+    - '                opt.QueueLimit = 0;'
+    - '            });'
+    - ''
+    - '            // Política 2: escrita — sliding window, 20 req/min'
+    - '            options.AddSlidingWindowLimiter("escrita", opt =>'
+    - '            {'
+    - '                opt.Window = TimeSpan.FromMinutes(1);'
+    - '                opt.SegmentsPerWindow = 6;'
+    - '                opt.PermitLimit = 20;'
+    - '                opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;'
+    - '                opt.QueueLimit = 0;'
+    - '            });'
+    - ''
+    - '            // Política 3: criação de produto — token bucket, 5 req/min'
+    - '            options.AddTokenBucketLimiter("criacao-produto", opt =>'
+    - '            {'
+    - '                opt.TokenLimit = 5;'
+    - '                opt.TokensPerPeriod = 5;'
+    - '                opt.ReplenishmentPeriod = TimeSpan.FromMinutes(1);'
+    - '                opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;'
+    - '                opt.QueueLimit = 0;'
+    - '            });'
+    anotacoes:
+    - linha: 34
+      texto: Contador único, compartilhado por todos os clientes.
+    - linha: 43
+      texto: Janela deslizante de seis segmentos.
+    - linha: 53
+      texto: Balde de cinco tokens por minuto.
+    inicio: 33
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.API/Endpoints/Auth/AuthEndpoints.cs
+    commit: 702145a
+    linhas:
+    - '        group.MapPost("/login", Login).WithName("UserLogin")'
+    - '            .Accepts<LoginRequest>("application/json")'
+    - '            .Produces<AuthResponse>(StatusCodes.Status200OK)'
+    - '            .Produces(StatusCodes.Status401Unauthorized)'
+    - '            .AllowAnonymous();'
+    anotacoes:
+    - linha: 21
+      texto: O login é anônimo e não tem política de limite.
+    inicio: 17
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/CreatePedido/CreatePedidoEndpoint.cs
+    commit: 702145a
+    linhas:
+    - '        .WithName("CriarPedido")'
+    - '        .WithTags("Pedidos")'
+    - '        .WithSummary("Criar pedido")'
+    - '        .WithDescription("Cria um novo pedido em status Rascunho com os itens fornecidos")'
+    - '        .Accepts<CreatePedidoCommand>("application/json")'
+    - '        .Produces<PedidoResponse>(StatusCodes.Status201Created)'
+    - '        .Produces(StatusCodes.Status400BadRequest)'
+    - '        .Produces(StatusCodes.Status422UnprocessableEntity)'
+    - '        .RequireAuthorization();'
+    anotacoes:
+    - linha: 34
+      texto: Exige token e não tem política de limite.
+    inicio: 26
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, a sequência de tentativas de login de dois clientes antes e depois da política particionada. Depois, classifique a política adequada a cada rota.
+  - tipo: fluxo
+    titulo: Dois clientes tentam entrar
+    etapas:
+    - titulo: 'Antes: cliente A'
+      descricao: 'O cliente em `127.0.0.1` envia trinta senhas erradas em um minuto, e cada uma recebe 401: nada limita a rota.'
+    - titulo: 'Depois: cliente A'
+      descricao: A política `login` cria a partição `127.0.0.1` com cinco permissões. As cinco primeiras recebem 401, e as demais, 429.
+    - titulo: 'Depois: cliente B'
+      descricao: O cliente em `::1` cai noutra partição, com cinco permissões próprias, e entra com a senha certa.
+    - titulo: Virada da janela
+      descricao: Um minuto depois do início da janela, a partição de A volta a ter cinco permissões.
+    - titulo: Leitura, para comparar
+      descricao: 'A política `leitura` não tem partição: quando A gasta as 60 leituras, B recebe 429 na primeira chamada.'
+  - tipo: classificador
+    enunciado: Que política cabe a cada rota?
+    categorias:
+    - id: login
+      rotulo: login, por IP
+    - id: escrita
+      rotulo: escrita
+    - id: leitura
+      rotulo: leitura
+    - id: criacao
+      rotulo: criacao-produto
+    itens:
+    - texto: '`POST /api/v1/auth/login`'
+      categoria: login
+      explicacao: Rota anônima, alvo de tentativa de senha.
+    - texto: '`POST /api/v1/pedidos`'
+      categoria: escrita
+      explicacao: Mutação autenticada, como as escritas do Catálogo.
+    - texto: '`GET /api/v1/catalogo/produtos`'
+      categoria: leitura
+      explicacao: Leitura pública.
+    - texto: '`POST /api/v1/catalogo/produtos`'
+      categoria: criacao
+      explicacao: Criação de produto, com balde de cinco tokens.
+    - texto: '`POST /api/v1/pedidos/{id}/cancelar`'
+      categoria: escrita
+      explicacao: Mutação de pedido.
+    - texto: '`GET /api/v1/catalogo/categorias/{id}`'
+      categoria: leitura
+      explicacao: Leitura pública.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é limitar as tentativas de login por cliente e os pedidos por minuto, e conferir a expiração do token. Os passos 1 a 3 sobem a API e medem o comportamento atual, os passos 4 a 7 escrevem os testes e acrescentam as políticas, e os passos 8 e 9 repetem a medição e testam tokens montados à mão. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/net-minimal-api`, entre na pasta criada e rode `git checkout 702145a`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Subir a API
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db && dotnet run --launch-profile http
+      sucesso: '`Now listening on: http://localhost:5000`.'
+    - titulo: Medir login e pedidos
+      texto: Noutro terminal, envie trinta senhas erradas pelo IPv4, entre com a senha certa pelo IPv6 e crie 25 pedidos.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'for i in $(seq 1 30); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"chute''$i''"}'' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c'
+        - 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'''
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'' | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'for i in $(seq 1 25); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":2,"quantidade":1}]}'' http://127.0.0.1:5000/api/v1/pedidos; done | sort | uniq -c'
+      sucesso: '`30 401`, `200` e `25 201`: nenhuma recusa por excesso.'
+    - titulo: Medir a leitura com dois clientes
+      texto: Reinicie a API, faça 61 leituras pelo IPv4 e uma pelo IPv6.
+      editor:
+        rotulo: terminal
+        linhas:
+        - for i in $(seq 1 61); do curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5000/api/v1/catalogo/produtos; done | sort | uniq -c
+        - curl -s -i 'http://[::1]:5000/api/v1/catalogo/produtos' | tr -d '\r' | grep -E '^HTTP|^Retry-After|^\{"erro'
+      sucesso: '`60 200` e `1 429` no IPv4, e `429` com `Retry-After` na primeira leitura do IPv6.'
+    - titulo: Escrever os testes de limite
+      texto: Crie o arquivo abaixo, com duas classes para que cada uma tenha a própria API de teste e os próprios contadores.
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/LimitesDeAbusoTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Net;
+        - using System.Net.Http.Headers;
+        - using System.Net.Http.Json;
+        - using FluentAssertions;
+        - using ProdutosAPI.Pedidos.CreatePedido;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration;
+        - ''
+        - 'public class LoginLimiteTests : IClassFixture<RateLimitingApiFactory>'
+        - '{'
+        - '    private readonly HttpClient _client;'
+        - ''
+        - '    public LoginLimiteTests(RateLimitingApiFactory factory) => _client = factory.CreateClient();'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Login_TentativasSeguidas_Retorna429()'
+        - '    {'
+        - '        var codigos = new List<HttpStatusCode>();'
+        - '        for (var i = 0; i < 4; i++)'
+        - '        {'
+        - '            var r = await _client.PostAsJsonAsync("/api/v1/auth/login", new { email = "admin@example.com", senha = $"chute{i}" });'
+        - '            codigos.Add(r.StatusCode);'
+        - '        }'
+        - ''
+        - '        codigos.Should().Equal(HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.Unauthorized, HttpStatusCode.TooManyRequests);'
+        - '    }'
+        - '}'
+        - ''
+        - 'public class PedidosLimiteTests : IClassFixture<RateLimitingApiFactory>'
+        - '{'
+        - '    private readonly HttpClient _client;'
+        - ''
+        - '    public PedidosLimiteTests(RateLimitingApiFactory factory) => _client = factory.CreateClient();'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Pedidos_AcimaDoLimiteDeEscrita_Retorna429()'
+        - '    {'
+        - '        var token = await AuthHelper.ObterTokenAsync(_client);'
+        - '        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);'
+        - ''
+        - '        var codigos = new List<HttpStatusCode>();'
+        - '        for (var i = 0; i < 4; i++)'
+        - '            codigos.Add((await _client.PostAsJsonAsync("/api/v1/pedidos", new CreatePedidoCommand([new(2, 1)]))).StatusCode);'
+        - ''
+        - '        codigos.Last().Should().Be(HttpStatusCode.TooManyRequests);'
+        - '    }'
+        - '}'
+      efeito: teste_limites
+    - titulo: Ver os testes falharem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter "FullyQualifiedName~LoginLimiteTests|FullyQualifiedName~PedidosLimiteTests"
+      sucesso: '`Com falha: 2`, com `differs at index 3` no login e `found HttpStatusCode.Created` nos pedidos.'
+    - titulo: Criar a política de login e aplicar as políticas
+      texto: Faça as mudanças abaixo. A política de login é particionada por IP, e os pedidos passam a usar a política `escrita` que já existe.
+      editor:
+        rotulo: arquivo
+        caminho: RateLimitingExtensions.cs, AuthEndpoints.cs, endpoints de Pedidos e RateLimitingApiFactory.cs (alteração)
+        commit: 702145a
+        linhas:
+        - // src/Catalogo/Catalogo.API/Extensions/RateLimitingExtensions.cs
+        - '// 1. Em AddCatalogoRateLimiting, depois da política criacao-produto:'
+        - '            // Política 4: login — fixed window por IP, 5 tentativas/min'
+        - '            AdicionarPoliticaLogin(options, 5);'
+        - ''
+        - '// 2. Novo método na classe:'
+        - '    // Particionada por IP: as tentativas de um cliente não consomem a cota dos outros.'
+        - '    private static void AdicionarPoliticaLogin(RateLimiterOptions options, int limite) =>'
+        - '        options.AddPolicy("login", context => RateLimitPartition.GetFixedWindowLimiter('
+        - '            context.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",'
+        - '            _ => new FixedWindowRateLimiterOptions { Window = TimeSpan.FromMinutes(1), PermitLimit = limite, QueueLimit = 0 }));'
+        - ''
+        - '// 3. Em AddCatalogoRateLimitingWithLimits, novo parâmetro e a mesma política no fim:'
+        - '        int leituraLimit, int escritaLimit, int criacaoProdutoLimit, int loginLimit = 10000)'
+        - '            AdicionarPoliticaLogin(options, loginLimit);'
+        - ''
+        - '// src/Catalogo/Catalogo.API/Endpoints/Auth/AuthEndpoints.cs: no fim do MapPost("/login")'
+        - '            .AllowAnonymous()'
+        - '            .RequireRateLimiting("login");'
+        - ''
+        - '// CreatePedidoEndpoint.cs, AddItemEndpoint.cs e CancelPedidoEndpoint.cs: no fim do Map'
+        - '        .RequireAuthorization()'
+        - '        .RequireRateLimiting("escrita");'
+        - ''
+        - // tests/ProdutosAPI.Tests/Integration/RateLimitingApiFactory.cs
+        - '        services.AddCatalogoRateLimitingWithLimits(leituraLimit: 3, escritaLimit: 3, criacaoProdutoLimit: 2, loginLimit: 3);'
+      efeito: limites_aplicados
+    - titulo: Ver os testes passarem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter "FullyQualifiedName~LoginLimiteTests|FullyQualifiedName~PedidosLimiteTests"
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Aprovado: 2` e a suíte com `Aprovado: 145`.'
+    - titulo: Medir de novo
+      texto: Reinicie a API e repita as chamadas do passo 2.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'for i in $(seq 1 30); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"chute''$i''"}'' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c'
+        - 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'''
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'' | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'for i in $(seq 1 25); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":2,"quantidade":1}]}'' http://127.0.0.1:5000/api/v1/pedidos; done | sort | uniq -c'
+      sucesso: '`5 401` e `25 429` no IPv4, `200` no IPv6, e `20 201` e `5 429` nos pedidos.'
+    - titulo: Testar a expiração do token
+      texto: Salve o script abaixo como `token.py` na raiz do repositório, para montar tokens com a chave de `appsettings.json` e a validade que você escolher, em segundos. Com a API no ar, gere e use um token válido por 10 minutos, um vencido há 2 minutos e um vencido há 10 minutos.
+      editor:
+        rotulo: arquivo
+        caminho: token.py (novo, só para o teste)
+        commit: 702145a
+        linhas:
+        - '"""Gera um JWT HS256 para a API: python3 oda24-token.py <segundos até expirar> [chave]."""'
+        - import base64, hashlib, hmac, json, sys, time
+        - 'b64 = lambda d: base64.urlsafe_b64encode(d).rstrip(b"=").decode()'
+        - chave = sys.argv[2] if len(sys.argv) > 2 else "MinhaChaveSuperSecretaDePeloMenos32BytesAki123!"
+        - 'corpo = {"sub": "admin_id", "iss": "ProdutosAPI", "aud": "TodosOsClientes", "exp": int(time.time()) + int(sys.argv[1])}'
+        - 'base = b64(json.dumps({"alg": "HS256", "typ": "JWT"}).encode()) + "." + b64(json.dumps(corpo).encode())'
+        - print(base + "." + b64(hmac.new(chave.encode(), base.encode(), hashlib.sha256).digest()))
+        - ''
+        - '# no terminal:'
+        - 'for s in 600 -120 -600; do printf ''%s: '' $s; curl -s -o /dev/null -w ''%{http_code}\n'' -H "Authorization: Bearer $(python3 token.py $s)" http://localhost:5000/api/v1/pedidos; done'
+      sucesso: '`600: 200`, `-120: 200` e `-600: 401`.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: 'Reinicie a API antes de cada bloco de chamadas: os contadores ficam na memória do processo.'
+    - entrada: 'for i in $(seq 1 30); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"chute''$i''"}'' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c'
+      condicao: limites_aplicados
+      saida: "   5 401\n  25 429"
+      origem: executado
+      dica: Cinco tentativas por minuto para este IP.
+    - entrada: 'for i in $(seq 1 30); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"chute''$i''"}'' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c'
+      saida: '  30 401'
+      origem: executado
+      dica: Trinta senhas erradas em sequência, nenhuma recusada por excesso.
+    - entrada: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'''
+      condicao: limites_aplicados
+      saida: '200'
+      origem: executado
+      dica: 'Outro endereço, outra partição: o cliente IPv6 continua entrando.'
+    - entrada: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'''
+      saida: '200'
+      origem: executado
+    - entrada: for i in $(seq 1 61); do curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5000/api/v1/catalogo/produtos; done | sort | uniq -c
+      saida: "  60 200\n   1 429"
+      origem: executado
+    - entrada: curl -s -i 'http://[::1]:5000/api/v1/catalogo/produtos' | tr -d '\r' | grep -E '^HTTP|^Retry-After|^\{"erro'
+      saida: 'HTTP/1.1 429 Too Many Requests
+
+        Retry-After: 60
+
+        {"erro":"Too Many Requests","mensagem":"Limite de requisições excedido. Tente novamente em breve."}'
+      origem: executado
+      dica: 'Este cliente não fez nenhuma leitura antes: o contador de leitura é um só para todos.'
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'' | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'for i in $(seq 1 25); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":2,"quantidade":1}]}'' http://127.0.0.1:5000/api/v1/pedidos; done | sort | uniq -c'
+      condicao: limites_aplicados
+      saida: "  20 201\n   5 429"
+      origem: executado
+      dica: A política `escrita` admite 20 por minuto.
+    - entrada: 'for i in $(seq 1 25); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":2,"quantidade":1}]}'' http://127.0.0.1:5000/api/v1/pedidos; done | sort | uniq -c'
+      saida: '  25 201'
+      origem: executado
+      dica: 'Vinte e cinco pedidos em sequência: as rotas de Pedidos não têm política.'
+    - entrada: 'for s in 600 -120 -600; do printf ''%s: '' $s; curl -s -o /dev/null -w ''%{http_code}\n'' -H "Authorization: Bearer $(python3 token.py $s)" http://localhost:5000/api/v1/pedidos; done'
+      saida: '600: 200
+
+        -120: 200
+
+        -600: 401'
+      origem: executado
+      dica: O token vencido há 120 segundos ainda passa. Veja o Diagnóstico.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter "FullyQualifiedName~LoginLimiteTests|FullyQualifiedName~PedidosLimiteTests"
+      condicao:
+      - teste_limites
+      - limites_aplicados
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     2, Ignorado:     0, Total:     2, Duração: 761 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter "FullyQualifiedName~LoginLimiteTests|FullyQualifiedName~PedidosLimiteTests"
+      condicao: teste_limites
+      saida: "  Com falha ProdutosAPI.Tests.Integration.LoginLimiteTests.POST_Login_TentativasSeguidas_Retorna429 [841 ms]\n   Expected codigos to be equal to {HttpStatusCode.Unauthorized {value: 401}, HttpStatusCode.Unauthorized {value: 401}, HttpStatusCode.Unauthorized {value: 401}, HttpStatusCode.TooManyRequests {value: 429}}, but {HttpStatusCode.Unauthorized {value: 401}, HttpStatusCode.Unauthorized {value: 401}, HttpStatusCode.Unauthorized {value: 401}, HttpStatusCode.Unauthorized {value: 401}} differs at index 3.\n   at FluentAssertions.Execution.GivenSelectorExtensions.AssertCollectionsHaveSameItems[TActual,TExpected](GivenSelector`1 givenSelector, ICollection`1 expected, Func`3 findIndex)\n  Com falha ProdutosAPI.Tests.Integration.PedidosLimiteTests.POST_Pedidos_AcimaDoLimiteDeEscrita_Retorna429 [921 ms]\n   Expected codigos.Last() to be HttpStatusCode.TooManyRequests {value: 429}, but found HttpStatusCode.Created {value: 201}.\nCom falha! – Com falha:     2, Aprovado:     0, Ignorado:     0, Total:     2, Duração: 921 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: A quarta tentativa de login recebe 401, e o quarto pedido recebe 201.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter "FullyQualifiedName~LoginLimiteTests|FullyQualifiedName~PedidosLimiteTests"
+      saida: Nenhum teste corresponde ao filtro de testcase `FullyQualifiedName~LoginLimiteTests|FullyQualifiedName~PedidosLimiteTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 4.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_limites
+      - limites_aplicados
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   145, Ignorado:     0, Total:   145, Duração: 885 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_limites
+      saida: 'Com falha! – Com falha:     2, Aprovado:   143, Ignorado:     0, Total:   145, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`.
+    cenarios:
+    - rotulo: Tentativas de login
+      comando: 'for i in $(seq 1 30); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"chute''$i''"}'' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c'
+    - rotulo: Login pelo IPv6
+      comando: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' ''http://[::1]:5000/api/v1/auth/login'''
+    - rotulo: 25 pedidos
+      comando: 'for i in $(seq 1 25); do curl -s -o /dev/null -w ''%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":2,"quantidade":1}]}'' http://127.0.0.1:5000/api/v1/pedidos; done | sort | uniq -c'
+    - rotulo: Testes de limite
+      comando: dotnet test tests/ProdutosAPI.Tests --filter "FullyQualifiedName~LoginLimiteTests|FullyQualifiedName~PedidosLimiteTests"
+    - rotulo: Expiração do token
+      comando: 'for s in 600 -120 -600; do printf ''%s: '' $s; curl -s -o /dev/null -w ''%{http_code}\n'' -H "Authorization: Bearer $(python3 token.py $s)" http://localhost:5000/api/v1/pedidos; done'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que aparecem ao proteger essa API, cada uma com a saída que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Um cliente bloqueia a leitura de todos
+    origem: executado
+    rotulo_saida: log
+    saida: "# cliente 127.0.0.1\n  60 200\n   1 429\n\n# cliente ::1, primeira chamada\nHTTP/1.1 429 Too Many Requests\nRetry-After: 60\n{\"erro\":\"Too Many Requests\",\"mensagem\":\"Limite de requisições excedido. Tente novamente em breve.\"}"
+    pergunta: O segundo cliente não tinha feito nenhuma chamada. Por que recebeu 429?
+    correcao: Registrar a leitura com `AddPolicy` e `RateLimitPartition` por IP, como a política de login do passo 6.
+    alternativas:
+    - texto: O `Retry-After` vale para todos os clientes.
+      correta: false
+      explicacao: O cabeçalho só informa a espera ao cliente recusado.
+    - texto: A política `leitura` tem um contador único para a API inteira, e o primeiro cliente gastou as 60 permissões do minuto.
+      correta: true
+      explicacao: Um robô de raspagem derruba a leitura de todos os usuários.
+    - texto: Os dois clientes têm o mesmo IP.
+      correta: false
+      explicacao: Um chegou por IPv4, e o outro, por IPv6.
+  - tipo: incidente
+    titulo: Senhas testadas sem limite
+    origem: executado
+    rotulo_saida: log
+    saida: "$ trinta tentativas de login com senhas erradas\n  30 401"
+    pergunta: Por que nenhuma das trinta tentativas foi recusada por excesso?
+    correcao: Aplicar uma política particionada por IP ao login, como nos passos 6 e 8.
+    alternativas:
+    - texto: O limite só conta tentativas com senha certa.
+      correta: false
+      explicacao: Não havia limite nenhum na rota.
+    - texto: O JWT impede tentativas de senha.
+      correta: false
+      explicacao: O login é a rota que emite o token.
+    - texto: O endpoint de login é anônimo e não declara nenhuma política, e as três políticas do Catálogo só valem onde são pedidas.
+      correta: true
+      explicacao: Depois do laboratório, a sexta tentativa recebe 429.
+  - tipo: incidente
+    titulo: Token vencido que ainda abre a API
+    origem: executado
+    rotulo_saida: log
+    saida: "válido: 200 \noutra chave: 401 WWW-Authenticate: Bearer error=\"invalid_token\", error_description=\"The signature key was not found\"\n\nvencido há 2 min: 200 \nvencido há 10 min: 401 WWW-Authenticate: Bearer error=\"invalid_token\", error_description=\"The token expired at '11/02/2026 00:48:58'\""
+    pergunta: Por que o token vencido há 2 minutos recebeu 200?
+    correcao: Definir `ClockSkew` em `TokenValidationParameters` com a tolerância aceita, como `TimeSpan.FromSeconds(30)`.
+    alternativas:
+    - texto: A validação de expiração tolera cinco minutos de diferença de relógio, e o padrão não foi alterado no `Program.cs`.
+      correta: true
+      explicacao: O token vencido há 10 minutos recebeu 401 com `The token expired at`.
+    - texto: A API não confere a expiração.
+      correta: false
+      explicacao: '`ValidateLifetime = true` e o token de 10 minutos foi recusado.'
+    - texto: O token foi renovado automaticamente.
+      correta: false
+      explicacao: A API não tem renovação de token.
+  - tipo: incidente
+    titulo: Limite que não soma entre instâncias
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/Catalogo/Catalogo.API/Extensions/RateLimitingExtensions.cs:33-40\n            // Política 1: leitura — fixed window, 60 req/min\n            options.AddFixedWindowLimiter(\"leitura\", opt =>\n            {\n                opt.Window = TimeSpan.FromMinutes(1);\n                opt.PermitLimit = 60;\n                opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;\n                opt.QueueLimit = 0;\n            });"
+    pergunta: A API passa a rodar em três instâncias atrás de um balanceador. Quantas leituras por minuto a API inteira aceita?
+    correcao: Aplicar o limite num ponto comum, como o gateway, ou num contador compartilhado, como o Redis, se o limite precisa valer para o conjunto.
+    alternativas:
+    - texto: 20, porque o balanceador divide o limite.
+      correta: false
+      explicacao: O balanceador não conhece o limite.
+    - texto: Até 180, porque cada instância tem o próprio contador na memória do processo.
+      correta: true
+      explicacao: A ADR-0013 registra essa limitação.
+    - texto: 60, porque o limite é da API.
+      correta: false
+      explicacao: Os contadores não são compartilhados.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que a política de login é particionada por IP?
+      alternativas:
+      - texto: Para acelerar o login.
+        correta: false
+        explicacao: A partição não muda a velocidade.
+      - texto: Porque o login exige token.
+        correta: false
+        explicacao: O login é anônimo.
+      - texto: Para que as tentativas de um cliente não bloqueiem o login dos outros.
+        correta: true
+        explicacao: O cliente IPv6 entrou enquanto o IPv4 recebia 429.
+    - enunciado: Que algoritmo admite uma rajada na virada do minuto?
+      alternativas:
+      - texto: A janela fixa.
+        correta: true
+        explicacao: O contador zera de uma vez no início de cada janela.
+      - texto: A janela deslizante.
+        correta: false
+        explicacao: Ela descarta segmentos aos poucos.
+      - texto: O balde de tokens.
+        correta: false
+        explicacao: Ele limita pela reposição dos tokens.
+    - enunciado: Que resposta um cliente recebe ao exceder um limite?
+      alternativas:
+      - texto: '503.'
+        correta: false
+        explicacao: A API está disponível.
+      - texto: 429 com o cabeçalho `Retry-After`.
+        correta: true
+        explicacao: O `OnRejected` grava o cabeçalho e o corpo.
+      - texto: '401.'
+        correta: false
+        explicacao: 401 é falta de autenticação.
+    - enunciado: Por que um token vencido há 2 minutos foi aceito?
+      alternativas:
+      - texto: Porque a chave é a mesma.
+        correta: false
+        explicacao: A chave confere a assinatura, e não a validade.
+      - texto: Porque o emissor é a própria API.
+        correta: false
+        explicacao: O emissor não afeta a expiração.
+      - texto: Pela tolerância padrão de cinco minutos de relógio.
+        correta: true
+        explicacao: O `ClockSkew` não foi configurado.
+    - enunciado: Por que os testes de limite usam duas classes?
+      alternativas:
+      - texto: Para que cada classe tenha a própria API de teste e os contadores não interfiram.
+        correta: true
+        explicacao: O `IClassFixture` cria uma instância por classe.
+      - texto: Porque o xUnit exige uma classe por teste.
+        correta: false
+        explicacao: Uma classe pode ter vários testes.
+      - texto: Para rodar em paralelo mais rápido.
+        correta: false
+        explicacao: O motivo é o isolamento dos contadores.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O que o JWT confere e a tolerância de relógio estão claros.
+    - O contador compartilhado da leitura foi demonstrado com dois clientes.
+    - Os testes falharam antes das políticas e passaram depois.
+    - O login passou a recusar a sexta tentativa por IP, e os pedidos, o 21º por minuto.
+    - O limite por processo e o efeito de várias instâncias estão claros.

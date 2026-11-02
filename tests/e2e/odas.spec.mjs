@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-23', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-23', 'oda-24', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -412,6 +412,20 @@ test('oda-23: testes verdes e API parada até a migration do índice filtrado', 
   await painel.getByLabel('Passo 9 concluído').check();
   await rodar('rm -f produtos-api.db && dotnet run --launch-profile http');
   await expect(tela).toContainText('Now listening on: http://localhost:5000');
+});
+
+test('oda-24: o login aceita trinta senhas erradas até a política particionada', async ({ page }) => {
+  await page.goto('/oda-24/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  const chutes = `for i in $(seq 1 30); do curl -s -o /dev/null -w '%{http_code}\\n' -X POST -H 'Content-Type: application/json' -d '{"email":"admin@example.com","senha":"chute'$i'"}' http://127.0.0.1:5000/api/v1/auth/login; done | sort | uniq -c`;
+  await rodar(chutes);
+  await expect(tela).toContainText('30 401');
+  await painel.getByLabel('Passo 6 concluído').check();
+  await rodar(chutes);
+  await expect(tela).toContainText('25 429');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {
