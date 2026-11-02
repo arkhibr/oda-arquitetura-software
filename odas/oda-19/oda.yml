@@ -1,0 +1,700 @@
+id: '19'
+titulo: Clean Architecture híbrida no Catálogo
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: 'O Catálogo divide o código em quatro subprojetos, e a Clean Architecture exige que as dependências apontem para dentro, em direção ao domínio. Esta ODA lê o grafo de referências, transforma a regra em testes de arquitetura e corrige a única seta que aponta para fora: a camada de API referencia a Infrastructure só para registrar repositórios.'
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar a responsabilidade de Domain, Application, Infrastructure e API no Catálogo.
+    - Ler o grafo de referências dos subprojetos e a direção de cada seta.
+    - Escrever testes que falham quando uma camada passa a depender de outra que não deveria.
+    - Mover o registro dos repositórios para a raiz de composição, sem a API conhecer a Infrastructure.
+    - Reconhecer onde o `DbContext` do Catálogo fica e o que isso custa.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 17. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · grafo do Catálogo
+    comandos:
+    - entrada: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
+      saida: '== Catalogo.Domain
+
+        == Catalogo.Application
+
+        ../Catalogo.Domain/Catalogo.Domain.csproj
+
+        == Catalogo.Infrastructure
+
+        ../Catalogo.Application/Catalogo.Application.csproj
+
+        ../Catalogo.Domain/Catalogo.Domain.csproj
+
+        == Catalogo.API
+
+        ../Catalogo.Application/Catalogo.Application.csproj
+
+        ../Catalogo.Infrastructure/Catalogo.Infrastructure.csproj'
+      origem: executado
+    - entrada: grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
+      saida: 'src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs:5:using ProdutosAPI.Catalogo.Infrastructure.Queries;
+
+        src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs:6:using ProdutosAPI.Catalogo.Infrastructure.Repositories;'
+      origem: executado
+    cenarios:
+    - rotulo: Referências dos subprojetos
+      comando: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
+    - rotulo: Usos da Infrastructure na API
+      comando: grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'A ADR-0001 faz Clean Architecture e Vertical Slice coexistirem em contextos diferentes, e a ADR-0011 detalha o Catálogo: camadas da Clean Architecture embaixo e um arquivo por grupo de endpoints em cima. A regra de dependência diz que o código de dentro não conhece o de fora.'
+  - tipo: comparativo
+    colunas:
+    - Responsabilidade
+    - Conhece
+    linhas:
+    - dimensao: Catalogo.Domain
+      valores:
+      - Entidades, value objects e regras, como `Produto.Criar`
+      - Só o .NET
+    - dimensao: Catalogo.Application
+      valores:
+      - Serviços, DTOs, validadores e as interfaces de repositório
+      - Domain
+    - dimensao: Catalogo.Infrastructure
+      valores:
+      - Repositórios EF Core de escrita, consultas Dapper de leitura e seed
+      - Application e Domain
+    - dimensao: Catalogo.API
+      valores:
+      - Endpoints por recurso, rate limiting e registro dos serviços
+      - Application, e no commit também a Infrastructure
+    - dimensao: ProdutosAPI (host)
+      valores:
+      - '`Program.cs`, `AppDbContext` e migrations'
+      - Todos os subprojetos
+  - tipo: conceito
+    titulo: Inversão de dependência
+    texto: A Application declara `IProdutoCommandRepository` e a Infrastructure o implementa, e por isso a seta de referência vai da Infrastructure para a Application. O serviço de produto chama a interface e não sabe se do outro lado há EF Core, Dapper ou um dublê de teste.
+  - tipo: conceito
+    titulo: Raiz de composição
+    texto: Algum ponto do sistema precisa conhecer as implementações para registrá-las no DI, e esse ponto é o host, que já referencia tudo. Quando o registro fica na camada de API, ela passa a depender da Infrastructure, embora nenhum endpoint use as classes dela.
+  - tipo: adr
+    id: ADR-0001
+    titulo: Coexistência de Clean Architecture e Vertical Slice Architecture
+    status: accepted
+    contexto: Contextos com regras simples e mudança frequente convivem com contextos de regras complexas e necessidade de testes isolados.
+    decisao: Vertical Slice nos Pedidos e Clean Architecture, em camadas, no Catálogo.
+    alternativas: Um único padrão para toda a aplicação.
+    consequencias: Comparação dos padrões no mesmo código, com carga cognitiva maior para quem contribui.
+  - tipo: adr
+    id: ADR-0011
+    titulo: 'Arquitetura Híbrida: Clean Architecture nas Camadas + Vertical Slice na API'
+    status: accepted
+    contexto: O Catálogo passou a ter cinco recursos com regras de domínio ricas, e a estrutura plana anterior não escalava.
+    decisao: Domain, Application e Infrastructure em Clean Architecture, e um arquivo por grupo de endpoints na API.
+    alternativas: Clean Architecture pura e Vertical Slice pura.
+    consequencias: Domínio reutilizado por todos os endpoints, com risco de misturar responsabilidades se a disciplina de camadas não for mantida.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `702145a`, as referências da API, o registro no DI, a interface de dados da Application e o contexto EF Core do host. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.API/Catalogo.API.csproj
+    commit: 702145a
+    linhas:
+    - '  <ItemGroup>'
+    - '    <ProjectReference Include="../Catalogo.Application/Catalogo.Application.csproj" />'
+    - '    <ProjectReference Include="../Catalogo.Infrastructure/Catalogo.Infrastructure.csproj" />'
+    - '  </ItemGroup>'
+    anotacoes:
+    - linha: 14
+      texto: Seta da API para a Infrastructure.
+    inicio: 12
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs
+    commit: 702145a
+    linhas:
+    - using FluentValidation;
+    - using ProdutosAPI.Catalogo.Application.Repositories;
+    - using ProdutosAPI.Catalogo.Application.Services;
+    - using ProdutosAPI.Catalogo.Application.Validators;
+    - using ProdutosAPI.Catalogo.Infrastructure.Queries;
+    - using ProdutosAPI.Catalogo.Infrastructure.Repositories;
+    - ''
+    - namespace ProdutosAPI.Catalogo.API.Extensions;
+    - ''
+    - public static class CatalogoServiceExtensions
+    - '{'
+    - '    public static IServiceCollection AddCatalogo(this IServiceCollection services)'
+    - '    {'
+    - '        // Produto'
+    - '        services.AddScoped<IProdutoService, ProdutoService>();'
+    - '        services.AddScoped<IProdutoQueryRepository, DapperProdutoQueryRepository>();'
+    - '        services.AddScoped<IProdutoCommandRepository, EfProdutoCommandRepository>();'
+    - ''
+    anotacoes:
+    - linha: 5
+      texto: 'Único motivo da referência: os tipos concretos para o DI.'
+    - linha: 16
+      texto: Leitura com Dapper.
+    - linha: 17
+      texto: Escrita com EF Core.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.Application/Interfaces/ICatalogoContext.cs
+    commit: 702145a
+    linhas:
+    - using ProdutosAPI.Catalogo.Domain;
+    - ''
+    - namespace ProdutosAPI.Catalogo.Application.Interfaces;
+    - ''
+    - public interface ICatalogoContext
+    - '{'
+    - '    IQueryable<Produto> Produtos { get; }'
+    - '    IQueryable<Categoria> Categorias { get; }'
+    - '    IQueryable<Variante> Variantes { get; }'
+    - '    IQueryable<Atributo> Atributos { get; }'
+    - '    IQueryable<Midia> Midias { get; }'
+    - '    void AddProduto(Produto produto);'
+    - '    void AddCategoria(Categoria categoria);'
+    - '    void AddVariante(Variante variante);'
+    - '    void AddAtributo(Atributo atributo);'
+    - '    void AddMidia(Midia midia);'
+    - '    void Remove<T>(T entity) where T : class;'
+    - '    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);'
+    - '}'
+    anotacoes:
+    - linha: 5
+      texto: Contrato de dados declarado na Application.
+    - linha: 7
+      texto: Expõe consultas LINQ, e não só operações de repositório.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Data/AppDbContext.cs
+    commit: 702145a
+    linhas:
+    - using Microsoft.EntityFrameworkCore;
+    - using ProdutosAPI.Pedidos.Domain;
+    - using ProdutosAPI.Catalogo.Application.Interfaces;
+    - using ProdutosAPI.Catalogo.Domain;
+    - using ProdutosAPI.Catalogo.Domain.ValueObjects;
+    - ''
+    - namespace ProdutosAPI.Shared.Data;
+    - ''
+    - 'public class AppDbContext : DbContext, ICatalogoContext'
+    - '{'
+    - '    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)'
+    - '    {'
+    - '    }'
+    - ''
+    - '    // DbSets'
+    - '    public DbSet<Produto> Produtos => Set<Produto>();'
+    - '    public DbSet<Categoria> Categorias => Set<Categoria>();'
+    - '    public DbSet<Variante> Variantes => Set<Variante>();'
+    - '    public DbSet<Atributo> Atributos => Set<Atributo>();'
+    - '    public DbSet<Midia> Midias => Set<Midia>();'
+    - '    public DbSet<Pedido> Pedidos => Set<Pedido>();'
+    - '    public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();'
+    - ''
+    - '    // ICatalogoContext: explicit implementation — DbSet<T> não satisfaz IQueryable<T> implicitamente'
+    - '    IQueryable<Produto> ICatalogoContext.Produtos => Set<Produto>();'
+    - '    IQueryable<Categoria> ICatalogoContext.Categorias => Set<Categoria>();'
+    - '    IQueryable<Variante> ICatalogoContext.Variantes => Set<Variante>();'
+    - '    IQueryable<Atributo> ICatalogoContext.Atributos => Set<Atributo>();'
+    - '    IQueryable<Midia> ICatalogoContext.Midias => Set<Midia>();'
+    anotacoes:
+    - linha: 7
+      texto: O contexto fica no host, fora do Catálogo.
+    - linha: 21
+      texto: O mesmo contexto atende o Catálogo e os Pedidos.
+    - linha: 25
+      texto: Implementação explícita da interface da Application.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.Domain/Produto.cs
+    commit: 702145a
+    linhas:
+    - '    public static Result<Produto> Criar('
+    - '        string nome, string descricao, decimal preco,'
+    - '        string categoria, int estoque, string email)'
+    - '    {'
+    - '        if (string.IsNullOrWhiteSpace(nome) || nome.Length < 3)'
+    - '            return Result<Produto>.Fail("Nome deve ter ao menos 3 caracteres.");'
+    - '        if (string.IsNullOrWhiteSpace(email))'
+    - '            return Result<Produto>.Fail("Email de contato é obrigatório.");'
+    anotacoes:
+    - linha: 24
+      texto: A regra de criação vive no domínio, sem depender de nada externo.
+    inicio: 24
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Acompanhe a criação de um produto pelas camadas e classifique onde cada peça deve ficar.
+  - tipo: fluxo
+    titulo: POST /api/v1/catalogo/produtos pelas camadas
+    etapas:
+    - titulo: API
+      descricao: '`CriarProduto` recebe o `CriarProdutoRequest`, roda o validador do FluentValidation e chama `IProdutoService`.'
+    - titulo: Application
+      descricao: '`ProdutoService` chama `Produto.Criar` e, com sucesso, `IProdutoCommandRepository`, sem conhecer a implementação.'
+    - titulo: Domain
+      descricao: '`Produto.Criar` confere nome, e-mail, preço e estoque e devolve `Result<Produto>`.'
+    - titulo: Infrastructure
+      descricao: '`EfProdutoCommandRepository` usa `ICatalogoContext` para adicionar o produto e salvar.'
+    - titulo: Host
+      descricao: O `AppDbContext` implementa `ICatalogoContext` e grava no SQLite, com o mapeamento EF Core do host.
+  - tipo: classificador
+    enunciado: Em que camada cada peça deve ficar?
+    categorias:
+    - id: domain
+      rotulo: Domain
+    - id: application
+      rotulo: Application
+    - id: infra
+      rotulo: Infrastructure
+    - id: host
+      rotulo: Host
+    itens:
+    - texto: Regra de que o preço deve ser maior que zero
+      categoria: domain
+      explicacao: Invariante da entidade.
+    - texto: Interface `IProdutoQueryRepository`
+      categoria: application
+      explicacao: Quem usa declara o contrato.
+    - texto: Consulta SQL com Dapper para a listagem
+      categoria: infra
+      explicacao: Detalhe de acesso a dados.
+    - texto: '`services.AddScoped<IProdutoCommandRepository, EfProdutoCommandRepository>()`'
+      categoria: host
+      explicacao: 'Composição: quem conhece as implementações. No laboratório, a extensão fica na Infrastructure e é chamada pelo host.'
+    - texto: '`CriarProdutoValidator`'
+      categoria: application
+      explicacao: Validação de entrada do caso de uso.
+    - texto: '`DbSet<Produto>` e as migrations'
+      categoria: host
+      explicacao: No commit, o `AppDbContext` e as migrations ficam em `src/Shared/Data`.
+    - texto: Value object `PrecoProduto`
+      categoria: domain
+      explicacao: Fica em `Catalogo.Domain/ValueObjects`.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do `net-minimal-api`. Os passos 1 a 4 leem o grafo e escrevem os testes de arquitetura, e os passos 5 a 7 movem o registro para a raiz de composição e conferem o resultado.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Ler o grafo de referências
+      editor:
+        rotulo: terminal
+        linhas:
+        - for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
+        - grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
+      sucesso: Domain sem referências, Application para Domain, Infrastructure para Application e Domain, e API para Application e Infrastructure, com os `using` em `CatalogoServiceExtensions.cs`.
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Aprovado: 143`.'
+    - titulo: Escrever os testes de arquitetura
+      texto: Crie o arquivo abaixo. Ele lê as referências que o compilador gravou em cada assembly, que só incluem os assemblies cujos tipos o código usa.
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Unit/Arquitetura/DependenciasCatalogoTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Reflection;
+        - using FluentAssertions;
+        - using ProdutosAPI.Catalogo.API.Extensions;
+        - using ProdutosAPI.Catalogo.Application.Services;
+        - using ProdutosAPI.Catalogo.Domain;
+        - using ProdutosAPI.Catalogo.Infrastructure.Repositories;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Unit.Arquitetura;
+        - ''
+        - public class DependenciasCatalogoTests
+        - '{'
+        - '    private static readonly Assembly Domain = typeof(Produto).Assembly;'
+        - '    private static readonly Assembly Application = typeof(ProdutoService).Assembly;'
+        - '    private static readonly Assembly Infrastructure = typeof(EfProdutoCommandRepository).Assembly;'
+        - '    private static readonly Assembly Api = typeof(CatalogoServiceExtensions).Assembly;'
+        - ''
+        - '    private static IEnumerable<string> Referencias(Assembly assembly) =>'
+        - '        assembly.GetReferencedAssemblies().Select(a => a.Name!);'
+        - ''
+        - '    [Fact]'
+        - '    public void Domain_NaoReferenciaOutrasCamadasNemBibliotecas()'
+        - '    {'
+        - '        Referencias(Domain).Should().OnlyContain(nome => nome == "System.Runtime" || nome.StartsWith("System."));'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public void Application_ConheceSoODomain()'
+        - '    {'
+        - '        Referencias(Application).Should().Contain(Domain.GetName().Name)'
+        - '            .And.NotContain(new[] { Infrastructure.GetName().Name!, "Microsoft.EntityFrameworkCore", "Dapper" });'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public void Infrastructure_ImplementaAsInterfacesDaApplication()'
+        - '    {'
+        - '        Referencias(Infrastructure).Should().Contain(Application.GetName().Name);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public void Api_NaoDependeDaInfrastructure()'
+        - '    {'
+        - '        Referencias(Api).Should().NotContain(Infrastructure.GetName().Name);'
+        - '    }'
+        - '}'
+      efeito: teste_arquitetura
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests
+      sucesso: '`Com falha: 1, Aprovado: 3`, com `Catalogo.Infrastructure` na lista de referências da API.'
+    - titulo: Criar o registro na Infrastructure
+      editor:
+        rotulo: arquivo
+        caminho: src/Catalogo/Catalogo.Infrastructure/InfrastructureServiceExtensions.cs (novo)
+        commit: 702145a
+        linhas:
+        - using Microsoft.Extensions.DependencyInjection;
+        - using ProdutosAPI.Catalogo.Application.Repositories;
+        - using ProdutosAPI.Catalogo.Infrastructure.Queries;
+        - using ProdutosAPI.Catalogo.Infrastructure.Repositories;
+        - ''
+        - namespace ProdutosAPI.Catalogo.Infrastructure;
+        - ''
+        - public static class InfrastructureServiceExtensions
+        - '{'
+        - '    public static IServiceCollection AddCatalogoInfrastructure(this IServiceCollection services)'
+        - '    {'
+        - '        services.AddScoped<IProdutoQueryRepository, DapperProdutoQueryRepository>();'
+        - '        services.AddScoped<IProdutoCommandRepository, EfProdutoCommandRepository>();'
+        - '        services.AddScoped<ICategoriaQueryRepository, DapperCategoriaQueryRepository>();'
+        - '        services.AddScoped<ICategoriaCommandRepository, EfCategoriaCommandRepository>();'
+        - '        services.AddScoped<IVarianteQueryRepository, DapperVarianteQueryRepository>();'
+        - '        services.AddScoped<IVarianteCommandRepository, EfVarianteCommandRepository>();'
+        - '        services.AddScoped<IAtributoRepository, EfAtributoRepository>();'
+        - '        services.AddScoped<IMidiaRepository, EfMidiaRepository>();'
+        - '        return services;'
+        - '    }'
+        - '}'
+    - titulo: Tirar a Infrastructure da API
+      texto: Faça as três mudanças abaixo. O host continua a referenciar a Infrastructure pelo `ProdutosAPI.csproj`.
+      editor:
+        rotulo: arquivo
+        caminho: Catalogo.API.csproj, CatalogoServiceExtensions.cs e Program.cs (alteração)
+        commit: 702145a
+        linhas:
+        - '<!-- src/Catalogo/Catalogo.API/Catalogo.API.csproj: remova a linha -->'
+        - <ProjectReference Include="../Catalogo.Infrastructure/Catalogo.Infrastructure.csproj" />
+        - ''
+        - '// src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs:'
+        - // remova os dois using de Infrastructure, o using de Application.Repositories
+        - // e as oito linhas services.AddScoped<I...Repository, ...>()
+        - ''
+        - '// Program.cs: junto aos using e depois de builder.Services.AddCatalogo();'
+        - using ProdutosAPI.Catalogo.Infrastructure;
+        - builder.Services.AddCatalogoInfrastructure();
+      efeito: registro_movido
+    - titulo: Conferir o grafo e os testes
+      editor:
+        rotulo: terminal
+        linhas:
+        - for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
+        - grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
+        - dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: 'A API aponta só para a Application, o `grep` não encontra usos, `Aprovado: 4` e `Aprovado: 147`.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
+      condicao: registro_movido
+      saida: '== Catalogo.Domain
+
+        == Catalogo.Application
+
+        ../Catalogo.Domain/Catalogo.Domain.csproj
+
+        == Catalogo.Infrastructure
+
+        ../Catalogo.Application/Catalogo.Application.csproj
+
+        ../Catalogo.Domain/Catalogo.Domain.csproj
+
+        == Catalogo.API
+
+        ../Catalogo.Application/Catalogo.Application.csproj'
+      origem: executado
+    - entrada: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
+      saida: '== Catalogo.Domain
+
+        == Catalogo.Application
+
+        ../Catalogo.Domain/Catalogo.Domain.csproj
+
+        == Catalogo.Infrastructure
+
+        ../Catalogo.Application/Catalogo.Application.csproj
+
+        ../Catalogo.Domain/Catalogo.Domain.csproj
+
+        == Catalogo.API
+
+        ../Catalogo.Application/Catalogo.Application.csproj
+
+        ../Catalogo.Infrastructure/Catalogo.Infrastructure.csproj'
+      origem: executado
+      dica: A API é a única camada que aponta para a Infrastructure.
+    - entrada: grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
+      condicao: registro_movido
+      saida: ''
+      origem: executado
+      dica: Nenhum uso da Infrastructure na API.
+    - entrada: grep -rn 'using ProdutosAPI.Catalogo.Infrastructure' src/Catalogo/Catalogo.API
+      saida: 'src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs:5:using ProdutosAPI.Catalogo.Infrastructure.Queries;
+
+        src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs:6:using ProdutosAPI.Catalogo.Infrastructure.Repositories;'
+      origem: executado
+      dica: O único arquivo da API que usa a Infrastructure é o registro no DI.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests
+      condicao:
+      - teste_arquitetura
+      - registro_movido
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     4, Ignorado:     0, Total:     4, Duração: 8 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests
+      condicao: teste_arquitetura
+      saida: "  Com falha ProdutosAPI.Tests.Unit.Arquitetura.DependenciasCatalogoTests.Api_NaoDependeDaInfrastructure [27 ms]\n   Expected Referencias(Api) {\"System.Runtime\", \"Microsoft.Extensions.DependencyInjection.Abstractions\", \"Microsoft.AspNetCore.RateLimiting\", \"System.Threading.RateLimiting\", \"Microsoft.AspNetCore.Routing\", \"Microsoft.AspNetCore.Http.Abstractions\", \"Catalogo.Application\", \"FluentValidation\", \"Catalogo.Domain\", \"System.Collections\", \"Microsoft.AspNetCore\", \"Microsoft.Extensions.Configuration.Abstractions\", \"System.Security.Claims\", \"Microsoft.IdentityModel.Tokens\", \"System.IdentityModel.Tokens.Jwt\", \"Catalogo.Infrastructure\", \"FluentValidation.DependencyInjectionExtensions\", \"Microsoft.AspNetCore.Authorization.Policy\", \"Microsoft.AspNetCore.Http.Results\", \"System.Linq\", \"Microsoft.AspNetCore.Http.Features\", \"Microsoft.Extensions.Primitives\"} to not contain \"Catalogo.Infrastructure\".\nCom falha! – Com falha:     1, Aprovado:     3, Ignorado:     0, Total:     4, Duração: 37 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: Três regras já valem no commit, e a quarta lista `Catalogo.Infrastructure` entre as referências da API.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests
+      saida: Nenhum teste corresponde ao filtro de testcase `DependenciasCatalogoTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 3.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_arquitetura
+      - registro_movido
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   147, Ignorado:     0, Total:   147, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_arquitetura
+      saida: 'Com falha! – Com falha:     1, Aprovado:   146, Ignorado:     0, Total:   147, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`, ou aplique a correção da ODA 16.
+    cenarios:
+    - rotulo: Referências
+      comando: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
+    - rotulo: Testes de arquitetura
+      comando: dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests
+    - rotulo: Suíte
+      comando: dotnet test tests/ProdutosAPI.Tests
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os incidentes partem de saídas do laboratório e de trechos do código de dados do Catálogo.
+  - tipo: incidente
+    titulo: Vinte e seis testes com 500 depois da mudança
+    origem: executado
+    rotulo_saida: log
+    saida: "# dotnet test\n  Com falha ProdutosAPI.Tests.Endpoints.ProdutoEndpointsTests.GET_Produto_NaoRequerAutenticacao [1 s]\n   Expected response.StatusCode to be HttpStatusCode.OK {value: 200}, but found HttpStatusCode.InternalServerError {value: 500}.\nCom falha! – Com falha:    26, Aprovado:   121, Ignorado:     0, Total:   147, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)\n\n# dotnet run, ambiente Development\nUnhandled exception. System.AggregateException: Some services are not able to be constructed (Error while validating the service descriptor 'ServiceType: ProdutosAPI.Catalogo.Application.Services.IProdutoService Lifetime: Scoped ImplementationType: ProdutosAPI.Catalogo.Application.Services.ProdutoSe\n ---> System.InvalidOperationException: Error while validating the service descriptor 'ServiceType: ProdutosAPI.Catalogo.Application.Services.IProdutoService Lifetime: Scoped ImplementationType: ProdutosAPI.Catalogo.Application.Services.ProdutoService': Unable to resolve service for type 'ProdutosAP\n ---> System.InvalidOperationException: Unable to resolve service for type 'ProdutosAPI.Catalogo.Application.Repositories.IProdutoQueryRepository' while attempting to activate 'ProdutosAPI.Catalogo.Application.Services.ProdutoService'."
+    pergunta: Depois do passo 6, a equipe esquece de chamar `AddCatalogoInfrastructure()` no `Program.cs`. Por que a API não sobe em desenvolvimento, e os testes só recebem 500?
+    correcao: Manter a chamada no `Program.cs` e ligar `ValidateOnBuild` também no ambiente `Testing`, para que a suíte pare na inicialização como a API em desenvolvimento.
+    alternativas:
+    - texto: Os testes de arquitetura quebraram os outros.
+      correta: false
+      explicacao: Eles só leem metadados dos assemblies.
+    - texto: Em `Development`, o ASP.NET valida o DI ao construir a aplicação e para na ausência dos repositórios. Os testes usam o ambiente `Testing`, sem essa validação, e o erro só aparece quando um endpoint pede o serviço.
+      correta: true
+      explicacao: A suíte teve 26 falhas, todas com 500 vindo do middleware de exceções.
+    - texto: O compilador não percebe o erro porque a API não referencia mais a Infrastructure.
+      correta: false
+      explicacao: 'O código compila: o erro é de registro em tempo de execução.'
+  - tipo: incidente
+    titulo: Referência que o teste não enxerga
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'tests/ProdutosAPI.Tests/Unit/Arquitetura/DependenciasCatalogoTests.cs
+
+      assembly.GetReferencedAssemblies().Select(a => a.Name!);'
+    pergunta: Se a linha `ProjectReference` da API para a Infrastructure voltasse, sem nenhum uso no código, o teste da API falharia?
+    correcao: Complementar o teste com uma verificação do `.csproj`, ou com uma ferramenta de regras de arquitetura que leia os projetos, se a referência declarada também precisar ser proibida.
+    alternativas:
+    - texto: Sim, porque o MSBuild copia a DLL.
+      correta: false
+      explicacao: A cópia não altera os metadados de referência.
+    - texto: Sim, porque `GetReferencedAssemblies` lê o `.csproj`.
+      correta: false
+      explicacao: O método lê os metadados do assembly compilado.
+    - texto: Não. O compilador só grava no assembly as referências cujos tipos o código usa, e uma referência sem uso não aparece.
+      correta: true
+      explicacao: O teste protege a dependência real, e o passo 6 remove também a declarada.
+  - tipo: incidente
+    titulo: Catálogo sem o próprio DbContext
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Shared/Data/AppDbContext.cs:9-22
+
+      public class AppDbContext : DbContext, ICatalogoContext
+
+      {
+
+      public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+
+      {
+
+      }
+
+      // DbSets
+
+      public DbSet<Produto> Produtos => Set<Produto>();
+
+      public DbSet<Categoria> Categorias => Set<Categoria>();
+
+      public DbSet<Variante> Variantes => Set<Variante>();
+
+      public DbSet<Atributo> Atributos => Set<Atributo>();
+
+      public DbSet<Midia> Midias => Set<Midia>();
+
+      public DbSet<Pedido> Pedidos => Set<Pedido>();
+
+      public DbSet<PedidoItem> PedidoItens => Set<PedidoItem>();'
+    pergunta: Uma equipe quer publicar o Catálogo como serviço separado. O que falta nos quatro subprojetos?
+    correcao: Levar um `CatalogoDbContext` e as migrations do Catálogo para a Infrastructure, separando o esquema dos Pedidos.
+    alternativas:
+    - texto: O contexto EF Core e as migrations, que ficam no host e misturam tabelas do Catálogo e dos Pedidos.
+      correta: true
+      explicacao: A Infrastructure só conhece a interface `ICatalogoContext`.
+    - texto: Os endpoints.
+      correta: false
+      explicacao: Os endpoints estão em `Catalogo.API`.
+    - texto: As interfaces de repositório.
+      correta: false
+      explicacao: Elas estão em `Catalogo.Application`.
+  - tipo: incidente
+    titulo: IQueryable na fronteira da Application
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Catalogo/Catalogo.Application/Interfaces/ICatalogoContext.cs:7-11
+
+      IQueryable<Produto> Produtos { get; }
+
+      IQueryable<Categoria> Categorias { get; }
+
+      IQueryable<Variante> Variantes { get; }
+
+      IQueryable<Atributo> Atributos { get; }
+
+      IQueryable<Midia> Midias { get; }'
+    pergunta: Que risco a interface traz para a regra de dependência?
+    correcao: Restringir o uso de `ICatalogoContext` à Infrastructure e manter na Application só as interfaces de repositório, com operações nomeadas.
+    alternativas:
+    - texto: Nenhum, porque é uma interface.
+      correta: false
+      explicacao: A interface carrega o comportamento do provedor de consulta.
+    - texto: Uma consulta LINQ escrita na Application só é traduzida pelo EF Core em execução, e um método sem tradução falha longe de onde foi escrito.
+      correta: true
+      explicacao: No commit, só a Infrastructure usa a interface.
+    - texto: O `IQueryable` obriga a Application a referenciar o EF Core.
+      correta: false
+      explicacao: '`IQueryable` é do .NET, e o teste confirma que a Application não referencia o EF Core.'
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Para onde apontam as dependências na Clean Architecture?
+      alternativas:
+      - texto: Para a Infrastructure.
+        correta: false
+        explicacao: A Infrastructure é a camada de fora.
+      - texto: Para a API.
+        correta: false
+        explicacao: A API depende da Application.
+      - texto: Para dentro, em direção ao domínio.
+        correta: true
+        explicacao: O Domain não conhece nenhuma outra camada.
+    - enunciado: Por que a Infrastructure referencia a Application?
+      alternativas:
+      - texto: Porque implementa as interfaces de repositório que a Application declara.
+        correta: true
+        explicacao: É a inversão de dependência.
+      - texto: Porque chama os serviços da Application.
+        correta: false
+        explicacao: Os repositórios não chamam serviços.
+      - texto: Porque a Application precisa do Dapper.
+        correta: false
+        explicacao: A Application não referencia o Dapper.
+    - enunciado: Por que o registro dos repositórios saiu da API?
+      alternativas:
+      - texto: Porque deixava a API mais lenta.
+        correta: false
+        explicacao: A mudança é de dependência, e não de desempenho.
+      - texto: Porque era o único motivo da referência da API para a Infrastructure, e a composição cabe ao host.
+        correta: true
+        explicacao: Nenhum endpoint usa as classes da Infrastructure.
+      - texto: Porque o DI não aceita registros em bibliotecas.
+        correta: false
+        explicacao: A extensão nova está numa biblioteca.
+    - enunciado: O que o teste de arquitetura lê?
+      alternativas:
+      - texto: Os arquivos `.csproj`.
+        correta: false
+        explicacao: O `.csproj` não é lido em execução.
+      - texto: As rotas da API.
+        correta: false
+        explicacao: O teste não sobe a API.
+      - texto: As referências gravadas no assembly compilado de cada camada.
+        correta: true
+        explicacao: Só entram as referências cujos tipos o código usa.
+    - enunciado: Qual consequência negativa da ADR-0011 os testes ajudam a conter?
+      alternativas:
+      - texto: O risco de misturar responsabilidades se a disciplina de camadas não for mantida.
+        correta: true
+        explicacao: Uma referência nova fora da regra falha na suíte.
+      - texto: O número maior de arquivos.
+        correta: false
+        explicacao: Os testes não mudam o número de arquivos.
+      - texto: A necessidade de entender dois padrões.
+        correta: false
+        explicacao: Esse custo continua.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A responsabilidade de cada subprojeto do Catálogo está clara.
+    - O grafo de referências foi lido antes e depois da mudança.
+    - O teste da API falhou antes da mudança e passou depois.
+    - A API deixou de referenciar a Infrastructure, e a suíte teve 147 aprovações.
+    - A posição do `AppDbContext` no host foi identificada.

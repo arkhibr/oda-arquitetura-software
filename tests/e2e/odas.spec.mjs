@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-20', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -350,6 +350,20 @@ test('oda-18: o status inexistente passa de 200 a 400 depois da validação', as
   await painel.getByLabel('Passo 7 concluído').check();
   await rodar('dotnet test tests/ProdutosAPI.Tests --filter FiltroStatusTests');
   await expect(tela).toContainText('Com falha:     0, Aprovado:     3');
+});
+
+test('oda-19: o teste de arquitetura acusa a Infrastructure na API e passa depois da mudança', async ({ page }) => {
+  await page.goto('/oda-19/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  await painel.getByLabel('Passo 3 concluído').check();
+  await rodar('dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests');
+  await expect(tela).toContainText('to not contain "Catalogo.Infrastructure"');
+  await painel.getByLabel('Passo 6 concluído').check();
+  await rodar('dotnet test tests/ProdutosAPI.Tests --filter DependenciasCatalogoTests');
+  await expect(tela).toContainText('Com falha:     0, Aprovado:     4');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

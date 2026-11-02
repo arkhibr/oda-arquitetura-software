@@ -211,7 +211,8 @@ odas:
     minutos: 75
     pre_requisitos: ["17"]
     objetivo: "Explicar a responsabilidade de cada subprojeto do Catálogo e a direção das dependências."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-19
   - id: "20"
     titulo: "Vertical Slice e comparativo com Clean Architecture"
     trilha: 6
