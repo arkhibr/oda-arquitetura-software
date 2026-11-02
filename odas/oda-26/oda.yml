@@ -107,7 +107,7 @@ abas:
     titulo: Resiliência de Cliente HTTP com Microsoft.Extensions.Http.Resilience
     status: accepted
     contexto: Sem resiliência, o cliente falha no primeiro erro transitório e reconecta sem espera, o que aumenta a carga no servidor.
-    decisao: Pipeline da `Microsoft.Extensions.Http.Resilience` com tempo por tentativa, novas tentativas com espera exponencial, disjuntor e tempo total.
+    decisao: Pipeline da biblioteca Microsoft.Extensions.Http.Resilience com tempo por tentativa, novas tentativas com espera exponencial, disjuntor e tempo total.
     alternativas: Novas tentativas manuais com `Thread.Sleep` e Polly usado diretamente.
     consequencias: Respeito ao `Retry-After` e variação aleatória das esperas, com um pacote externo a mais e disjuntor separado por instância.
 - id: codigo

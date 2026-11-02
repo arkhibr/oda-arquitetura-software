@@ -66,7 +66,7 @@ abas:
       - Cenário 18, com o worker de `src/tasks/pedido_processor`
   - tipo: conceito
     titulo: Integração direta com serviços
-    texto: 'Um estado `Task` pode chamar outro serviço da AWS sem código, pelo recurso `arn:aws:states:::dynamodb:putItem`, por exemplo. Os parâmetros da chamada saem da entrada da execução com a notação `.$`, como em `"S.$": "$.id"`.'
+    texto: 'Um estado `Task` pode chamar outro serviço da AWS sem código, pelo recurso arn:aws:states:::dynamodb:putItem, por exemplo. Os parâmetros da chamada saem da entrada da execução com a notação `.$`, como em `"S.$": "$.id"`.'
   - tipo: conceito
     titulo: Catch
     texto: Quando um estado falha, o `Catch` compara o nome do erro com a lista `ErrorEquals` e desvia a execução para outro estado, guardando o erro no caminho indicado por `ResultPath`. Sem `Catch`, a execução inteira termina em `FAILED`.
@@ -585,7 +585,7 @@ abas:
       - texto: Quando o processo tem etapas, esperas e tratamento de erro que precisam ficar visíveis e guardados pelo serviço.
         correta: true
         explicacao: Cada execução pode ser consultada estado por estado.
-    - enunciado: O que o recurso `arn:aws:states:::dynamodb:putItem` dispensa?
+    - enunciado: O que o recurso arn:aws:states:::dynamodb:putItem dispensa?
       alternativas:
       - texto: Uma Lambda só para gravar no DynamoDB.
         correta: true
