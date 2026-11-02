@@ -1,0 +1,487 @@
+id: '35'
+titulo: 'Caso integrador: agendamento e roteamento de ofertas de crédito'
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é entender um pipeline de ponta a ponta com agendador, filas, funções e regras em tabela, e mudar uma regra de negócio do roteamento com um teste que prova a mudança. No repositório `aspire-aws`, o cenário 16 gera ofertas de crédito a cada 20 s, e uma Lambda as encaminha para a fila do segmento segundo regras guardadas no DynamoDB, descartando as ofertas de segmento sem regra. Você vai mudar essa regra para que a oferta sem destino vá para uma fila de revisão, com o teste escrito antes.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Desenhar o caminho de uma oferta do agendador até a fila do segmento.
+    - Explicar por que as regras de roteamento ficam numa tabela e não no código.
+    - Reconhecer o descarte silencioso como perda de dados num pipeline.
+    - Mudar o roteamento com um teste de ponta a ponta escrito antes.
+    - Apontar os riscos de testes que leem a mesma fila que uma função consome.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux, caminho verificado com o Colima. No Linux ou no WSL, rode os comandos `dotnet test` direto, sem `sincronizar` e sem `docker exec`.
+  - tipo: terminal
+    titulo: terminal · o pipeline de ofertas
+    comandos:
+    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
+      saida: sha256:a0faca54756a…
+      origem: executado
+      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
+    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+      saida: c010420897a4…
+      origem: executado
+      dica: O identificador do contêiner muda a cada execução.
+    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      saida: ''
+      origem: executado
+      dica: A função copia os arquivos do repositório para `/repo` no contêiner.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      saida: 'Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 22 s - 16-Pipeline.Scheduler.Router.dll (net10.0)'
+      origem: executado
+      dica: 'Os quatro testes do cenário 16 passam: a oferta de consignado chega à fila dela, e a de segmento sem regra não chega.'
+    cenarios:
+    - rotulo: Rodar o cenário 16
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba percorre as peças do pipeline de ofertas e explica as duas formas de mudar o roteamento: pela tabela de regras ou pelo código do roteador. O `README.md` do cenário 16 descreve o caso de negócio.'
+  - tipo: fluxo
+    titulo: O caminho de uma oferta
+    etapas:
+    - titulo: Agendador
+      descricao: O EventBridge Scheduler invoca a Lambda `produtor-de-ofertas` a cada 20 s.
+    - titulo: Produtor
+      descricao: A função publica a oferta, com id, segmento, taxa e valor, na `fila-ofertas-credito`.
+    - titulo: Roteador
+      descricao: A Lambda `roteador-de-ofertas` lê a fila, carrega as regras da tabela `regras-de-roteamento` e procura o segmento.
+    - titulo: Destino
+      descricao: Com regra, a oferta vai para a fila indicada, como a `fila-consignado`. Sem regra, é descartada.
+    - titulo: Consumidor
+      descricao: A Lambda `eco-consignado` lê a `fila-consignado` e registra a oferta no log.
+  - tipo: comparativo
+    colunas:
+    - Pela tabela de regras
+    - Pelo código do roteador
+    linhas:
+    - dimensao: Exemplo
+      valores:
+      - Novo segmento `pessoal` com destino próprio
+      - O que fazer quando não há regra
+    - dimensao: Exige implantação
+      valores:
+      - 'Não: o roteador lê a tabela a cada invocação'
+      - 'Sim: a função é implantada de novo'
+    - dimensao: Quem muda
+      valores:
+      - A área de negócio, por uma tela ou script
+      - O time de desenvolvimento, com teste
+  - tipo: conceito
+    titulo: Descarte silencioso
+    texto: Uma mensagem descartada com um aviso no log some do pipeline sem deixar nada que se possa consultar ou reprocessar. Uma fila de revisão guarda a oferta e torna a situação visível para quem acompanha a fila.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `50a5344`, o roteador, o agendador e a regra semeada pela fixture do cenário 16. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/lambdas/roteador_de_ofertas/handler.py
+    commit: 50a5344
+    linhas:
+    - '    tabela = dynamodb.Table(tabela_regras)'
+    - '    resposta = tabela.scan()'
+    - '    regras = {item["segmento"]: item["fila_destino"] for item in resposta["Items"]}'
+    - ''
+    - '    for registro in event["Records"]:'
+    - '        oferta = json.loads(registro["body"])'
+    - '        segmento = oferta.get("segmento", "")'
+    - '        fila_destino = regras.get(segmento)'
+    - ''
+    - '        if not fila_destino:'
+    - '            print(f"[ROTEADOR] AVISO: segmento ''{segmento}'' sem regra cadastrada — oferta descartada")'
+    - '            continue'
+    - ''
+    - '        sqs.send_message(QueueUrl=fila_destino, MessageBody=json.dumps(oferta))'
+    - '        print(f"[ROTEADOR] Oferta {oferta[''id'']} roteada → segmento={segmento}")'
+    anotacoes:
+    - linha: 14
+      texto: As regras são lidas da tabela a cada invocação.
+    - linha: 23
+      texto: A oferta sem regra só deixa esta linha no log.
+    - linha: 24
+      texto: E a mensagem é apagada da fila, porque a invocação termina sem erro.
+    inicio: 13
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/16-Pipeline.Scheduler.Router/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - ''
+    - '        using var scheduler = AwsClientFactory.Scheduler();'
+    - '        await scheduler.CreateScheduleAsync(new CreateScheduleRequest'
+    - '        {'
+    - '            Name               = NomeAgendador,'
+    - '            ScheduleExpression = "rate(20 seconds)",'
+    - '            FlexibleTimeWindow = new FlexibleTimeWindow { Mode = FlexibleTimeWindowMode.OFF },'
+    - '            Target = new Amazon.Scheduler.Model.Target'
+    - '            {'
+    - '                Arn     = produtora.Configuration.FunctionArn,'
+    - '                RoleArn = $"arn:aws:iam::{accountId}:role/{NomeAgendador}-role"'
+    - '            }'
+    - '        });'
+    anotacoes:
+    - linha: 124
+      texto: Uma oferta nova a cada 20 s, inclusive durante os testes.
+    - linha: 128
+      texto: O alvo do agendador é a Lambda produtora.
+    inicio: 119
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/16-Pipeline.Scheduler.Router/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '        var mappingEco = await lambda.CreateEventSourceMappingAsync(new CreateEventSourceMappingRequest'
+    - '        {'
+    - '            FunctionName   = NomeLambdaEco,'
+    - '            EventSourceArn = arnFilaConsignado,'
+    - '            BatchSize      = 1,'
+    - '            Enabled        = true'
+    anotacoes:
+    - linha: 98
+      texto: A `eco-consignado` consome a mesma fila que o teste consulta.
+    inicio: 95
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, a oferta `oferta-003`, do segmento `pessoal`, antes e depois da mudança no roteador. Depois, classifique como implementar cada mudança de negócio.
+  - tipo: fluxo
+    titulo: A oferta `oferta-003`, segmento `pessoal`
+    etapas:
+    - titulo: Publicação
+      descricao: O teste invoca a produtora, que publica a oferta na `fila-ofertas-credito`.
+    - titulo: Roteamento
+      descricao: O roteador carrega as regras e não encontra o segmento `pessoal`.
+    - titulo: Antes
+      descricao: A oferta é descartada com um aviso no log, e o teste espera 120 s na fila de revisão sem encontrá-la.
+    - titulo: Depois
+      descricao: O roteador envia a oferta para a `fila-revisao`, cujo endereço recebe pela variável `FILA_REVISAO_URL`.
+    - titulo: Verificação
+      descricao: O teste encontra a `oferta-003` na fila de revisão.
+  - tipo: classificador
+    enunciado: Como implementar esta mudança de negócio?
+    categorias:
+    - id: tabela
+      rotulo: Item na tabela de regras
+    - id: codigo
+      rotulo: Mudança no código com teste
+    itens:
+    - texto: Ofertas do segmento `pessoal` passam a ir para uma fila própria
+      categoria: tabela
+      explicacao: Basta um item com o segmento e a fila de destino.
+    - texto: Ofertas sem regra vão para revisão em vez de descartadas
+      categoria: codigo
+      explicacao: O comportamento do roteador muda, como no laboratório.
+    - texto: Ofertas acima de R$ 50 mil vão para análise manual
+      categoria: codigo
+      explicacao: A regra atual só considera o segmento, e a nova exige outro critério.
+    - texto: O segmento `consignado` passa a usar outra fila
+      categoria: tabela
+      explicacao: Muda só o destino de uma regra existente.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é mudar o roteador para que ofertas de segmento sem regra vão para uma fila de revisão, com um teste de ponta a ponta escrito antes. Os passos 1 e 2 preparam o contêiner Linux e rodam o cenário 16, os passos 3 e 4 escrevem o teste e criam a fila de revisão, e o passo 5 muda o roteador. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/aspire-aws`, entre na pasta criada e rode `git checkout 50a5344`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `50a5344` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` continuam no lugar, porque o Git as ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Preparar o contêiner Linux
+      texto: Se você usa Linux ou WSL, pule este passo. Crie o arquivo abaixo na raiz do repositório, construa a imagem, suba o contêiner e defina a função `sincronizar`.
+      editor:
+        rotulo: arquivo
+        caminho: Dockerfile.linux (novo, na raiz do repositório)
+        commit: 50a5344
+        linhas:
+        - FROM mcr.microsoft.com/dotnet/sdk:10.0
+        - RUN apt-get update && apt-get install -y --no-install-recommends docker.io && rm -rf /var/lib/apt/lists/*
+        - WORKDIR /repo
+        - ''
+        - '# no terminal:'
+        - docker build -q -t aspire-aws-linux - < Dockerfile.linux
+        - docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+        - sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      sucesso: Um identificador `sha256:` da imagem e o identificador do contêiner.
+    - titulo: Rodar o cenário 16
+      editor:
+        rotulo: terminal
+        linhas:
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      sucesso: '`Passed: 4`.'
+    - titulo: Escrever o teste da oferta sem regra
+      texto: O teste publica uma oferta do segmento `pessoal`, que não tem regra, e espera encontrá-la na fila de revisão.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/16-Pipeline.Scheduler.Router/OfertaSemRegraTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Shared;
+        - using Xunit.Abstractions;
+        - ''
+        - namespace Scenarios.Pipeline.Scheduler.Router;
+        - ''
+        - 'public class OfertaSemRegraTests(Fixture fixture, ITestOutputHelper output) : IClassFixture<Fixture>'
+        - '{'
+        - '    private readonly PipelineDeOfertas pipeline = new(fixture, output);'
+        - ''
+        - '    [SkipOnMacOsArm64LocalStackLambdaFact]'
+        - '    public async Task OfertaDeSegmentoSemRegra_DeveIrParaAFilaDeRevisao()'
+        - '    {'
+        - '        var oferta = new OfertaDeCredito("oferta-003", "pessoal", Taxa: 2.5m, Valor: 5_000m);'
+        - ''
+        - '        await pipeline.SubmeterOfertaAsync(oferta);'
+        - ''
+        - '        await pipeline.VerificarRoteamentoAsync(oferta.Id, fixture.UrlFilaRevisao);'
+        - '    }'
+        - '}'
+    - titulo: Criar a fila de revisão
+      texto: Na fixture, crie a `fila-revisao` e passe o endereço dela ao roteador. Depois, rode os testes.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/16-Pipeline.Scheduler.Router/Fixture.cs (alteração)
+        commit: 50a5344
+        linhas:
+        - '// scenarios/16-Pipeline.Scheduler.Router/Fixture.cs: abaixo de NomeFilaConsignado'
+        - '    public const string NomeFilaRevisao     = "fila-revisao";'
+        - ''
+        - // abaixo da propriedade UrlFilaConsignado
+        - '    public string UrlFilaRevisao    { get; private set; } = null!;'
+        - ''
+        - // abaixo da criação da fila-consignado
+        - '        UrlFilaRevisao    = (await SQS.CreateQueueAsync(NomeFilaRevisao)).QueueUrl;'
+        - ''
+        - // nas variáveis do roteador-de-ofertas, com vírgula na linha de FILA_CONSIGNADO_URL
+        - '                ["FILA_CONSIGNADO_URL"] = UrlFilaConsignado,'
+        - '                ["FILA_REVISAO_URL"]    = UrlFilaRevisao'
+        - ''
+        - '// no terminal:'
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      efeito: fila_revisao_criada
+      sucesso: '`Failed: 1` com `TimeoutException`: o roteador ainda descarta a oferta.'
+    - titulo: Mudar o roteador
+      texto: Troque o bloco da oferta sem regra pelo abaixo e rode os testes.
+      editor:
+        rotulo: arquivo
+        caminho: src/lambdas/roteador_de_ofertas/handler.py (alteração)
+        commit: 50a5344
+        linhas:
+        - '# src/lambdas/roteador_de_ofertas/handler.py: no lugar do bloco if not fila_destino'
+        - '        if not fila_destino:'
+        - '            # Sem regra cadastrada, a oferta vai para revisão em vez de ser descartada'
+        - '            sqs.send_message(QueueUrl=os.environ["FILA_REVISAO_URL"], MessageBody=json.dumps(oferta))'
+        - '            print(f"[ROTEADOR] Oferta {oferta[''id'']} sem regra para o segmento ''{segmento}'' → fila de revisão")'
+        - '            continue'
+        - ''
+        - '# no terminal:'
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      efeito: roteador_alterado
+      sucesso: '`Passed: 5`.'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
+      saida: sha256:a0faca54756a…
+      origem: executado
+      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
+    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+      saida: c010420897a4…
+      origem: executado
+      dica: O identificador do contêiner muda a cada execução.
+    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      saida: ''
+      origem: executado
+      dica: A função copia os arquivos do repositório para `/repo` no contêiner.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      condicao:
+      - fila_revisao_criada
+      - roteador_alterado
+      saida: 'Passed!  - Failed:     0, Passed:     5, Skipped:     0, Total:     5, Duration: 5 m - 16-Pipeline.Scheduler.Router.dll (net10.0)'
+      origem: executado
+      dica: A oferta sem regra chegou à fila de revisão, e os quatro testes originais continuam passando. A execução leva cerca de 5 minutos.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      condicao: fila_revisao_criada
+      saida: "  Failed Scenarios.Pipeline.Scheduler.Router.OfertaSemRegraTests.OfertaDeSegmentoSemRegra_DeveIrParaAFilaDeRevisao\n   System.TimeoutException : Condition was not met within 120s.\nFailed!  - Failed:     1, Passed:     4, Skipped:     0, Total:     5, Duration: 4 m 34 s - 16-Pipeline.Scheduler.Router.dll (net10.0)"
+      origem: executado
+      dica: A fila de revisão existe e o roteador conhece o endereço dela, mas a oferta sem regra continua descartada. A execução leva cerca de 4 minutos.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      saida: 'Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 22 s - 16-Pipeline.Scheduler.Router.dll (net10.0)'
+      origem: executado
+      dica: 'Os quatro testes do cenário 16 passam: a oferta de consignado chega à fila dela, e a de segmento sem regra não chega.'
+    cenarios:
+    - rotulo: Cenário 16
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com esse pipeline, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Ofertas que somem sem erro
+    origem: executado
+    rotulo_saida: log
+    saida: "$ sincronizar && docker exec aspire-linux dotnet test scenarios/16-Pipeline.Scheduler.Router 2>&1 | grep -E '^  Failed |TimeoutException|Passed!|Failed!' | sed -E 's/ \\[[0-9 ms.]+\\]//'\n  Failed Scenarios.Pipeline.Scheduler.Router.OfertaSemRegraTests.OfertaDeSegmentoSemRegra_DeveIrParaAFilaDeRevisao\n   System.TimeoutException : Condition was not met within 120s.\nFailed!  - Failed:     1, Passed:     4, Skipped:     0, Total:     5, Duration: 4 m 34 s - 16-Pipeline.Scheduler.Router.dll (net10.0)"
+    pergunta: Um novo produto de crédito foi lançado, e nenhuma oferta dele chegou a fila alguma, sem nenhum erro. O que aconteceu?
+    correcao: Enviar a oferta sem regra para uma fila de revisão, como no passo 5, e cadastrar a regra do segmento novo na tabela.
+    alternativas:
+    - texto: A fila de revisão está cheia.
+      correta: false
+      explicacao: O roteador ainda não enviava nada para ela.
+    - texto: O segmento novo não tem regra, e o roteador descarta a oferta com um aviso no log e termina sem erro.
+      correta: true
+      explicacao: Como a invocação dá certo, a mensagem é apagada da fila de entrada.
+    - texto: A produtora não publicou as ofertas.
+      correta: false
+      explicacao: A oferta de consignado, publicada pelo mesmo caminho, chegou.
+  - tipo: incidente
+    titulo: Teste que disputa a fila com uma função
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'scenarios/16-Pipeline.Scheduler.Router/Fixture.cs:95-98
+
+      var mappingEco = await lambda.CreateEventSourceMappingAsync(new CreateEventSourceMappingRequest
+
+      {
+
+      FunctionName   = NomeLambdaEco,
+
+      EventSourceArn = arnFilaConsignado,'
+    pergunta: O teste de consignado lê a `fila-consignado` para encontrar a oferta, e a `eco-consignado` consome a mesma fila. Que risco isso cria?
+    correcao: Verificar o efeito do consumidor, como o log ou um registro, ou ler a fila num ambiente em que a função consumidora esteja desligada.
+    alternativas:
+    - texto: A oferta é entregue duas vezes à função.
+      correta: false
+      explicacao: A disputa é entre o teste e a função.
+    - texto: Nenhum, porque o teste lê dez mensagens por vez.
+      correta: false
+      explicacao: O número por leitura não impede a função de receber antes.
+    - texto: O SQS entrega cada mensagem a um consumidor por vez, e quando a função recebe a oferta primeiro o teste pode não vê-la e falhar por tempo.
+      correta: true
+      explicacao: O teste passou nas execuções do laboratório, e o risco depende de quem lê primeiro.
+  - tipo: incidente
+    titulo: Ofertas extras durante os testes
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'scenarios/16-Pipeline.Scheduler.Router/Fixture.cs:124
+
+      ScheduleExpression = "rate(20 seconds)",'
+    pergunta: As filas recebem ofertas que nenhum teste publicou. De onde elas vêm?
+    correcao: 'Nenhuma correção: os testes filtram pelo `id` da oferta. Para um ambiente silencioso, o agendador poderia ser criado desligado.'
+    alternativas:
+    - texto: Do agendador, que invoca a produtora a cada 20 s com ofertas aleatórias de consignado.
+      correta: true
+      explicacao: Sem dados no evento, a produtora gera uma oferta com id aleatório.
+    - texto: De execuções anteriores.
+      correta: false
+      explicacao: O LocalStack começa vazio a cada execução.
+    - texto: Da fila de revisão.
+      correta: false
+      explicacao: Nada lê a fila de revisão para publicar de volta.
+  - tipo: incidente
+    titulo: Regra nova que vale sem implantação
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/lambdas/roteador_de_ofertas/handler.py:13-15
+
+      tabela = dynamodb.Table(tabela_regras)
+
+      resposta = tabela.scan()
+
+      regras = {item["segmento"]: item["fila_destino"] for item in resposta["Items"]}'
+    pergunta: A área de negócio cadastrou uma regra para o segmento `pessoal` na tabela. Quando ela passa a valer?
+    correcao: Nenhuma correção para o comportamento. Com muitas regras ou muitas mensagens, guardar as regras na memória da função por alguns segundos reduz as leituras da tabela.
+    alternativas:
+    - texto: Depois de reiniciar o agendador.
+      correta: false
+      explicacao: O agendador só aciona a produtora.
+    - texto: Na próxima invocação do roteador, porque ele lê a tabela inteira a cada lote.
+      correta: true
+      explicacao: O custo é um `Scan` por invocação.
+    - texto: Depois de implantar a função de novo.
+      correta: false
+      explicacao: As regras não estão no código.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que as regras de roteamento ficam numa tabela?
+      alternativas:
+      - texto: Porque a Lambda não guarda variáveis.
+        correta: false
+        explicacao: A função recebe variáveis de ambiente, como as URLs das filas.
+      - texto: Para o teste ficar mais rápido.
+        correta: false
+        explicacao: O motivo é a mudança sem implantação.
+      - texto: Para mudar destinos por segmento sem implantar a função.
+        correta: true
+        explicacao: O roteador lê a tabela a cada invocação.
+    - enunciado: Por que o descarte silencioso é um problema?
+      alternativas:
+      - texto: Porque a oferta some sem deixar nada que se possa consultar ou reprocessar.
+        correta: true
+        explicacao: Só uma linha de log registra o descarte.
+      - texto: Porque a função falha.
+        correta: false
+        explicacao: A função termina sem erro.
+      - texto: Porque a fila de entrada enche.
+        correta: false
+        explicacao: A mensagem é apagada.
+    - enunciado: Por que a mudança do laboratório foi no código e não na tabela?
+      alternativas:
+      - texto: Porque o teste exige.
+        correta: false
+        explicacao: O teste descreve a regra de negócio.
+      - texto: Porque muda o que o roteador faz quando não há regra, e a tabela só guarda destinos por segmento.
+        correta: true
+        explicacao: Cadastrar um segmento não resolveria os segmentos futuros.
+      - texto: Porque a tabela não aceita novos itens.
+        correta: false
+        explicacao: O `SemeadorDeRegras` grava itens.
+    - enunciado: Por que o passo 4 cria a fila e passa a variável antes de mudar o roteador?
+      alternativas:
+      - texto: Porque o SQS exige essa ordem.
+        correta: false
+        explicacao: A ordem é uma escolha do laboratório.
+      - texto: Para o teste passar no passo 4.
+        correta: false
+        explicacao: Ele falha de propósito.
+      - texto: Para o teste falhar pela regra de negócio, e não por falta de infraestrutura.
+        correta: true
+        explicacao: A falha do passo 4 mostra que o roteador ainda descarta.
+    - enunciado: Que risco existe em ler, no teste, uma fila que uma função consome?
+      alternativas:
+      - texto: A função pode receber a mensagem primeiro, e o teste falhar por tempo.
+        correta: true
+        explicacao: O SQS entrega cada mensagem a um consumidor por vez.
+      - texto: A mensagem ser duplicada.
+        correta: false
+        explicacao: A disputa faz o teste perder a mensagem, não duplicá-la.
+      - texto: Nenhum.
+        correta: false
+        explicacao: A fila do consignado tem dois leitores.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O caminho da oferta do agendador à fila do segmento está claro.
+    - O teste falhou com a fila de revisão criada e o roteador sem mudança.
+    - Com o roteador alterado, a oferta sem regra chegou à revisão.
+    - Os quatro testes originais continuaram passando.
+    - A diferença entre mudar a tabela e mudar o código está clara.

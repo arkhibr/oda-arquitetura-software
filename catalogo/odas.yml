@@ -371,4 +371,5 @@ odas:
     minutos: 90
     pre_requisitos: ["33"]
     objetivo: "Analisar o pipeline de ofertas de crédito e alterar uma regra de roteamento com teste."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-35
