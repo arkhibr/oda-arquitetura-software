@@ -311,7 +311,8 @@ odas:
     minutos: 60
     pre_requisitos: ["28"]
     objetivo: "Usar S3, SSM e Secrets Manager pelo SDK .NET contra o LocalStack."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-29
   - id: "30"
     titulo: "Mensageria com SQS e SNS"
     trilha: 7

@@ -1,0 +1,529 @@
+id: '29'
+titulo: 'Armazenamento e configuração: S3, SSM e Secrets Manager'
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é ler a configuração de uma aplicação a partir dos serviços da AWS feitos para isso, o SSM Parameter Store e o Secrets Manager, usando o SDK .NET contra o LocalStack. No repositório `aspire-aws`, os cenários 01, 05 e 06 exercitam o S3, o Parameter Store e o Secrets Manager com uma chamada por teste. Você vai escrever um carregador que lê todos os parâmetros de um prefixo e descobrir, com o teste, os dois detalhes da API que um carregador simples deixa passar.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Escolher entre S3, Parameter Store e Secrets Manager para cada tipo de dado de uma aplicação.
+    - Ler todos os parâmetros de um prefixo, página por página.
+    - Ler um `SecureString` decifrado e explicar o papel do KMS.
+    - Explicar as versões de um segredo e o período de recuperação depois da exclusão.
+    - Reconhecer onde o LocalStack se comporta diferente da AWS.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+  - tipo: terminal
+    titulo: terminal · rodar o cenário 05
+    comandos:
+    - entrada: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 736 ms - 05-SSM.Basic.dll (net10.0)'
+      origem: executado
+      dica: Os três testes do cenário 05 usam um parâmetro por chamada e não passam de dois por prefixo.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Docker em execução
+      comando: docker info --format '{{.ServerVersion}}'
+    - rotulo: Rodar o cenário 05
+      comando: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba explica o que cada um dos três serviços guarda e os detalhes de API que importam ao ler configuração. Os três respondem no LocalStack pela mesma porta 4566, com os clientes criados pelo `AwsClientFactory` do repositório.
+  - tipo: comparativo
+    colunas:
+    - Guarda
+    - Detalhe que importa
+    linhas:
+    - dimensao: S3
+      valores:
+      - Arquivos e objetos de qualquer tamanho, em buckets
+      - Lê e grava o objeto inteiro, sem leitura por prefixo com decifragem nem rotação de credenciais
+    - dimensao: Parameter Store
+      valores:
+      - Configuração em árvore de nomes, como `/loja/db-host`
+      - Leitura por prefixo em páginas de até dez itens, e `SecureString` cifrado pelo KMS
+    - dimensao: Secrets Manager
+      valores:
+      - Senhas e chaves, com versões
+      - '`AWSCURRENT` e `AWSPREVIOUS`, rotação e exclusão com período de recuperação'
+  - tipo: conceito
+    titulo: Paginação
+    texto: As operações de listagem da AWS devolvem uma página e um `NextToken` quando há mais itens. O `GetParametersByPath` devolve no máximo dez parâmetros por página, e quem lê uma página só perde o resto sem nenhum erro.
+  - tipo: conceito
+    titulo: SecureString
+    texto: Um parâmetro `SecureString` é guardado cifrado com uma chave do KMS. A leitura só devolve o valor original com `WithDecryption = true`, e a permissão de decifrar a chave é separada da permissão de ler o parâmetro.
+  - tipo: conceito
+    titulo: Exclusão de segredo
+    texto: O `DeleteSecret` agenda a exclusão para depois de um período de recuperação, de 7 dias no mínimo. Até lá, o segredo não pode ser lido nem recriado com o mesmo nome, a menos que a exclusão use `ForceDeleteWithoutRecovery`.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `50a5344`, como os clientes apontam para o LocalStack e como os testes dos cenários 05 e 06 chamam os serviços. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/AwsClientFactory.cs
+    commit: 50a5344
+    linhas:
+    - '    private static TConfig Configure<TConfig>(TConfig config, string endpoint)'
+    - '        where TConfig : ClientConfig'
+    - '    {'
+    - '        config.ServiceURL = endpoint;'
+    - '        config.AuthenticationRegion = RegionEndpoint.USEast1.SystemName;'
+    - '        config.UseHttp = endpoint.StartsWith("http://", StringComparison.OrdinalIgnoreCase);'
+    - '        return config;'
+    - '    }'
+    anotacoes:
+    - linha: 96
+      texto: Todos os clientes apontam para `http://localhost:4566`.
+    - linha: 97
+      texto: A região assina as chamadas, e o LocalStack aceita as credenciais `test`.
+    inicio: 93
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/05-SSM.Basic/SsmBasicTests.cs
+    commit: 50a5344
+    linhas:
+    - '        var response = await fixture.SSM.GetParametersByPathAsync(new GetParametersByPathRequest'
+    - '        {'
+    - '            Path = "/myapp/env",'
+    - '            Recursive = true'
+    - '        });'
+    - '        output.WriteLine($"    Parâmetros encontrados: {string.Join(", ", response.Parameters.Select(p => p.Name))}");'
+    - ''
+    - '        Assert.Equal(2, response.Parameters.Count);'
+    anotacoes:
+    - linha: 74
+      texto: Inclui os parâmetros dos subníveis do prefixo.
+    - linha: 78
+      texto: Com dois parâmetros, uma página basta, e a paginação não aparece.
+    inicio: 71
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/05-SSM.Basic/SsmBasicTests.cs
+    commit: 50a5344
+    linhas:
+    - '            Type = "SecureString"'
+    - '        });'
+    - ''
+    - '        output.WriteLine(">>> SSM.GetParameter: lendo parâmetro com WithDecryption=true para obter o valor em plaintext");'
+    - '        var response = await fixture.SSM.GetParameterAsync(new GetParameterRequest'
+    - '        {'
+    - '            Name = "/app/secrets/api-key",'
+    - '            WithDecryption = true'
+    anotacoes:
+    - linha: 37
+      texto: Guardado cifrado pelo KMS.
+    - linha: 44
+      texto: Sem esta linha, a leitura não devolve o valor original.
+    inicio: 37
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/06-SecretsManager.Basic/SecretsManagerBasicTests.cs
+    commit: 50a5344
+    linhas:
+    - '        await fixture.SecretsManager.DeleteSecretAsync(new DeleteSecretRequest'
+    - '        {'
+    - '            SecretId = "myapp/to-delete",'
+    - '            ForceDeleteWithoutRecovery = true'
+    - '        });'
+    - ''
+    - '        output.WriteLine(">>> SecretsManager.GetSecretValue: confirmando que ResourceNotFoundException é lançada ao tentar acessar o segredo deletado");'
+    - '        await Assert.ThrowsAsync<ResourceNotFoundException>(() =>'
+    anotacoes:
+    - linha: 69
+      texto: Apaga na hora, sem o período de recuperação.
+    inicio: 66
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, a leitura de doze parâmetros com um carregador que pede uma página e com outro que segue o `NextToken`. Depois, classifique em que serviço cada dado da aplicação deve ficar.
+  - tipo: fluxo
+    titulo: Doze parâmetros sob `/loja`
+    etapas:
+    - titulo: Primeira chamada
+      descricao: O `GetParametersByPath` devolve dez parâmetros e um `NextToken`.
+    - titulo: Carregador simples
+      descricao: 'Monta a configuração com os dez e para, sem erro: dois parâmetros ficam de fora.'
+    - titulo: Segunda chamada
+      descricao: O carregador paginado repete a chamada com o `NextToken` e recebe os dois restantes, sem novo token.
+    - titulo: Segredo
+      descricao: Sem `WithDecryption`, o `/loja/db-senha` chega cifrado e a aplicação tentaria conectar com o texto errado.
+    - titulo: Carregador completo
+      descricao: Com paginação e `WithDecryption`, a configuração tem os doze valores prontos para uso.
+  - tipo: classificador
+    enunciado: Onde este dado deve ficar?
+    categorias:
+    - id: s3
+      rotulo: S3
+    - id: ssm
+      rotulo: Parameter Store
+    - id: segredo
+      rotulo: Secrets Manager
+    itens:
+    - texto: Senha do banco que precisa de rotação
+      categoria: segredo
+      explicacao: O Secrets Manager mantém a versão atual e a anterior durante a rotação.
+    - texto: Endereço do banco por ambiente
+      categoria: ssm
+      explicacao: Configuração comum, organizada por prefixo como `/loja/prod/db-host`.
+    - texto: Catálogo de produtos em JSON de 50 MB
+      categoria: s3
+      explicacao: Um parâmetro padrão aceita até 4 KB, e o S3 guarda objetos grandes.
+    - texto: Chave de API de um parceiro
+      categoria: segredo
+      explicacao: É uma credencial, com troca periódica.
+    - texto: Limite de itens por pedido
+      categoria: ssm
+      explicacao: Um valor de configuração simples.
+    - texto: Notas fiscais em PDF
+      categoria: s3
+      explicacao: Arquivos, não configuração.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é escrever um carregador de configuração que lê todos os parâmetros de um prefixo do Parameter Store, inclusive os cifrados. O passo 1 roda o cenário 05, os passos 2 e 3 escrevem o teste e a versão simples do carregador, e os passos 4 e 5 acrescentam a paginação e a decifragem até o teste passar. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/aspire-aws`, entre na pasta criada e rode `git checkout 50a5344`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `50a5344` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` continuam no lugar, porque o Git as ignora.'
+  - tipo: faixa
+    estilo: erro
+    titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
+    sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
+    causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
+    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
+  - tipo: passos
+    itens:
+    - titulo: Rodar o cenário 05
+      editor:
+        rotulo: terminal
+        linhas:
+        - docker info --format '{{.ServerVersion}}'
+        - dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      sucesso: 'A versão do Docker e `Aprovado: 3`.'
+    - titulo: Escrever o teste do carregador
+      texto: O teste grava onze parâmetros comuns e um `SecureString` sob `/loja` e espera os doze valores, com o segredo decifrado.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/05-SSM.Basic/CarregadorDeConfiguracaoTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.SimpleSystemsManagement.Model;
+        - ''
+        - namespace Scenarios.SSM.Basic;
+        - ''
+        - 'public class CarregadorDeConfiguracaoTests(Fixture fixture) : IClassFixture<Fixture>'
+        - '{'
+        - '    [Fact]'
+        - '    public async Task CarregarAsync_DeveTrazerTodosOsParametrosDoPrefixo()'
+        - '    {'
+        - '        for (var i = 1; i <= 11; i++)'
+        - '        {'
+        - '            await fixture.SSM.PutParameterAsync(new PutParameterRequest'
+        - '            {'
+        - '                Name = $"/loja/param-{i:00}",'
+        - '                Value = $"valor-{i}",'
+        - '                Type = "String"'
+        - '            });'
+        - '        }'
+        - ''
+        - '        await fixture.SSM.PutParameterAsync(new PutParameterRequest'
+        - '        {'
+        - '            Name = "/loja/db-senha",'
+        - '            Value = "super-secret",'
+        - '            Type = "SecureString"'
+        - '        });'
+        - ''
+        - '        var configuracao = await CarregadorDeConfiguracao.CarregarAsync(fixture.SSM, "/loja");'
+        - ''
+        - '        Assert.Equal(12, configuracao.Count);'
+        - '        Assert.Equal("super-secret", configuracao["/loja/db-senha"]);'
+        - '    }'
+        - '}'
+    - titulo: Escrever o carregador simples
+      texto: 'Esta é a versão que costuma aparecer primeiro: uma chamada ao `GetParametersByPath`.'
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/05-SSM.Basic/CarregadorDeConfiguracao.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.SimpleSystemsManagement;
+        - using Amazon.SimpleSystemsManagement.Model;
+        - ''
+        - namespace Scenarios.SSM.Basic;
+        - ''
+        - public static class CarregadorDeConfiguracao
+        - '{'
+        - '    public static async Task<Dictionary<string, string>> CarregarAsync(IAmazonSimpleSystemsManagement ssm, string prefixo)'
+        - '    {'
+        - '        var pagina = await ssm.GetParametersByPathAsync(new GetParametersByPathRequest'
+        - '        {'
+        - '            Path = prefixo,'
+        - '            Recursive = true'
+        - '        });'
+        - ''
+        - '        return pagina.Parameters.ToDictionary(p => p.Name, p => p.Value);'
+        - '    }'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: carregador_simples
+      sucesso: '`Com falha: 1`, com `Expected: 12` e `Actual: 10`.'
+    - titulo: Seguir as páginas
+      texto: Substitua o arquivo pela versão abaixo, que repete a chamada enquanto houver `NextToken`.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/05-SSM.Basic/CarregadorDeConfiguracao.cs (substituição)
+        commit: 50a5344
+        linhas:
+        - using Amazon.SimpleSystemsManagement;
+        - using Amazon.SimpleSystemsManagement.Model;
+        - ''
+        - namespace Scenarios.SSM.Basic;
+        - ''
+        - public static class CarregadorDeConfiguracao
+        - '{'
+        - '    public static async Task<Dictionary<string, string>> CarregarAsync(IAmazonSimpleSystemsManagement ssm, string prefixo)'
+        - '    {'
+        - '        var configuracao = new Dictionary<string, string>();'
+        - '        string? proximaPagina = null;'
+        - ''
+        - '        // O GetParametersByPath devolve no máximo 10 parâmetros por chamada'
+        - '        do'
+        - '        {'
+        - '            var pagina = await ssm.GetParametersByPathAsync(new GetParametersByPathRequest'
+        - '            {'
+        - '                Path = prefixo,'
+        - '                Recursive = true,'
+        - '                NextToken = proximaPagina'
+        - '            });'
+        - ''
+        - '            foreach (var parametro in pagina.Parameters)'
+        - '            {'
+        - '                configuracao[parametro.Name] = parametro.Value;'
+        - '            }'
+        - ''
+        - '            proximaPagina = pagina.NextToken;'
+        - '        }'
+        - '        while (proximaPagina is not null);'
+        - ''
+        - '        return configuracao;'
+        - '    }'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: carregador_paginado
+      sucesso: '`Com falha: 1`, agora com `Actual: "kms:alias/aws/ssm:super-secret"`.'
+    - titulo: Decifrar os SecureString
+      texto: Acrescente `WithDecryption = true,` ao pedido, logo abaixo de `Recursive = true,`, e rode de novo.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: carregador_decifra
+      sucesso: '`Aprovado: 4`.'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao:
+      - carregador_simples
+      - carregador_paginado
+      - carregador_decifra
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     4, Ignorado:     0, Total:     4, Duração: 20 s - 05-SSM.Basic.dll (net10.0)'
+      origem: executado
+      dica: Os doze parâmetros, com o segredo decifrado.
+    - entrada: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao:
+      - carregador_simples
+      - carregador_paginado
+      saida: "  Com falha Scenarios.SSM.Basic.CarregadorDeConfiguracaoTests.CarregarAsync_DeveTrazerTodosOsParametrosDoPrefixo\n   Assert.Equal() Failure: Strings differ\nExpected: \"super-secret\"\nActual:   \"kms:alias/aws/ssm:super-secret\"\nCom falha! – Com falha:     1, Aprovado:     3, Ignorado:     0, Total:     4, Duração: 17 s - 05-SSM.Basic.dll (net10.0)"
+      origem: executado
+      dica: Os doze chegaram, mas o `SecureString` veio sem decifrar. Na AWS, o valor seria um texto cifrado, e no LocalStack vem com o prefixo da chave KMS.
+    - entrada: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao: carregador_simples
+      saida: "  Com falha Scenarios.SSM.Basic.CarregadorDeConfiguracaoTests.CarregarAsync_DeveTrazerTodosOsParametrosDoPrefixo\n   Assert.Equal() Failure: Values differ\nExpected: 12\nActual:   10\nCom falha! – Com falha:     1, Aprovado:     3, Ignorado:     0, Total:     4, Duração: 15 s - 05-SSM.Basic.dll (net10.0)"
+      origem: executado
+      dica: 'Doze parâmetros gravados e dez lidos: a primeira página do `GetParametersByPath` tem no máximo dez itens.'
+    - entrada: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 736 ms - 05-SSM.Basic.dll (net10.0)'
+      origem: executado
+      dica: Os três testes do cenário 05 usam um parâmetro por chamada e não passam de dois por prefixo.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Docker
+      comando: docker info --format '{{.ServerVersion}}'
+    - rotulo: Cenário 05
+      comando: dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria ao ler configuração e segredos da AWS, cada uma com a saída que a evidencia, obtida no LocalStack do repositório. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Configuração incompleta sem erro
+    origem: executado
+    rotulo_saida: log
+    saida: "$ dotnet test scenarios/05-SSM.Basic 2>&1 | grep -E '^  Com falha|Assert\\.|Expected:|Actual:|Aprovado!|Com falha!' | sed -E 's/ \\[[0-9.]+ m?s\\]//'\n  Com falha Scenarios.SSM.Basic.CarregadorDeConfiguracaoTests.CarregarAsync_DeveTrazerTodosOsParametrosDoPrefixo\n   Assert.Equal() Failure: Values differ\nExpected: 12\nActual:   10\nCom falha! – Com falha:     1, Aprovado:     3, Ignorado:     0, Total:     4, Duração: 15 s - 05-SSM.Basic.dll (net10.0)"
+    pergunta: Em produção, a aplicação subiu sem dois parâmetros, e o log não registrou erro. O que aconteceu?
+    correcao: Repetir o `GetParametersByPath` com o `NextToken` até ele vir nulo, como no passo 4.
+    alternativas:
+    - texto: O `Recursive = true` limita a dez níveis.
+      correta: false
+      explicacao: O limite é de itens por página, não de níveis.
+    - texto: O carregador leu só a primeira página, de dez parâmetros, e ignorou o `NextToken`.
+      correta: true
+      explicacao: A API não avisa que há mais itens além do token na resposta.
+    - texto: Dois parâmetros não foram gravados.
+      correta: false
+      explicacao: O teste gravou os doze antes de ler.
+  - tipo: incidente
+    titulo: Teste que passa no LocalStack e falha na AWS
+    origem: executado
+    rotulo_saida: log
+    saida: 'GetParameter /loja/segredo, sem WithDecryption
+
+      kms:alias/aws/ssm:super-secret'
+    pergunta: Um teste conferia apenas se o valor lido continha `super-secret` e passava no LocalStack. O que acontece contra a AWS?
+    correcao: Ler com `WithDecryption = true` e comparar o valor inteiro, como no teste do laboratório.
+    alternativas:
+    - texto: Passa, porque o valor é o mesmo nos dois.
+      correta: false
+      explicacao: A AWS não expõe o texto original sem decifrar.
+    - texto: Falha por falta de região.
+      correta: false
+      explicacao: A região já é configurada pelo `AwsClientFactory`.
+    - texto: Falha, porque a AWS devolve o valor cifrado, e o LocalStack só acrescenta o prefixo da chave ao texto original.
+      correta: true
+      explicacao: O emulador simplifica a cifra, e o teste acabou dependendo dessa simplificação.
+  - tipo: incidente
+    titulo: Segredo que não volta
+    origem: executado
+    rotulo_saida: log
+    saida: 'DeleteSecret loja/db, sem ForceDeleteWithoutRecovery
+
+      GetSecretValue: InvalidRequestException: You can''t perform this operation on the secret because it was marked for deletion.
+
+      CreateSecret loja/db: InvalidRequestException: You can''t create this secret because a secret with this name is already scheduled for deletion.'
+    pergunta: Um script apagou e recriou o segredo para trocar o valor, e as duas chamadas falharam. Por quê?
+    correcao: Trocar o valor com `PutSecretValue`, que cria uma versão nova, ou restaurar o segredo com `RestoreSecret` durante o período de recuperação.
+    alternativas:
+    - texto: O `DeleteSecret` agendou a exclusão, e o nome fica reservado até o fim do período de recuperação.
+      correta: true
+      explicacao: O período mínimo é de 7 dias, e só o `ForceDeleteWithoutRecovery` apaga na hora.
+    - texto: O segredo foi apagado e o nome não pode mais ser usado.
+      correta: false
+      explicacao: Depois do período, o nome volta a ficar livre.
+    - texto: O LocalStack não aceita recriar segredos.
+      correta: false
+      explicacao: Com exclusão forçada, a recriação funciona.
+  - tipo: incidente
+    titulo: Gravação recusada na troca de ambiente
+    origem: executado
+    rotulo_saida: log
+    saida: 'PutParameter /loja/p01 de novo
+
+      ParameterAlreadyExistsException: The parameter already exists. To overwrite this value, set the overwrite option in the request to true.'
+    pergunta: Um script que publica a configuração de um ambiente falhou na segunda execução. Qual é a causa?
+    correcao: Passar `Overwrite = true` no `PutParameterRequest` quando a intenção é atualizar o valor.
+    alternativas:
+    - texto: O limite de parâmetros da conta acabou.
+      correta: false
+      explicacao: A mensagem fala de parâmetro existente.
+    - texto: O parâmetro já existe, e o `PutParameter` só substitui o valor com `Overwrite = true`.
+      correta: true
+      explicacao: A proteção evita sobrescrever configuração por engano.
+    - texto: O nome tem caracteres inválidos.
+      correta: false
+      explicacao: A primeira execução gravou o mesmo nome.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Como ler todos os parâmetros de um prefixo?
+      alternativas:
+      - texto: Com uma chamada e `Recursive = true`.
+        correta: false
+        explicacao: O passo 3 trouxe dez de doze.
+      - texto: Aumentando o tempo limite da chamada.
+        correta: false
+        explicacao: O limite é de itens, não de tempo.
+      - texto: Repetindo o `GetParametersByPath` com o `NextToken` até ele vir nulo.
+        correta: true
+        explicacao: Cada página traz no máximo dez parâmetros.
+    - enunciado: O que o `WithDecryption = true` faz?
+      alternativas:
+      - texto: Pede ao serviço que decifre os `SecureString` com a chave do KMS antes de devolver.
+        correta: true
+        explicacao: Exige permissão de uso da chave.
+      - texto: Cifra a resposta no transporte.
+        correta: false
+        explicacao: O transporte já usa TLS na AWS.
+      - texto: Converte `String` em `SecureString`.
+        correta: false
+        explicacao: O tipo é definido na gravação.
+    - enunciado: Onde fica uma senha de banco com rotação?
+      alternativas:
+      - texto: Num parâmetro `String`.
+        correta: false
+        explicacao: Fica sem cifra.
+      - texto: No Secrets Manager, que guarda as versões atual e anterior.
+        correta: true
+        explicacao: O `AWSPREVIOUS` devolveu `a1` depois da troca.
+      - texto: Num objeto do S3.
+        correta: false
+        explicacao: O S3 não faz rotação de credenciais.
+    - enunciado: Por que o `DeleteSecret` não apaga o segredo na hora?
+      alternativas:
+      - texto: Porque a exclusão é assíncrona e leva minutos.
+        correta: false
+        explicacao: O agendamento é imediato.
+      - texto: Porque o segredo continua em uso.
+        correta: false
+        explicacao: O serviço não verifica uso.
+      - texto: Para permitir recuperar um segredo apagado por engano durante o período de recuperação.
+        correta: true
+        explicacao: O mínimo é de 7 dias.
+    - enunciado: Que cuidado o LocalStack exige nos testes de `SecureString`?
+      alternativas:
+      - texto: Comparar o valor inteiro lido com decifragem, sem depender do formato que o emulador devolve sem decifrar.
+        correta: true
+        explicacao: O LocalStack devolve o texto original com um prefixo.
+      - texto: Desligar a cifra.
+        correta: false
+        explicacao: O teste precisa exercitar o `SecureString`.
+      - texto: Rodar só contra a AWS.
+        correta: false
+        explicacao: O teste do laboratório roda nos dois.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O cenário 05 rodou contra o LocalStack.
+    - O carregador simples perdeu dois de doze parâmetros.
+    - A paginação trouxe os doze, e a decifragem corrigiu o segredo.
+    - As diferenças entre S3, Parameter Store e Secrets Manager estão claras.
+    - O comportamento da exclusão de segredo está claro.
