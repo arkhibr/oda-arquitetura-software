@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: 'O shell do portal separa o estado em duas ferramentas: Redux Toolkit para o estado do cliente e React Query para o estado vindo do servidor. Esta ODA mostra onde cada ferramenta atua no código, quais regras as fatias do Redux seguem e como estender uma fatia com o teste escrito antes da implementação.'
+    texto: O objetivo desta ODA é distinguir o estado que pertence ao navegador do estado que é cópia de dados do servidor e estender uma fatia do Redux com o teste escrito antes. O shell do `frontend-react` usa o Redux Toolkit para o primeiro tipo e o React Query para o segundo. Você vai acrescentar um campo de preferência à fatia de interface e escrever testes que protegem a configuração de cache do React Query.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 02, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas por `npm ci`. Os testes rodam com Vitest e não dependem do Docker nem do LocalStack.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. Os testes rodam com Vitest e não dependem do Docker nem do LocalStack.
   - tipo: terminal
     titulo: terminal · linha de base das fatias
     comandos:
@@ -32,7 +32,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-003 parte da diferença de ciclo de vida entre dois tipos de estado. O estado do cliente nasce e termina no navegador, e o estado do servidor é uma cópia local de dados que pertencem à API e que podem mudar sem aviso.
+    texto: Esta aba explica a diferença de ciclo de vida entre os dois tipos de estado. O estado do cliente nasce e termina no navegador, e o estado do servidor é uma cópia local de dados que pertencem à API e podem mudar sem aviso, o que exige cache e nova busca, e a ADR-003 do repositório registra essa separação.
   - tipo: comparativo
     colunas:
     - Estado do cliente
@@ -275,7 +275,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: O console abaixo reproduz o store do shell, com as três fatias e as respostas do código no commit `2179313`. `TOKEN` é um JWT válido até 2286, com `sub` igual a `user1`, e `EXPIRADO` é um JWT com `exp` igual a 1. Leia o estado, despache ações e observe qual ramo cada ação altera.
+    texto: Esta aba simula o store do shell sem executar o projeto, com as três fatias e as respostas do código no commit `2179313`. `TOKEN` é um JWT válido até 2286, com `sub` igual a `user1`, e `EXPIRADO` é um JWT com `exp` igual a 1. Leia o estado, despache ações e observe qual ramo cada ação altera.
   - tipo: terminal
     titulo: console · store do shell
     comandos:
@@ -432,11 +432,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 6 acrescentam o campo `densidade` à `uiSlice` com o teste escrito antes da implementação, e os passos 7 a 9 caracterizam o cache do `queryClient` com dois testes.
+    texto: O objetivo do laboratório é estender a fatia de interface com uma preferência nova e proteger com testes a configuração de cache do React Query. Os passos 1 a 6 acrescentam o campo `densidade` à `uiSlice` com o teste escrito antes da implementação, e os passos 7 a 10 caracterizam o cache do `queryClient` com dois testes e rodam a suíte. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -657,7 +657,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os incidentes abaixo partem de respostas do store e de trechos do código no commit `2179313`. Em cada um, identifique a causa antes de ler a correção.
+    texto: Esta aba apresenta situações que um time encontraria ao misturar os dois tipos de estado, cada uma com uma resposta do store ou um trecho do código no commit `2179313`. Em cada uma, escolha a causa para ver a explicação e a correção.
   - tipo: incidente
     titulo: Token expirado relatado como senha errada
     origem: executado

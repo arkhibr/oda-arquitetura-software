@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: 'A ADR-008 exige que um microfrontend quebrado não derrube o portal. Esta ODA percorre as falhas possíveis na carga de um microfrontend, mostra onde cada uma é detectada e o que a pessoa vê na tela, e corrige com o teste escrito antes uma falha que hoje escapa do isolamento: o erro de renderização dentro da árvore React do próprio microfrontend.'
+    texto: O objetivo desta ODA é diagnosticar as falhas de integridade, de origem e de montagem na carga de um microfrontend e garantir que nenhuma delas derrube o portal. No `frontend-react`, o shell envolve cada microfrontend num error boundary, mas um erro de renderização dentro da árvore React do próprio microfrontend escapa desse isolamento. Você vai demonstrar esse limite com um teste no shell e corrigi-lo no microfrontend de endereço com o teste escrito antes.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: 'As ODAs 05 e 06, com o repositório clonado no commit `2179313`. O laboratório roda testes no shell e em `mfes/endereco`, que precisa das próprias dependências: se a pasta `mfes/endereco/node_modules` não existir, rode `npm ci` dentro dela antes do passo 4. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório roda testes no shell e em `mfes/endereco`, que precisa das próprias dependências: se a pasta `mfes/endereco/node_modules` não existir, rode `npm install --no-save` dentro dela, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`, antes do passo 4. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -32,7 +32,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Uma falha pode ser detectada em três momentos: no boot, quando o manifesto é validado, na carga, quando o carregador baixa e confere o bundle, e na montagem, quando o microfrontend renderiza. O isolamento da ADR-008 cobre os dois últimos momentos por meio do `MfeErrorBoundary`, com um limite que esta ODA demonstra.'
+    texto: 'Esta aba explica os três momentos em que a falha de um microfrontend pode ser detectada: no boot, quando o manifesto é validado, na carga, quando o carregador baixa e confere o bundle, e na montagem, quando o microfrontend renderiza. O isolamento exigido pela ADR-008 cobre os dois últimos por meio do `MfeErrorBoundary`, com um limite que o laboratório demonstra.'
   - tipo: comparativo
     colunas:
     - Quem detecta
@@ -79,7 +79,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, como a falha de carga chega ao error boundary e como as fases são medidas. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, como a falha de carga chega ao error boundary do shell e como as fases da carga são medidas. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/MfeHost.tsx
@@ -232,7 +232,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Compare o caminho de uma exceção no `mount` com o de um erro de renderização dentro do microfrontend, e classifique as falhas pela forma como aparecem para a pessoa.
+    texto: 'Esta aba simula, sem executar nada, dois caminhos de erro: uma exceção lançada pelo `mount`, que o shell captura, e um erro de renderização dentro da árvore React do microfrontend, que o shell não vê. Compare os dois e depois classifique as falhas pela forma como aparecem para a pessoa.'
   - tipo: fluxo
     titulo: Dois caminhos de erro depois do contrato validado
     etapas:
@@ -315,11 +315,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 3 demonstram no shell o limite do error boundary, e os passos 4 a 9 corrigem o microfrontend de endereço com o teste escrito antes.
+    texto: O objetivo do laboratório é provar que um erro interno do microfrontend escapa do error boundary do shell e corrigir isso no próprio microfrontend. Os passos 1 a 3 demonstram no shell o limite do error boundary, e os passos 4 a 9 criam um boundary interno no microfrontend de endereço com o teste escrito antes. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base do shell
@@ -573,12 +573,12 @@ abas:
       comando: npx tsc --noEmit -p tsconfig.app.json && npm run lint
   - tipo: faixa
     estilo: dica
-    texto: A correção vale para o portal depois de um novo build e deploy do microfrontend, que a ODA 08 trata. O shell não muda, porque o boundary novo fica dentro do bundle do endereço.
+    texto: A correção vale para o portal depois de um novo build e deploy do microfrontend, com `npm run deploy` na raiz e o Docker em execução. O shell não muda, porque o boundary novo fica dentro do bundle do endereço.
 - id: diagnostico
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os dois primeiros incidentes reproduzem a tela e o console do portal com falhas de carga, os dois últimos partem do laboratório e do relatório de performance.
+    texto: 'Esta aba apresenta quatro situações que um time encontraria na carga de microfrontends. As duas primeiras reproduzem a tela e o console do portal com falhas de carga, e as duas últimas partem do laboratório e do relatório de performance: escolha a causa de cada uma para ver a explicação e a correção.'
   - tipo: incidente
     titulo: Módulo indisponível depois de um deploy
     origem: executado

@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O BFF de empréstimo lê o legado em PascalCase e devolve ao microfrontend um contrato próprio em camelCase, escolhendo campo a campo o que passa, o que muda de nome e o que fica de fora. Esta ODA percorre essa adaptação, acrescenta ao contrato a data de término do empréstimo, com o teste escrito antes, e mede o efeito com o benchmark do próprio BFF.
+    texto: O objetivo desta ODA é acrescentar um campo do sistema legado ao contrato que um BFF entrega ao microfrontend, com teste e medição de desempenho. No `frontend-react`, o BFF de empréstimo lê o legado em PascalCase e devolve um contrato próprio em camelCase, escolhendo campo a campo o que passa, o que muda de nome e o que fica de fora. Você vai acrescentar a data de término do empréstimo com o teste escrito antes e medir o efeito com o benchmark do próprio BFF.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 10. O laboratório chama o BFF diretamente na porta 4001, com os cabeçalhos internos que o Gateway enviaria, e usa dois terminais na raiz do repositório. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório chama o BFF diretamente na porta 4001, com os cabeçalhos internos que o Gateway enviaria, e usa dois terminais na raiz do repositório. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · legado e contrato
     comandos:
@@ -37,7 +37,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Na ADR-015, o Gateway é genérico e não conhece campo de nenhum contrato, e cada BFF adapta o formato do legado ao microfrontend que atende. O BFF de empréstimo transforma o contrato, e o de endereço apenas repassa um formato que já é limpo.
+    texto: 'Esta aba explica o papel de um BFF: adaptar o formato do sistema legado ao microfrontend que ele atende, enquanto o Gateway continua genérico, sem conhecer campo de nenhum contrato, como registra a ADR-015. O BFF de empréstimo transforma o contrato, e o de endereço apenas repassa um formato que já é limpo.'
   - tipo: comparativo
     colunas:
     - Legado
@@ -80,7 +80,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, o contrato do legado, o contrato do BFF, a transformação, a rota e o benchmark. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, os dois contratos, o do legado e o do BFF, a função que transforma um no outro, a rota que a usa e o benchmark que mede a transformação. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: bffs/emprestimo/src/legacyBackend.ts
@@ -202,12 +202,12 @@ abas:
     inicio: 21
   - tipo: faixa
     estilo: dica
-    texto: O microfrontend declara a própria cópia do contrato em `mfes/emprestimo/src/domain/index.ts`. Um campo novo no BFF chega ao navegador, mas o TypeScript do microfrontend só o conhece quando essa cópia é atualizada à mão, e a ODA 12 trata dessa duplicação.
+    texto: O microfrontend declara a própria cópia do contrato em `mfes/emprestimo/src/domain/index.ts`. Um campo novo no BFF chega ao navegador, mas o TypeScript do microfrontend só o conhece quando essa cópia é atualizada à mão, porque nenhum compilador compara as duas declarações.
 - id: simulacao
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Envie ao BFF as requisições abaixo, capturadas antes e depois do laboratório, acompanhe um contrato da fixture até a resposta e classifique o que o BFF faz com cada campo do legado.
+    texto: Esta aba simula o BFF sem executar o projeto. Envie as requisições abaixo, capturadas antes e depois do laboratório, acompanhe um contrato da fixture até a resposta e classifique o que o BFF faz com cada campo do legado.
   - tipo: console-api
     cenarios:
     - rotulo: Antes · lista de contratos
@@ -348,11 +348,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 4 medem o ponto de partida, os passos 5 a 10 acrescentam o campo com o teste escrito antes, e os passos 11 e 12 comparam o benchmark e conferem a resposta do BFF.
+    texto: O objetivo do laboratório é fazer o BFF devolver a data de término do empréstimo, com um teste que define o formato e um benchmark que mede o custo. Os passos 1 a 4 medem o ponto de partida, os passos 5 a 10 acrescentam o campo com o teste escrito antes, e os passos 11 e 12 comparam o benchmark e conferem a resposta do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Instalar as dependências do BFF
@@ -629,7 +629,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os quatro incidentes partem de saídas do laboratório e de chamadas aos dois BFFs.
+    texto: Esta aba apresenta quatro situações que um time encontraria ao adaptar contratos num BFF, a partir de saídas do laboratório e de chamadas aos dois BFFs. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Vencimento presente na lista e ausente no detalhe
     origem: executado
@@ -764,7 +764,7 @@ abas:
       alternativas:
       - texto: Atualizar a cópia do contrato em `mfes/emprestimo/src/domain/index.ts`.
         correta: true
-        explicacao: A ODA 12 substitui essa cópia por tipos derivados do BFF.
+        explicacao: Sem tipos derivados do BFF, a cópia só muda à mão.
       - texto: Nada, porque o TypeScript lê o BFF em tempo de execução.
         correta: false
         explicacao: Os tipos do microfrontend são declarados à mão.

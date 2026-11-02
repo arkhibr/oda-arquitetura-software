@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: A esteira do shell roda cinco verificações e depois gera uma imagem Nginx com os arquivos estáticos. Esta ODA executa localmente cada etapa no commit de referência, encontra três que falham ou não conferem o que prometem, corrige cada uma e termina com a imagem saudável servindo a CSP com nonce por requisição.
+    texto: O objetivo desta ODA é executar na sua máquina o Quality Gate da esteira de entrega e construir a imagem do shell. No `frontend-react`, a esteira roda cinco verificações e depois gera uma imagem Nginx com os arquivos estáticos. Você vai rodar cada etapa no commit de referência, encontrar três que falham ou não conferem o que prometem, corrigi-las e terminar com a imagem saudável servindo a CSP com nonce por requisição.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 14 e o Docker em execução, com a porta 8080 livre no host. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o Docker Desktop integrado.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O Docker precisa estar em execução, com a porta 8080 livre no host. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o Docker Desktop integrado.
   - tipo: terminal
     titulo: terminal · esteira no commit de referência
     comandos:
@@ -36,7 +36,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'A ADR-006 serve o shell com Nginx numa imagem de dois estágios: o primeiro compila com Node e o segundo copia só o `dist/`. A Atualização da ADR-012 transformou o `nginx.conf` em template, com `envsubst` restrito às variáveis `CSP_*` no boot do contêiner.'
+    texto: 'Esta aba explica como o shell vira uma imagem: dois estágios, o primeiro compila com Node e o segundo copia só o `dist/` para um Nginx, como registra a ADR-006. O `nginx.conf` é um template, e o `envsubst` substitui só as variáveis `CSP_*` no boot do contêiner.'
   - tipo: comparativo
     colunas:
     - Variáveis de build
@@ -76,7 +76,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, a esteira de qualidade, o Dockerfile e a configuração de tipos da raiz. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, a esteira de qualidade, o Dockerfile e a configuração de tipos da raiz, onde estão as três falhas que o laboratório encontra. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: .github/workflows/ci.yml
@@ -204,7 +204,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Envie ao contêiner as requisições abaixo, capturadas com a imagem do laboratório, e classifique em que etapa cada problema é encontrado.
+    texto: Esta aba simula o contêiner do shell sem executar o projeto. Envie as requisições abaixo, capturadas com a imagem do laboratório, e classifique em que etapa da esteira cada problema é encontrado.
   - tipo: console-api
     cenarios:
     - rotulo: Página inicial
@@ -284,7 +284,7 @@ abas:
       explicacao: O build de produção recusa a URL no boot, com `mfes[0].url deve usar HTTPS`.
     - texto: '`config.json` ausente atrás do `try_files`'
       categoria: imagem
-      explicacao: O boot falha no navegador, como a ODA 14 mostrou.
+      explicacao: O Nginx devolve o `index.html`, e o boot falha no navegador.
     - texto: Os cinco `PARSE_ERROR` dos `README.md` na cobertura
       categoria: nenhum
       explicacao: Não reprovam a etapa e só poluem a saída.
@@ -292,11 +292,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do repositório clonado na ODA 00, com o Docker em execução. Os passos 1 a 5 levam a esteira ao verde, e os passos 6 a 8 constroem a imagem, corrigem o healthcheck e conferem os cabeçalhos.
+    texto: O objetivo do laboratório é levar o Quality Gate ao verde na sua máquina e subir a imagem do shell saudável. Os passos 1 a 5 rodam e corrigem as etapas da esteira, e os passos 6 a 8 provam que a etapa de tipos está vazia, corrigem o healthcheck e conferem os cabeçalhos da imagem. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar o Quality Gate localmente
@@ -604,7 +604,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os quatro incidentes partem de saídas do laboratório e de uma execução do shell no navegador contra a imagem.
+    texto: Esta aba apresenta quatro situações que um time encontraria na esteira e na imagem, a partir de saídas do laboratório e de uma execução do shell no navegador contra a imagem. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Contêiner que serve páginas e fica unhealthy
     origem: executado

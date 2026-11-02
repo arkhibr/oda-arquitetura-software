@@ -410,7 +410,7 @@ abas:
       outer = json.loads(record["body"])
 
       message = outer.get("Message", record["body"])'
-    pergunta: No pipeline 13, por que a função lê `outer.get("Message", ...)` em vez de gravar o corpo direto?
+    pergunta: No pipeline 13, por que a função lê `outer.get("Message", ...)` antes de gravar o corpo?
     correcao: 'Nenhuma correção: a função já trata os dois formatos. Outra opção é ligar a entrega bruta na assinatura do SNS.'
     alternativas:
     - texto: A Lambda recebe a mensagem cifrada.

@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: 'A ADR-014 divide a responsabilidade visual: o shell publica tokens e a estrutura externa, e cada microfrontend carrega o próprio CSS, escopado ao seu domínio. Esta ODA mostra o contrato aplicado no microfrontend de empréstimo, revela que o de endereço depende do CSS gerado para o shell e o corrige com o teste escrito antes.'
+    texto: O objetivo desta ODA é aplicar tokens de design e CSS com escopo para que o estilo de um microfrontend não dependa do shell nem vaze para outro. No `frontend-react`, o shell publica tokens e a estrutura externa, e cada microfrontend deveria carregar o próprio CSS, como faz o de empréstimo. Você vai mostrar que o microfrontend de endereço depende do CSS gerado para o shell e corrigi-lo com o teste escrito antes.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -16,7 +16,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 05 e o ambiente da ODA 08, com as dependências de `mfes/endereco` instaladas e o LocalStack acessível para o deploy do passo 13. O passo 2 move a pasta `mfes/` temporariamente e a devolve no mesmo comando. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório precisa das dependências de `mfes/endereco`: se a pasta `mfes/endereco/node_modules` não existir, rode `npm install --no-save` dentro dela, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. O passo 13 publica no LocalStack e exige o Docker em execução. O passo 2 move a pasta `mfes/` temporariamente e a devolve no mesmo comando. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
   - tipo: terminal
     titulo: terminal · CSS gerado para o shell
     comandos:
@@ -31,7 +31,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-014 descarta concentrar todo o CSS no shell, porque o shell passaria a conhecer o HTML dos microfrontends, e descarta deixar cada microfrontend com a própria identidade, porque o portal ficaria fragmentado. A decisão combina tokens do shell com CSS local de cada microfrontend.
+    texto: Esta aba explica as opções para o estilo num portal de microfrontends. Concentrar todo o CSS no shell obriga o shell a conhecer o HTML de cada microfrontend, e deixar cada um com a própria identidade fragmenta o portal, por isso a ADR-014 combina tokens do shell com CSS local de cada microfrontend.
   - tipo: comparativo
     colunas:
     - Shell
@@ -68,7 +68,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, os tokens do shell, o tema do empréstimo e as classes do endereço. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, os tokens publicados pelo shell, o tema do microfrontend de empréstimo, que segue o contrato, e as classes do microfrontend de endereço, que não seguem. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/styles/tokens.css
@@ -169,7 +169,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra a origem da cor do botão Salvar antes e depois do laboratório, e classifique regras de CSS conforme o contrato da ADR-014.
+    texto: Esta aba simula, sem executar nada, de onde vem a cor do botão Salvar do microfrontend de endereço antes e depois do laboratório. Percorra as etapas e depois classifique regras de CSS conforme o contrato de tokens do shell e CSS local.
   - tipo: fluxo
     titulo: De onde vem a cor do botão Salvar
     etapas:
@@ -210,11 +210,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 3 mostram a dependência do endereço em relação ao CSS do shell, os passos 4 a 12 aplicam o contrato com o teste escrito antes, e o passo 13 confere o resultado no portal.
+    texto: O objetivo do laboratório é fazer o microfrontend de endereço carregar o próprio CSS, baseado nos tokens do shell, com um teste que comprova o contrato. Os passos 1 a 3 mostram a dependência do endereço em relação ao CSS do shell, os passos 4 a 12 aplicam o contrato com o teste escrito antes, e o passo 13 confere o resultado no portal. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Procurar a classe no CSS do shell
@@ -573,7 +573,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os três primeiros incidentes partem de saídas do laboratório, e o último, de um trecho do tema do empréstimo.
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com o estilo entre microfrontends. As três primeiras partem de saídas do laboratório, e a última, de um trecho do tema do empréstimo: escolha a causa de cada uma para ver a explicação e a correção.'
   - tipo: incidente
     titulo: Botão sem estilo depois da separação dos repositórios
     origem: executado

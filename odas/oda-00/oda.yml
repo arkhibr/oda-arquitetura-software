@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: Antes de estudar cada decisão de arquitetura, é preciso ter a plataforma rodando e saber onde fica cada peça. Nesta ODA, o shell, os microfrontends e o LocalStack sobem na sua máquina, e a rota `/endereco` carrega um microfrontend publicado no S3 local.
+    texto: O objetivo desta ODA é colocar o portal `frontend-react` para rodar na sua máquina e saber em que pasta fica cada parte dele. Você vai clonar o repositório, publicar os microfrontends num S3 local emulado pelo LocalStack, subir o shell e abrir a rota `/endereco`, que carrega um microfrontend publicado. No caminho, cada pasta do repositório fica associada à responsabilidade que ela tem no portal.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -37,7 +37,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: O repositório reúne o shell, dois microfrontends, um Gateway e dois BFFs, cada um com o próprio `package.json`. Clique nas pastas para ver a responsabilidade de cada uma.
+    texto: 'Esta aba apresenta as peças do portal: um shell React que hospeda a navegação, dois microfrontends carregados em tempo de execução, um Gateway que autentica as chamadas e dois BFFs que adaptam o back-end, cada peça com o próprio `package.json`. Clique nas pastas para ver a responsabilidade de cada uma.'
   - tipo: arvores
     esquerda:
       titulo: Raiz do repositório
@@ -101,7 +101,7 @@ abas:
     - dimensao: Gateway
       valores:
       - '4000'
-      - '`npm run dev` em `gateway/`, com as variáveis de ambiente indicadas na ODA 01'
+      - '`npm run dev` em `gateway/`, com `JWT_SHARED_SECRET` e `INTERNAL_GATEWAY_KEY` definidas'
       - Autentica o JWT e encaminha ao BFF
     - dimensao: BFFs
       valores:
@@ -129,7 +129,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo são do commit `2179313`. Clique nos marcadores numerados para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, os scripts que sobem e publicam o portal e a configuração que liga o shell aos microfrontends publicados. Clique nos marcadores numerados para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: package.json
@@ -157,7 +157,7 @@ abas:
     - linha: 9
       texto: Publica todos os microfrontends no LocalStack. O Node executa o TypeScript diretamente.
     - linha: 12
-      texto: Confere as fronteiras entre camadas, assunto da ODA 02.
+      texto: Confere as fronteiras entre as camadas do Feature-Sliced Design.
     inicio: 6
   - tipo: editor
     rotulo: arquivo
@@ -233,7 +233,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra o que o `npm run deploy` faz, etapa por etapa, e depois localize cada peça do repositório.
+    texto: 'Esta aba simula, sem executar nada, o que o `npm run deploy` faz: conferir o LocalStack, compilar cada microfrontend, publicar o bundle no bucket, conferir a publicação e gravar o hash do bundle no manifesto que o shell lê. Percorra as etapas e depois associe cada peça do portal à pasta do repositório onde ela fica.'
   - tipo: fluxo
     titulo: O que o npm run deploy faz
     etapas:
@@ -315,7 +315,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no seu computador. O terminal simulado abaixo reproduz os comandos com as saídas esperadas no commit de referência.
+    texto: O objetivo do laboratório é ver o portal funcionando na sua máquina, com um microfrontend servido pelo S3 local. Os passos 1 e 2 clonam o repositório e publicam os microfrontends no LocalStack, os passos 3 e 4 conferem o manifesto e sobem o shell, e os passos 5 e 6 entram no portal e abrem a rota `/endereco`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
   - tipo: passos
     itens:
     - titulo: Clonar o repositório e instalar as dependências do shell
@@ -399,7 +399,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: A tela mostra a mesma mensagem nos três incidentes abaixo, e o console do navegador é que diferencia a causa. Escolha a causa de cada um para ver a explicação e a correção.
+    texto: 'Esta aba apresenta três falhas comuns ao subir o portal pela primeira vez. Nas três, a tela mostra a mesma mensagem de erro do microfrontend, e é o console do navegador que diferencia a causa: escolha a causa de cada incidente para ver a explicação e a correção.'
   - tipo: incidente
     titulo: Módulo indisponível depois de desfazer alterações
     origem: executado

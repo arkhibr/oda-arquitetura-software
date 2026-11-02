@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: 'O Catálogo divide o código em quatro subprojetos, e a Clean Architecture exige que as dependências apontem para dentro, em direção ao domínio. Esta ODA lê o grafo de referências, transforma a regra em testes de arquitetura e corrige a única seta que aponta para fora: a camada de API referencia a Infrastructure só para registrar repositórios.'
+    texto: O objetivo desta ODA é explicar a responsabilidade de cada subprojeto do Catálogo e garantir com testes que as dependências apontem para o domínio. No `net-minimal-api`, o Catálogo divide o código em quatro subprojetos de Clean Architecture, e a camada de API referencia a Infrastructure só para registrar repositórios, a única seta que aponta para fora. Você vai ler o grafo de referências, transformar a regra em testes de arquitetura e corrigir essa seta.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 17. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa do Laboratório. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · grafo do Catálogo
     comandos:
@@ -54,7 +54,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'A ADR-0001 faz Clean Architecture e Vertical Slice coexistirem em contextos diferentes, e a ADR-0011 detalha o Catálogo: camadas da Clean Architecture embaixo e um arquivo por grupo de endpoints em cima. A regra de dependência diz que o código de dentro não conhece o de fora.'
+    texto: 'Esta aba explica a regra de dependência da Clean Architecture: o código de dentro, o domínio e a aplicação, não conhece o de fora, a infraestrutura e a API. No repositório, a ADR-0001 faz esse padrão conviver com Vertical Slice em contextos diferentes, e a ADR-0011 detalha as camadas do Catálogo.'
   - tipo: comparativo
     colunas:
     - Responsabilidade
@@ -106,7 +106,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `702145a`, as referências da API, o registro no DI, a interface de dados da Application e o contexto EF Core do host. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `702145a`, as referências do projeto de API, o registro no contêiner de injeção de dependência, a interface de dados da Application e o contexto do EF Core no projeto principal. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Catalogo.API.csproj
@@ -241,7 +241,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Acompanhe a criação de um produto pelas camadas e classifique onde cada peça deve ficar.
+    texto: Esta aba simula, sem executar nada, a criação de um produto atravessando as camadas, do endpoint ao banco. Acompanhe as etapas e depois classifique em que camada cada peça deve ficar.
   - tipo: fluxo
     titulo: POST /api/v1/catalogo/produtos pelas camadas
     etapas:
@@ -292,7 +292,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do `net-minimal-api`. Os passos 1 a 4 leem o grafo e escrevem os testes de arquitetura, e os passos 5 a 7 movem o registro para a raiz de composição e conferem o resultado.
+    texto: O objetivo do laboratório é transformar a regra de dependência em testes e fazer a camada de API deixar de referenciar a Infrastructure. Os passos 1 a 4 leem o grafo e escrevem os testes de arquitetura, e os passos 5 a 7 movem o registro dos repositórios para a raiz de composição e conferem o resultado. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
@@ -510,7 +510,7 @@ abas:
     - entrada: dotnet test tests/ProdutosAPI.Tests
       saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
       origem: executado
-      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`, ou aplique a correção da ODA 16.
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests` e rode de novo.
     cenarios:
     - rotulo: Referências
       comando: for p in Domain Application Infrastructure API; do echo "== Catalogo.$p"; dotnet list src/Catalogo/Catalogo.$p reference | tail -n +3; done
@@ -522,7 +522,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os incidentes partem de saídas do laboratório e de trechos do código de dados do Catálogo.
+    texto: Esta aba apresenta situações que um time encontraria com essas camadas, a partir de saídas do laboratório e de trechos do código de dados do Catálogo. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Vinte e seis testes com 500 depois da mudança
     origem: executado

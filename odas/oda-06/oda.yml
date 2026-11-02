@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O shell descobre os microfrontends em tempo de execução lendo `public/mfe-manifest.json`, que declara para cada um a URL do bundle, o hash, a rota, o estado e as dependências. Esta ODA mostra como o manifesto é validado no boot, como a ordenação topológica define a ordem das rotas e do menu, e registra o microfrontend mínimo da ODA 05 em manutenção, com o teste escrito antes.
+    texto: O objetivo desta ODA é registrar um microfrontend no manifesto do portal e prever em que ordem o shell vai carregá-lo. O shell do `frontend-react` lê `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências, valida o arquivo no boot e ordena as entradas pelas dependências. Você vai registrar um microfrontend em manutenção com o teste escrito antes e provocar no navegador as falhas de boot de um ciclo e de uma origem não permitida.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 05, com o repositório clonado no commit `2179313`. O laboratório usa o navegador com `npm run dev` e não depende do Docker, porque o microfrontend mínimo é registrado em manutenção e o shell não baixa o bundle dele. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório usa o navegador com `npm run dev` e não depende do Docker, porque o microfrontend mínimo é registrado em manutenção e o shell não baixa o bundle dele. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -32,7 +32,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-010 trata o manifesto como catálogo de produto, que muda quando um microfrontend entra ou sai, e o `config.json` como configuração de ambiente, que muda a cada deploy. As duas fontes evoluem em ritmos diferentes, e por isso ficam em arquivos separados.
+    texto: Esta aba explica as duas fontes que o shell lê no boot. O manifesto é um catálogo de produto, que muda quando um microfrontend entra ou sai, e o `config.json` é configuração de ambiente, que muda a cada deploy, por isso ficam em arquivos separados, como registra a ADR-010 do repositório.
   - tipo: comparativo
     colunas:
     - Aparece no menu
@@ -298,7 +298,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Acompanhe a ordenação de Kahn para o manifesto do laboratório e classifique as alterações de manifesto pelo efeito que causam no boot.
+    texto: 'Esta aba simula, sem executar nada, a ordenação de Kahn que o shell aplica ao manifesto: os microfrontends sem dependência pendente entram primeiro, e um ciclo impede a ordenação. Acompanhe a ordenação do manifesto do laboratório e depois classifique alterações de manifesto pelo efeito que causam no boot.'
   - tipo: fluxo
     titulo: Kahn sobre o manifesto com minimo, endereco e emprestimo, nessa ordem no arquivo
     etapas:
@@ -341,11 +341,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 6 registram o microfrontend mínimo com o teste escrito antes, e os passos 7 a 9 conferem no navegador o menu, o aviso de manutenção e as falhas de boot.
+    texto: O objetivo do laboratório é acrescentar uma entrada ao manifesto, provar com teste que ela é aceita e ver no navegador o efeito da ordem e das validações. Os passos 1 a 6 registram um microfrontend mínimo em manutenção com o teste escrito antes, e os passos 7 a 9 conferem no navegador o menu, o aviso de manutenção e as falhas de boot. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -386,7 +386,7 @@ abas:
         - npx vitest run src/app/mfe/__tests__/manifestoPublicado.test.ts
       sucesso: '`Tests 2 failed (2)`, com `expected undefined to be ''maintenance''` e a ordem sem `minimo`.'
     - titulo: Registrar o microfrontend mínimo
-      texto: Em `public/mfe-manifest.json`, acrescente a entrada abaixo no início da lista `mfes`. O hash é o gerado na ODA 05, e a URL usa a origem permitida do LocalStack.
+      texto: Em `public/mfe-manifest.json`, acrescente a entrada abaixo no início da lista `mfes`. Qualquer hash com formato válido serve, porque em manutenção o shell não baixa o bundle, e a URL usa a origem permitida do LocalStack.
       editor:
         rotulo: arquivo
         caminho: public/mfe-manifest.json (alteração)
@@ -499,7 +499,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os dois primeiros incidentes mostram mensagens reais de boot, exibidas pelo navegador com o manifesto alterado. Os dois últimos tratam do que o manifesto controla e do que ele não controla.
+    texto: Esta aba apresenta quatro situações que um time encontraria ao editar o manifesto. As duas primeiras mostram mensagens reais de boot, exibidas pelo navegador com o manifesto alterado, e as duas últimas tratam do que o manifesto controla e do que ele não controla.
   - tipo: incidente
     titulo: Portal que não inicia depois de uma dependência nova
     origem: executado

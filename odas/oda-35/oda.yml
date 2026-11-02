@@ -179,7 +179,7 @@ abas:
     - texto: Ofertas do segmento `pessoal` passam a ir para uma fila própria
       categoria: tabela
       explicacao: Basta um item com o segmento e a fila de destino.
-    - texto: Ofertas sem regra vão para revisão em vez de descartadas
+    - texto: Ofertas sem regra passam a ir para uma fila de revisão
       categoria: mudanca_no_codigo
       explicacao: O comportamento do roteador muda, como no laboratório.
     - texto: Ofertas acima de R$ 50 mil vão para análise manual
@@ -280,7 +280,7 @@ abas:
         linhas:
         - '# src/lambdas/roteador_de_ofertas/handler.py: no lugar do bloco if not fila_destino'
         - '        if not fila_destino:'
-        - '            # Sem regra cadastrada, a oferta vai para revisão em vez de ser descartada'
+        - '            # Sem regra cadastrada, a oferta segue para a fila de revisão'
         - '            sqs.send_message(QueueUrl=os.environ["FILA_REVISAO_URL"], MessageBody=json.dumps(oferta))'
         - '            print(f"[ROTEADOR] Oferta {oferta[''id'']} sem regra para o segmento ''{segmento}'' → fila de revisão")'
         - '            continue'

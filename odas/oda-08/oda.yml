@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: Cada microfrontend tem build e deploy próprios, e o shell confere o hash de cada bundle contra o manifesto. Esta ODA mostra o que o deploy de um microfrontend faz e o que ele deixa de fazer, e demonstra no portal por que bundle e manifesto precisam ser promovidos juntos.
+    texto: O objetivo desta ODA é publicar um microfrontend no S3 emulado pelo LocalStack e entender por que o bundle e o manifesto precisam ser promovidos juntos. No `frontend-react`, cada microfrontend tem build e deploy próprios, e o shell recusa o bundle cujo hash não confere com o manifesto. Você vai publicar só o bundle de uma versão nova, ver o portal recusá-lo e corrigir a promoção.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -16,7 +16,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: 'A ODA 00, com o Docker em execução e o LocalStack acessível na porta 4566, e a ODA 06. O laboratório usa dois terminais: um com `npm run dev` e outro para os comandos de deploy. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O Docker precisa estar em execução, porque o deploy publica no LocalStack, na porta 4566. O laboratório usa dois terminais: um com `npm run dev` e outro para os comandos de deploy. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
   - tipo: terminal
     titulo: terminal · LocalStack
     comandos:
@@ -31,7 +31,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'A ADR-011 decide como cada microfrontend é construído e onde o bundle fica hospedado, e a Atualização 1.1 da mesma ADR liga a publicação ao hash do manifesto. O ponto central desta ODA está nessa ligação: um bundle publicado sem o manifesto correspondente é recusado pelo shell.'
+    texto: 'Esta aba explica como cada microfrontend é construído e hospedado e a ligação entre a publicação e o hash do manifesto: um bundle publicado sem o manifesto correspondente é recusado pelo shell. No repositório, a ADR-011 e a Atualização 1.1 dela registram essas decisões.'
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Pipeline
@@ -77,7 +77,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, o build em lib mode, o deploy de um microfrontend e o deploy da raiz. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, o build em lib mode, o deploy de um microfrontend sozinho e o deploy da raiz, que também atualiza o manifesto. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/endereco/vite.config.ts
@@ -208,7 +208,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra as etapas do deploy da raiz para um microfrontend e classifique cada situação pelo resultado no portal.
+    texto: Esta aba simula, sem executar nada, as etapas do deploy da raiz para um microfrontend, do build à gravação do hash no manifesto. Percorra as etapas e depois classifique cada situação pelo resultado que ela produz no portal.
   - tipo: fluxo
     titulo: Deploy da raiz para um microfrontend
     etapas:
@@ -299,7 +299,7 @@ abas:
       explicacao: O bucket ainda tem o bundle anterior, que corresponde ao manifesto.
     - texto: Manifesto restaurado com `git checkout` depois de um deploy
       categoria: indisponivel
-      explicacao: O manifesto volta ao hash do commit, diferente do bundle publicado, como na ODA 00.
+      explicacao: O manifesto volta ao hash do commit, diferente do bundle publicado.
     - texto: Deploy só do microfrontend seguido do deploy da raiz
       categoria: ok
       explicacao: O deploy da raiz recalcula o hash e grava o manifesto.
@@ -307,11 +307,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00, com `npm run dev` num terminal separado. Os passos 1 a 4 partem de um deploy consistente, os passos 5 a 8 publicam só o bundle e mostram a falha, e os passos 9 e 10 promovem bundle e manifesto juntos.
+    texto: O objetivo do laboratório é publicar uma versão nova de um microfrontend e chegar a um portal consistente, com o bundle e o manifesto de acordo. Os passos 1 a 4 partem de um deploy consistente, os passos 5 a 8 publicam só o bundle e mostram a recusa, e os passos 9 e 10 promovem bundle e manifesto juntos. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima, com o `npm run dev` rodando num terminal separado.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Conferir o LocalStack
@@ -338,7 +338,7 @@ abas:
       texto: Entre com `usuario@teste.com` e `senha123` e clique em Alteração de Endereço.
       sucesso: O formulário com CEP, Logradouro, Número e o botão Salvar, sem erros no console.
     - titulo: Alterar o microfrontend
-      texto: 'Qualquer mudança no código serve para gerar um bundle novo. Este laboratório usa o boundary interno da ODA 07: crie `mfes/endereco/src/FalhaInterna.tsx` com o conteúdo abaixo e, em `mfes/endereco/src/index.tsx`, importe o componente e envolva o `EnderecoApp`, como nas linhas finais do editor.'
+      texto: 'Qualquer mudança no código serve para gerar um bundle novo. Este laboratório usa como mudança um boundary interno: crie `mfes/endereco/src/FalhaInterna.tsx` com o conteúdo abaixo e, em `mfes/endereco/src/index.tsx`, importe o componente e envolva o `EnderecoApp`, como nas linhas finais do editor.'
       editor:
         rotulo: arquivo
         caminho: mfes/endereco/src/FalhaInterna.tsx (novo) e index.tsx (alteração)
@@ -469,7 +469,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os incidentes abaixo partem das saídas do laboratório e de dois pontos do código e da documentação que merecem atenção.
+    texto: Esta aba apresenta situações que um time encontraria ao publicar microfrontends, a partir das saídas do laboratório e de dois pontos do código e da documentação. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Endereço indisponível depois de uma entrega
     origem: executado

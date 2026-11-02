@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O microfrontend de endereço declara à mão o formato da resposta do BFF, e nenhum compilador compara as duas declarações. Esta ODA mostra que uma renomeação no BFF passa por todos os testes e pelo `tsc` dos dois lados, e então aplica a prova de conceito que a ADR-017 propõe, até que a mesma renomeação pare o build do microfrontend.
+    texto: O objetivo desta ODA é fazer o compilador detectar uma quebra de contrato entre um BFF e o microfrontend que o consome. No `frontend-react`, o microfrontend de endereço declara à mão o formato da resposta do BFF, e uma renomeação no BFF passa por todos os testes e pelo `tsc` dos dois lados. Você vai aplicar a proposta de tipos compartilhados pelo Hono RPC até que a mesma renomeação pare o build do microfrontend.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 11. O laboratório altera o BFF e o microfrontend de endereço e não precisa de nenhum serviço no ar. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o `perl` que acompanha o Git.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório altera o BFF e o microfrontend de endereço e não precisa de nenhum serviço no ar. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o `perl` que acompanha o Git.
   - tipo: terminal
     titulo: terminal · renomeação no BFF
     comandos:
@@ -60,7 +60,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-009 mantém cada microfrontend autônomo, com cópias locais dos contratos, e o preço é que nenhuma compilação compara a cópia com o original. A ADR-017 propõe que o BFF publique o tipo das próprias rotas e que o microfrontend o importe só como tipo, sem levar código do BFF ao bundle.
+    texto: 'Esta aba explica o custo da autonomia dos microfrontends: cada um guarda uma cópia local dos contratos, e nenhuma compilação compara a cópia com o original. A alternativa, proposta pela ADR-017, é o BFF publicar o tipo das próprias rotas e o microfrontend importá-lo só como tipo, sem levar código do BFF ao bundle.'
   - tipo: comparativo
     colunas:
     - Cópia manual do tipo
@@ -100,7 +100,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, os dois lados do contrato de endereço. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra, no commit `2179313`, os dois lados do contrato de endereço: a resposta que o BFF monta e o tipo que o microfrontend declara à mão. Clique nos marcadores para ler a explicação de cada linha.'
   - tipo: editor
     rotulo: arquivo
     caminho: bffs/endereco/src/legacyBackend.ts
@@ -213,7 +213,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Acompanhe o caminho do tipo, do BFF ao build do microfrontend, e classifique o resultado de cada mudança no BFF antes e depois da prova de conceito.
+    texto: Esta aba simula, sem executar nada, o caminho de um tipo do BFF até o build do microfrontend com o Hono RPC. Acompanhe as etapas e depois classifique o resultado de cada mudança no BFF antes e depois da prova de conceito.
   - tipo: fluxo
     titulo: Do encadeamento de rotas ao erro no build do microfrontend
     etapas:
@@ -260,11 +260,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 4 mostram a quebra silenciosa, os passos 5 a 10 aplicam a prova de conceito acompanhando cada erro de compilação, e os passos 11 e 12 repetem a quebra e conferem o bundle.
+    texto: O objetivo do laboratório é transformar uma quebra de contrato silenciosa num erro de compilação. Os passos 1 a 4 mostram a quebra passando pelos testes, os passos 5 a 10 aplicam a prova de conceito acompanhando cada erro de compilação, e os passos 11 e 12 repetem a quebra e conferem que o bundle não leva código do BFF. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Instalar as dependências
@@ -641,7 +641,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os quatro incidentes partem de saídas do laboratório e de mudanças no BFF feitas com o contrato aplicado.
+    texto: Esta aba apresenta quatro situações que um time encontraria com contratos entre BFF e microfrontend, a partir de saídas do laboratório e de mudanças no BFF feitas com o contrato aplicado. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Campo vazio na tela depois de um deploy do BFF
     origem: executado

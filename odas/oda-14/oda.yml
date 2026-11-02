@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: A ADR-005 combina Vitest, Playwright e MSW, e cada nível de teste responde a uma pergunta diferente. Esta ODA escreve um teste com MSW para o carregamento do `config.json`, que revela uma falha atrás do Nginx, e um benchmark para a ordenação dos microfrontends, que revela um custo que cresce mais rápido que o manifesto.
+    texto: O objetivo desta ODA é escolher o nível de teste adequado a cada pergunta e escrever um teste com rede simulada e um benchmark. O `frontend-react` combina Vitest, Playwright e MSW, e cada ferramenta responde a uma pergunta diferente. Você vai escrever um teste com MSW para o carregamento do `config.json`, que revela uma falha atrás do Nginx, e um benchmark para a ordenação dos microfrontends, que revela um custo que cresce mais rápido que o manifesto.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 00, com as dependências da raiz instaladas, e nenhum serviço no ar, porque o laboratório roda só testes, lint e benchmarks em processo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. Nenhum serviço precisa estar no ar, porque o laboratório roda só testes, lint e benchmarks em processo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · testes do shell
     comandos:
@@ -38,7 +38,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: O MSW intercepta a rede tanto no Node, nos testes do Vitest, quanto no navegador, em desenvolvimento e no Playwright. O benchmark do Vitest mede a vazão de funções puras e não mede rede, renderização nem carga.
+    texto: Esta aba explica o que cada ferramenta de teste do repositório mede. O MSW intercepta a rede tanto no Node, nos testes do Vitest, quanto no navegador, e o benchmark do Vitest mede a vazão de funções puras, sem rede, renderização nem carga, como registra a ADR-005.
   - tipo: comparativo
     colunas:
     - Pergunta
@@ -78,7 +78,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, o setup do MSW, o carregamento da configuração, a ordenação dos microfrontends e um benchmark existente. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, o setup do MSW, o carregamento da configuração, a ordenação dos microfrontends e um benchmark existente, que servem de base ao laboratório. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: src/test-setup.ts
@@ -218,7 +218,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Acompanhe o boot quando o `config.json` falta atrás do Nginx e classifique o nível de teste adequado para cada pergunta.
+    texto: Esta aba simula, sem executar nada, o boot do shell quando o `config.json` falta atrás do Nginx, que devolve o `index.html` no lugar. Acompanhe as etapas e depois classifique o nível de teste adequado para cada pergunta.
   - tipo: fluxo
     titulo: Boot do shell sem config.json atrás do Nginx
     etapas:
@@ -269,11 +269,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 7 cobrem o teste com MSW e a regra de fronteiras, e os passos 8 a 11 cobrem o benchmark e a correção da ordenação.
+    texto: O objetivo do laboratório é escrever um teste com MSW que revela uma falha do carregamento da configuração e um benchmark que justifica uma mudança na ordenação. Os passos 1 a 7 cobrem o teste com MSW e a regra de fronteiras, e os passos 8 a 11 cobrem o benchmark e a correção da ordenação. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -492,7 +492,7 @@ abas:
       condicao: teste_config
       saida: "> frontend-react@0.0.0 lint\n> eslint src/\n\n\n./src/shared/config/__tests__/config.test.ts\n  3:24  error  Dependencies to elements of type \"mocks\" are not allowed in elements of type \"shared\". Denied by rule at index 0  boundaries/dependencies\n\n✖ 1 problem (1 error, 0 warnings)"
       origem: executado
-      dica: A regra de fronteiras da ODA 02 vale também para os arquivos de teste. O passo 6 trata disso.
+      dica: A regra de fronteiras entre as camadas do shell vale também para os arquivos de teste. O passo 6 trata disso.
     - entrada: npx tsc --noEmit -p tsconfig.app.json && npm run lint
       saida: '> frontend-react@0.0.0 lint
 
@@ -554,7 +554,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os quatro incidentes partem de saídas do laboratório e de uma verificação feita depois da mudança no ESLint.
+    texto: Esta aba apresenta quatro situações que um time encontraria ao escolher e manter testes, a partir de saídas do laboratório e de uma verificação feita depois da mudança no ESLint. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Portal que não inicia num ambiente novo
     origem: executado

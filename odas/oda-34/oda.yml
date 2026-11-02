@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O objetivo desta ODA é comparar duas formas de executar um processo na AWS, uma máquina de estados do Step Functions e uma tarefa em contêiner no ECS, e escrever uma máquina de estados que trata um erro de negócio em vez de falhar. No repositório `aspire-aws`, o cenário 15 tem uma máquina de estados que chama uma Lambda e por isso fica com os testes ignorados, e o cenário 18 roda um worker em contêiner que consome uma fila. Você vai criar uma máquina de estados sem Lambda que registra pedidos no DynamoDB e fazê-la reconhecer um pedido repetido com um `Catch`.
+    texto: O objetivo desta ODA é comparar duas formas de executar um processo na AWS, uma máquina de estados do Step Functions e uma tarefa em contêiner no ECS, e escrever uma máquina de estados que transforma um erro previsto num estado de negócio. No repositório `aspire-aws`, o cenário 15 tem uma máquina de estados que chama uma Lambda e por isso fica com os testes ignorados, e o cenário 18 roda um worker em contêiner que consome uma fila. Você vai criar uma máquina de estados sem Lambda que registra pedidos no DynamoDB e fazê-la reconhecer um pedido repetido com um `Catch`.
   - tipo: checklist
     titulo: Ao concluir, você poderá
     itens:
@@ -615,7 +615,7 @@ abas:
       - texto: Para a execução ficar mais rápida.
         correta: false
         explicacao: O tempo não é o objetivo.
-      - texto: Porque a repetição é prevista, e quem chamou recebe uma resposta clara em vez de uma falha para investigar.
+      - texto: Porque a repetição é prevista, e quem chamou recebe uma resposta de negócio clara, sem falha para investigar.
         correta: true
         explicacao: 'A execução termina em `SUCCEEDED` com `situacao: duplicado`.'
     - enunciado: O que falta ao worker do cenário 18 para mensagens malformadas?

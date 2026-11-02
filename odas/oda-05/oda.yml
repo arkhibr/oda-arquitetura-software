@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O portal carrega microfrontends em tempo de execução, e cada um é um bundle ESM autônomo que exporta duas funções, `mount` e `unmount`. Esta ODA mostra por que a ADR-008 escolheu integração em tempo de execução, como a ADR-009 define o contrato e como o shell confere o bundle antes de montá-lo, e termina com um microfrontend mínimo, sem React, escrito com o teste antes.
+    texto: O objetivo desta ODA é escrever um microfrontend mínimo que o shell do `frontend-react` aceite carregar, cumprindo o contrato `mount` e `unmount`. No portal, cada microfrontend é um bundle ESM autônomo, carregado em tempo de execução, e o shell confere o hash e as duas funções antes de montá-lo. Você vai criar um microfrontend de um arquivo, sem React, com o teste escrito antes, e provocar as duas falhas que o carregador detecta.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -16,7 +16,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: As ODAs 00 e 02, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas. O laboratório usa `openssl`, disponível no macOS, no Linux e no Git Bash do Windows. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório usa `openssl`, disponível no macOS, no Linux e no Git Bash do Windows. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -31,7 +31,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'A ADR-008 decide que funcionalidades entram no portal sem recompilar o shell, e a ADR-009 decide o mecanismo: um módulo ESM com duas funções, que leva o próprio React embutido.'
+    texto: 'Esta aba explica a escolha entre integrar microfrontends na compilação ou em tempo de execução e o contrato mínimo que torna a segunda possível: um módulo ESM com duas funções, que leva o próprio React embutido. No repositório, as ADR-008 e ADR-009 registram essas escolhas.'
   - tipo: comparativo
     colunas:
     - Contrato mount/unmount (escolhido)
@@ -45,7 +45,7 @@ abas:
       - Nenhuma, com estilos isolados por Shadow DOM
     - dimensao: Tamanho do bundle
       valores:
-      - Maior, porque cada bundle traz o próprio React. A ADR cita cerca de 800 kB para o `endereco.js`, e o build do commit gera menos de 300 kB, como mostra a ODA 08
+      - Maior, porque cada bundle traz o próprio React. A ADR cita cerca de 800 kB para o `endereco.js`, e o build do commit gera menos de 300 kB
       - Menor
       - Depende do framework interno
     - dimensao: Passagem de contexto
@@ -78,7 +78,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, o contrato, a implementação no microfrontend de endereço e o carregador do shell. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, o tipo que define o contrato, a implementação dele no microfrontend de endereço e o carregador do shell que confere o bundle. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/endereco/src/contract.ts
@@ -221,7 +221,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra as etapas do carregamento de um microfrontend e acompanhe na linha do tempo o ciclo de vida do contrato, com e sem uma falha no bundle. Depois, classifique as responsabilidades entre o shell e o microfrontend.
+    texto: 'Esta aba simula, sem executar nada, o carregamento de um microfrontend: o shell lê o manifesto, baixa o bundle, confere o hash e chama `mount`. Percorra as etapas, acompanhe na linha do tempo o ciclo de vida com e sem falha no bundle e depois classifique as responsabilidades entre o shell e o microfrontend.'
   - tipo: fluxo
     titulo: Do manifesto ao mount
     etapas:
@@ -358,11 +358,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. O microfrontend mínimo é um único arquivo JavaScript, sem React e sem build, testado pelas funções de validação do carregador do shell. Os passos 8 e 9 provocam as duas falhas que o carregador detecta.
+    texto: O objetivo do laboratório é criar um microfrontend que passa pelas validações do carregador do shell e ver as duas falhas que elas detectam. Os passos 1 a 7 escrevem o teste, criam o microfrontend de um arquivo, sem React e sem build, e publicam o hash, e os passos 8 a 10 quebram o contrato, alteram o arquivo depois do hash e rodam a suíte. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -661,7 +661,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os dois primeiros incidentes mostram falhas reais do carregador no laboratório, e os dois últimos tratam de divergências entre a documentação e o código.
+    texto: 'Esta aba apresenta quatro situações que um time encontraria ao publicar microfrontends. As duas primeiras mostram falhas reais do carregador no laboratório, e as duas últimas tratam de divergências entre a documentação e o código: escolha a causa de cada uma para ver a explicação e a correção.'
   - tipo: incidente
     titulo: Bundle recusado pelo carregador
     origem: executado

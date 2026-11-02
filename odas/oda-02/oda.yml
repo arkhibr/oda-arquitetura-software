@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O shell do `frontend-react` separa o código em camadas, e o ESLint recusa importações que desrespeitam a hierarquia. Nesta ODA, uma violação real é introduzida, acusada pelo lint e corrigida.
+    texto: O objetivo desta ODA é aplicar as regras de dependência entre as camadas do Feature-Sliced Design no shell do `frontend-react` e entender as violações que o ESLint aponta. O shell organiza o código em camadas que só podem importar camadas abaixo delas, e um plugin do ESLint recusa as importações que quebram essa regra. Você vai introduzir uma violação, ler o erro do lint, corrigi-la e descobrir uma brecha da configuração.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -134,7 +134,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo são do commit `2179313`. Clique nos marcadores numerados para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, a configuração do ESLint que declara as camadas e as regras de importação entre elas. Clique nos marcadores numerados para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: eslint.config.ts
@@ -216,7 +216,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra a decisão do plugin para uma importação proibida e depois classifique importações entre camadas. As respostas seguem as regras de `eslint.config.ts`.
+    texto: 'Esta aba simula, sem executar nada, como o plugin decide se uma importação é permitida: ele descobre a camada do arquivo que importa e a do arquivo importado e confere a regra entre as duas. Percorra a decisão para uma importação proibida e depois classifique outras importações segundo as regras de `eslint.config.ts`.'
   - tipo: fluxo
     titulo: Como o lint decide uma importação de shared para features
     etapas:
@@ -314,7 +314,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no seu computador ou no terminal simulado abaixo. Os passos 3 e 6 alteram o resultado do lint no terminal simulado, como acontece no projeto real.
+    texto: O objetivo do laboratório é provocar uma violação de camada, ver o lint recusá-la e corrigi-la. Os passos 1 e 2 preparam o repositório e rodam o lint no estado original, os passos 3 a 6 introduzem a violação, leem o erro, testam a troca do alias por caminho relativo e desfazem a alteração, e o passo 7 mostra uma pasta que o lint não vigia. O terminal simulado responde aos mesmos comandos, e os passos 3 e 6 mudam o resultado dele como no projeto real.
   - tipo: passos
     itens:
     - titulo: Clonar o repositório e instalar as dependências
@@ -412,7 +412,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Cada incidente mostra uma saída real do lint no commit `2179313`. Escolha a causa para ver a explicação e a correção.
+    texto: Esta aba apresenta situações que um time encontraria ao trabalhar com essas fronteiras, cada uma com uma saída real do lint no commit `2179313`. Escolha a causa de cada incidente para ver a explicação e a correção.
   - tipo: incidente
     titulo: Erro de fronteira no cliente HTTP
     origem: executado

@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O repositório traz dois guias de boas práticas de API, e esta ODA confronta a API real com eles. A sondagem percorre criação, validação, paginação, exclusão e cancelamento nos dois contextos, registra onde a API segue ou diverge dos guias e corrige uma das divergências com o teste escrito antes.
+    texto: O objetivo desta ODA é avaliar os recursos, os códigos de status e os payloads de uma API REST contra as boas práticas que o próprio repositório adota. O `net-minimal-api` traz dois guias de API, e você vai sondar criação, validação, paginação, exclusão e cancelamento no Catálogo e nos Pedidos. No fim, você terá um quadro de onde a API segue ou diverge dos guias e uma das divergências corrigida com o teste escrito antes.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 17. O laboratório usa dois terminais na raiz do `net-minimal-api`, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa do Laboratório. O laboratório usa dois terminais na raiz do `net-minimal-api`, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · duas validações, dois contratos
     comandos:
@@ -43,7 +43,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: O `MELHORES-PRATICAS-API.md` fixa substantivos no plural, o verbo no protocolo, paginação obrigatória e uma tabela de status por situação. O `JSON-COMPLEXO-E-BOAS-PRATICAS.md` acrescenta erros em `application/problem+json`, com mensagens por campo.
+    texto: Esta aba resume as regras dos dois guias do repositório. O `MELHORES-PRATICAS-API.md` fixa substantivos no plural, o verbo no protocolo, paginação obrigatória e uma tabela de status por situação, e o `JSON-COMPLEXO-E-BOAS-PRATICAS.md` acrescenta erros em `application/problem+json`, com mensagens por campo.
   - tipo: comparativo
     colunas:
     - Catálogo
@@ -75,7 +75,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `702145a`, os retornos de criação e validação nos dois contextos, o tratamento do filtro e o exemplo do guia. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `702145a`, os retornos de criação e validação nos dois contextos, o tratamento do filtro de status e o exemplo do guia, que são a base da sondagem. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Endpoints/Produtos/ProdutoEndpoints.cs
@@ -182,7 +182,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Envie as requisições da sondagem, com respostas capturadas na API do commit de referência, e classifique cada resultado em relação aos guias.
+    texto: Esta aba simula a API sem executar o projeto. Envie as requisições da sondagem, com respostas capturadas no commit de referência, e classifique cada resultado como de acordo ou em desacordo com os guias.
   - tipo: console-api
     cenarios:
     - rotulo: Criar produto
@@ -292,12 +292,12 @@ abas:
       explicacao: O filtro desconhecido é descartado sem aviso.
     - texto: '`setup.sh` que sugere `/api/v1/produtos`'
       categoria: guia
-      explicacao: Mesma rota antiga, vista na ODA 16.
+      explicacao: A rota antiga continua no `setup.sh`.
 - id: laboratorio
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do `net-minimal-api`. Os passos 1 a 4 fazem a sondagem e montam o quadro de avaliação, e os passos 5 a 8 corrigem o filtro de status com o teste escrito antes.
+    texto: O objetivo do laboratório é montar um quadro de avaliação da API contra os guias e corrigir uma divergência encontrada. Os passos 1 a 4 sobem a API, sondam os dois contextos e montam o quadro, e os passos 5 a 8 corrigem o filtro de status ignorado com o teste escrito antes. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
@@ -463,7 +463,7 @@ abas:
 
         500'
       origem: executado
-      dica: O guia promete 400 para payload ilegível. A ODA 22 trata do middleware que transforma a falha de leitura em 500.
+      dica: O guia promete 400 para payload ilegível. No ambiente de desenvolvimento, o middleware de exceções transforma a falha de leitura em 500.
     - entrada: curl -s 'http://localhost:5000/api/v1/catalogo/produtos?pageSize=1000' | grep -o '"pagination":{[^}]*}'
       saida: '"pagination":{"page":1,"pageSize":20,"totalItems":9,"totalPages":1}'
       origem: executado
@@ -532,7 +532,7 @@ abas:
     - entrada: dotnet test tests/ProdutosAPI.Tests
       saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
       origem: executado
-      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`, ou aplique a correção da ODA 16.
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests` e rode de novo.
     cenarios:
     - rotulo: Produto inválido
       comando: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
@@ -546,7 +546,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os quatro incidentes partem da sondagem e de uma chamada feita depois da correção.
+    texto: Esta aba apresenta quatro situações que um time encontraria ao revisar essa API, a partir da sondagem e de uma chamada feita depois da correção. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Cliente que trata dois formatos de erro
     origem: executado
@@ -632,7 +632,7 @@ abas:
       explicacao: A rota não existe.
     - texto: 404, porque `/api/v1/produtos` deixou de existir na migração para o Catálogo.
       correta: true
-      explicacao: A ODA 16 recebeu 404 na mesma rota.
+      explicacao: O `setup.sh` ainda sugere essa rota.
     - texto: O produto, porque a API redireciona.
       correta: false
       explicacao: Não há redirecionamento configurado.
@@ -689,7 +689,7 @@ abas:
       alternativas:
       - texto: Que a falha de leitura do corpo vira 500, como no JSON ilegível.
         correta: true
-        explicacao: A ODA 22 trata do middleware.
+        explicacao: No ambiente de desenvolvimento, o middleware de exceções responde com 500.
       - texto: Que o pedido já estava cancelado.
         correta: false
         explicacao: As duas chamadas falharam antes do handler.

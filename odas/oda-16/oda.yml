@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O `net-minimal-api` reúne três bounded contexts numa única API .NET 10, cada um com um padrão arquitetural diferente. Esta ODA prepara o ambiente, corrige as duas falhas que impedem o `setup.sh` de terminar no commit de referência, sobe a API e liga cada contexto ao padrão que a estrutura de pastas revela.
+    texto: O objetivo desta ODA é colocar a API `net-minimal-api` para rodar na sua máquina e identificar o padrão arquitetural de cada um dos três bounded contexts dela. O repositório reúne Catálogo, Pedidos e Pix numa única API .NET 10, e no commit de referência o `setup.sh` não termina por causa de duas falhas de build. Você vai corrigir essas falhas, subir a API e ligar cada contexto ao padrão que a estrutura de pastas revela.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -52,7 +52,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: O repositório resolve o mesmo problema, uma API REST com persistência, validação e testes, com graus diferentes de estrutura. O `docs/00-VISAO-GERAL.md` descreve os três contextos e os caminhos de estudo.
+    texto: 'Esta aba explica por que o repositório tem três organizações diferentes: ele resolve o mesmo problema, uma API REST com persistência, validação e testes, com graus diferentes de estrutura, para que cada padrão possa ser comparado. O `docs/00-VISAO-GERAL.md` descreve os três contextos e os caminhos de estudo.'
   - tipo: comparativo
     colunas:
     - Catálogo
@@ -89,7 +89,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `702145a`, a montagem da API, o contrato de auto-registro dos Pedidos e as duas fontes das falhas de build. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `702145a`, a montagem da API, o contrato de auto-registro dos endpoints dos Pedidos e as duas origens das falhas de build que o laboratório corrige. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -205,7 +205,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Envie à API as requisições abaixo, capturadas com a API no ar, e classifique cada pasta de `src/` pelo padrão que ela segue.
+    texto: Esta aba simula a API sem executar o projeto. Envie as requisições abaixo, capturadas com a API no ar, e depois classifique cada pasta de `src/` pelo padrão arquitetural que ela segue.
   - tipo: console-api
     cenarios:
     - rotulo: Saúde
@@ -305,7 +305,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Clone o repositório e execute os passos na raiz dele. Os passos 1 a 7 levam o `setup.sh` e a suíte ao verde, e os passos 8 a 10 sobem a API e percorrem os três contextos.
+    texto: O objetivo do laboratório é levar o `setup.sh` e a suíte de testes ao verde e ver os três contextos respondendo. Os passos 1 a 7 clonam o repositório e corrigem as duas falhas de build, e os passos 8 a 10 sobem a API, chamam os três contextos e leem a estrutura de pastas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
   - tipo: passos
     itens:
     - titulo: Conferir o SDK e clonar
@@ -597,7 +597,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os quatro incidentes partem de saídas do laboratório e de uma chamada feita com a API parada.
+    texto: Esta aba apresenta quatro situações que alguém encontraria ao preparar o ambiente, a partir de saídas do laboratório e de uma chamada feita com a API parada. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Suíte verde com 47 testes a menos
     origem: executado

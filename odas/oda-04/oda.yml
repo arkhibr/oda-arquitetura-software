@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: 'O portal autentica com JWT: o shell guarda o token no `sessionStorage`, os guards de rota leem o estado do Redux, e o Gateway é a única autoridade que valida a assinatura. Esta ODA percorre esse ciclo, compara a ADR-004 com o código e corrige, com o teste escrito antes, o encerramento de sessão que a ADR descreve e o shell não executa.'
+    texto: O objetivo desta ODA é acompanhar o token JWT do login até a resposta 401 e corrigir o encerramento de sessão que o shell deveria fazer e não faz. No `frontend-react`, o shell guarda o token no `sessionStorage`, os guards de rota leem o estado do Redux, e só o Gateway valida a assinatura. Você vai mostrar com testes que o monitor de sessão nunca é iniciado e corrigir o shell com o teste escrito antes.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 03, com o repositório clonado no commit `2179313` e as dependências da raiz instaladas. O passo final do laboratório usa o navegador com `npm run dev` e não depende do Docker.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O passo final do laboratório usa o navegador com `npm run dev` e não depende do Docker.
   - tipo: terminal
     titulo: terminal · testes de autenticação
     comandos:
@@ -32,7 +32,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-004 decide onde guardar o token e como perceber que a sessão terminou. A Atualização 1.1 da mesma ADR acrescenta que o `sessionStorage` não é fronteira de autorização, porque a autoridade de segurança passou a ser o Gateway.
+    texto: 'Esta aba explica as duas decisões de uma autenticação por token no navegador: onde guardar o token e como perceber que a sessão terminou. No repositório, a ADR-004 registra essas escolhas, e a Atualização 1.1 dela acrescenta que o `sessionStorage` não é fronteira de autorização, porque quem valida é o Gateway.'
   - tipo: comparativo
     colunas:
     - Shell (navegador)
@@ -333,7 +333,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Envie pelo console as requisições de login e de endereço ao back-end simulado pelo MSW e ao Gateway, e compare as respostas para o mesmo token. Depois, acompanhe na linha do tempo o caminho que um 401 recebido pelo `httpClient` do shell percorreria, com e sem o `sessionMonitor` iniciado.
+    texto: Esta aba simula, sem executar o projeto, as chamadas de login e de endereço. Envie pelo console as requisições ao back-end simulado pelo MSW e ao Gateway e compare as respostas para o mesmo token. Depois, acompanhe na linha do tempo o caminho que um 401 recebido pelo `httpClient` do shell percorreria, com e sem o `sessionMonitor` iniciado.
   - tipo: console-api
     cenarios:
     - rotulo: MSW · login com a senha correta
@@ -472,11 +472,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 4 caracterizam o `sessionMonitor`, os passos 5 a 9 corrigem o shell com o teste escrito antes da correção, e o passo 10 confere o resultado no navegador.
+    texto: O objetivo do laboratório é fazer o shell encerrar a sessão quando o token deixa de valer, com testes que provam a falha e a correção. Os passos 1 a 4 caracterizam o `sessionMonitor`, os passos 5 a 9 corrigem o shell com o teste escrito antes da correção, e o passo 10 confere o resultado no navegador. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Rodar a linha de base
@@ -754,7 +754,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os incidentes abaixo partem do navegador, do Gateway, do MSW e do código no commit `2179313`. Em cada um, identifique a causa antes de ler a correção.
+    texto: Esta aba apresenta situações que um time encontraria com essa autenticação, cada uma com uma saída do navegador, do Gateway, do MSW ou um trecho do código no commit `2179313`. Em cada uma, escolha a causa para ver a explicação e a correção.
   - tipo: incidente
     titulo: Evento auth:unauthorized sem efeito
     origem: executado

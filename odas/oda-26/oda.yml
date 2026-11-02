@@ -212,7 +212,7 @@ abas:
     - titulo: Nova tentativa
       descricao: A política cancela a tentativa por tempo esgotado e, depois da espera, envia o mesmo POST de novo.
     - titulo: Antes da correção
-      descricao: O servidor não lê a chave e cria a segunda devolução, e o recebedor devolve 120 em vez de 60.
+      descricao: O servidor não lê a chave e cria a segunda devolução, e o recebedor devolve 120, o dobro do valor pedido.
     - titulo: Depois da correção
       descricao: O servidor encontra `devolucao:` mais a chave com a mesma impressão digital e devolve 200 com o mesmo `devolucaoId`.
   - tipo: classificador

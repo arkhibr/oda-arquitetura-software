@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O agregado `Pedido` já tem o método `Confirmar()`, com três regras de negócio, mas a API não expõe essa operação. Nesta ODA, a confirmação de pedido é implementada como uma nova fatia vertical, depois de comparar a organização de Pedidos com a do Catálogo.
+    texto: O objetivo desta ODA é comparar a organização por camada com a organização por caso de uso e implementar um caso de uso novo como fatia vertical. No `net-minimal-api`, o agregado `Pedido` já tem o método `Confirmar()`, com três regras de negócio, mas a API não expõe essa operação. Você vai comparar Pedidos com Catálogo e criar a confirmação de pedido como uma fatia com comando, handler, endpoint e teste.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -36,7 +36,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: O repositório reúne três bounded contexts na mesma API .NET 10, cada um organizado por um padrão diferente. Clique nas pastas para ver a responsabilidade de cada uma.
+    texto: 'Esta aba compara as duas organizações presentes no repositório: o Catálogo agrupa o código por camada técnica, e os Pedidos agrupam por caso de uso, com tudo de uma operação na mesma pasta. Clique nas pastas para ver a responsabilidade de cada uma.'
   - tipo: arvores
     esquerda:
       titulo: Catálogo · Clean Architecture híbrida
@@ -132,7 +132,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo são do commit `702145a`. Clique nos marcadores numerados para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `702145a`, a fatia de cancelamento dos Pedidos, que serve de modelo para a fatia nova, e o mecanismo que registra os endpoints e os handlers. Clique nos marcadores numerados para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/CancelPedido/CancelPedidoCommand.cs
@@ -275,7 +275,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra os dois fluxos etapa por etapa e depois envie requisições pelo console de API. Os códigos de status vêm da execução dos testes de integração do repositório.
+    texto: Esta aba simula, sem executar nada, o caminho de uma requisição pelas camadas do Catálogo e pela fatia dos Pedidos. Percorra os dois fluxos e depois envie requisições pelo console de API, com códigos de status obtidos nos testes de integração do repositório.
   - tipo: fluxo
     titulo: Cancelamento em Pedidos (Vertical Slice)
     etapas:
@@ -529,7 +529,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no seu computador ou no terminal simulado abaixo. O passo 7 altera o resultado dos testes no terminal simulado, como acontece no projeto real.
+    texto: O objetivo do laboratório é expor a confirmação de pedido pela API como uma fatia vertical completa, com teste de integração. Os passos 1 e 2 clonam o repositório e conferem o ambiente, os passos 3 a 6 criam o comando, o handler, o endpoint e o teste, e os passos 7 e 8 registram o handler e rodam a suíte. O terminal simulado responde aos mesmos comandos, e o passo 7 muda o resultado dos testes como no projeto real.
   - tipo: passos
     itens:
     - titulo: Clonar o repositório no commit de referência
@@ -760,7 +760,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Cada incidente mostra a saída de uma falha real deste laboratório. Escolha a causa para ver a explicação e a correção.
+    texto: Esta aba apresenta situações que alguém encontraria ao criar uma fatia nova, cada uma com a saída de uma falha real deste laboratório. Escolha a causa de cada incidente para ver a explicação e a correção.
   - tipo: incidente
     titulo: Confirmação responde 400 quando o esperado é 200
     origem: executado

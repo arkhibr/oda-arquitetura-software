@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O cenário 09 do `aspire-aws` publica uma mensagem num tópico SNS e confere que duas filas SQS recebem uma cópia cada. Nesta ODA, o cenário ganha uma terceira fila assinante, e a falta de assinatura é provocada de propósito.
+    texto: O objetivo desta ODA é diferenciar fila e tópico e estender um fan-out, em que uma mensagem publicada num tópico SNS chega a várias filas SQS. No repositório `aspire-aws`, o cenário 09 publica uma mensagem e confere que duas filas recebem uma cópia cada, com os serviços emulados pelo LocalStack. Você vai acrescentar uma terceira fila assinante e provocar de propósito a falta de assinatura para ver a mensagem não chegar.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -43,7 +43,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: Fila e tópico resolvem problemas diferentes, e o fan-out combina os dois. Clique nas pastas para ver onde cada peça está no repositório.
+    texto: 'Esta aba explica a diferença entre fila e tópico: a fila entrega cada mensagem a um consumidor, e o tópico entrega uma cópia a cada assinante, por isso o fan-out combina os dois. Clique nas pastas para ver onde cada peça está no repositório.'
   - tipo: comparativo
     colunas:
     - Fila (Amazon SQS)
@@ -127,7 +127,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo são do commit `50a5344`. Clique nos marcadores numerados para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `50a5344`, a fixture que cria o tópico, as filas e as assinaturas do cenário 09, o teste que confere as cópias e o AppHost que sobe o LocalStack. Clique nos marcadores numerados para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/09-SNS.SQS.Fanout/Fixture.cs
@@ -277,7 +277,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Reproduza o fan-out evento por evento e ative as falhas para ver o que acontece com cada mensagem. Depois percorra a preparação feita pela Fixture.
+    texto: Esta aba simula, sem executar nada, o fan-out evento por evento, da publicação no tópico à leitura em cada fila. Ative as falhas para ver o que acontece com cada mensagem e depois percorra a preparação feita pela fixture.
   - tipo: linha-do-tempo
     titulo: Fan-out do cenário 09
     atores:
@@ -412,7 +412,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no seu computador ou no terminal simulado abaixo. Os passos 5, 7 e 9 alteram a saída do cenário 09 no terminal simulado.
+    texto: O objetivo do laboratório é fazer o fan-out entregar a mensagem a três filas e ver o que acontece quando uma delas não está inscrita. Os passos 1 a 3 clonam o repositório e rodam os cenários de mensageria, os passos 4 a 6 criam e verificam a terceira fila, e os passos 7 a 9 retiram a assinatura, rodam de novo e desfazem as alterações. O terminal simulado responde aos mesmos comandos, e os passos 5, 7 e 9 mudam a saída do cenário 09.
   - tipo: passos
     itens:
     - titulo: Clonar o repositório no commit de referência
@@ -551,7 +551,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os dois primeiros incidentes mostram falhas reais deste laboratório, e os dois últimos reproduzem limitações registradas no README do repositório. Escolha a causa para ver a explicação e a correção.
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com mensageria emulada. As duas primeiras mostram falhas reais deste laboratório, e as duas últimas reproduzem limitações registradas no README do repositório: escolha a causa de cada uma para ver a explicação e a correção.'
   - tipo: incidente
     titulo: LocalStack não fica saudável
     origem: executado

@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: Os Pedidos registram endpoints por auto-descoberta, e o Catálogo os organiza em route groups versionados. Esta ODA acrescenta uma fatia nova sem tocar no `Program.cs`, mostra que ela nasce aberta sem token porque cada fatia repete a própria autorização e leva os Pedidos para um grupo versionado que aplica prefixo e autenticação a todas as fatias.
+    texto: O objetivo desta ODA é registrar endpoints de uma Minimal API por auto-descoberta e organizá-los em grupos de rota versionados. No `net-minimal-api`, os Pedidos registram endpoints por auto-descoberta, e o Catálogo os organiza em route groups versionados. Você vai acrescentar um endpoint sem tocar no `Program.cs`, mostrar que ele nasce sem exigir token e levar os Pedidos para um grupo que aplica prefixo e autenticação a todos.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 16. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa do Laboratório. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
   - tipo: terminal
     titulo: terminal · rotas dos Pedidos
     comandos:
@@ -36,7 +36,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-0009 troca o registro manual no `Program.cs` por uma interface que cada fatia implementa, descoberta por reflection na inicialização. A ADR-0012 versiona a API com route groups, de modo que a versão pertença à API e mude numa única linha.
+    texto: 'Esta aba explica as duas técnicas: uma interface que cada endpoint implementa, descoberta por reflection na inicialização, no lugar do registro manual no `Program.cs`, e route groups, que dão a vários endpoints o mesmo prefixo de versão e as mesmas exigências. No repositório, as ADR-0009 e ADR-0012 registram essas escolhas.'
   - tipo: comparativo
     colunas:
     - Catálogo
@@ -84,7 +84,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `702145a`, a descoberta das fatias, uma fatia de Pedidos e o grupo do Catálogo. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `702145a`, o código que descobre os endpoints, um endpoint dos Pedidos e o grupo versionado do Catálogo. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Common/EndpointExtensions.cs
@@ -238,7 +238,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Acompanhe como uma fatia chega à tabela de rotas e classifique onde cada decisão deve ficar.
+    texto: 'Esta aba simula, sem executar nada, como um endpoint descoberto por reflection chega à tabela de rotas da API. Acompanhe as etapas e depois classifique onde cada decisão deve ficar: no endpoint, no grupo ou no `Program.cs`.'
   - tipo: fluxo
     titulo: Da classe à rota
     etapas:
@@ -282,7 +282,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do `net-minimal-api`. Os passos 1 a 5 criam a fatia nova com o teste escrito antes, e os passos 6 a 9 levam os Pedidos ao route group e conferem o resultado.
+    texto: O objetivo do laboratório é criar um endpoint descoberto automaticamente e colocar os endpoints dos Pedidos num grupo versionado e autenticado. Os passos 1 a 5 criam o endpoint com o teste escrito antes, e os passos 6 a 9 levam os Pedidos ao route group e conferem o resultado com a API no ar. Os passos rodam na raiz do repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
@@ -503,7 +503,7 @@ abas:
     - entrada: dotnet test tests/ProdutosAPI.Tests
       saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
       origem: executado
-      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`, ou aplique a correção da ODA 16.
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests` e rode de novo.
     - entrada: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
       condicao: grupo_aplicado
       saida: 'Aprovado!  – Com falha:     0, Aprovado:    16, Ignorado:     0, Total:    16, Duração: 824 ms - ProdutosAPI.Tests.dll (net10.0)'
@@ -581,7 +581,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os quatro incidentes partem de saídas do laboratório e de trechos do código de registro das fatias.
+    texto: Esta aba apresenta quatro situações que um time encontraria com endpoints descobertos automaticamente, a partir de saídas do laboratório e de trechos do código de registro. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Rota nova aberta sem token
     origem: executado

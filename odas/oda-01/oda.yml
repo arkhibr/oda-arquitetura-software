@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: A documentação de arquitetura do `frontend-react` reúne diagramas C4 e 17 ADRs. Esta ODA ensina a ler esses artefatos e a conferir, no código e no terminal, o caminho de uma requisição entre os containers.
+    texto: O objetivo desta ODA é ler a documentação de arquitetura do `frontend-react`, com seus diagramas C4 e suas 17 ADRs, e conferir no código e no terminal se ela descreve o sistema real. Você vai localizar no diagrama de containers o caminho de uma requisição, encontrar a ADR que responde a cada pergunta de projeto e chamar o Gateway e o BFF para ver esse caminho funcionando. Ao final, você também vai saber reconhecer quando a documentação e o código divergem.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -16,7 +16,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 00, com o repositório clonado no commit `2179313` e as dependências instaladas. O laboratório também usa `curl` e `grep`, com comandos na sintaxe do bash. No Windows, os passos devem ser executados no Git Bash ou no WSL, porque o PowerShell trata `curl` como outro comando e não tem `grep`.
+    texto: 'O repositório `arkhibr/frontend-react` no commit `2179313`: rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta e rode `git checkout 2179313`. O laboratório também usa Node.js 22.12 ou superior, `curl` e `grep`, com comandos na sintaxe do bash. No Windows, os passos devem ser executados no Git Bash ou no WSL, porque o PowerShell trata `curl` como outro comando e não tem `grep`.'
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
@@ -31,7 +31,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'O modelo C4 descreve um sistema em quatro níveis de zoom, e as ADRs registram por que cada escolha foi feita. Os dois artefatos se completam: o diagrama mostra o que existe, e a ADR explica a razão.'
+    texto: Esta aba explica os dois artefatos que a documentação usa. O modelo C4 descreve um sistema em quatro níveis de zoom, do contexto até o código, e as ADRs registram por que cada escolha foi feita, de modo que o diagrama mostra o que existe e a ADR mostra a razão.
   - tipo: comparativo
     colunas:
     - O que mostra
@@ -172,7 +172,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Percorra o caminho de uma requisição autenticada pelo Gateway e depois envie pelo console três requisições ao Gateway e ao BFF de endereço, cada uma com a resposta que eles devolvem.
+    texto: 'Esta aba simula, sem executar nada, o caminho de uma requisição autenticada: do navegador ao Gateway, que valida o token, e do Gateway ao BFF de endereço, que só aceita chamadas com a chave interna. Percorra as etapas e depois envie pelo console três requisições, cada uma com a resposta que o Gateway e o BFF devolvem.'
   - tipo: fluxo
     titulo: Caminho de uma requisição até o BFF de endereço
     etapas:
@@ -297,7 +297,7 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos no repositório clonado na ODA 00. Os passos 1 a 3 percorrem a documentação, e os passos 4 a 7 conferem no terminal o que o diagrama de containers descreve.
+    texto: O objetivo do laboratório é confirmar, com chamadas reais, que o diagrama de containers descreve o caminho de uma requisição. Os passos 1 a 3 percorrem a documentação e o índice das ADRs, e os passos 4 a 7 sobem o BFF de endereço e o Gateway e conferem no terminal as respostas de cada um. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: passos
     itens:
     - titulo: Abrir o diagrama de containers
@@ -423,7 +423,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os dois primeiros incidentes mostram respostas reais do laboratório. Os dois últimos mostram divergências entre a documentação e o código, que um leitor atento precisa saber identificar.
+    texto: 'Esta aba apresenta quatro situações que um leitor da documentação encontraria. As duas primeiras partem de respostas reais do Gateway e do BFF, e as duas últimas mostram divergências entre a documentação e o código: escolha a causa de cada uma para ver a explicação e a correção.'
   - tipo: incidente
     titulo: Quem respondeu 401?
     origem: executado

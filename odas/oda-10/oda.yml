@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O Gateway é a porta única entre os microfrontends e os BFFs, e cada requisição atravessa uma cadeia de seis middlewares antes do proxy. Esta ODA percorre essa cadeia, revela que o Gateway entrega 500 para respostas que o BFF devolveu com sucesso, embora os 19 testes passem, e acrescenta um limite próprio para o envio de propostas, com o teste escrito antes.
+    texto: O objetivo desta ODA é entender a cadeia de middlewares do Gateway e acrescentar a ela um limite de requisições testado. No `frontend-react`, o Gateway é a porta única entre os microfrontends e os BFFs, e cada requisição atravessa seis middlewares antes do proxy. Você vai descobrir que o Gateway entrega 500 para respostas que o BFF devolveu com sucesso, embora os 19 testes passem, corrigir o proxy e criar um limite para o envio de propostas, com os testes escritos antes.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: 'As ODAs 00 e 04. O laboratório usa três terminais na raiz do repositório: um para o BFF de empréstimo, um para o Gateway e um para os comandos. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório usa três terminais na raiz do repositório: um para o BFF de empréstimo, um para o Gateway e um para os comandos. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
   - tipo: terminal
     titulo: terminal · Gateway e BFF no ar
     comandos:
@@ -59,7 +59,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-015 coloca no Gateway a correlação, a autenticação, a auditoria e o controle de tráfego, e deixa a adaptação de contrato para os BFFs. A ADR-016 troca o Express pelo Hono, e com isso o proxy e o limitador passaram a ser código próprio.
+    texto: 'Esta aba explica o que fica no Gateway e o que fica nos BFFs: correlação, autenticação, auditoria e controle de tráfego no primeiro, e adaptação de contrato nos segundos, como registra a ADR-015. A ADR-016 troca o Express pelo Hono, e com isso o proxy e o limitador passaram a ser código próprio do repositório.'
   - tipo: diagrama
     id: D-01
     tipo_diagrama: Sequência
@@ -112,7 +112,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, a montagem da cadeia e os middlewares que respondem sem chamar o BFF. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, a montagem da cadeia de middlewares e os que respondem sem chamar o BFF. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/app.ts
@@ -266,7 +266,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Envie ao Gateway as requisições abaixo, com respostas capturadas antes e depois do laboratório, e depois classifique onde cada requisição termina.
+    texto: Esta aba simula o Gateway sem executar o projeto. Envie as requisições abaixo, com respostas capturadas antes e depois do laboratório, e depois classifique em que middleware cada requisição termina.
   - tipo: console-api
     cenarios:
     - rotulo: Antes · contratos com token válido
@@ -391,11 +391,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do repositório clonado na ODA 00. Os passos 1 a 8 reproduzem e corrigem a falha do proxy, os passos 9 a 14 acrescentam o limite de propostas com o teste escrito antes, e o passo 15 confere o resultado com os serviços no ar.
+    texto: O objetivo do laboratório é corrigir o proxy que transforma sucesso em 500 e acrescentar um limite de propostas ao Gateway, com os testes escritos antes. Os passos 1 a 8 reproduzem e corrigem a falha do proxy, os passos 9 a 14 acrescentam o limite de propostas, e o passo 15 confere o resultado com os serviços no ar. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Instalar as dependências
@@ -955,7 +955,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os três primeiros incidentes partem de saídas do laboratório, e o último, de um trecho do README do Gateway.
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com o Gateway. As três primeiras partem de saídas do laboratório, e a última, de um trecho do README do Gateway: escolha a causa de cada uma para ver a explicação e a correção.'
   - tipo: incidente
     titulo: Propostas criadas com resposta 500
     origem: executado

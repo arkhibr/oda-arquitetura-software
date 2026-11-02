@@ -5,7 +5,7 @@ abas:
   titulo: Missão
   blocos:
   - tipo: legenda
-    texto: O portal executa código de outras origens, e a CSP decide o que pode rodar e para onde o navegador pode se conectar. Esta ODA lê a política de produção diretiva por diretiva, interpreta o único relatório de Trusted Types que o portal gera em desenvolvimento e o elimina com uma política `default` restrita, escrita depois do teste.
+    texto: O objetivo desta ODA é avaliar o código do portal contra uma política de segurança de conteúdo estrita e interpretar os relatórios de violação que o navegador envia. O `frontend-react` executa código de outras origens, e a CSP decide o que pode rodar e para onde o navegador pode se conectar. Você vai ler a política de produção diretiva por diretiva, interpretar o relatório de Trusted Types que o portal gera em desenvolvimento e eliminá-lo com uma política `default` restrita, com o teste escrito antes.
   - tipo: checklist
     titulo: Objetivos desta ODA
     itens:
@@ -17,7 +17,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: A ODA 07 e as dependências da raiz instaladas na ODA 00. Se o `npm ci` falhar por falta de pacotes no lock, use `npm install --no-save`. Os testes usam o Chromium do Playwright, instalado com `npx playwright install chromium`, e os comandos usam a sintaxe do bash ou do zsh, no Git Bash ou no WSL no Windows.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. Os testes usam o Chromium do Playwright, instalado com `npx playwright install chromium`, e os comandos usam a sintaxe do bash ou do zsh, no Git Bash ou no WSL no Windows.
   - tipo: terminal
     titulo: terminal · relatório de Trusted Types
     comandos:
@@ -38,7 +38,7 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: A ADR-012 aplica uma CSP estrita de recursos em enforcement, e a ADR-013 acrescenta Trusted Types em Report-Only, que reporta sem bloquear. O Nginx de produção e o Vite de desenvolvimento enviam políticas diferentes.
+    texto: 'Esta aba explica as duas camadas da política do portal: uma CSP estrita de recursos, aplicada com bloqueio, e Trusted Types em Report-Only, que reporta sem bloquear, como registram as ADR-012 e ADR-013. O Nginx de produção e o Vite de desenvolvimento enviam políticas diferentes.'
   - tipo: comparativo
     colunas:
     - Produção (Nginx)
@@ -86,7 +86,7 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, a política de produção, a de desenvolvimento, o coletor simulado e o carregamento de microfrontends. Clique nos marcadores para ler a explicação de cada linha.
+    texto: Esta aba mostra, no commit `2179313`, a política de produção, a de desenvolvimento, o coletor de relatórios simulado e o carregamento de microfrontends, que é o ponto sensível da política. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: editor
     rotulo: arquivo
     caminho: nginx.conf.template
@@ -220,7 +220,7 @@ abas:
   titulo: Simulação
   blocos:
   - tipo: legenda
-    texto: Acompanhe o caminho do relatório real do portal até o coletor e classifique o efeito de cada diretiva da política de produção.
+    texto: Esta aba simula, sem executar nada, o caminho de um relatório de violação, do navegador até o coletor. Acompanhe as etapas e depois classifique o efeito de cada diretiva da política de produção.
   - tipo: fluxo
     titulo: Da atribuição ao coletor
     etapas:
@@ -269,11 +269,11 @@ abas:
   titulo: Laboratório
   blocos:
   - tipo: legenda
-    texto: Execute os passos na raiz do repositório clonado na ODA 00, com o servidor de desenvolvimento no ar. Os passos 1 e 2 conferem o coletor, os passos 3 a 7 eliminam a violação com o teste escrito antes, e o passo 8 confere tipos e lint.
+    texto: O objetivo do laboratório é eliminar o relatório de Trusted Types do portal com uma política restrita, comprovada por teste no navegador. Os passos 1 e 2 sobem o servidor de desenvolvimento e conferem o coletor, os passos 3 a 7 eliminam a violação com o teste escrito antes, e o passo 8 confere tipos e lint. Os passos rodam na raiz do repositório `frontend-react` no commit `2179313`, preparado como indica a faixa acima.
   - tipo: faixa
     estilo: dica
     titulo: Antes de começar
-    texto: 'Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/frontend-react`, entre na pasta criada e rode `git checkout 2179313`. Num clone novo, instale as dependências da raiz com `npm install --no-save`, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `2179313` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As dependências instaladas continuam no lugar, porque o Git ignora `node_modules`.'
   - tipo: passos
     itens:
     - titulo: Subir o servidor de desenvolvimento
@@ -449,7 +449,7 @@ abas:
   titulo: Diagnóstico
   blocos:
   - tipo: legenda
-    texto: Os incidentes partem do relatório real do portal, da entrega ao coletor e de duas páginas de teste servidas com variantes da política de produção.
+    texto: Esta aba apresenta situações que um time encontraria com essa política, a partir do relatório real do portal, da entrega ao coletor e de duas páginas de teste servidas com variantes da política de produção. Escolha a causa de cada uma para ver a explicação e a correção.
   - tipo: incidente
     titulo: Coletor que nunca registra relatórios
     origem: executado
