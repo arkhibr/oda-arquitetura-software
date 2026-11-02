@@ -901,7 +901,7 @@ abas:
       - texto: Porque POST não tem tempo limite.
         correta: false
         explicacao: O tempo por tentativa vale para todos os métodos.
-      - texto: Porque ela repete falhas de conexão e tempo esgotado em qualquer método, e o servidor pode já ter executado a operação.
+      - texto: Porque ela repete falhas de conexão e tempo esgotado em qualquer método, e o servidor pode já ter concluído a operação.
         correta: true
         explicacao: O passo 13 mostrou quatro envios do mesmo POST.
       - texto: Porque ela nunca repete POST.

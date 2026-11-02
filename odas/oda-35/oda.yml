@@ -173,17 +173,17 @@ abas:
     categorias:
     - id: tabela
       rotulo: Item na tabela de regras
-    - id: codigo
+    - id: mudanca_no_codigo
       rotulo: Mudança no código com teste
     itens:
     - texto: Ofertas do segmento `pessoal` passam a ir para uma fila própria
       categoria: tabela
       explicacao: Basta um item com o segmento e a fila de destino.
     - texto: Ofertas sem regra vão para revisão em vez de descartadas
-      categoria: codigo
+      categoria: mudanca_no_codigo
       explicacao: O comportamento do roteador muda, como no laboratório.
     - texto: Ofertas acima de R$ 50 mil vão para análise manual
-      categoria: codigo
+      categoria: mudanca_no_codigo
       explicacao: A regra atual só considera o segmento, e a nova exige outro critério.
     - texto: O segmento `consignado` passa a usar outra fila
       categoria: tabela

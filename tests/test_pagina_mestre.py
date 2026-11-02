@@ -24,9 +24,13 @@ class TestPaginaMestre(unittest.TestCase):
         self.assertEqual(self.html.count("<tr data-repositorio="), 36)
 
     def test_planejada_sem_link(self):
-        self.assertIn('data-situacao="planejada"', self.html)
-        planejada = next(o for o in CATALOGO["odas"] if o["situacao"] == "planejada")
-        self.assertNotIn(f'href="oda-{planejada["id"]}', self.html)
+        catalogo = {**CATALOGO, "odas": [dict(o) for o in CATALOGO["odas"]]}
+        oda = oda_por_id(catalogo, "02")
+        oda["situacao"] = "planejada"
+        oda.pop("app", None)
+        html = renderizar_indice(catalogo)
+        self.assertIn('data-situacao="planejada"', html)
+        self.assertNotIn('href="oda-02', html)
 
     def test_disponivel_com_link_relativo(self):
         catalogo = {**CATALOGO, "odas": [dict(o) for o in CATALOGO["odas"]]}
