@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-23', 'oda-24', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-23', 'oda-24', 'oda-25', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -426,6 +426,25 @@ test('oda-24: o login aceita trinta senhas erradas até a política particionada
   await painel.getByLabel('Passo 6 concluído').check();
   await rodar(chutes);
   await expect(tela).toContainText('25 429');
+});
+
+test('oda-25: a mesma chave com outro corpo passa de 201 a 409 depois da troca do middleware', async ({ page }) => {
+  await page.goto('/oda-25/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  const primeira = `post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'`;
+  const outro = `post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'`;
+  await rodar(primeira);
+  await expect(tela).toContainText('Location: /api/v1/pedidos/1');
+  await rodar(primeira);
+  await expect(tela).not.toContainText('Location: /api/v1/pedidos/1');
+  await rodar(outro);
+  await expect(tela).toContainText('201 Created');
+  await painel.getByLabel('Passo 6 concluído').check();
+  await rodar(outro);
+  await expect(tela).toContainText('409 Conflict');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

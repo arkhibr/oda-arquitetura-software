@@ -271,7 +271,8 @@ odas:
     minutos: 45
     pre_requisitos: ["22"]
     objetivo: "Garantir que a repetição de uma requisição não duplique o efeito no servidor."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-25
   - id: "26"
     titulo: "Integrações externas resilientes e Pix com mTLS"
     trilha: 6

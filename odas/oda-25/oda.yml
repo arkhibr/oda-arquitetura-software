@@ -1,0 +1,806 @@
+id: '25'
+titulo: Idempotência por middleware
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é garantir que repetir uma requisição de escrita não repita o efeito no servidor, mesmo com outro corpo ou com várias tentativas ao mesmo tempo. Um aplicativo que reenvia a criação de um pedido depois de um timeout manda o cabeçalho `Idempotency-Key`, e na API `net-minimal-api` cinco reenvios simultâneos criam cinco pedidos. Você vai reproduzir as três falhas do mecanismo e corrigi-las com o teste escrito antes.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar o que é uma operação idempotente e por que o POST precisa de ajuda para ser.
+    - 'Descrever o contrato do `Idempotency-Key`: mesma chave e mesmo corpo, mesma resposta.'
+    - Reconhecer as falhas de uma chave sem escopo, sem impressão digital e sem exclusão mútua.
+    - Corrigir o middleware com o teste de integração escrito antes.
+    - Explicar os limites de um cache em memória para idempotência.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10, do Git e do `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · reenviar um pedido
+    comandos:
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: 'Reinicie a API antes de cada bloco: o cache de idempotência fica na memória do processo.'
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'post() { curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -H "Idempotency-Key: $1" -d "$2" http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -E ''^HTTP|^Location|^\{''; }'
+      saida: ''
+      origem: executado
+      dica: A função `post` recebe a chave e o corpo e mostra status, `Location` e corpo da resposta.
+    - entrada: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+      condicao: '!primeira_feita'
+      saida: 'HTTP/1.1 201 Created
+
+        Location: /api/v1/pedidos/1
+
+        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
+      origem: executado
+      efeito: primeira_feita
+    - entrada: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+      saida: 'HTTP/1.1 201 Created
+
+        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
+      origem: executado
+      dica: O mesmo pedido, sem o cabeçalho `Location` da primeira resposta.
+    - entrada: post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+      saida: 'HTTP/1.1 201 Created
+
+        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
+      origem: executado
+      dica: O corpo mudou, e a API devolveu o pedido antigo com 201, sem avisar.
+    cenarios:
+    - rotulo: Primeira
+      comando: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+    - rotulo: Mesma chave, outro corpo
+      comando: post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba explica o que torna uma operação idempotente e o que um mecanismo de chave de idempotência precisa garantir. No repositório, a ADR-0006 registra a escolha de um middleware com o cabeçalho `Idempotency-Key`.
+  - tipo: comparativo
+    colunas:
+    - Garantia esperada
+    - No commit `702145a`
+    linhas:
+    - dimensao: Mesma chave, mesmo corpo
+      valores:
+      - A resposta original, com os mesmos cabeçalhos
+      - O corpo e o status, sem o `Location`
+    - dimensao: Mesma chave, outro corpo
+      valores:
+      - 409, porque o cliente misturou duas operações
+      - A resposta da primeira operação, com 201
+    - dimensao: Tentativas simultâneas
+      valores:
+      - Uma execução, e as demais esperam a resposta
+      - Uma execução por tentativa
+    - dimensao: Escopo da chave
+      valores:
+      - Usuário, método e rota
+      - Só o valor do cabeçalho, comum a todos
+  - tipo: conceito
+    titulo: Idempotência
+    texto: Uma operação é idempotente quando executá-la várias vezes tem o mesmo efeito que executá-la uma vez. GET, PUT e DELETE são idempotentes pela definição do HTTP, e um POST de criação só fica idempotente se o servidor reconhecer a repetição.
+  - tipo: conceito
+    titulo: Verificar e depois agir
+    texto: Consultar o cache e, se não houver resposta, executar a operação são dois passos separados. Duas requisições que consultam ao mesmo tempo encontram o cache vazio e executam as duas, e só uma trava por chave impede essa corrida.
+  - tipo: adr
+    id: ADR-0006
+    titulo: Idempotência via Middleware com Idempotency-Key
+    status: accepted
+    contexto: Clientes reenviam escritas por timeout ou repetição automática, e cada reenvio pode duplicar um recurso.
+    decisao: Middleware que guarda as respostas 2xx por 24 horas, indexadas pelo cabeçalho `Idempotency-Key`.
+    alternativas: Idempotência em cada handler, deduplicação no gateway e nenhuma proteção.
+    consequencias: Proteção uniforme para as escritas, com cache volátil, perdido em reinícios e separado por instância.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba mostra, no commit `702145a`, os três pontos do middleware que explicam as falhas: a chave do cache, a repetição da resposta e a gravação depois da execução. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Middleware/IdempotencyMiddleware.cs
+    commit: 702145a
+    linhas:
+    - '        var keyString = idempotencyKey.ToString();'
+    - '        var cacheKey = $"Idempotency_{keyString}";'
+    - ''
+    - '        // Verifica se já processamos esta chave recentemente'
+    - '        if (_cache.TryGetValue(cacheKey, out CachedResponse? cachedResponse))'
+    - '        {'
+    - '            // Se já processamos, apenas devolvemos a mesma resposta do cache (curto-circuito)'
+    - '            context.Response.StatusCode = cachedResponse!.StatusCode;'
+    - '            context.Response.ContentType = cachedResponse.ContentType;'
+    - '            '
+    - '            if (cachedResponse.Body != null)'
+    - '            {'
+    - '                await context.Response.WriteAsync(cachedResponse.Body);'
+    - '            }'
+    - ''
+    - '            return;'
+    - '        }'
+    anotacoes:
+    - linha: 50
+      texto: A chave não inclui usuário, rota nem corpo.
+    - linha: 53
+      texto: 'Primeiro passo: verificar.'
+    - linha: 57
+      texto: Só status, tipo e corpo são repetidos.
+    inicio: 49
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Middleware/IdempotencyMiddleware.cs
+    commit: 702145a
+    linhas:
+    - '        try'
+    - '        {'
+    - '            // Prossegue o processamento real da API'
+    - '            await _next(context);'
+    - ''
+    - '            // Se for sucesso (2xx), gravamos a resposta no cache por 24 horas'
+    - '            if (context.Response.StatusCode >= 200 && context.Response.StatusCode < 300)'
+    - '            {'
+    - '                responseBody.Seek(0, SeekOrigin.Begin);'
+    - '                var bodyText = await new StreamReader(responseBody).ReadToEndAsync();'
+    - '                responseBody.Seek(0, SeekOrigin.Begin);'
+    - ''
+    - '                var responseToCache = new CachedResponse'
+    - '                {'
+    - '                    StatusCode = context.Response.StatusCode,'
+    - '                    ContentType = context.Response.ContentType ?? "application/json",'
+    - '                    Body = bodyText'
+    - '                };'
+    - ''
+    - '                _cache.Set(cacheKey, responseToCache, TimeSpan.FromHours(24));'
+    - '            }'
+    anotacoes:
+    - linha: 75
+      texto: 'Segundo passo: executar, sem trava entre a verificação e a execução.'
+    - linha: 91
+      texto: A resposta só entra no cache depois da execução.
+    inicio: 72
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - app.UseAuthentication();
+    - app.UseAuthorization();
+    - ''
+    - app.UseMiddleware<IdempotencyMiddleware>();
+    anotacoes:
+    - linha: 247
+      texto: Depois da autenticação, e por isso o usuário já está disponível.
+    inicio: 244
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, cinco reenvios simultâneos do mesmo pedido antes e depois da correção. Depois, classifique o que o servidor deve fazer em cada repetição.
+  - tipo: fluxo
+    titulo: Cinco reenvios com a chave corrida-1
+    etapas:
+    - titulo: 'Antes: verificação'
+      descricao: As cinco requisições consultam o cache quase no mesmo instante e não encontram nada.
+    - titulo: 'Antes: execução'
+      descricao: As cinco executam o handler, e o banco ganha cinco pedidos.
+    - titulo: 'Depois: trava'
+      descricao: A primeira requisição pega a trava da chave, e as outras quatro esperam.
+    - titulo: 'Depois: execução única'
+      descricao: A primeira cria o pedido e grava no cache a resposta, o `Location` e a impressão digital do corpo.
+    - titulo: 'Depois: repetição'
+      descricao: Cada uma das quatro encontra o cache preenchido, confere a impressão digital e devolve a resposta guardada.
+  - tipo: classificador
+    enunciado: Depois da correção, o que o servidor faz em cada caso?
+    categorias:
+    - id: executa
+      rotulo: Executa
+    - id: repete
+      rotulo: Devolve a resposta guardada
+    - id: recusa
+      rotulo: Recusa com 409
+    itens:
+    - texto: Primeira chamada com a chave `pedido-123`
+      categoria: executa
+      explicacao: Nada guardado para a chave.
+    - texto: Mesma chave e mesmo corpo, depois de um timeout
+      categoria: repete
+      explicacao: É o caso que a idempotência existe para tratar.
+    - texto: Mesma chave com outro produto no corpo
+      categoria: recusa
+      explicacao: A impressão digital não confere.
+    - texto: POST sem `Idempotency-Key`
+      categoria: executa
+      explicacao: O middleware deixa passar, como no commit.
+    - texto: Mesma chave numa rota diferente
+      categoria: executa
+      explicacao: A rota faz parte da chave.
+    - texto: Primeira chamada que recebeu 400
+      categoria: executa
+      explicacao: Só respostas 2xx são guardadas, e a repetição executa de novo.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é fazer o middleware cumprir o contrato do `Idempotency-Key` nos três casos que falham hoje. Os passos 1 a 3 reproduzem as falhas pela API, os passos 4 a 7 escrevem o teste e trocam o middleware, e o passo 8 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/net-minimal-api`, entre na pasta criada e rode `git checkout 702145a`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Subir a API e preparar o terminal
+      texto: Suba a API num terminal. No outro, obtenha o token e defina a função `post`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db && dotnet run --launch-profile http
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'post() { curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -H "Idempotency-Key: $1" -d "$2" http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -E ''^HTTP|^Location|^\{''; }'
+      sucesso: '`Now listening on: http://localhost:5000`, e os dois comandos seguintes sem saída.'
+    - titulo: Repetir e trocar o corpo
+      editor:
+        rotulo: terminal
+        linhas:
+        - post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+        - post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+        - post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+        - 'curl -s -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos | grep -o ''"total":[0-9]*,"page"'' | cut -d, -f1'
+      sucesso: 201 com `Location` na primeira, 201 sem `Location` na repetição, 201 com o pedido antigo no corpo novo e `"total":1`.
+    - titulo: Reenviar ao mesmo tempo
+      editor:
+        rotulo: terminal
+        linhas:
+        - for i in 1 2 3 4 5; do post corrida-1 '{"itens":[{"produtoId":2,"quantidade":1}]}' & done; wait
+        - 'curl -s -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos | grep -o ''"total":[0-9]*,"page"'' | cut -d, -f1'
+      sucesso: 'Cinco respostas 201 e `"total":6`: cinco pedidos novos.'
+    - titulo: Escrever o teste de idempotência
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/Pedidos/IdempotenciaTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Net;
+        - using System.Net.Http.Headers;
+        - using System.Net.Http.Json;
+        - using FluentAssertions;
+        - using ProdutosAPI.Pedidos.CreatePedido;
+        - using ProdutosAPI.Pedidos.ListPedidos;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration.Pedidos;
+        - ''
+        - 'public class IdempotenciaTests : IClassFixture<ApiFactory>'
+        - '{'
+        - '    private readonly ApiFactory _factory;'
+        - ''
+        - '    public IdempotenciaTests(ApiFactory factory) => _factory = factory;'
+        - ''
+        - '    private async Task<HttpClient> ClienteAsync()'
+        - '    {'
+        - '        var client = _factory.CreateClient();'
+        - '        var token = await AuthHelper.ObterTokenAsync(client);'
+        - '        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);'
+        - '        return client;'
+        - '    }'
+        - ''
+        - '    private static Task<HttpResponseMessage> CriarAsync(HttpClient client, string chave, int produtoId) =>'
+        - '        client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/v1/pedidos")'
+        - '        {'
+        - '            Headers = { { "Idempotency-Key", chave } },'
+        - '            Content = JsonContent.Create(new CreatePedidoCommand([new(produtoId, 1)])),'
+        - '        });'
+        - ''
+        - '    private static async Task<int> TotalDePedidosAsync(HttpClient client) =>'
+        - '        (await client.GetFromJsonAsync<ListPedidosResponse>("/api/v1/pedidos?pageSize=1"))!.Total;'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Repetido_DevolveOMesmoPedidoComLocation()'
+        - '    {'
+        - '        var client = await ClienteAsync();'
+        - '        var primeira = await CriarAsync(client, "repetida-1", 2);'
+        - ''
+        - '        var repetida = await CriarAsync(client, "repetida-1", 2);'
+        - ''
+        - '        repetida.StatusCode.Should().Be(HttpStatusCode.Created);'
+        - '        repetida.Headers.Location.Should().Be(primeira.Headers.Location);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_MesmaChaveOutroCorpo_Retorna409()'
+        - '    {'
+        - '        var client = await ClienteAsync();'
+        - '        await CriarAsync(client, "outro-corpo-1", 2);'
+        - ''
+        - '        var response = await CriarAsync(client, "outro-corpo-1", 3);'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.Conflict);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_CincoAoMesmoTempo_CriaUmPedido()'
+        - '    {'
+        - '        var client = await ClienteAsync();'
+        - '        var antes = await TotalDePedidosAsync(client);'
+        - ''
+        - '        await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => CriarAsync(client, "corrida-1", 2)));'
+        - ''
+        - '        (await TotalDePedidosAsync(client)).Should().Be(antes + 1);'
+        - '    }'
+        - '}'
+      efeito: teste_idempotencia
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter IdempotenciaTests
+      sucesso: '`Com falha: 3`, com `found <null>`, `found HttpStatusCode.Created` e `but found 5`.'
+    - titulo: Trocar o middleware
+      texto: Substitua o arquivo pela versão abaixo. Ela monta a chave com usuário, método e rota, guarda a impressão digital do corpo e o `Location`, e serializa as requisições com a mesma chave.
+      editor:
+        rotulo: arquivo
+        caminho: src/Shared/Middleware/IdempotencyMiddleware.cs (substituição)
+        commit: 702145a
+        linhas:
+        - using System.Collections.Concurrent;
+        - using System.Security.Claims;
+        - using Microsoft.AspNetCore.Http;
+        - using Microsoft.Extensions.Caching.Memory;
+        - using System.Security.Cryptography;
+        - using System.Text;
+        - using System.Text.Json;
+        - ''
+        - namespace ProdutosAPI.Shared.Middleware;
+        - ''
+        - /// <summary>
+        - /// Middleware para garantir Idempotência em requisições críticas (POST, PUT, PATCH).
+        - /// Evita que a mesma ação não-segura seja processada duas vezes em caso de tentar novamente
+        - /// uma requisição por falhas na rede.
+        - /// </summary>
+        - public class IdempotencyMiddleware
+        - '{'
+        - '    private readonly RequestDelegate _next;'
+        - '    private readonly IMemoryCache _cache;'
+        - '    private const string IdempotencyHeader = "Idempotency-Key";'
+        - '    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Travas = new();'
+        - ''
+        - '    public IdempotencyMiddleware(RequestDelegate next, IMemoryCache cache)'
+        - '    {'
+        - '        _next = next;'
+        - '        _cache = cache;'
+        - '    }'
+        - ''
+        - '    public async Task InvokeAsync(HttpContext context)'
+        - '    {'
+        - '        // Se a requisição já é idempotente por natureza (GET, HEAD, OPTIONS)'
+        - '        // Ignoramos a checagem de chave.'
+        - '        if (HttpMethods.IsGet(context.Request.Method) || '
+        - '            HttpMethods.IsHead(context.Request.Method) || '
+        - '            HttpMethods.IsOptions(context.Request.Method) || '
+        - '            HttpMethods.IsDelete(context.Request.Method))'
+        - '        {'
+        - '            await _next(context);'
+        - '            return;'
+        - '        }'
+        - ''
+        - '        // Tenta obter a chave de idempotência do cabeçalho'
+        - '        if (!context.Request.Headers.TryGetValue(IdempotencyHeader, out var idempotencyKey) || '
+        - '            string.IsNullOrWhiteSpace(idempotencyKey))'
+        - '        {'
+        - '            // Se o header é obrigatório, poderíamos retornar 400 Bad Request aqui.'
+        - '            // Para efeitos educativos, deixaremos passar caso não seja informada.'
+        - '            await _next(context);'
+        - '            return;'
+        - '        }'
+        - ''
+        - '        // A chave vale por usuário, método e rota, e a impressão digital liga a chave ao corpo enviado.'
+        - '        var usuario = context.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonimo";'
+        - '        var cacheKey = $"Idempotency_{usuario}_{context.Request.Method}_{context.Request.Path}_{idempotencyKey}";'
+        - '        context.Request.EnableBuffering();'
+        - '        var corpo = await new StreamReader(context.Request.Body, Encoding.UTF8, leaveOpen: true).ReadToEndAsync();'
+        - '        context.Request.Body.Position = 0;'
+        - '        var impressao = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(corpo)));'
+        - ''
+        - '        // Requisições com a mesma chave esperam a anterior terminar e então leem o cache.'
+        - '        var trava = Travas.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));'
+        - '        await trava.WaitAsync(context.RequestAborted);'
+        - '        try'
+        - '        {'
+        - '            await ProcessarAsync(context, cacheKey, impressao);'
+        - '        }'
+        - '        finally'
+        - '        {'
+        - '            trava.Release();'
+        - '        }'
+        - '    }'
+        - ''
+        - '    private async Task ProcessarAsync(HttpContext context, string cacheKey, string impressao)'
+        - '    {'
+        - '        if (_cache.TryGetValue(cacheKey, out CachedResponse? cachedResponse))'
+        - '        {'
+        - '            if (cachedResponse!.Impressao != impressao)'
+        - '            {'
+        - '                context.Response.StatusCode = StatusCodes.Status409Conflict;'
+        - '                await context.Response.WriteAsJsonAsync(new'
+        - '                {'
+        - '                    title = "Idempotency-Key reutilizada",'
+        - '                    status = 409,'
+        - '                    detail = "A chave já foi usada com outro corpo de requisição.",'
+        - '                }, options: null, contentType: "application/problem+json");'
+        - '                return;'
+        - '            }'
+        - ''
+        - '            context.Response.StatusCode = cachedResponse.StatusCode;'
+        - '            context.Response.ContentType = cachedResponse.ContentType;'
+        - '            if (cachedResponse.Location != null)'
+        - '                context.Response.Headers.Location = cachedResponse.Location;'
+        - '            await context.Response.WriteAsync(cachedResponse.Body);'
+        - '            return;'
+        - '        }'
+        - ''
+        - '        // Interceptar o stream de resposta para salvarmos no cache depois'
+        - '        var originalBodyStream = context.Response.Body;'
+        - '        using var responseBody = new MemoryStream();'
+        - '        context.Response.Body = responseBody;'
+        - ''
+        - '        try'
+        - '        {'
+        - '            // Prossegue o processamento real da API'
+        - '            await _next(context);'
+        - ''
+        - '            // Se for sucesso (2xx), gravamos a resposta no cache por 24 horas'
+        - '            if (context.Response.StatusCode >= 200 && context.Response.StatusCode < 300)'
+        - '            {'
+        - '                responseBody.Seek(0, SeekOrigin.Begin);'
+        - '                var bodyText = await new StreamReader(responseBody).ReadToEndAsync();'
+        - '                responseBody.Seek(0, SeekOrigin.Begin);'
+        - ''
+        - '                var responseToCache = new CachedResponse'
+        - '                {'
+        - '                    StatusCode = context.Response.StatusCode,'
+        - '                    ContentType = context.Response.ContentType ?? "application/json",'
+        - '                    Body = bodyText,'
+        - '                    Location = context.Response.Headers.Location.ToString() is { Length: > 0 } location ? location : null,'
+        - '                    Impressao = impressao'
+        - '                };'
+        - ''
+        - '                _cache.Set(cacheKey, responseToCache, TimeSpan.FromHours(24));'
+        - '            }'
+        - ''
+        - '            // Copiar do nosso stream para o stream original real do cliente'
+        - '            await responseBody.CopyToAsync(originalBodyStream);'
+        - '        }'
+        - '        finally'
+        - '        {'
+        - '            context.Response.Body = originalBodyStream;'
+        - '        }'
+        - '    }'
+        - '}'
+        - ''
+        - // Classe auxiliar para armazenar respostas em cache
+        - public class CachedResponse
+        - '{'
+        - '    public int StatusCode { get; set; }'
+        - '    public string ContentType { get; set; } = string.Empty;'
+        - '    public string Body { get; set; } = string.Empty;'
+        - '    public string? Location { get; set; }'
+        - '    public string Impressao { get; set; } = string.Empty;'
+        - '}'
+        - ''
+        - // Extension Method para injetar no Program.cs
+        - public static class IdempotencyMiddlewareExtensions
+        - '{'
+        - '    public static IApplicationBuilder UseIdempotency(this IApplicationBuilder builder)'
+        - '    {'
+        - '        return builder.UseMiddleware<IdempotencyMiddleware>();'
+        - '    }'
+        - '}'
+      efeito: middleware_novo
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter IdempotenciaTests
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Aprovado: 3` e a suíte com `Aprovado: 146`.'
+    - titulo: Repetir as chamadas
+      texto: Reinicie a API, obtenha o token, defina `post` de novo e repita os passos 2 e 3.
+      editor:
+        rotulo: terminal
+        linhas:
+        - post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+        - post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+        - post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+        - for i in 1 2 3 4 5; do post corrida-1 '{"itens":[{"produtoId":2,"quantidade":1}]}' & done; wait
+        - 'curl -s -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos | grep -o ''"total":[0-9]*,"page"'' | cut -d, -f1'
+      sucesso: '`Location` na repetição, 409 no corpo novo e `"total":2` depois da corrida.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: 'Reinicie a API antes de cada bloco: o cache de idempotência fica na memória do processo.'
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'post() { curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -H "Idempotency-Key: $1" -d "$2" http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -E ''^HTTP|^Location|^\{''; }'
+      saida: ''
+      origem: executado
+      dica: A função `post` recebe a chave e o corpo e mostra status, `Location` e corpo da resposta.
+    - entrada: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+      condicao: '!primeira_feita'
+      saida: 'HTTP/1.1 201 Created
+
+        Location: /api/v1/pedidos/1
+
+        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
+      origem: executado
+      efeito: primeira_feita
+    - entrada: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+      condicao: middleware_novo
+      saida: 'HTTP/1.1 201 Created
+
+        Location: /api/v1/pedidos/1
+
+        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
+      origem: executado
+      dica: A repetição devolve o mesmo pedido, agora com o `Location`.
+    - entrada: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+      saida: 'HTTP/1.1 201 Created
+
+        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
+      origem: executado
+      dica: O mesmo pedido, sem o cabeçalho `Location` da primeira resposta.
+    - entrada: post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+      condicao: middleware_novo
+      saida: 'HTTP/1.1 409 Conflict
+
+        {"title":"Idempotency-Key reutilizada","status":409,"detail":"A chave já foi usada com outro corpo de requisição."}'
+      origem: executado
+    - entrada: post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+      saida: 'HTTP/1.1 201 Created
+
+        {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}'
+      origem: executado
+      dica: O corpo mudou, e a API devolveu o pedido antigo com 201, sem avisar.
+    - entrada: 'curl -s -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos | grep -o ''"total":[0-9]*,"page"'' | cut -d, -f1'
+      condicao: middleware_novo
+      saida: '"total":2'
+      origem: executado
+      dica: 'Depois da corrida: o primeiro pedido e um só da corrida.'
+    - entrada: 'curl -s -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos | grep -o ''"total":[0-9]*,"page"'' | cut -d, -f1'
+      saida: '"total":6'
+      origem: executado
+      dica: 'Depois da corrida: o primeiro pedido e mais cinco.'
+    - entrada: for i in 1 2 3 4 5; do post corrida-1 '{"itens":[{"produtoId":2,"quantidade":1}]}' & done; wait
+      condicao: middleware_novo
+      saida: 5 respostas HTTP/1.1 201 Created
+      origem: executado
+      dica: Resumo das cinco respostas, todas com o mesmo pedido. Confira o total em seguida.
+    - entrada: for i in 1 2 3 4 5; do post corrida-1 '{"itens":[{"produtoId":2,"quantidade":1}]}' & done; wait
+      saida: 5 respostas HTTP/1.1 201 Created
+      origem: executado
+      dica: Resumo das cinco respostas, cada uma com um pedido diferente. Confira o total em seguida.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter IdempotenciaTests
+      condicao:
+      - teste_idempotencia
+      - middleware_novo
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 735 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter IdempotenciaTests
+      condicao: teste_idempotencia
+      saida: "  Com falha ProdutosAPI.Tests.Integration.Pedidos.IdempotenciaTests.POST_CincoAoMesmoTempo_CriaUmPedido [3 s]\n   Expected (TotalDePedidosAsync(client)) to be 1, but found 5.\n  Com falha ProdutosAPI.Tests.Integration.Pedidos.IdempotenciaTests.POST_MesmaChaveOutroCorpo_Retorna409 [6 ms]\n   Expected response.StatusCode to be HttpStatusCode.Conflict {value: 409}, but found HttpStatusCode.Created {value: 201}.\n  Com falha ProdutosAPI.Tests.Integration.Pedidos.IdempotenciaTests.POST_Repetido_DevolveOMesmoPedidoComLocation [3 ms]\n   Expected repetida.Headers.Location to be /api/v1/pedidos/7, but found <null>.\nCom falha! – Com falha:     3, Aprovado:     0, Ignorado:     0, Total:     3, Duração: 3 s - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: As três falhas reproduzem o que as chamadas mostraram.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter IdempotenciaTests
+      saida: Nenhum teste corresponde ao filtro de testcase `IdempotenciaTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 4.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_idempotencia
+      - middleware_novo
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   146, Ignorado:     0, Total:   146, Duração: 907 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_idempotencia
+      saida: 'Com falha! – Com falha:     3, Aprovado:   143, Ignorado:     0, Total:   146, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`.
+    cenarios:
+    - rotulo: Repetida
+      comando: post pedido-123 '{"itens":[{"produtoId":2,"quantidade":1}]}'
+    - rotulo: Outro corpo
+      comando: post pedido-123 '{"itens":[{"produtoId":3,"quantidade":5}]}'
+    - rotulo: Corrida
+      comando: for i in 1 2 3 4 5; do post corrida-1 '{"itens":[{"produtoId":2,"quantidade":1}]}' & done; wait
+    - rotulo: Total de pedidos
+      comando: 'curl -s -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos | grep -o ''"total":[0-9]*,"page"'' | cut -d, -f1'
+    - rotulo: Teste
+      comando: dotnet test tests/ProdutosAPI.Tests --filter IdempotenciaTests
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com esse mecanismo em produção, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Pedido novo que nunca foi criado
+    origem: executado
+    rotulo_saida: log
+    saida: '$ post pedido-123 ''{"itens":[{"produtoId":3,"quantidade":5}]}''
+
+      HTTP/1.1 201 Created
+
+      {"id":1,"status":"Rascunho","total":450.0,"criadoEm":"…","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":2,"nomeProduto":"Mouse Logitech MX Master 3S","precoUnitario":450.0,"quantidade":1,"subtotal":450.0}]}
+
+
+      $ total de pedidos
+
+      "total":1'
+    pergunta: O aplicativo reaproveitou a chave por engano num pedido com outro produto, recebeu 201 e mostrou sucesso. O que aconteceu?
+    correcao: Guardar a impressão digital do corpo com a resposta e recusar com 409 quando ela não confere.
+    alternativas:
+    - texto: O cache expirou.
+      correta: false
+      explicacao: O cache dura 24 horas.
+    - texto: A API reconheceu a chave e devolveu a resposta do primeiro pedido, sem olhar o corpo, e o pedido novo não existe.
+      correta: true
+      explicacao: O corpo da resposta traz o produto 2, e o pedido enviado era do produto 3.
+    - texto: A API criou o segundo pedido com o id 1.
+      correta: false
+      explicacao: O total continuou em 1.
+  - tipo: incidente
+    titulo: Cinco pedidos de um clique
+    origem: executado
+    rotulo_saida: log
+    saida: '$ cinco reenvios simultâneos com a chave corrida-1
+
+      5 respostas HTTP/1.1 201 Created
+
+
+      $ total de pedidos
+
+      "total":6'
+    pergunta: Por que a chave não impediu a duplicação?
+    correcao: Serializar as requisições com a mesma chave, com uma trava por chave e nova leitura do cache depois de obtê-la.
+    alternativas:
+    - texto: Cada requisição usou uma chave diferente.
+      correta: false
+      explicacao: As cinco usaram `corrida-1`.
+    - texto: O cache não guarda respostas 201.
+      correta: false
+      explicacao: Qualquer 2xx é guardado.
+    - texto: As cinco consultaram o cache antes de qualquer uma gravar a resposta, e todas executaram o handler.
+      correta: true
+      explicacao: Com a trava, o total sobe só de 1 para 2.
+  - tipo: incidente
+    titulo: Chave compartilhada entre usuários
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Shared/Middleware/IdempotencyMiddleware.cs:49-50
+
+      var keyString = idempotencyKey.ToString();
+
+      var cacheKey = $"Idempotency_{keyString}";'
+    pergunta: Dois usuários diferentes geram por coincidência a mesma chave `pedido-123`. O que o segundo recebe?
+    correcao: Incluir o usuário autenticado, o método e a rota na chave do cache, como na versão do passo 6.
+    alternativas:
+    - texto: O pedido do primeiro usuário, porque a chave do cache é só o valor do cabeçalho.
+      correta: true
+      explicacao: Além do pedido errado, a resposta expõe dados de outro usuário.
+    - texto: Um erro 403.
+      correta: false
+      explicacao: O middleware não confere o dono da chave.
+    - texto: Um pedido novo.
+      correta: false
+      explicacao: A chave já está no cache.
+  - tipo: incidente
+    titulo: Reenvio depois de um deploy
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Shared/Middleware/IdempotencyMiddleware.cs:17
+
+      private readonly IMemoryCache _cache;'
+    pergunta: Um cliente reenvia um pedido logo depois de um deploy que reiniciou a API. O que acontece?
+    correcao: Guardar as chaves num armazenamento durável e comum às instâncias, como Redis ou uma tabela no banco, com a mesma regra de impressão digital.
+    alternativas:
+    - texto: O cliente recebe a resposta antiga do disco.
+      correta: false
+      explicacao: O cache não é gravado em disco.
+    - texto: O pedido é criado de novo, porque o `IMemoryCache` perdeu as chaves no reinício.
+      correta: true
+      explicacao: A ADR-0006 registra a limitação, e a trava em memória do laboratório tem o mesmo limite entre instâncias.
+    - texto: A API devolve 409.
+      correta: false
+      explicacao: Não há registro da chave depois do reinício.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Quando uma operação é idempotente?
+      alternativas:
+      - texto: Quando ela é rápida.
+        correta: false
+        explicacao: Desempenho não define idempotência.
+      - texto: Quando não exige token.
+        correta: false
+        explicacao: Autenticação é outra garantia.
+      - texto: Quando executá-la várias vezes tem o mesmo efeito que executá-la uma vez.
+        correta: true
+        explicacao: A resposta pode se repetir, e o efeito não se acumula.
+    - enunciado: Para que serve a impressão digital do corpo?
+      alternativas:
+      - texto: Para recusar a reutilização da chave numa operação diferente.
+        correta: true
+        explicacao: O 409 avisa o cliente do erro.
+      - texto: Para cifrar o pedido.
+        correta: false
+        explicacao: O hash não é guardado como corpo.
+      - texto: Para acelerar o cache.
+        correta: false
+        explicacao: O objetivo é a correção do contrato.
+    - enunciado: O que a trava por chave resolve?
+      alternativas:
+      - texto: O escopo por usuário.
+        correta: false
+        explicacao: O escopo vem da composição da chave.
+      - texto: A corrida entre verificar o cache e executar o handler.
+        correta: true
+        explicacao: As requisições seguintes esperam e leem a resposta guardada.
+      - texto: A perda do cache em reinícios.
+        correta: false
+        explicacao: A trava também fica em memória.
+    - enunciado: Por que a repetição precisa devolver o `Location`?
+      alternativas:
+      - texto: Porque o HTTP exige o cabeçalho em toda resposta.
+        correta: false
+        explicacao: O `Location` acompanha o 201.
+      - texto: Porque o cache precisa dele para a chave.
+        correta: false
+        explicacao: A chave não usa o `Location`.
+      - texto: Porque o cliente usa o cabeçalho para chegar ao recurso criado, e a repetição deve ser igual à resposta original.
+        correta: true
+        explicacao: No commit, a repetição vinha sem ele.
+    - enunciado: Que limite continua depois do laboratório?
+      alternativas:
+      - texto: Cache e travas em memória, perdidos em reinícios e separados por instância.
+        correta: true
+        explicacao: Exige um armazenamento comum para valer em produção.
+      - texto: A repetição continua sem `Location`.
+        correta: false
+        explicacao: O teste confere o cabeçalho.
+      - texto: A mesma chave com outro corpo continua aceita.
+        correta: false
+        explicacao: A resposta passou a ser 409.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O contrato do `Idempotency-Key` está claro nos três casos.
+    - As três falhas foram reproduzidas pela API antes da correção.
+    - O teste falhou antes da troca do middleware e passou depois.
+    - Cinco reenvios simultâneos passaram a criar um pedido.
+    - O limite do cache em memória está claro.
