@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux. Esse caminho foi verificado com o Colima, e no Linux ou no WSL os comandos `dotnet test` podem rodar direto, sem o contêiner.
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux. Esse caminho foi verificado com o Colima, e no Linux ou no WSL os comandos `dotnet test` podem rodar direto, sem o contêiner.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. Todas as abas se referem ao commit `50a5344`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `aspire-aws` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/aspire-aws
+        - cd aspire-aws
+    - titulo: Fixar o commit `50a5344`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 50a5344
+    - titulo: Compilar a solução
+      texto: O comando baixa os pacotes NuGet e compila a solução `aspire-aws.sln`, com o AppHost e todos os cenários. A compilação mostra centenas de avisos e nenhum erro, e o Docker só passa a ser necessário quando os testes sobem o LocalStack.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · os quatro gatilhos
     comandos:
@@ -105,7 +139,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `50a5344`, a função que consome a fila, a ligação entre a fila e a função e a regra que ignora os testes no macOS. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os três arquivos que explicam o consumidor de fila do cenário 08: a função Python que lê a fila e grava no DynamoDB, a fixture que cria a fila e a liga à função, e a regra que ignora os testes com Lambda no macOS com Apple Silicon. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam por que uma mensagem inválida volta à fila sem limite.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: editor
     rotulo: arquivo
     caminho: src/lambdas/sqs_consumer/handler.py
@@ -127,6 +168,7 @@ abas:
     - linha: 14
       texto: O `messageId` como chave torna a gravação repetível sem duplicar.
     inicio: 7
+    contexto: O `src/lambdas/sqs_consumer/handler.py` é a função Lambda em Python que o cenário 08 implanta no LocalStack para consumir a fila e gravar cada mensagem numa tabela do DynamoDB. O trecho abaixo é a função `lambda_handler` inteira, que interpreta o corpo de cada mensagem como JSON e grava o item com o `messageId` como chave, sem tratar a exceção de uma mensagem que não é JSON.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/08-SQS.Lambda.Consumer/Fixture.cs
@@ -159,6 +201,7 @@ abas:
     - linha: 68
       texto: A fixture espera o mapeamento ficar ativo.
     inicio: 50
+    contexto: O `scenarios/08-SQS.Lambda.Consumer/Fixture.cs` é a fixture do cenário 08, que cria a tabela, implanta a função `sqs_consumer` e prepara a fila antes dos testes. O trecho abaixo cria a fila `consumer-queue` sem atributos, portanto sem fila de mensagens mortas, e liga a fila à função com um mapeamento de origem de eventos de uma mensagem por invocação.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/EnvironmentLimitations.cs
@@ -170,6 +213,7 @@ abas:
     - linha: 18
       texto: 'A regra vale para o processo de teste: no Linux, inclusive num contêiner num Mac, os testes rodam.'
     inicio: 17
+    contexto: O `src/Shared/EnvironmentLimitations.cs` reúne as limitações de ambiente que os cenários usam para ignorar testes, com o motivo de cada uma. O trecho abaixo é a condição que identifica o macOS com processador ARM64, avaliada no processo de teste, e é ela que faz os testes com Lambda serem ignorados nesse sistema e rodarem no Linux.
 - id: simulacao
   titulo: Simulação
   blocos:

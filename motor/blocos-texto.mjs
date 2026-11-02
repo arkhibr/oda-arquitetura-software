@@ -14,7 +14,10 @@ registrarBloco('faixa', (casca, b, { doc }) => {
       h(doc, 'dt', { texto: 'Causa' }), h(doc, 'dd', {}, [textoRico(doc, b.causa)]),
       h(doc, 'dt', { texto: 'Correção' }), h(doc, 'dd', {}, [textoRico(doc, b.correcao)])])
     : h(doc, 'span', {}, [textoRico(doc, b.texto)]);
-  casca.append(h(doc, 'div', { class: `faixa faixa--${b.estilo}` }, [titulo, doc.createTextNode(' '), corpo]));
+  const links = b.links?.length
+    ? h(doc, 'span', { class: 'faixa__links' }, b.links.map((l) => h(doc, 'a', { href: l.url, target: '_blank', rel: 'noopener', texto: l.rotulo })))
+    : null;
+  casca.append(h(doc, 'div', { class: `faixa faixa--${b.estilo}` }, [titulo, doc.createTextNode(' '), corpo, links]));
 });
 
 registrarBloco('conceito', (casca, b, { doc }) => {

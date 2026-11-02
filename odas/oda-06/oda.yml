@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório usa o navegador com `npm run dev` e não depende do Docker, porque o microfrontend mínimo é registrado em manutenção e o shell não baixa o bundle dele. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. O laboratório usa o navegador com `npm run dev` e não depende do Docker, porque o microfrontend mínimo é registrado em manutenção e o shell não baixa o bundle dele. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -77,7 +111,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, o manifesto, a validação, a ordenação e o uso da ordem nas rotas e no menu. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba segue o manifesto de microfrontends pelo shell: o próprio `public/mfe-manifest.json`, a validação em `manifest.ts`, a ordenação por dependências em `dependencyResolver.ts` e o uso da ordem no boot, no menu e no componente que hospeda cada microfrontend. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: public/mfe-manifest.json
@@ -113,6 +154,7 @@ abas:
       texto: Hash que o deploy grava e o carregador confere.
     - linha: 20
       texto: O empréstimo declara dependência do endereço.
+    contexto: O arquivo `public/mfe-manifest.json` é o manifesto que o shell baixa no boot para saber quais microfrontends existem, de onde carregar cada bundle, em que rota montá-lo e de quem ele depende. O arquivo aparece inteiro porque é a entrada de tudo o que esta ODA analisa, a validação, a ordenação e o uso da ordem nas rotas e no menu.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/manifest.ts
@@ -157,6 +199,7 @@ abas:
     - linha: 26
       texto: A origem do bundle precisa estar em `mfeAllowedOrigins` do `config.json`.
     inicio: 11
+    contexto: O arquivo `src/app/mfe/manifest.ts` valida o manifesto antes que o shell use qualquer entrada dele. O trecho abaixo é a função `validateEntry`, que confere os campos de cada microfrontend, o formato do `integrity` e a origem e o protocolo da URL do bundle.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/manifest.ts
@@ -193,6 +236,7 @@ abas:
     - linha: 62
       texto: Toda dependência precisa apontar para um `id` declarado.
     inicio: 43
+    contexto: Este segundo trecho do `src/app/mfe/manifest.ts` é a função `validateManifest`, que valida o manifesto como um todo. Ela confere a versão do esquema, valida cada entrada e recusa `id` repetido e dependência que aponta para um `id` inexistente.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/dependencyResolver.ts
@@ -237,6 +281,7 @@ abas:
     - linha: 33
       texto: Quem sobra fora da ordem participa de um ciclo ou depende de quem participa.
     inicio: 7
+    contexto: O arquivo `src/app/mfe/dependencyResolver.ts` calcula a ordem em que os microfrontends são considerados, a partir do campo `dependsOn` do manifesto. O trecho abaixo é a função `resolveLoadOrder`, uma ordenação topológica pelo algoritmo de Kahn que lança erro quando encontra um ciclo de dependências.
   - tipo: editor
     rotulo: arquivo
     caminho: src/main.tsx
@@ -254,6 +299,7 @@ abas:
     - linha: 29
       texto: A lista ordenada define as rotas e o menu.
     inicio: 25
+    contexto: O arquivo `src/main.tsx` é o ponto de entrada do shell, que roda quando a página abre. O trecho abaixo mostra a sequência do boot, que carrega o manifesto, ordena os microfrontends e cria o roteador com a lista já ordenada.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/layout/ShellLayout.tsx
@@ -272,6 +318,7 @@ abas:
     - linha: 19
       texto: O menu segue a ordem calculada, sem os microfrontends `disabled`.
     inicio: 19
+    contexto: O arquivo `src/app/layout/ShellLayout.tsx` é o layout do shell, com o menu lateral e a área onde as telas aparecem. O trecho abaixo monta os itens do menu a partir da lista de microfrontends visíveis, e por isso o menu reflete a ordem calculada no boot.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/MfeHost.tsx
@@ -291,6 +338,7 @@ abas:
     - linha: 64
       texto: Em manutenção, o shell mostra o aviso e não chega a chamar `loadMfeModule`.
     inicio: 63
+    contexto: O arquivo `src/app/mfe/MfeHost.tsx` é o componente do shell que hospeda um microfrontend na rota dele. O trecho abaixo trata os estados `maintenance` e `disabled` do manifesto antes de qualquer download do bundle.
   - tipo: faixa
     estilo: dica
     texto: A ADR-010 fala em ordem de carga, e no commit `2179313` essa ordem define as rotas e o menu. Cada bundle continua sendo baixado só quando a rota dele é aberta, e o `dependsOn` não faz o shell baixar a dependência antes.

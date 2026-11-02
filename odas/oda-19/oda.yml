@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa do Laboratório. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · grafo do Catálogo
     comandos:
@@ -107,6 +141,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, as referências do projeto de API, o registro no contêiner de injeção de dependência, a interface de dados da Application e o contexto do EF Core no projeto principal. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Catalogo.API.csproj
@@ -120,6 +161,7 @@ abas:
     - linha: 14
       texto: Seta da API para a Infrastructure.
     inicio: 12
+    contexto: O `Catalogo.API.csproj` é o arquivo de projeto da camada de API do Catálogo, que fica em `src/Catalogo/Catalogo.API`. O trecho abaixo lista as referências de projeto, e a referência à `Catalogo.Infrastructure`, ao lado da `Catalogo.Application`, é a seta entre camadas que esta ODA examina.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Extensions/CatalogoServiceExtensions.cs
@@ -150,6 +192,7 @@ abas:
       texto: Leitura com Dapper.
     - linha: 17
       texto: Escrita com EF Core.
+    contexto: O `CatalogoServiceExtensions.cs` é o método de extensão `AddCatalogo`, que registra os serviços e os repositórios do Catálogo no contêiner de injeção de dependência. O trecho abaixo mostra os `using` da camada Infrastructure e o registro do produto com um repositório de leitura em Dapper e outro de escrita em EF Core, que é o motivo da referência da API à Infrastructure.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.Application/Interfaces/ICatalogoContext.cs
@@ -179,6 +222,7 @@ abas:
       texto: Contrato de dados declarado na Application.
     - linha: 7
       texto: Expõe consultas LINQ, e não só operações de repositório.
+    contexto: O `ICatalogoContext.cs` é a interface de acesso a dados declarada na camada Application do Catálogo. O arquivo inteiro aparece abaixo e expõe as entidades como `IQueryable`, além dos métodos de inclusão, remoção e gravação, de modo que a Application monta consultas LINQ sem conhecer o EF Core.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Data/AppDbContext.cs
@@ -220,6 +264,7 @@ abas:
       texto: O mesmo contexto atende o Catálogo e os Pedidos.
     - linha: 25
       texto: Implementação explícita da interface da Application.
+    contexto: O `src/Shared/Data/AppDbContext.cs` é o contexto do EF Core da API, compilado no projeto principal, fora das pastas do Catálogo. O trecho abaixo mostra que o mesmo contexto declara as entidades do Catálogo e dos Pedidos e implementa de forma explícita a interface `ICatalogoContext` da Application.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.Domain/Produto.cs
@@ -237,6 +282,7 @@ abas:
     - linha: 24
       texto: A regra de criação vive no domínio, sem depender de nada externo.
     inicio: 24
+    contexto: O `Produto.cs` é a entidade de produto da camada de domínio do Catálogo, em `src/Catalogo/Catalogo.Domain`. O trecho abaixo é o início do método de fábrica `Criar`, que valida nome e e-mail e devolve um `Result` sem depender de nenhuma outra camada.
 - id: simulacao
   titulo: Simulação
   blocos:

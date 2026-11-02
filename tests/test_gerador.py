@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from hooks.catalogo import carregar_catalogo  # noqa: E402
-from gerar_odas import ABAS, html_da_oda, preparar, validar_oda  # noqa: E402
+from gerar_odas import ABAS, COMO_OBTER, ONDE, html_da_oda, preparar, validar_oda  # noqa: E402
 
 CATALOGO = carregar_catalogo(ROOT / "catalogo" / "odas.yml")
 
@@ -22,6 +22,7 @@ def minima():
     abas = [{"id": a, "titulo": a.title(), "blocos": [{"tipo": "legenda", "texto": "Texto curto."}]} for a in ABAS]
     abas[6]["blocos"].append({"tipo": "quiz", "perguntas": [{"enunciado": "P?", "alternativas": [
         {"texto": "a", "correta": True, "explicacao": "x"}, {"texto": "b", "correta": False, "explicacao": "y"}]}]})
+    abas[0]["blocos"] = [{"tipo": "faixa", "estilo": "dica", "titulo": COMO_OBTER, "texto": "Clone o repositório."}]
     return {"id": "20", "titulo": "Vertical Slice e comparativo com Clean Architecture", "abas": abas}
 
 
@@ -54,8 +55,8 @@ class TestValidacao(unittest.TestCase):
 
     def test_legenda_com_mais_de_tres_frases(self):
         d = minima()
-        d["abas"][0]["blocos"][0]["texto"] = "Um. Dois. Três. Quatro."
-        self.assertIn("missao[0]: legenda passa de três frases.", self.erros(d))
+        d["abas"][1]["blocos"][0]["texto"] = "Um. Dois. Três. Quatro."
+        self.assertIn("conceito[0]: legenda passa de três frases.", self.erros(d))
 
     def test_editor_arquivo_exige_commit_do_catalogo(self):
         d = minima()
@@ -121,8 +122,27 @@ class TestValidacao(unittest.TestCase):
 
     def test_anotacao_respeita_inicio_do_trecho(self):
         d = minima()
-        d["abas"][2]["blocos"].append({"tipo": "editor", "rotulo": "arquivo", "caminho": "Program.cs", "commit": "702145a", "inicio": 94, "linhas": ["a", "b"], "anotacoes": [{"linha": 95, "texto": "x"}]})
+        d["abas"][2]["blocos"].append({"tipo": "editor", "rotulo": "arquivo", "caminho": "Program.cs", "commit": "702145a", "inicio": 94, "linhas": ["a", "b"], "anotacoes": [{"linha": 95, "texto": "x"}], "contexto": "Arquivo de entrada da API."})
+        d["abas"][2]["blocos"].append({"tipo": "faixa", "estilo": "dica", "titulo": ONDE, "texto": "Repositório net-minimal-api."})
         self.assertEqual(validar_oda(d, CATALOGO), [])
+
+    def test_codigo_exige_contexto_e_faixas(self):
+        editor = {"tipo": "editor", "rotulo": "arquivo", "caminho": "Program.cs", "commit": "702145a", "linhas": ["a"]}
+        d = minima()
+        d["abas"][2]["blocos"].append(dict(editor))
+        self.assertIn("codigo[1]: editor de arquivo exige contexto, que diz o que o arquivo é e por que ele aparece.", validar_oda(d, CATALOGO))
+        d = minima()
+        d["abas"][5]["blocos"].append(dict(editor, contexto="Arquivo de entrada da API."))
+        self.assertIn(f"diagnostico: aba mostra código e não tem a faixa {ONDE}.", validar_oda(d, CATALOGO))
+        d = minima()
+        d["abas"][4]["blocos"].append(dict(editor, contexto="Arquivo de entrada da API."))
+        self.assertEqual(validar_oda(d, CATALOGO), [])
+        d = minima()
+        d["abas"][0]["blocos"][0]["titulo"] = "Outra"
+        self.assertIn(f"missao: falta a faixa {COMO_OBTER}.", validar_oda(d, CATALOGO))
+        d = minima()
+        d["abas"][0]["blocos"][0]["links"] = [{"rotulo": "repo", "url": "javascript:alert(1)"}]
+        self.assertIn("missao[0]: link de faixa exige rotulo e url https.", validar_oda(d, CATALOGO))
 
     def test_resumo_e_um_bloco_valido(self):
         d = minima()

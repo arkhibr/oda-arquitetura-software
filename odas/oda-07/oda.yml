@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório roda testes no shell e em `mfes/endereco`, que precisa das próprias dependências: se a pasta `mfes/endereco/node_modules` não existir, rode `npm install --no-save` dentro dela, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`, antes do passo 4. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. O laboratório roda testes no shell e em `mfes/endereco`, que precisa das próprias dependências: se a pasta `mfes/endereco/node_modules` não existir, rode `npm install --no-save` dentro dela, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`, antes do passo 4. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · testes do carregamento de microfrontends
     comandos:
@@ -79,7 +113,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, como a falha de carga chega ao error boundary do shell e como as fases da carga são medidas. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra como o shell isola a falha de um microfrontend: o componente que carrega e monta o bundle, o error boundary que exibe o aviso, o carregador com as fases medidas da carga e a função `mount` do microfrontend de endereço. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/MfeHost.tsx
@@ -140,6 +181,7 @@ abas:
     - linha: 58
       texto: Relançar o erro durante a renderização é o que permite ao error boundary capturá-lo.
     inicio: 17
+    contexto: O arquivo `src/app/mfe/MfeHost.tsx` é o componente do shell que carrega e monta um microfrontend na rota dele. O trecho abaixo é o efeito que baixa o bundle e chama o `mount`, e mostra como uma falha nessa etapa vira estado do componente e é relançada na renderização para chegar ao error boundary.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/MfeErrorBoundary.tsx
@@ -173,6 +215,7 @@ abas:
     - linha: 21
       texto: Texto que a pessoa vê, com `role="alert"`.
     inicio: 6
+    contexto: O arquivo `src/app/mfe/MfeErrorBoundary.tsx` é o error boundary do React que o shell coloca em volta de cada microfrontend. O trecho abaixo é a classe inteira, que registra o erro no console e troca o conteúdo pelo aviso de módulo indisponível sem derrubar o restante do shell.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/loadMfeModule.ts
@@ -207,6 +250,7 @@ abas:
     - linha: 36
       texto: A fase termina depois da importação do Blob.
     inicio: 23
+    contexto: O arquivo `src/app/mfe/loadMfeModule.ts` é o carregador de microfrontends do shell, que baixa o bundle, confere o hash e importa o módulo. O trecho abaixo é a função `loadMfeModule`, com as marcas de desempenho que delimitam as fases da carga medidas nesta ODA.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/endereco/src/index.tsx
@@ -225,6 +269,7 @@ abas:
     - linha: 9
       texto: A raiz do microfrontend é independente da árvore do shell, sem nenhum boundary acima do `EnderecoApp`.
     inicio: 8
+    contexto: O arquivo `mfes/endereco/src/index.tsx` é o ponto de entrada do bundle do microfrontend de endereço. O trecho abaixo é a função `mount`, que cria uma raiz React separada da árvore do shell, o que define até onde o error boundary do shell alcança.
   - tipo: faixa
     estilo: dica
     texto: O relatório de performance descreve `fetchEval` em torno de um `import()` da URL do bundle. No commit `2179313`, a fase inclui também o cálculo do SHA-256 e a importação do Blob, o que os números de 30/06/2026 podem não refletir.
@@ -233,6 +278,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, dois caminhos de erro: uma exceção lançada pelo `mount`, que o shell captura, e um erro de renderização dentro da árvore React do microfrontend, que o shell não vê. Compare os dois e depois classifique as falhas pela forma como aparecem para a pessoa.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: fluxo
     titulo: Dois caminhos de erro depois do contrato validado
     etapas:

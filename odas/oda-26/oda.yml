@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e do `openssl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e do `openssl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · bater à porta do servidor Pix
     comandos:
@@ -115,6 +149,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, onde o servidor exige o certificado, como o cliente monta a cadeia de handlers e por que a devolução fica sem proteção contra repetição. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pix/Pix.MockServer/Program.cs
@@ -141,6 +182,7 @@ abas:
     - linha: 30
       texto: Aceita só certificados assinados pela autoridade de `certs/pix/ca.cer`.
     inicio: 20
+    contexto: O `Program.cs` do `Pix.MockServer` monta o servidor que simula a API Pix, com rotas de token, cobranças e devoluções na porta 5099. O trecho abaixo configura o Kestrel com HTTPS, exige certificado de cliente e valida esse certificado contra a autoridade certificadora de `certs/pix/ca.cer`, o que define o mTLS da integração.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pix/Pix.ClientDemo/Program.cs
@@ -165,6 +207,7 @@ abas:
     - linha: 44
       texto: Registrado por último, fica mais perto da rede e repete o envio do mesmo pedido HTTP.
     inicio: 34
+    contexto: O `Program.cs` do `Pix.ClientDemo` monta o cliente de demonstração que consome a API Pix por meio de clientes HTTP tipados. O trecho abaixo registra o `PixProcessingClient` com o handler de mTLS, os handlers de correlação, de chave de idempotência e de log, e a política de resiliência padrão, e a ordem desse registro define quais handlers cada nova tentativa atravessa.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pix/Pix.ClientDemo/Client/Handlers/IdempotencyKeyHandler.cs
@@ -181,6 +224,7 @@ abas:
     - linha: 9
       texto: Só os caminhos de cobrança recebem a chave.
     inicio: 7
+    contexto: O `IdempotencyKeyHandler.cs` é o `DelegatingHandler` do cliente que acrescenta o cabeçalho `Idempotency-Key` às requisições que ainda não o têm. O trecho abaixo mostra a condição que limita a chave aos `POST` cujo caminho contém `/pix/v1/cobrancas`, e por isso as devoluções saem sem chave.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pix/Pix.MockServer/Program.cs
@@ -197,6 +241,7 @@ abas:
     - linha: 224
       texto: O endpoint de devolução não lê o `Idempotency-Key` e cria uma devolução a cada chamada.
     inicio: 218
+    contexto: Este trecho pertence ao mesmo `Program.cs` do `Pix.MockServer`, dentro da rota `POST /devolucoes`. Ele valida o pedido contra o valor original da cobrança e cria a devolução pelo `devolucaoService`, sem consultar o cabeçalho `Idempotency-Key`, e por isso cada repetição do pedido gera uma devolução nova.
 - id: simulacao
   titulo: Simulação
   blocos:

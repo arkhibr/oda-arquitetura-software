@@ -32,6 +32,8 @@ ESTILOS = {"dica", "erro", "quebra", "sucesso"}
 ROTULOS = {"terminal", "arquivo", "saida", "log"}
 ORIGENS = {"executado", "codigo", "exemplo"}
 FRASE = re.compile(r"[.!?](\s|$)")
+ONDE = "📂 Onde está o código"
+COMO_OBTER = "🧭 Como ter o código na sua máquina"
 
 
 def _editor(bloco: dict, commit: str, rotulo: str) -> list[str]:
@@ -89,8 +91,13 @@ def _bloco(bloco, commit: str, rotulo: str, flags: set[str] = frozenset()) -> li
             erros.append(f"{rotulo}: faixa de erro exige sintoma, causa e correcao.")
         elif bloco["estilo"] != "erro" and "texto" not in bloco:
             erros.append(f"{rotulo}: faixa exige texto.")
+        for l in bloco.get("links", []):
+            if not l.get("rotulo") or not str(l.get("url", "")).startswith("https://"):
+                erros.append(f"{rotulo}: link de faixa exige rotulo e url https.")
     if tipo == "editor":
         erros += _editor(bloco, commit, rotulo)
+        if bloco.get("rotulo") == "arquivo" and not bloco.get("contexto"):
+            erros.append(f"{rotulo}: editor de arquivo exige contexto, que diz o que o arquivo é e por que ele aparece.")
     if tipo == "passos":
         for i, passo in enumerate(bloco["itens"], 1):
             if "titulo" not in passo:
@@ -167,6 +174,17 @@ def _bloco(bloco, commit: str, rotulo: str, flags: set[str] = frozenset()) -> li
     return erros
 
 
+def _mostra_codigo(aba: dict) -> bool:
+    for b in aba.get("blocos", []):
+        if not isinstance(b, dict):
+            continue
+        if b.get("tipo") == "arvores" or (b.get("tipo") == "editor" and b.get("rotulo") == "arquivo"):
+            return True
+        if b.get("tipo") == "fluxo" and any("codigo" in e for e in b.get("etapas", [])):
+            return True
+    return False
+
+
 def validar_oda(dados: dict, catalogo: dict) -> list[str]:
     oda = oda_por_id(catalogo, str(dados.get("id")))
     if oda is None:
@@ -192,6 +210,11 @@ def validar_oda(dados: dict, catalogo: dict) -> list[str]:
     for aba in abas:
         if not aba.get("titulo"):
             erros.append(f"{aba.get('id')}: aba sem titulo.")
+        titulos = {b.get("titulo") for b in aba.get("blocos", []) if isinstance(b, dict)}
+        if aba.get("id") == "missao" and COMO_OBTER not in titulos:
+            erros.append(f"missao: falta a faixa {COMO_OBTER}.")
+        if aba.get("id") != "laboratorio" and _mostra_codigo(aba) and ONDE not in titulos:
+            erros.append(f"{aba.get('id')}: aba mostra código e não tem a faixa {ONDE}.")
         for i, bloco in enumerate(aba.get("blocos", [])):
             erros += _bloco(bloco, commit, f"{aba.get('id')}[{i}]", flags)
     return erros
@@ -247,7 +270,7 @@ def gerar(raiz: Path, destino: Path) -> list[str]:
             erros += [f"{arquivo.relative_to(raiz)}: {p}" for p in problemas]
             continue
         oda = oda_por_id(catalogo, str(dados["id"]))
-        dados.update(repositorio=oda["repositorio"], commit=catalogo["repositorios"][oda["repositorio"]]["commit"], minutos=oda["minutos"])
+        dados.update(repositorio=oda["repositorio"], url_repositorio=catalogo["repositorios"][oda["repositorio"]]["url"], commit=catalogo["repositorios"][oda["repositorio"]]["commit"], minutos=oda["minutos"])
         pasta = destino / ("oda-criar" if arquivo == guia else arquivo.parent.name)
         pasta.mkdir(parents=True, exist_ok=True)
         (pasta / "index.html").write_text(html_da_oda(preparar(dados)), encoding="utf-8")

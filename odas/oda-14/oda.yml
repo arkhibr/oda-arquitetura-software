@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. Nenhum serviço precisa estar no ar, porque o laboratório roda só testes, lint e benchmarks em processo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. Nenhum serviço precisa estar no ar, porque o laboratório roda só testes, lint e benchmarks em processo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · testes do shell
     comandos:
@@ -78,7 +112,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, o setup do MSW, o carregamento da configuração, a ordenação dos microfrontends e um benchmark existente, que servem de base ao laboratório. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os arquivos do shell que o laboratório testa e mede: a preparação dos testes com o MSW em `src/test-setup.ts`, o carregamento do `config.json`, o fallback do Nginx que interfere nele, a ordenação dos microfrontends e um benchmark existente que serve de modelo. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os comportamentos que os testes e os benchmarks precisam capturar.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: src/test-setup.ts
@@ -96,6 +137,7 @@ abas:
       texto: Requisições sem handler geram aviso, e não falha.
     - linha: 6
       texto: Remove os handlers acrescentados com `server.use`.
+    contexto: O `src/test-setup.ts` é o arquivo de preparação que o Vitest carrega antes dos testes do shell. O arquivo aparece inteiro e liga o servidor do MSW durante a execução, o que define como os testes respondem às requisições HTTP.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/config/index.ts
@@ -132,6 +174,7 @@ abas:
     - linha: 50
       texto: JSON inválido derruba o boot com a tela de falha do `main.tsx`.
     inicio: 41
+    contexto: O `src/shared/config/index.ts` carrega o `/config.json` do ambiente quando o shell inicia. O trecho abaixo é a função `loadConfig`, com os três desfechos que os testes precisam cobrir, o status de erro, o JSON válido e o JSON inválido.
   - tipo: editor
     rotulo: arquivo
     caminho: nginx.conf.template
@@ -143,6 +186,7 @@ abas:
     - linha: 45
       texto: Caminho sem arquivo recebe o `index.html` com status 200.
     inicio: 44
+    contexto: O `nginx.conf.template` é o modelo de configuração do Nginx que serve o shell compilado em produção. As duas linhas abaixo mostram o fallback da aplicação de página única, que responde com o `index.html` e status 200 a qualquer caminho sem arquivo, inclusive ao `/config.json` ausente.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/dependencyResolver.ts
@@ -185,6 +229,7 @@ abas:
     - linha: 22
       texto: O `shift` também percorre o array a cada retirada.
     inicio: 7
+    contexto: O `src/app/mfe/dependencyResolver.ts` ordena os microfrontends do manifesto pelo algoritmo de Kahn, para que cada um carregue depois das dependências que declara. O trecho abaixo é a função `resolveLoadOrder`, com as cópias de lista e o `shift` que tornam o custo da ordenação maior que o necessário.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/lib/validators/validators.bench.ts
@@ -211,6 +256,7 @@ abas:
     anotacoes:
     - linha: 9
       texto: Cada `bench` mede uma chamada isolada, repetida até a vazão estabilizar.
+    contexto: O `src/shared/lib/validators/validators.bench.ts` reúne os micro-benchmarks do Vitest para as funções de validação do shell, rodados com `npm run bench` na raiz. O trecho abaixo serve de modelo para o benchmark que o laboratório escreve.
   - tipo: faixa
     estilo: dica
     texto: 'Nenhum teste de unidade do commit varia respostas com `server.use`: os testes de `shared` e `features` substituem o `fetch` com `vi.stubGlobal`. A regra `boundaries/dependencies` do `eslint.config.ts` não deixa essas camadas importar `src/mocks`, e o passo 6 do laboratório trata disso.'

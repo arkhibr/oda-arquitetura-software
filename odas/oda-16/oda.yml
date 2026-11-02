@@ -18,6 +18,40 @@ abas:
     estilo: dica
     titulo: 💡 Pré-requisitos
     texto: O .NET SDK 10, o Git e o `curl`, com o Python 3 para listar os caminhos do Swagger. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL. No macOS, a porta 5000 também é usada pelo Receptor AirPlay, como mostra o Diagnóstico.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · net-minimal-api no commit de referência
     comandos:
@@ -90,6 +124,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a montagem da API, o contrato de auto-registro dos endpoints dos Pedidos e as duas origens das falhas de build que o laboratório corrige. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -120,6 +161,7 @@ abas:
     - linha: 264
       texto: 'Pedidos: registra todas as classes que implementam `IEndpoint`.'
     inicio: 254
+    contexto: O `Program.cs` da raiz é o ponto de entrada da API, onde os serviços são registrados e as rotas dos três bounded contexts são montadas. O trecho abaixo mapeia as rotas, com o Catálogo dentro do grupo `/api/v1/catalogo` e os Pedidos registrados pela interface `IEndpoint`.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Common/IEndpoint.cs
@@ -134,6 +176,7 @@ abas:
     anotacoes:
     - linha: 5
       texto: Cada fatia de Pedidos declara as próprias rotas.
+    contexto: O `src/Shared/Common/IEndpoint.cs` define o contrato comum que cada fatia do contexto de Pedidos implementa para declarar as próprias rotas. O arquivo inteiro aparece abaixo e tem um único método, `MapEndpoints`, que o `Program.cs` chama para cada fatia registrada.
   - tipo: editor
     rotulo: arquivo
     caminho: tests/Pedidos.Tests/Pedidos.Tests.csproj
@@ -147,6 +190,7 @@ abas:
     - linha: 31
       texto: Projeto removido no refactor `d378512`.
     inicio: 29
+    contexto: O `tests/Pedidos.Tests/Pedidos.Tests.csproj` é o arquivo de projeto dos testes do contexto de Pedidos. O trecho abaixo lista as referências de projeto, entre elas `src/Produtos/Produtos.Domain/Produtos.Domain.csproj`, caminho que não existe neste commit e que faz a compilação da solução falhar.
   - tipo: editor
     rotulo: arquivo
     caminho: ProdutosAPI.csproj
@@ -183,6 +227,7 @@ abas:
       texto: O SDK Web inclui como conteúdo os `*.json` de todas as subpastas.
     - linha: 15
       texto: Remove os testes da compilação, mas não do conteúdo.
+    contexto: O `ProdutosAPI.csproj` da raiz é o arquivo de projeto da API, com o SDK Web, as exclusões de compilação e as referências aos projetos do Catálogo e aos pacotes NuGet. O arquivo inteiro aparece abaixo porque a falha de build que o laboratório corrige depende do que ele exclui da compilação e do que o SDK Web continua incluindo como conteúdo.
   - tipo: editor
     rotulo: arquivo
     caminho: setup.sh
@@ -201,6 +246,7 @@ abas:
     - linha: 50
       texto: Rota anterior à migração para `/api/v1/catalogo`.
     inicio: 44
+    contexto: O `setup.sh` da raiz é o script auxiliar que prepara e orienta a execução do projeto. O trecho abaixo é o final do script, que imprime os endereços da API e do Swagger, e a rota anunciada ali é anterior à migração do Catálogo para `/api/v1/catalogo`.
 - id: simulacao
   titulo: Simulação
   blocos:

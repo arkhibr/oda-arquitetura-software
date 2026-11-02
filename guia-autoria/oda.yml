@@ -15,6 +15,51 @@ abas:
   - tipo: faixa
     estilo: dica
     texto: Os exemplos abaixo demonstram os componentes e seus dados YAML. Adapte conteúdo e referências ao objetivo de aprendizagem.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com
+      o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo
+      baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório,
+      de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo
+        do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de
+        linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a
+        faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL,
+        o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz
+        um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório
+        instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre
+        a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo
+        caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
 - id: conceito
   titulo: Estrutura e texto
   blocos:
@@ -30,7 +75,8 @@ abas:
     texto: Percorra o que o `npm run deploy` faz, etapa por etapa, e depois localize cada peça do repositório.
   - tipo: conceito
     titulo: faixa
-    texto: Destaca dica, sucesso, quebra ou erro; erro exige sintoma, causa e correcao.
+    texto: Destaca dica, sucesso, quebra ou erro, e o estilo erro exige sintoma, causa e correcao. A lista opcional links
+      acrescenta ao fim da faixa endereços que começam com https.
   - tipo: editor
     rotulo: terminal
     linhas:
@@ -109,10 +155,22 @@ abas:
 - id: codigo
   titulo: Código e representação
   blocos:
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React,
+      com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit
+      `2179313`. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra
+      o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo
+      caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: conceito
     titulo: editor
-    texto: Exibe linhas de código, comandos ou saída. Para arquivo, informe caminho e commit do catálogo; para saida e log,
-      informe origem.
+    texto: Exibe linhas de código, comandos ou saída. Um editor de arquivo exige caminho, o commit do catálogo e contexto,
+      texto exibido acima do editor que diz o que o arquivo é e por que ele aparece, e o motor acrescenta à barra o botão
+      Ver no GitHub. Saídas e logs exigem origem.
   - tipo: editor
     rotulo: terminal
     linhas:
@@ -120,6 +178,7 @@ abas:
     - 'rotulo: arquivo'
     - 'caminho: tsconfig.app.json'
     - 'commit: ''2179313'''
+    - 'contexto: O tsconfig.app.json configura o TypeScript do shell, e a linha abaixo define o alias que as importações usam.'
     - 'linhas:'
     - '- ''    "paths": { "@/*": ["./src/*"] }'''
     - 'anotacoes:'
@@ -136,6 +195,14 @@ abas:
     - linha: 24
       texto: O alias `@/` aponta para `src/`, e o plugin resolve o caminho real antes de identificar a camada.
     inicio: 24
+    contexto: O `tsconfig.app.json` configura o compilador TypeScript do shell, em `src/`. A linha abaixo define o alias `@/`,
+      que as importações do shell usam para chegar a `src/` sem caminhos relativos.
+  - tipo: conceito
+    titulo: Contexto do código
+    texto: A Missão de toda ODA traz a faixa 🧭 Como ter o código na sua máquina, com os passos para clonar o repositório e
+      fixar o commit, e toda aba que mostra arquivos, árvores de pastas ou trechos de fluxo traz a faixa 📂 Onde está o código.
+      O gerador recusa a ODA em que falte uma dessas faixas ou o contexto de um editor de arquivo, e os scripts de montagem
+      acrescentam as duas faixas automaticamente.
   - tipo: conceito
     titulo: passos
     texto: Organiza instruções marcáveis. Cada item pode ter texto, editor e efeito para alterar o estado da simulação.

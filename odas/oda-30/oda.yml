@@ -23,6 +23,40 @@ abas:
     sintoma: Os cenários falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
     causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
     correcao: Se o arquivo existir na sua máquina, nenhuma ação é necessária. Caso contrário, retire numa cópia local a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")`, que só é usada pelos cenários com Lambda e não afeta os cenários desta ODA.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. Todas as abas se referem ao commit `50a5344`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `aspire-aws` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/aspire-aws
+        - cd aspire-aws
+    - titulo: Fixar o commit `50a5344`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 50a5344
+    - titulo: Compilar a solução
+      texto: O comando baixa os pacotes NuGet e compila a solução `aspire-aws.sln`, com o AppHost e todos os cenários. A compilação mostra centenas de avisos e nenhum erro, e o Docker só passa a ser necessário quando os testes sobem o LocalStack.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
@@ -43,7 +77,14 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba explica a diferença entre fila e tópico: a fila entrega cada mensagem a um consumidor, e o tópico entrega uma cópia a cada assinante, por isso o fan-out combina os dois. Clique nas pastas para ver onde cada peça está no repositório.'
+    texto: 'Esta aba explica a diferença entre fila e tópico: a fila entrega cada mensagem a um consumidor, e o tópico entrega uma cópia a cada assinante, por isso o fan-out combina os dois. As árvores abaixo reproduzem as pastas do repositório `aspire-aws` no commit `50a5344` que tratam de mensageria, à esquerda os cenários de fila e de tópico e à direita a infraestrutura de teste comum a todos eles. Clique numa pasta ou num arquivo para ver o papel dele.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: comparativo
     colunas:
     - Fila (Amazon SQS)
@@ -127,7 +168,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `50a5344`, a fixture que cria o tópico, as filas e as assinaturas do cenário 09, o teste que confere as cópias e o AppHost que sobe o LocalStack. Clique nos marcadores numerados para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os três arquivos que montam e conferem o fan-out do cenário 09: a fixture que cria o tópico, as filas, as políticas e as assinaturas, o teste que publica uma mensagem e conta as cópias, e o AppHost que sobe o LocalStack. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que você vai alterar ao acrescentar a terceira fila.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/09-SNS.SQS.Fanout/Fixture.cs
@@ -173,6 +221,7 @@ abas:
     - linha: 43
       texto: A assinatura liga o tópico à fila pelo ARN da fila.
     inicio: 17
+    contexto: O `scenarios/09-SNS.SQS.Fanout/Fixture.cs` é a fixture do cenário 09, a classe que o xUnit cria antes dos testes para preparar os recursos no LocalStack. O trecho abaixo é o método `InitializeScenarioAsync`, que cria o tópico `fanout-topic` e as duas filas e, num único laço, grava a política de acesso e faz a assinatura de cada fila, que é o ponto onde a terceira fila desta ODA precisa entrar.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/09-SNS.SQS.Fanout/Fixture.cs
@@ -204,6 +253,7 @@ abas:
     - linha: 68
       texto: A condição restringe a permissão ao tópico do cenário.
     inicio: 55
+    contexto: No final da mesma fixture fica o método `BuildQueuePolicy`, que monta em JSON a política de acesso gravada em cada fila. O trecho abaixo autoriza o serviço SNS a enviar mensagens para a fila apenas quando a origem é o tópico do cenário, e sem essa política o tópico não consegue entregar a cópia.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/09-SNS.SQS.Fanout/SnsSqsFanoutTests.cs
@@ -246,6 +296,7 @@ abas:
       texto: Cada leitura espera até 5 segundos por uma mensagem.
     - linha: 26
       texto: Cada fila precisa ter exatamente uma mensagem.
+    contexto: O `scenarios/09-SNS.SQS.Fanout/SnsSqsFanoutTests.cs` contém o único teste do cenário 09, que usa os recursos preparados pela fixture. O arquivo aparece inteiro porque é curto, e o teste publica uma mensagem no tópico e lê cada fila esperando exatamente uma cópia, a verificação que esta ODA estende para a terceira fila.
   - tipo: editor
     rotulo: arquivo
     caminho: src/AppHost/Program.cs
@@ -270,6 +321,7 @@ abas:
     - linha: 20
       texto: Porta fixa 4566, compartilhada por todos os cenários.
     inicio: 10
+    contexto: O `src/AppHost/Program.cs` é o AppHost do .NET Aspire, o programa que declara os contêineres que os testes de todos os cenários usam. O trecho abaixo declara o contêiner do LocalStack com os serviços emulados, a montagem do socket do Docker e a porta fixa 4566, por onde o SNS e o SQS do cenário 09 são acessados.
   - tipo: faixa
     estilo: dica
     texto: A política de acesso e a assinatura são duas operações separadas. As duas precisam existir para que a fila receba as cópias publicadas no tópico.
@@ -278,6 +330,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, o fan-out evento por evento, da publicação no tópico à leitura em cada fila. Ative as falhas para ver o que acontece com cada mensagem e depois percorra a preparação feita pela fixture.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: linha-do-tempo
     titulo: Fan-out do cenário 09
     atores:

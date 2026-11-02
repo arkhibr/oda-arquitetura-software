@@ -17,6 +17,40 @@ abas:
     estilo: dica
     titulo: 💡 Pré-requisitos
     texto: São necessários Node 22.12 ou superior, com recomendação do Node 24, npm, Git e Docker com o comando `docker compose`. Os scripts de deploy, do Gateway e dos BFFs rodam com `node --experimental-strip-types`, opção que o Node 20 não reconhece. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
@@ -37,7 +71,14 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba apresenta as peças do portal: um shell React que hospeda a navegação, dois microfrontends carregados em tempo de execução, um Gateway que autentica as chamadas e dois BFFs que adaptam o back-end, cada peça com o próprio `package.json`. Clique nas pastas para ver a responsabilidade de cada uma.'
+    texto: O portal do repositório `frontend-react` é formado por um shell React que hospeda a navegação, dois microfrontends carregados em tempo de execução, um Gateway que autentica as chamadas e dois BFFs que adaptam o back-end, e cada peça fica numa pasta própria, com o próprio `package.json`. As duas árvores abaixo reproduzem as pastas do repositório no commit `2179313`, a da esquerda a partir da raiz e a da direita dentro do shell, em `src/`. Clique numa pasta para ver a responsabilidade dela.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: arvores
     esquerda:
       titulo: Raiz do repositório
@@ -129,7 +170,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, os scripts que sobem e publicam o portal e a configuração que liga o shell aos microfrontends publicados. Clique nos marcadores numerados para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os quatro arquivos que definem como o portal sobe na sua máquina: o `package.json` da raiz, com os scripts npm, o `docker-compose.yml` do LocalStack, o script de deploy dos microfrontends e o manifesto que o shell lê para encontrar cada microfrontend. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: package.json
@@ -159,6 +207,7 @@ abas:
     - linha: 12
       texto: Confere as fronteiras entre as camadas do Feature-Sliced Design.
     inicio: 6
+    contexto: O `package.json` da raiz do repositório descreve o shell e define os scripts npm que o laboratório usa. O trecho abaixo é o bloco `scripts`, onde ficam o `npm run dev`, que sobe o shell, e o `npm run deploy`, que publica os microfrontends.
   - tipo: editor
     rotulo: arquivo
     caminho: infra/docker-compose.yml
@@ -179,6 +228,7 @@ abas:
       texto: Imagem do LocalStack que emula o S3 na porta 4566.
     - linha: 7
       texto: Só o S3 é ativado, porque os bundles são o único uso do LocalStack nesta plataforma.
+    contexto: O arquivo `infra/docker-compose.yml` declara o contêiner do LocalStack, que emula o S3 da AWS na sua máquina. É nesse S3 local que o deploy grava os bundles dos microfrontends, e o próprio script de deploy sobe este compose quando o LocalStack não responde.
   - tipo: editor
     rotulo: arquivo
     caminho: scripts/deploy.ts
@@ -193,6 +243,7 @@ abas:
     - linha: 19
       texto: 'A ordem respeita a dependência declarada no manifesto: `emprestimo` depende de `endereco`.'
     inicio: 18
+    contexto: O `scripts/deploy.ts` é o programa que o `npm run deploy` executa, escrito em TypeScript e rodado diretamente pelo Node. O trecho abaixo é a lista de microfrontends que o script compila e publica, com a pasta, o bucket e o nome do bundle de cada um.
   - tipo: editor
     rotulo: arquivo
     caminho: public/mfe-manifest.json
@@ -226,6 +277,7 @@ abas:
       texto: O bundle é baixado do bucket `mfe-endereco` no LocalStack.
     - linha: 9
       texto: Hash do bundle publicado. O deploy reescreve este valor a cada build.
+    contexto: O `public/mfe-manifest.json` é o manifesto que o shell baixa ao iniciar para saber quais microfrontends existem, de onde carregar cada bundle e em que rota montá-lo. O deploy reescreve o campo `integrity` deste arquivo a cada publicação, e o arquivo aparece aqui inteiro.
   - tipo: faixa
     estilo: dica
     texto: Depois do `npm run deploy`, o `git status` mostra `public/mfe-manifest.json` modificado, porque o hash dos bundles recém-compilados difere do hash registrado no commit.
@@ -234,6 +286,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, o que o `npm run deploy` faz: conferir o LocalStack, compilar cada microfrontend, publicar o bundle no bucket, conferir a publicação e gravar o hash do bundle no manifesto que o shell lê. Percorra as etapas e depois associe cada peça do portal à pasta do repositório onde ela fica.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: fluxo
     titulo: O que o npm run deploy faz
     etapas:

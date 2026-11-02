@@ -18,7 +18,7 @@ export function iniciar(doc, win) {
   const raiz = doc.documentElement;
   raiz.dataset.tema = armazenamento.ler('oda-app:tema', 'escuro') === 'claro' ? 'claro' : 'escuro';
 
-  const ctx = { doc, win, estado, armazenamento, abas: dados.abas, avisar: (t) => avisar(doc, t) };
+  const ctx = { doc, win, estado, armazenamento, abas: dados.abas, urlRepositorio: dados.url_repositorio, avisar: (t) => avisar(doc, t) };
   ctx.renderizarBloco = (bloco) => renderizarBloco(doc, bloco, ctx);
 
   const barra = h(doc, 'ol', { class: 'progresso', 'aria-label': 'Progresso por etapa' });

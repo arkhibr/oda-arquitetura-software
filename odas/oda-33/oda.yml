@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux, caminho verificado com o Colima. No Linux ou no WSL, rode os comandos `dotnet test` direto, sem `sincronizar` e sem `docker exec`.
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux, caminho verificado com o Colima. No Linux ou no WSL, rode os comandos `dotnet test` direto, sem `sincronizar` e sem `docker exec`.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. Todas as abas se referem ao commit `50a5344`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `aspire-aws` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/aspire-aws
+        - cd aspire-aws
+    - titulo: Fixar o commit `50a5344`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 50a5344
+    - titulo: Compilar a solução
+      texto: O comando baixa os pacotes NuGet e compila a solução `aspire-aws.sln`, com o AppHost e todos os cenários. A compilação mostra centenas de avisos e nenhum erro, e o Docker só passa a ser necessário quando os testes sobem o LocalStack.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · os dois pipelines
     comandos:
@@ -82,7 +116,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `50a5344`, as ligações do pipeline 12 e a função do pipeline 13. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra onde ficam as ligações entre os serviços dos dois pipelines: a fixture do cenário 12, que liga o bucket à fila e a fila à Lambda, e a função Python do cenário 13, que recebe as mensagens vindas do SNS. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam qual evento entra no pipeline e como cada salto passa a mensagem adiante.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/Fixture.cs
@@ -116,6 +157,7 @@ abas:
     - linha: 99
       texto: Liga a fila à Lambda `sqs_consumer`.
     inicio: 85
+    contexto: O `scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/Fixture.cs` é a fixture do cenário 12, que monta no LocalStack o pipeline do bucket S3 até a tabela do DynamoDB antes dos testes. O trecho abaixo cria o bucket, configura a notificação que envia à fila apenas os eventos `ObjectCreatedPut` e liga a fila à função `sqs_consumer`, e é nessa notificação que um arquivo copiado deixa de entrar no pipeline.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/Fixture.cs
@@ -136,6 +178,7 @@ abas:
     - linha: 70
       texto: Na AWS, sem esta permissão, o S3 não consegue enviar para a fila.
     inicio: 66
+    contexto: Antes das ligações, a mesma fixture grava na fila uma política de acesso escrita em JSON. O trecho abaixo autoriza o serviço S3 a enviar mensagens para a fila somente quando a origem é o bucket do cenário, permissão exigida na AWS para que a notificação do bucket chegue à fila.
   - tipo: editor
     rotulo: arquivo
     caminho: src/lambdas/fanout_processor/handler.py
@@ -152,6 +195,7 @@ abas:
     - linha: 15
       texto: Cada mensagem vira um objeto com o `messageId` no nome.
     inicio: 12
+    contexto: O `src/lambdas/fanout_processor/handler.py` é a função Lambda em Python do cenário 13, que lê mensagens de uma fila assinante de um tópico SNS e grava cada uma como objeto num bucket S3. O trecho abaixo é o laço que abre o envelope JSON do SNS, extrai o campo `Message` e grava o objeto `results/<messageId>.json`, o último salto que o teste do pipeline 13 confere.
 - id: simulacao
   titulo: Simulação
   blocos:

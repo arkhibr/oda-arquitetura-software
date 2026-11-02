@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: O .NET SDK 10, o Git e o `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+    texto: O .NET SDK 10, o Git e o `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · oito notebooks com estoque cinco
     comandos:
@@ -96,6 +130,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra onde cada regra está escrita, para que você localize a brecha antes do laboratório: um value object, a consulta de estoque do produto e o método `AdicionarItem` do agregado `Pedido`, no commit `702145a`. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.Domain/ValueObjects/PrecoProduto.cs
@@ -129,6 +170,7 @@ abas:
     - linha: 22
       texto: Na reidratação, um dado inválido no banco vira exceção.
     inicio: 5
+    contexto: O `PrecoProduto.cs` é o value object de preço da camada de domínio do Catálogo, em `src/Catalogo/Catalogo.Domain/ValueObjects`. O trecho abaixo mostra o construtor privado e os dois caminhos de criação, o `Criar`, que devolve `Result` para entrada inválida, e o `Reconstituir`, que lança exceção quando o banco traz um valor inválido.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.Domain/Produto.cs
@@ -139,6 +181,7 @@ abas:
     - linha: 136
       texto: Pergunta sobre uma quantidade, sem reservar nada.
     inicio: 136
+    contexto: O `Produto.cs` é a entidade de produto do domínio do Catálogo, que guarda o estoque e o estado ativo. A linha abaixo é o `TemEstoqueDisponivel`, que só responde se há quantidade suficiente e não reserva nem baixa estoque.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/Domain/Pedido.cs
@@ -181,6 +224,7 @@ abas:
     - linha: 44
       texto: Limite de itens distintos, protegido pela raiz.
     inicio: 26
+    contexto: O `src/Pedidos/Domain/Pedido.cs` é o agregado de pedido, a raiz que controla os itens e o total do contexto de Pedidos. O trecho abaixo é o `AdicionarItem`, que confere o limite de quantidade e o estoque só para a parcela nova antes de somá-la a um item existente, e é nessa ordem que fica a brecha que o laboratório explora.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/Domain/PedidoItem.cs
@@ -198,6 +242,7 @@ abas:
     - linha: 31
       texto: O item protege o limite com exceção, e não com `Result`.
     inicio: 26
+    contexto: O `src/Pedidos/Domain/PedidoItem.cs` é a entidade de item do pedido, criada e alterada só pelo agregado `Pedido`. O trecho abaixo é o `IncrementarQuantidade`, que protege o limite de 999 unidades com exceção, um tratamento diferente do `Result` usado pelo agregado.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/Domain/Pedido.cs
@@ -222,6 +267,7 @@ abas:
     - linha: 54
       texto: Confirmar não toca no estoque do produto.
     inicio: 54
+    contexto: Este segundo trecho do agregado `Pedido` é o método `Confirmar`, que muda o pedido de rascunho para confirmado. Ele confere o status, a existência de itens e o valor mínimo, e não altera o estoque do produto.
 - id: simulacao
   titulo: Simulação
   blocos:

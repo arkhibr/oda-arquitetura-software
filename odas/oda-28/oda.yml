@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. Todas as abas se referem ao commit `50a5344`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `aspire-aws` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/aspire-aws
+        - cd aspire-aws
+    - titulo: Fixar o commit `50a5344`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 50a5344
+    - titulo: Compilar a solução
+      texto: O comando baixa os pacotes NuGet e compila a solução `aspire-aws.sln`, com o AppHost e todos os cenários. A compilação mostra centenas de avisos e nenhum erro, e o Docker só passa a ser necessário quando os testes sobem o LocalStack.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · rodar o cenário 01
     comandos:
@@ -76,7 +110,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `50a5344`, o que o AppHost declara e o que a `LocalStackFixture` faz antes do primeiro teste de cada classe. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra, no commit `50a5344`, os três arquivos que definem o custo e o isolamento dos testes: o AppHost, que declara os contêineres, a `LocalStackFixture`, que sobe esses contêineres antes do primeiro teste de cada classe, e um teste do cenário 01 que depende de o bucket ser exclusivo da classe. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: editor
     rotulo: arquivo
     caminho: src/AppHost/Program.cs
@@ -110,6 +151,7 @@ abas:
     - linha: 23
       texto: O PostgreSQL sobe em todo cenário, mesmo nos que não usam banco.
     inicio: 10
+    contexto: O `src/AppHost/Program.cs` é o AppHost do .NET Aspire, o programa que declara os contêineres que todos os cenários de teste usam. O trecho abaixo declara o contêiner do LocalStack, com os serviços AWS emulados e o socket do Docker montado, e o contêiner do PostgreSQL, que sobem juntos sempre que o alvo não é a AWS real.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/LocalStackFixture.cs
@@ -139,6 +181,7 @@ abas:
     - linha: 52
       texto: Cada cenário cria aqui os seus clientes e recursos.
     inicio: 40
+    contexto: O `LocalStackFixture.cs` é a classe base das fixtures do xUnit que cada cenário estende para preparar o ambiente antes dos testes. O trecho abaixo é o `InitializeAsync` no modo LocalStack, que obtém a trava da porta 4566, sobe o AppHost pelo Aspire, espera o LocalStack responder e cria os recursos do cenário, um custo pago a cada classe de teste.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/01-S3.Basic/S3BasicTests.cs
@@ -179,6 +222,7 @@ abas:
     - linha: 73
       texto: A contagem supõe que só este teste grava no bucket.
     inicio: 45
+    contexto: O `S3BasicTests.cs` é a classe de testes do cenário 01, que exercita as operações básicas do S3 contra o LocalStack com uma fixture por classe. O trecho abaixo é o teste de listagem, que grava dois objetos num bucket de nome fixo e espera exatamente dois na listagem, uma contagem que depende de nenhum outro teste usar o mesmo bucket.
 - id: simulacao
   titulo: Simulação
   blocos:

@@ -17,6 +17,40 @@ abas:
     estilo: dica
     titulo: 💡 Pré-requisitos
     texto: São necessários o .NET 10 SDK, como indica o README do repositório, e o Git. O laboratório usa o repositório `arkhibr/net-minimal-api` no commit `702145a`.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
@@ -36,7 +70,14 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: 'Esta aba compara as duas organizações presentes no repositório: o Catálogo agrupa o código por camada técnica, e os Pedidos agrupam por caso de uso, com tudo de uma operação na mesma pasta. Clique nas pastas para ver a responsabilidade de cada uma.'
+    texto: 'Esta aba compara as duas organizações presentes no repositório `net-minimal-api`: o Catálogo, em `src/Catalogo/`, agrupa o código por camada técnica, e os Pedidos, em `src/Pedidos/`, agrupam por caso de uso, com tudo de uma operação na mesma pasta. As duas árvores abaixo reproduzem essas pastas no commit `702145a`, e os itens marcados como novos são os arquivos que o laboratório cria. Clique numa pasta ou num arquivo para ver a responsabilidade dele.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste, e cada caminho parte da raiz desse repositório no commit `702145a`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: arvores
     esquerda:
       titulo: Catálogo · Clean Architecture híbrida
@@ -133,6 +174,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a fatia de cancelamento dos Pedidos, que serve de modelo para a fatia nova, e o mecanismo que registra os endpoints e os handlers. Clique nos marcadores numerados para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/CancelPedido/CancelPedidoCommand.cs
@@ -173,6 +221,7 @@ abas:
       texto: A regra de negócio fica no agregado, e o handler apenas repassa o `Result`.
     - linha: 25
       texto: A gravação acontece só depois que a regra aceitou a operação.
+    contexto: O `CancelPedidoCommand.cs` reúne a requisição, o comando e o handler da fatia de cancelamento, que fica inteira na pasta `src/Pedidos/CancelPedido`. O arquivo inteiro aparece abaixo porque o handler carrega o pedido, delega a regra ao agregado e grava a mudança, e esse é o formato que a fatia nova do laboratório reproduz.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/CancelPedido/CancelPedidoEndpoint.cs
@@ -220,6 +269,7 @@ abas:
       texto: A escolha entre 404 e 400 depende do texto da mensagem de erro de domínio.
     - linha: 33
       texto: Sem esta linha, o endpoint executa sem token. A aba Diagnóstico mostra o efeito.
+    contexto: O `CancelPedidoEndpoint.cs` é a outra metade da fatia de cancelamento e declara a rota `POST /api/v1/pedidos/{id}/cancelar`. O arquivo inteiro aparece abaixo, com a injeção do handler, a escolha entre 404 e 400 pelo texto do erro e a exigência de autorização no fim da declaração da rota.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Common/IEndpoint.cs
@@ -234,6 +284,7 @@ abas:
     anotacoes:
     - linha: 5
       texto: Cada fatia implementa este contrato para declarar as próprias rotas.
+    contexto: O `src/Shared/Common/IEndpoint.cs` define o contrato comum que cada fatia do contexto de Pedidos implementa para declarar as próprias rotas. O arquivo inteiro aparece abaixo e tem um único método, `MapEndpoints`, que a fatia nova também precisa implementar.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Common/EndpointExtensions.cs
@@ -253,6 +304,7 @@ abas:
     - linha: 34
       texto: Cada fatia mapeia a própria rota na inicialização da API.
     inicio: 30
+    contexto: O `src/Shared/Common/EndpointExtensions.cs` contém os métodos de extensão que descobrem e mapeiam os endpoints das fatias. O trecho abaixo é o `MapRegisteredEndpoints`, que obtém todas as implementações de `IEndpoint` registradas e pede a cada uma que mapeie as próprias rotas.
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -268,6 +320,7 @@ abas:
     - linha: 99
       texto: Os handlers são registrados um a um, enquanto os endpoints são descobertos por reflexão.
     inicio: 94
+    contexto: O `Program.cs` da raiz é o ponto de entrada da API, onde os serviços dos três bounded contexts são registrados. O trecho abaixo registra, um a um, os handlers das fatias de Pedidos, e é nesta lista que o handler da fatia nova precisa entrar.
   - tipo: faixa
     estilo: dica
     texto: A fatia nova precisa de uma linha em `Program.cs` para o handler, mas não precisa registrar a rota, que é descoberta pela implementação de `IEndpoint`.
@@ -276,6 +329,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula, sem executar nada, o caminho de uma requisição pelas camadas do Catálogo e pela fatia dos Pedidos. Percorra os dois fluxos e depois envie requisições pelo console de API, com códigos de status obtidos nos testes de integração do repositório.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste, e cada caminho parte da raiz desse repositório no commit `702145a`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: fluxo
     titulo: Cancelamento em Pedidos (Vertical Slice)
     etapas:

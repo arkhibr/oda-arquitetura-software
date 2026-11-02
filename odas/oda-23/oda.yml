@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e, para conferir o índice, do `sqlite3`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e, para conferir o índice, do `sqlite3`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · criar uma variante
     comandos:
@@ -93,6 +127,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a consulta de escrita que falha, o mapeamento do SKU como value object e o índice único do banco, que juntos explicam as duas falhas do laboratório. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.Infrastructure/Repositories/EfVarianteCommandRepository.cs
@@ -121,6 +162,7 @@ abas:
     - linha: 23
       texto: '`v.Sku.Valor` não existe como coluna, e o EF Core não traduz o acesso.'
     inicio: 8
+    contexto: O `EfVarianteCommandRepository.cs` é o repositório do lado de escrita das variantes de produto, implementado com o EF Core no módulo de Catálogo. O trecho abaixo contém a busca por id e a consulta `SkuExisteParaProdutoAsync`, que compara `v.Sku.Valor` e é a consulta que falha na criação de variantes.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Data/AppDbContext.cs
@@ -141,6 +183,7 @@ abas:
     - linha: 156
       texto: Unicidade de produto e SKU, para todas as linhas.
     inicio: 149
+    contexto: O `AppDbContext.cs` é o contexto do EF Core compartilhado pelos módulos, onde fica o mapeamento de cada entidade para as tabelas do SQLite. O trecho abaixo é o mapeamento de `Variante`, com a conversão do value object `SKU` para texto e o índice único `idx_variante_produto_sku`, que impede reaproveitar o SKU de uma variante desativada.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.Infrastructure/Queries/DapperVarianteQueryRepository.cs
@@ -155,6 +198,7 @@ abas:
     - linha: 26
       texto: A leitura filtra as variantes ativas, sem olhar se o produto está ativo.
     inicio: 23
+    contexto: O `DapperVarianteQueryRepository.cs` é o repositório do lado de leitura das variantes, que consulta o banco com SQL escrito à mão pelo Dapper. O trecho abaixo é a consulta que lista as variantes de um produto e mostra o filtro `Ativa = 1`, que a leitura aplica por conta própria.
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -171,6 +215,7 @@ abas:
     - linha: 217
       texto: A API aplica as migrations ao iniciar.
     inicio: 213
+    contexto: O `Program.cs` da raiz monta a aplicação, registrando os serviços e o pipeline HTTP da API. O trecho abaixo aplica as migrations pendentes com `Database.Migrate()` e roda o seed sempre que a API sobe fora do ambiente de teste, e por isso uma migration nova muda o banco na próxima subida da API.
 - id: simulacao
   titulo: Simulação
   blocos:
@@ -422,6 +467,7 @@ abas:
     - '        }'
     - '    }'
     - '}'
+    contexto: Este é o arquivo que o `dotnet ef migrations add VarianteSkuSoAtivas` do passo 9 cria em `src/Shared/Data/Migrations`, com a data da geração no início do nome, e ele não existe no commit de referência. O método `Up` recria o índice `idx_variante_produto_sku` com o filtro `Ativa = 1`, e o `Down` volta ao índice que vale para todas as linhas.
   - tipo: terminal
     titulo: terminal · net-minimal-api
     comandos:

@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. Os testes usam o Chromium do Playwright, instalado com `npx playwright install chromium`, e os comandos usam a sintaxe do bash ou do zsh, no Git Bash ou no WSL no Windows.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. Os testes usam o Chromium do Playwright, instalado com `npx playwright install chromium`, e os comandos usam a sintaxe do bash ou do zsh, no Git Bash ou no WSL no Windows.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · relatório de Trusted Types
     comandos:
@@ -86,7 +120,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, a política de produção, a de desenvolvimento, o coletor de relatórios simulado e o carregamento de microfrontends, que é o ponto sensível da política. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra onde o repositório define e testa a política de segurança do navegador: o `nginx.conf.template`, que envia a política em produção, o `vite.config.ts`, que envia a de desenvolvimento, o coletor de relatórios do MSW e o carregamento de microfrontends, que é o ponto sensível da política. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam cada diretiva e o caminho dos relatórios de violação.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: nginx.conf.template
@@ -112,6 +153,7 @@ abas:
       texto: O nonce é o identificador da requisição, diferente a cada `GET`.
     - linha: 14
       texto: O filtro do envsubst preserva as variáveis do próprio Nginx.
+    contexto: O `nginx.conf.template` é o modelo de configuração do Nginx que serve o shell compilado no contêiner de produção, e o `envsubst` preenche as variáveis `CSP_` quando o contêiner inicia. O trecho abaixo define o nonce de cada requisição a partir do `$request_id` e explica quais variáveis o `envsubst` substitui.
   - tipo: editor
     rotulo: arquivo
     caminho: nginx.conf.template
@@ -136,6 +178,7 @@ abas:
     - linha: 41
       texto: Troca o marcador gravado pelo build pelo nonce da requisição.
     inicio: 30
+    contexto: Este trecho também está no `nginx.conf.template` e configura a resposta do `index.html` em produção. Ele envia a Content Security Policy com o nonce da requisição, os demais cabeçalhos de segurança e o `sub_filter`, que troca o marcador gravado no HTML pelo nonce.
   - tipo: editor
     rotulo: arquivo
     caminho: vite.config.ts
@@ -172,6 +215,7 @@ abas:
     - linha: 49
       texto: 'Endpoint relativo: o relatório vai para o próprio servidor do Vite.'
     inicio: 30
+    contexto: O `vite.config.ts` da raiz configura o build do shell e o servidor de desenvolvimento do Vite. O trecho abaixo é a política de segurança que o servidor de desenvolvimento envia, inteira em modo Report-Only, com o endpoint relativo para onde o navegador manda os relatórios de violação.
   - tipo: editor
     rotulo: arquivo
     caminho: src/mocks/handlers.ts
@@ -191,6 +235,7 @@ abas:
     - linha: 25
       texto: Prefixo que o `SECURITY.md` manda procurar no console.
     inicio: 20
+    contexto: O `src/mocks/handlers.ts` define os handlers do MSW, o back-end simulado que atende o shell em modo de desenvolvimento. O trecho abaixo é o coletor de relatórios de CSP, que registra no console cada violação recebida em `/__csp-report` e responde 204.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/loadMfeModule.ts
@@ -213,6 +258,7 @@ abas:
     - linha: 32
       texto: Importação feita por um script confiável, coberta pelo `strict-dynamic`.
     inicio: 25
+    contexto: O `src/app/mfe/loadMfeModule.ts` é a função do shell que baixa e carrega o bundle de um microfrontend. O trecho abaixo confere o hash SHA-256 do bundle contra o manifesto e importa o código por uma URL `blob:`, o ponto em que a política de segurança precisa permitir a execução.
   - tipo: faixa
     estilo: dica
     texto: O `src/main.tsx` monta o aviso de falha de boot com `createElement` e `textContent`, e não com `innerHTML`, para que a tela de erro continue a funcionar quando Trusted Types passar a enforcement.

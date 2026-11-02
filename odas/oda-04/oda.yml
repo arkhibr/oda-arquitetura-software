@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O passo final do laboratório usa o navegador com `npm run dev` e não depende do Docker.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. O passo final do laboratório usa o navegador com `npm run dev` e não depende do Docker.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · testes de autenticação
     comandos:
@@ -74,7 +108,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: 'Os trechos abaixo seguem o token no commit `2179313`: armazenamento, leitura do payload, reidratação no store, monitoramento, tratamento do 401 no shell e nos microfrontends e validação no Gateway. Clique nos marcadores para ler a explicação de cada linha.'
+    texto: 'Esta aba segue o token JWT pelos arquivos do shell, do microfrontend de endereço e do Gateway: onde ele é guardado, como o payload é lido, como a sessão volta depois de uma recarga, como o fim da sessão é detectado e onde a assinatura é verificada. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/auth/tokenStorage.ts
@@ -99,6 +140,7 @@ abas:
       texto: A chave usada no `sessionStorage`, que aparece no console do navegador depois do login.
     - linha: 9
       texto: Único ponto de gravação do token, chamado pelo reducer `login`.
+    contexto: O arquivo `src/shared/auth/tokenStorage.ts` é o módulo do shell que guarda o token JWT no `sessionStorage` da aba do navegador. O arquivo aparece inteiro porque é o único lugar do shell que lê, grava e apaga o token, e a chave que ele usa é a que o laboratório procura no console.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/auth/tokenParser.ts
@@ -130,6 +172,7 @@ abas:
     - linha: 22
       texto: A expiração usa o relógio do navegador.
     inicio: 9
+    contexto: O arquivo `src/shared/auth/tokenParser.ts` lê o conteúdo do token JWT dentro do navegador. O trecho abaixo contém as funções que decodificam o payload e decidem se o token expirou, e mostra que o shell não confere a assinatura, tarefa que fica com o Gateway.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/lib/store/authSlice.ts
@@ -154,6 +197,7 @@ abas:
     - linha: 17
       texto: Uma recarga de página mantém a sessão se o token ainda não expirou.
     inicio: 13
+    contexto: O arquivo `src/shared/lib/store/authSlice.ts` define a fatia `auth` do store do Redux, que mantém o token e o usuário autenticado enquanto o shell está aberto. O trecho abaixo é a reidratação do estado inicial a partir do `sessionStorage`, que decide se uma recarga de página mantém a sessão.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/auth/sessionMonitor.ts
@@ -199,6 +243,7 @@ abas:
       texto: 'Segundo mecanismo: reação ao 401 sinalizado pelo `httpClient`.'
     - linha: 26
       texto: Desliga os dois mecanismos, o que um componente deve chamar ao desmontar.
+    contexto: O arquivo `src/shared/auth/sessionMonitor.ts` é o monitor de sessão do shell, que encerra a sessão quando o token deixa de valer. O arquivo aparece inteiro porque contém os dois mecanismos de detecção, a verificação periódica da expiração e a reação ao evento `auth:unauthorized`, além da função que desliga ambos.
   - tipo: faixa
     estilo: dica
     texto: Nenhum código de produção do shell importa `src/shared/api/httpClient.ts` no commit `2179313`. Os `fetch` do shell estão em `loadManifest.ts`, `loadMfeModule.ts`, `loginRequest.ts` e `shared/config/index.ts`, e as chamadas de negócio saem dos microfrontends, cujo 401 encerra a sessão pelo callback `onUnauthorized`.
@@ -245,6 +290,7 @@ abas:
     - linha: 23
       texto: O aviso é um evento DOM, ouvido apenas por um `sessionMonitor` iniciado.
     inicio: 5
+    contexto: O arquivo `src/shared/api/httpClient.ts` é o cliente HTTP comum do shell. O trecho abaixo mostra como ele anexaria o token às chamadas e o que faz quando a API responde 401, apagando o token e disparando o evento que o `sessionMonitor` escuta.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/endereco/src/api/httpClient.ts
@@ -277,6 +323,7 @@ abas:
     - linha: 27
       texto: No 401, o microfrontend chama o callback recebido do shell.
     inicio: 14
+    contexto: O arquivo `mfes/endereco/src/api/httpClient.ts` é o cliente HTTP do microfrontend de endereço, que tem build próprio e não importa nada do shell. O trecho abaixo mostra que o microfrontend usa o token recebido do shell na montagem e, no 401, chama o callback `onUnauthorized` que o shell entregou.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/mfe/MfeHost.tsx
@@ -294,6 +341,7 @@ abas:
     - linha: 34
       texto: O callback encerra a sessão diretamente, sem depender do `sessionMonitor`.
     inicio: 30
+    contexto: O arquivo `src/app/mfe/MfeHost.tsx` é o componente do shell que carrega e monta um microfrontend na rota dele. O trecho abaixo é a chamada ao `mount`, onde o shell entrega ao microfrontend o token lido do store e o callback que encerra a sessão.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/auth.ts
@@ -324,6 +372,7 @@ abas:
     - linha: 39
       texto: Qualquer falha de verificação vira a mesma resposta 401.
     inicio: 25
+    contexto: O arquivo `gateway/src/auth.ts` contém o middleware de autenticação do Gateway de API, o ponto em que a assinatura do JWT é de fato verificada. O trecho abaixo exige o cabeçalho `Authorization` com `Bearer`, verifica o token com o algoritmo, o emissor e a audiência configurados e responde 401 em qualquer falha.
   - tipo: faixa
     estilo: erro
     sintoma: O `src/shared/auth/README.md` diz que o `authSlice` chama `sessionMonitor.start()`, e o diagrama da ADR-004 mostra essa chamada logo após o login.

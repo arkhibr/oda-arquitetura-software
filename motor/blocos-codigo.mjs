@@ -17,6 +17,16 @@ export function rotuloEditor(b) {
   return b.rotulo === 'arquivo' ? `arquivo · ${b.caminho} @ ${b.commit}` : b.rotulo;
 }
 
+export function temCaminhoSimples(b) {
+  return Boolean(b.caminho) && !/\s/.test(b.caminho);
+}
+
+export function linkNoGithub(url, b) {
+  const fim = (b.inicio ?? 1) + b.linhas.length - 1;
+  const bruto = b.caminho.endsWith('.md') ? '?plain=1' : '';
+  return `${url}/blob/${b.commit}/${b.caminho}${bruto}#L${b.inicio ?? 1}-L${fim}`;
+}
+
 async function copiar(ctx, texto) {
   try {
     await ctx.win.navigator.clipboard.writeText(texto);
@@ -72,10 +82,14 @@ registrarBloco('editor', (casca, b, ctx) => {
       h(doc, 'span', { class: 'editor__codigo', texto: l.texto }), marcador, explicacao,
     ]);
   });
+  const noGithub = b.rotulo === 'arquivo' && ctx.urlRepositorio && temCaminhoSimples(b)
+    ? h(doc, 'a', { class: 'botao editor__github', href: linkNoGithub(ctx.urlRepositorio, b), target: '_blank', rel: 'noopener', texto: 'Ver no GitHub' })
+    : null;
+  if (b.contexto) casca.append(h(doc, 'p', { class: 'editor__contexto' }, [textoRico(doc, b.contexto)]));
   casca.append(h(doc, 'div', { class: `editor editor--${b.rotulo}${b.numeros === false ? ' editor--sem-numeros' : ''}` }, [
     h(doc, 'div', { class: 'editor__barra' }, [
       h(doc, 'span', { class: 'editor__rotulo', texto: rotuloEditor(b) }),
-      marcaOrigem(doc, b.origem),
+      marcaOrigem(doc, b.origem), noGithub,
       h(doc, 'button', { type: 'button', class: 'botao editor__copiar', texto: '📋 Copiar', onclick: () => copiar(ctx, b.linhas.join('\n')) }),
     ]),
     h(doc, 'pre', { class: 'editor__corpo', tabindex: '0' }, linhas),

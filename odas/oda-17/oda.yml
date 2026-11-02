@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa do Laboratório. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · rotas dos Pedidos
     comandos:
@@ -85,6 +119,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, o código que descobre os endpoints, um endpoint dos Pedidos e o grupo versionado do Catálogo. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Common/EndpointExtensions.cs
@@ -131,6 +172,7 @@ abas:
     - linha: 34
       texto: Cada fatia mapeia as próprias rotas.
     inicio: 7
+    contexto: O `src/Shared/Common/EndpointExtensions.cs` contém os dois métodos de extensão que implementam a auto-descoberta dos endpoints do contexto de Pedidos. O trecho abaixo mostra a varredura do assembly em busca de classes que implementam `IEndpoint`, o registro de cada uma na injeção de dependência e o mapeamento das rotas de todas elas na aplicação.
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -157,6 +199,7 @@ abas:
     - linha: 95
       texto: Os handlers, ao contrário dos endpoints, são registrados um a um.
     inicio: 85
+    contexto: O `Program.cs` da raiz é o ponto de entrada da API, onde os serviços dos três bounded contexts são registrados. O trecho abaixo chama a varredura de endpoints sobre o assembly da API e registra, um a um, os handlers das fatias de Pedidos e os repositórios que eles usam.
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -179,6 +222,7 @@ abas:
     - linha: 264
       texto: Pedidos fora do grupo `v1`.
     inicio: 255
+    contexto: Este segundo trecho do `Program.cs` é a parte que monta as rotas da aplicação. Ele cria o grupo de versão `/api/v1` com o subgrupo do Catálogo e, fora desse grupo, mapeia os endpoints de Pedidos descobertos pela varredura.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/GetPedido/GetPedidoEndpoint.cs
@@ -212,6 +256,7 @@ abas:
     - linha: 25
       texto: Autorização repetida em cada fatia.
     inicio: 6
+    contexto: O `src/Pedidos/GetPedido/GetPedidoEndpoint.cs` é a fatia de Pedidos que expõe a consulta de um pedido por identificador. O trecho abaixo é a classe inteira, que implementa `IEndpoint`, escreve a rota completa com a versão e exige autorização dentro da própria fatia.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Endpoints/Categorias/CategoriaEndpoints.cs
@@ -234,6 +279,7 @@ abas:
     - linha: 14
       texto: Subgrupo por recurso.
     inicio: 10
+    contexto: O `CategoriaEndpoints.cs` fica no projeto `Catalogo.API` e registra as rotas de categorias do contexto de Catálogo. O trecho abaixo mostra que o método de extensão recebe o grupo do Catálogo e cria o subgrupo `/categorias`, de modo que a versão da rota vem do grupo montado no `Program.cs`.
 - id: simulacao
   titulo: Simulação
   blocos:

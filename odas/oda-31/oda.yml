@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. Todas as abas se referem ao commit `50a5344`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `aspire-aws` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/aspire-aws
+        - cd aspire-aws
+    - titulo: Fixar o commit `50a5344`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 50a5344
+    - titulo: Compilar a solução
+      texto: O comando baixa os pacotes NuGet e compila a solução `aspire-aws.sln`, com o AppHost e todos os cenários. A compilação mostra centenas de avisos e nenhum erro, e o Docker só passa a ser necessário quando os testes sobem o LocalStack.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · rodar os cenários 03 e 17
     comandos:
@@ -78,7 +112,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `50a5344`, como cada cenário prepara o banco e o que os testes existentes deixam de cobrir. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os arquivos que preparam os dois bancos comparados nesta ODA: a fixture do cenário 03, que cria a tabela do DynamoDB, um teste desse cenário e a fixture do cenário 17, que prepara o PostgreSQL usado no lugar do RDS. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam o que cada cenário prepara e o que os testes existentes deixam sem cobertura.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/03-DynamoDB.Basic/Fixture.cs
@@ -110,6 +151,7 @@ abas:
     - linha: 34
       texto: A criação é assíncrona, e a fixture espera a tabela ficar ativa.
     inicio: 17
+    contexto: O `scenarios/03-DynamoDB.Basic/Fixture.cs` é a fixture do cenário 03, a classe que o xUnit cria antes dos testes para preparar a tabela `items` no DynamoDB do LocalStack. O trecho abaixo é o método `InitializeScenarioAsync`, que cria a tabela só com a chave de partição `id`, sem índices nem regras adicionais, e espera o estado `ACTIVE`, de modo que qualquer regra de negócio sobre os itens fica a cargo de quem grava.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/03-DynamoDB.Basic/DynamoDbBasicTests.cs
@@ -126,6 +168,7 @@ abas:
     - linha: 47
       texto: O `>=` tolera itens de outros testes na mesma tabela.
     inicio: 41
+    contexto: O `scenarios/03-DynamoDB.Basic/DynamoDbBasicTests.cs` reúne os testes do cenário 03, cada um com uma operação do DynamoDB sobre a mesma tabela. O trecho abaixo é o fim do teste de varredura, que lê a tabela inteira com `Scan` e aceita dois itens ou mais, e nenhum teste do arquivo grava o mesmo item a partir de duas requisições concorrentes, o caso que esta ODA acrescenta.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/17-RDS.Basic/Fixture.cs
@@ -166,6 +209,7 @@ abas:
     - linha: 67
       texto: No LocalStack Community, a chamada falha, e a fixture segue só com o PostgreSQL.
     inicio: 42
+    contexto: O `scenarios/17-RDS.Basic/Fixture.cs` é a fixture do cenário 17, que espera o PostgreSQL declarado no AppHost aceitar conexões e tenta criar uma instância pela API de controle do RDS. O trecho abaixo mostra essa tentativa e o `catch` que segue sem ela quando o LocalStack Community recusa a chamada, motivo pelo qual os testes deste cenário falam direto com o PostgreSQL.
 - id: simulacao
   titulo: Simulação
   blocos:

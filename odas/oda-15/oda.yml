@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O Docker precisa estar em execução, com a porta 8080 livre no host. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o Docker Desktop integrado.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. O Docker precisa estar em execução, com a porta 8080 livre no host. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL, com o Docker Desktop integrado.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · esteira no commit de referência
     comandos:
@@ -77,6 +111,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `2179313`, a esteira de qualidade, o Dockerfile e a configuração de tipos da raiz, onde estão as três falhas que o laboratório encontra. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: .github/workflows/ci.yml
@@ -123,6 +164,7 @@ abas:
     - linha: 35
       texto: Reprova a esteira se a cobertura ficar abaixo dos limites do `vitest.config.ts`.
     inicio: 10
+    contexto: O `.github/workflows/ci.yml` é a esteira de integração contínua do GitHub Actions, que roda a cada pull request para `main` ou `staging` e a cada push em `main`. O trecho abaixo é o job `quality`, com a versão do Node, a instalação por `npm ci` e as etapas de tipos, lint, testes com cobertura e build que reprovam a entrega quando falham.
   - tipo: editor
     rotulo: arquivo
     caminho: tsconfig.json
@@ -140,6 +182,7 @@ abas:
       texto: 'Nenhum arquivo próprio: o arquivo só aponta para os outros dois.'
     - linha: 4
       texto: As referências só são seguidas com `tsc -b`.
+    contexto: O `tsconfig.json` da raiz é o arquivo de configuração do TypeScript que a esteira usa na etapa `npx tsc --noEmit`. O arquivo inteiro aparece abaixo e mostra que ele não declara arquivos próprios e só referencia o `tsconfig.app.json` e o `tsconfig.node.json`, o que explica por que a etapa de tipos não confere nada.
   - tipo: editor
     rotulo: arquivo
     caminho: Dockerfile
@@ -187,6 +230,7 @@ abas:
       texto: O `envsubst` só toca as variáveis `CSP_*`.
     - linha: 31
       texto: O healthcheck chama `localhost` dentro do contêiner.
+    contexto: O `Dockerfile` da raiz constrói a imagem de produção do shell em dois estágios, um com o Node 20 para compilar e outro com o Nginx para servir os arquivos estáticos. O arquivo inteiro aparece abaixo, com a cópia do resultado do build, a substituição das variáveis `CSP_*` no template do Nginx e o healthcheck que o laboratório investiga.
   - tipo: editor
     rotulo: arquivo
     caminho: nginx.conf.template
@@ -197,6 +241,7 @@ abas:
     anotacoes:
     - linha: 2
       texto: 'Só IPv4: sem a linha `listen [::]:80;`.'
+    contexto: O `nginx.conf.template` é o modelo de configuração do Nginx que o `Dockerfile` copia para a imagem e que recebe as variáveis `CSP_*` ao subir o contêiner. As duas primeiras linhas abaixo mostram que o servidor escuta a porta 80 só em IPv4, detalhe que importa para o healthcheck da imagem.
   - tipo: faixa
     estilo: dica
     texto: O `npm run build` roda `tsc -b && vite build`, e por isso a etapa de build da esteira acusa erros de tipo mesmo com a etapa de TypeScript vazia. A etapa própria existe para dar um sinal separado e mais rápido, e no commit de referência esse sinal é sempre verde.

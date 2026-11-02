@@ -17,6 +17,40 @@ abas:
     estilo: dica
     titulo: 💡 Pré-requisitos
     texto: São necessários Node 20 ou superior, versão usada na esteira de CI e no `Dockerfile` do repositório, além de npm e Git. O laboratório usa o repositório `arkhibr/frontend-react` no commit `2179313`.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · verificação do ambiente
     comandos:
@@ -36,7 +70,14 @@ abas:
   titulo: Conceito
   blocos:
   - tipo: legenda
-    texto: O Feature-Sliced Design organiza o shell em camadas com responsabilidade definida e dependência em uma só direção. Clique nas pastas para ver o papel de cada camada no commit de referência.
+    texto: O Feature-Sliced Design organiza o shell em camadas com responsabilidade definida e dependência em uma só direção. No repositório `frontend-react`, cada camada é uma pasta dentro de `src/`, e as árvores abaixo reproduzem essas pastas no commit `2179313`. Clique numa pasta para ver o papel da camada correspondente.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: arvores
     esquerda:
       titulo: Camadas declaradas em eslint.config.ts
@@ -134,7 +175,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, a configuração do ESLint que declara as camadas e as regras de importação entre elas. Clique nos marcadores numerados para ler a explicação de cada linha.
+    texto: 'Esta aba mostra onde as camadas do Feature-Sliced Design viram regra verificável: a configuração do ESLint que declara as camadas e as importações permitidas entre elas, duas importações reais do shell e o alias `@/` do TypeScript, que o plugin precisa resolver. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: eslint.config.ts
@@ -176,6 +224,7 @@ abas:
     - linha: 55
       texto: Exceção declarada para os simuladores do MSW.
     inicio: 32
+    contexto: O arquivo `eslint.config.ts`, na raiz do repositório, configura o ESLint do shell, e o plugin `eslint-plugin-boundaries` é quem transforma as camadas do Feature-Sliced Design em regras verificadas pelo `npm run lint`. O trecho abaixo declara cada camada por um padrão de caminho dentro de `src/` e lista, para cada uma, as camadas de que ela pode importar.
   - tipo: editor
     rotulo: arquivo
     caminho: src/pages/login/index.tsx
@@ -188,6 +237,7 @@ abas:
     - linha: 6
       texto: A página importa de `features`, camada abaixo dela, o que é permitido.
     inicio: 5
+    contexto: O arquivo `src/pages/login/index.tsx` é a tela de login do shell, que pertence à camada `pages`. As importações abaixo mostram uma página que depende de camadas inferiores, como `shared` e `features`, que é a direção de dependência que a configuração do ESLint permite.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/api/httpClient.ts
@@ -199,6 +249,7 @@ abas:
     anotacoes:
     - linha: 1
       texto: Importação dentro da própria camada `shared`, que o plugin não verifica.
+    contexto: O arquivo `src/shared/api/httpClient.ts` é o cliente HTTP comum do shell e fica na camada `shared`, a mais baixa da pilha. As importações abaixo vêm todas da própria camada `shared` e servem para discutir quais importações o plugin verifica.
   - tipo: editor
     rotulo: arquivo
     caminho: tsconfig.app.json
@@ -209,6 +260,7 @@ abas:
     - linha: 24
       texto: O alias `@/` aponta para `src/`, e o plugin resolve o caminho real antes de identificar a camada.
     inicio: 24
+    contexto: O arquivo `tsconfig.app.json` configura o compilador TypeScript para o código do shell em `src/`. A linha abaixo declara o alias `@/`, usado nas importações do shell, e o ESLint precisa resolver esse alias para saber em qual camada fica o arquivo importado.
   - tipo: faixa
     estilo: dica
     texto: O plugin identifica a camada pelo caminho resolvido do arquivo importado. Por isso, trocar o alias por um caminho relativo não contorna a regra.
@@ -217,6 +269,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba simula, sem executar nada, como o plugin decide se uma importação é permitida: ele descobre a camada do arquivo que importa e a do arquivo importado e confere a regra entre as duas. Percorra a decisão para uma importação proibida e depois classifique outras importações segundo as regras de `eslint.config.ts`.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: fluxo
     titulo: Como o lint decide uma importação de shared para features
     etapas:

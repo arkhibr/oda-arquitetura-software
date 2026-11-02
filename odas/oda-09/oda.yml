@@ -16,7 +16,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório precisa das dependências de `mfes/endereco`: se a pasta `mfes/endereco/node_modules` não existir, rode `npm install --no-save` dentro dela, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. O passo 13 publica no LocalStack e exige o Docker em execução. O passo 2 move a pasta `mfes/` temporariamente e a devolve no mesmo comando. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. O laboratório precisa das dependências de `mfes/endereco`: se a pasta `mfes/endereco/node_modules` não existir, rode `npm install --no-save` dentro dela, porque o `npm ci` deste commit falha com um pacote ausente do `package-lock.json`. O passo 13 publica no LocalStack e exige o Docker em execução. O passo 2 move a pasta `mfes/` temporariamente e a devolve no mesmo comando. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · CSS gerado para o shell
     comandos:
@@ -68,7 +102,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, os tokens publicados pelo shell, o tema do microfrontend de empréstimo, que segue o contrato, e as classes do microfrontend de endereço, que não seguem. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os cinco arquivos que formam o contrato visual entre o shell e os microfrontends: os tokens CSS do shell e o carregamento de configuração que os altera, o tema do microfrontend de empréstimo, que segue o contrato, e o formulário do microfrontend de endereço, que não segue. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam como o CSS chega a cada microfrontend.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/styles/tokens.css
@@ -86,6 +127,7 @@ abas:
       texto: Token de cor primária, que o `config.json` pode sobrescrever em tempo de execução.
     - linha: 6
       texto: Fonte do portal, consumida pelos microfrontends que seguem o contrato.
+    contexto: O `src/app/styles/tokens.css` declara os tokens de design do shell, as variáveis CSS de cor e de fonte que formam o contrato visual do portal. O arquivo aparece inteiro, e são esses nomes de variável que um microfrontend precisa consumir para acompanhar o tema do shell.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/config/index.ts
@@ -98,6 +140,7 @@ abas:
     - linha: 59
       texto: O `config.json` do ambiente redefine o token no elemento raiz do documento.
     inicio: 58
+    contexto: O `src/shared/config/index.ts` carrega o `/config.json` do ambiente quando o shell inicia e guarda a configuração lida. O trecho abaixo aplica as cores desse arquivo como variáveis CSS no elemento raiz do documento, o que muda o tema em tempo de execução sem novo build.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/emprestimo/src/theme/inject.ts
@@ -119,6 +162,7 @@ abas:
       texto: O `<style>` entra no elemento entregue pelo shell.
     - linha: 8
       texto: A função devolvida remove o tema no `unmount`.
+    contexto: O `mfes/emprestimo/src/theme/inject.ts` é a função que o microfrontend de empréstimo usa para aplicar o próprio CSS quando é montado pelo shell. O arquivo aparece inteiro e mostra o CSS importado como texto, inserido num `<style>` dentro do elemento do microfrontend e removido no `unmount`.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/emprestimo/src/theme/theme.css
@@ -145,6 +189,7 @@ abas:
       texto: Todos os seletores começam pelo namespace do microfrontend.
     - linha: 9
       texto: Token do shell com fallback local.
+    contexto: O `mfes/emprestimo/src/theme/theme.css` é a folha de estilo do microfrontend de empréstimo, que entra no bundle como texto. O trecho abaixo define as variáveis do microfrontend sob a classe `.emprestimo-app` e lê os tokens do shell com valor de reserva, o padrão que segue o contrato visual.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/endereco/src/EnderecoForm.tsx
@@ -162,6 +207,7 @@ abas:
     - linha: 16
       texto: 'Classes utilitárias do Tailwind, que o microfrontend não compila: o CSS delas vem do build do shell.'
     inicio: 11
+    contexto: O `mfes/endereco/src/EnderecoForm.tsx` é o formulário React do microfrontend de endereço, montado na rota `/endereco`. O trecho abaixo usa classes utilitárias do Tailwind, que o microfrontend não compila, e por isso a aparência dele depende do CSS que o build do shell gera.
   - tipo: faixa
     estilo: dica
     texto: O `mfes/endereco/package.json` não tem Tailwind entre as dependências, e o `src/app/styles/globals.css` do shell importa o Tailwind, que gera classes a partir dos arquivos que encontra no repositório, inclusive em `mfes/`. As classes também usadas pelo shell, como `rounded` e `flex`, continuam disponíveis, e as exclusivas do endereço, como `bg-blue-600`, `text-green-700` e `max-w-md`, dependem dessa varredura.

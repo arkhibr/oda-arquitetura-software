@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, preparado como indica a faixa do Laboratório. O laboratório usa dois terminais na raiz do `net-minimal-api`, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+    texto: .NET SDK 10 e o repositório `net-minimal-api` no commit `702145a`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. O laboratório usa dois terminais na raiz do `net-minimal-api`, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · duas validações, dois contratos
     comandos:
@@ -76,6 +110,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, os retornos de criação e validação nos dois contextos, o tratamento do filtro de status e o exemplo do guia, que são a base da sondagem. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Endpoints/Produtos/ProdutoEndpoints.cs
@@ -100,6 +141,7 @@ abas:
     - linha: 92
       texto: O `Location` aponta para a rota atual.
     inicio: 80
+    contexto: O `ProdutoEndpoints.cs` fica no projeto `Catalogo.API` e reúne as rotas e os handlers HTTP de produtos do contexto de Catálogo. O trecho abaixo é o método de criação, que responde 422 com o `ErrorResponse` do Catálogo quando a validação falha e 201 com o cabeçalho `Location` quando o produto é gravado.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/CreatePedido/CreatePedidoEndpoint.cs
@@ -121,6 +163,7 @@ abas:
     - linha: 24
       texto: Erro de domínio com um objeto anônimo, sem `problem+json`.
     inicio: 15
+    contexto: O `CreatePedidoEndpoint.cs` é a fatia do contexto de Pedidos que expõe o `POST /api/v1/pedidos`. O trecho abaixo mostra os dois formatos de erro dessa rota, um 400 com as mensagens por campo quando a validação falha e um 400 com um objeto anônimo quando o domínio recusa o pedido, o que permite comparar o contrato com o do Catálogo.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/ListPedidos/ListPedidosQuery.cs
@@ -150,6 +193,7 @@ abas:
     - linha: 22
       texto: Status que não converte é descartado, e a consulta segue sem filtro.
     inicio: 14
+    contexto: O `ListPedidosQuery.cs` declara a consulta de listagem de pedidos e o handler que a atende, dentro da fatia `ListPedidos`. O trecho abaixo é o handler, que limita o tamanho da página entre 1 e 100 e descarta, sem avisar o cliente, um status que não corresponde a nenhum valor de `StatusPedido`.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/ListPedidos/ListPedidosEndpoint.cs
@@ -164,6 +208,7 @@ abas:
     - linha: 20
       texto: Uma falha do handler viraria 500.
     inicio: 16
+    contexto: O `ListPedidosEndpoint.cs` é a fatia que expõe o `GET /api/v1/pedidos` e repassa a página, o tamanho e o status ao handler da listagem. O trecho abaixo mostra que uma falha do handler seria devolvida com `Results.Problem`, que responde 500.
   - tipo: editor
     rotulo: arquivo
     caminho: docs/guias/MELHORES-PRATICAS-API.md
@@ -178,6 +223,7 @@ abas:
     - linha: 335
       texto: Exemplo com a rota anterior à migração para `/api/v1/catalogo`.
     inicio: 333
+    contexto: O `docs/guias/MELHORES-PRATICAS-API.md` é o guia de boas práticas de API do repositório, com a tabela de códigos HTTP e exemplos de retorno. O trecho abaixo é o exemplo de 201 Created do guia, que ainda usa a rota `/api/v1/produtos`, anterior à migração do Catálogo para `/api/v1/catalogo`.
 - id: simulacao
   titulo: Simulação
   blocos:

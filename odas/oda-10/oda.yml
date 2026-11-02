@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. O laboratório usa três terminais na raiz do repositório: um para o BFF de empréstimo, um para o Gateway e um para os comandos. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+    texto: 'Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. O laboratório usa três terminais na raiz do repositório: um para o BFF de empréstimo, um para o Gateway e um para os comandos. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · Gateway e BFF no ar
     comandos:
@@ -112,7 +146,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `2179313`, a montagem da cadeia de middlewares e os que respondem sem chamar o BFF. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os cinco arquivos da pasta `gateway/src/` que definem o caminho de uma requisição pelo Gateway de API: a montagem da cadeia de middlewares em `app.ts`, o identificador de correlação, a autenticação, o limite de requisições e o proxy que encaminha ao BFF. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam a ordem dos middlewares e os pontos em que o Gateway responde sem chamar o BFF.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/app.ts
@@ -144,6 +185,7 @@ abas:
     - linha: 23
       texto: O proxy é o último elo e atende qualquer método e caminho.
     inicio: 11
+    contexto: O `gateway/src/app.ts` monta a aplicação Hono do Gateway de API, a porta única pela qual o portal chama os BFFs. O trecho abaixo registra os middlewares na ordem em que cada requisição passa por eles, do identificador de correlação até o proxy que encaminha ao BFF.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/correlationId.ts
@@ -162,6 +204,7 @@ abas:
     - linha: 9
       texto: O cabeçalho é preparado antes do `next()` e copiado para a resposta final.
     inicio: 5
+    contexto: O `gateway/src/correlationId.ts` é o primeiro middleware da cadeia e atribui a cada requisição um identificador de correlação. O trecho abaixo reaproveita o `x-correlation-id` recebido quando o formato é seguro, gera um UUID nos demais casos e devolve o valor no cabeçalho da resposta.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/auth.ts
@@ -179,6 +222,7 @@ abas:
     - linha: 27
       texto: 'Responde sem chamar `next()`: os middlewares seguintes não executam.'
     inicio: 23
+    contexto: O `gateway/src/auth.ts` é o middleware que valida o JWT enviado pelo portal antes de qualquer chamada chegar a um BFF. O trecho abaixo recusa com 401 a requisição sem cabeçalho `Bearer` válido, e a resposta sai do Gateway sem passar pelos middlewares seguintes.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/rateLimit.ts
@@ -222,6 +266,7 @@ abas:
     - linha: 47
       texto: A resposta 429 sai do Gateway, sem chamar o BFF.
     inicio: 25
+    contexto: O `gateway/src/rateLimit.ts` cria os dois limitadores de requisições do Gateway, um global e um para os métodos que alteram dados. O trecho abaixo conta as requisições por usuário numa janela fixa e responde 429 quando o limite é ultrapassado, sem chamar o BFF.
   - tipo: editor
     rotulo: arquivo
     caminho: gateway/src/proxy.ts
@@ -259,6 +304,7 @@ abas:
     - linha: 37
       texto: Devolve a resposta do `fetch` sem cópia, e os middlewares da volta tentam gravar cabeçalhos nela.
     inicio: 17
+    contexto: O `gateway/src/proxy.ts` é o último elo da cadeia e encaminha a requisição ao BFF escolhido pelo prefixo do caminho. O trecho abaixo remove o prefixo `/bff/<nome>`, troca o token do usuário pela chave interna do Gateway e devolve a resposta do BFF ao portal.
   - tipo: faixa
     estilo: dica
     texto: Os testes de `app.test.ts` chamam `createApp(config).request(...)`, o cliente de teste do Hono, que não abre porta nem passa pelo `@hono/node-server`. O `index.ts` usa o `serve` desse pacote, que substitui o `Request` e o `Response` globais por versões próprias.

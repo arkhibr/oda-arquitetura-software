@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10, do Git e do `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+    texto: Você vai precisar do .NET SDK 10, do Git e do `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · reenviar um pedido
     comandos:
@@ -107,6 +141,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra, no commit `702145a`, os três pontos do middleware que explicam as falhas: a chave do cache, a repetição da resposta e a gravação depois da execução. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Middleware/IdempotencyMiddleware.cs
@@ -137,6 +178,7 @@ abas:
     - linha: 57
       texto: Só status, tipo e corpo são repetidos.
     inicio: 49
+    contexto: O `IdempotencyMiddleware.cs` é o middleware compartilhado que guarda num `IMemoryCache` a resposta das requisições com cabeçalho `Idempotency-Key` e a repete quando a mesma chave chega de novo. O trecho abaixo monta a chave do cache só com o valor do cabeçalho e devolve a resposta guardada quando a chave já existe, a etapa de verificação do middleware.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Middleware/IdempotencyMiddleware.cs
@@ -169,6 +211,7 @@ abas:
     - linha: 91
       texto: A resposta só entra no cache depois da execução.
     inicio: 72
+    contexto: Este trecho é a continuação do mesmo `IdempotencyMiddleware.cs`, depois da verificação do cache. Ele passa a requisição adiante no pipeline e grava a resposta no cache por 24 horas só quando o status fica entre 200 e 299, e por isso duas requisições simultâneas com a mesma chave chegam ambas ao endpoint.
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -182,6 +225,7 @@ abas:
     - linha: 247
       texto: Depois da autenticação, e por isso o usuário já está disponível.
     inicio: 244
+    contexto: O `Program.cs` da raiz monta a aplicação e define a ordem dos middlewares no pipeline HTTP da API. O trecho abaixo registra a autenticação, a autorização e, por último, o `IdempotencyMiddleware`, e essa posição decide que informações da requisição o middleware já tem disponíveis.
 - id: simulacao
   titulo: Simulação
   blocos:

@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Pré-requisitos
-    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, preparado como indica a faixa do Laboratório. Os testes rodam com Vitest e não dependem do Docker nem do LocalStack.
+    texto: Node.js 22.12 ou superior e o repositório `frontend-react` no commit `2179313`, obtido como mostra o bloco Como ter o código na sua máquina, logo abaixo. Os testes rodam com Vitest e não dependem do Docker nem do LocalStack.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. Todas as abas se referem ao commit `2179313`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `frontend-react` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/frontend-react
+        - cd frontend-react
+    - titulo: Fixar o commit `2179313`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 2179313
+    - titulo: Instalar as dependências
+      texto: 'O comando instala as dependências da raiz do repositório sem alterar o `package-lock.json`. Em Linux e no WSL, o `npm ci` deste commit termina com `Missing: @emnapi/core@1.11.3 from lock file`, porque o arquivo de lock não traz um pacote exigido nessas plataformas. Os microfrontends, o Gateway e os BFFs têm dependências próprias, que o laboratório instala quando precisa delas.'
+      editor:
+        rotulo: terminal
+        linhas:
+        - npm install --no-save
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · linha de base das fatias
     comandos:
@@ -81,7 +115,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Os trechos abaixo mostram, no commit `2179313`, o store, uma fatia completa, o reducer de login, a configuração do React Query e o hook que os microfrontends usam para buscar dados. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra onde o shell guarda cada tipo de estado: o store do Redux Toolkit com as fatias `ui` e `auth`, o cliente do React Query e os providers que os ligam à aplicação, além do hook com que o microfrontend de empréstimo busca dados sem o React Query. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/lib/store/index.ts
@@ -109,6 +150,7 @@ abas:
       texto: 'Cada chave do objeto `reducer` vira um ramo do estado: `auth`, `ui` e `session`.'
     - linha: 14
       texto: O tipo do estado é derivado do próprio store, e os seletores usam `RootState` para ler cada ramo.
+    contexto: O arquivo `src/shared/lib/store/index.ts` cria o store do Redux Toolkit, que guarda o estado global do shell no navegador. O arquivo aparece inteiro porque nele se vê como as três fatias, `auth`, `ui` e `session`, compõem um único estado e de onde vêm os tipos que os componentes usam para lê-lo.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/lib/store/uiSlice.ts
@@ -165,6 +207,7 @@ abas:
       texto: O identificador aleatório é gerado dentro do reducer, o que o guia de estilo do Redux proíbe.
     - linha: 39
       texto: As ações geradas, com o tipo `ui/<nome do reducer>`.
+    contexto: O arquivo `src/shared/lib/store/uiSlice.ts` define a fatia `ui`, que guarda estado puramente de interface, como a barra lateral, o modal ativo e as notificações. O arquivo aparece inteiro porque é a fatia que o laboratório estende com o campo `densidade`, e ele mostra o tipo, o estado inicial, os reducers e as ações geradas.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/lib/store/authSlice.ts
@@ -195,6 +238,7 @@ abas:
     - linha: 41
       texto: O `logout` também apaga o token do `sessionStorage` e altera apenas o ramo `auth`.
     inicio: 31
+    contexto: O arquivo `src/shared/lib/store/authSlice.ts` define a fatia `auth`, que guarda o token JWT e o usuário autenticado no shell. O trecho abaixo são os reducers `login` e `logout`, que também gravam e apagam o token no `sessionStorage`, e esse efeito dentro do reducer é um dos pontos que a ODA discute.
   - tipo: editor
     rotulo: arquivo
     caminho: src/shared/lib/queryClient.ts
@@ -218,6 +262,7 @@ abas:
       texto: Uma nova tentativa depois de uma falha.
     - linha: 8
       texto: Voltar à aba do navegador não dispara nova busca.
+    contexto: O arquivo `src/shared/lib/queryClient.ts` cria o cliente do React Query, a biblioteca que o shell usa para o estado de servidor, isto é, a cópia local de dados que pertencem à API. O arquivo aparece inteiro e contém as opções padrão de cache e de nova busca que valem para toda consulta do shell.
   - tipo: editor
     rotulo: arquivo
     caminho: src/app/providers/index.tsx
@@ -238,6 +283,7 @@ abas:
     - linha: 12
       texto: O cliente do React Query fica disponível para qualquer componente do shell que chame `useQuery`.
     inicio: 9
+    contexto: O arquivo `src/app/providers/index.tsx` reúne os providers que envolvem toda a aplicação do shell. O trecho abaixo mostra que o store do Redux e o cliente do React Query convivem na mesma árvore de componentes, cada um responsável por um tipo de estado.
   - tipo: editor
     rotulo: arquivo
     caminho: mfes/emprestimo/src/hooks/useAsync.ts
@@ -268,6 +314,7 @@ abas:
     - linha: 15
       texto: Evita atualizar o estado depois que o componente foi desmontado, e não guarda cache entre montagens.
     inicio: 3
+    contexto: O arquivo `mfes/emprestimo/src/hooks/useAsync.ts` pertence ao microfrontend de empréstimo, que tem build próprio e não usa o React Query do shell. O trecho abaixo é o hook com que as telas desse microfrontend buscam dados, controlando carregamento e erro à mão e sem cache entre montagens, o que serve de contraste com o `queryClient` do shell.
   - tipo: faixa
     estilo: dica
     texto: 'No commit `2179313`, nenhum componente do shell chama `useQuery`: o `QueryClientProvider` está montado e aguarda a primeira consulta. Os dados de negócio chegam pelos microfrontends, que usam `useEffect` e `useState`, e o shell busca apenas `config.json` e `mfe-manifest.json`, com `fetch` direto e fora do React.'
@@ -276,6 +323,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba simula o store do shell sem executar o projeto, com as três fatias e as respostas do código no commit `2179313`. `TOKEN` é um JWT válido até 2286, com `sub` igual a `user1`, e `EXPIRADO` é um JWT com `exp` igual a 1. Leia o estado, despache ações e observe qual ramo cada ação altera.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: frontend-react no GitHub, commit 2179313
+      url: https://github.com/arkhibr/frontend-react/tree/2179313
   - tipo: terminal
     titulo: console · store do shell
     comandos:

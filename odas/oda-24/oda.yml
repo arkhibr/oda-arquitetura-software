@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e do Python 3, usado para montar tokens de teste. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório chama a API por `127.0.0.1` e por `[::1]` para simular dois clientes, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e do Python 3, usado para montar tokens de teste. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. O laboratório chama a API por `127.0.0.1` e por `[::1]` para simular dois clientes, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · trinta senhas erradas
     comandos:
@@ -82,6 +116,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: Esta aba mostra, no commit `702145a`, a validação do token, as políticas de limite e duas rotas que não usam nenhuma delas. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: Program.cs
@@ -108,6 +149,7 @@ abas:
     - linha: 141
       texto: A mesma chave assina e valida, lida de `appsettings.json`.
     inicio: 129
+    contexto: O `Program.cs` da raiz monta a aplicação, registrando os serviços e o pipeline HTTP da API. O trecho abaixo configura a autenticação JWT Bearer com os parâmetros de validação do token, entre eles a expiração e a chave simétrica lida da configuração.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Extensions/RateLimitingExtensions.cs
@@ -149,6 +191,7 @@ abas:
     - linha: 53
       texto: Balde de cinco tokens por minuto.
     inicio: 33
+    contexto: O `RateLimitingExtensions.cs` registra no ASP.NET Core o limitador de requisições da API, com a resposta `429` e o cabeçalho `Retry-After`. O trecho abaixo declara as três políticas nomeadas, `leitura` em janela fixa, `escrita` em janela deslizante e `criacao-produto` em balde de tokens, que as rotas precisam referenciar para ter limite.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Catalogo/Catalogo.API/Endpoints/Auth/AuthEndpoints.cs
@@ -163,6 +206,7 @@ abas:
     - linha: 21
       texto: O login é anônimo e não tem política de limite.
     inicio: 17
+    contexto: O `AuthEndpoints.cs` registra o grupo de rotas `/api/v1/auth`, que emite o token JWT a partir de e-mail e senha. O trecho abaixo é o registro da rota `POST /login`, que aceita chamadas anônimas e não declara política de limite, o que deixa as tentativas de senha sem teto.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/CreatePedido/CreatePedidoEndpoint.cs
@@ -181,6 +225,7 @@ abas:
     - linha: 34
       texto: Exige token e não tem política de limite.
     inicio: 26
+    contexto: O `CreatePedidoEndpoint.cs` registra a rota `POST /api/v1/pedidos`, que cria um pedido em status Rascunho. O trecho abaixo são os metadados da rota, que exigem token com `RequireAuthorization` e não chamam `RequireRateLimiting`, e por isso a criação de pedidos fica sem limite de requisições.
 - id: simulacao
   titulo: Simulação
   blocos:

@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10, do Git e do `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+    texto: Você vai precisar do .NET SDK 10, do Git e do `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. Todas as abas se referem ao commit `702145a`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `net-minimal-api` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+    - titulo: Fixar o commit `702145a`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 702145a
+    - titulo: Compilar a API
+      texto: O comando baixa os pacotes NuGet e compila a API, e a primeira execução demora mais porque o NuGet preenche o cache local. Neste commit, a compilação da solução inteira falha no projeto `tests/Pedidos.Tests`, que referencia um namespace inexistente, e por isso os laboratórios compilam e testam só os projetos que usam.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build ProdutosAPI.csproj
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · o mesmo erro em dois ambientes
     comandos:
@@ -106,6 +140,13 @@ abas:
   blocos:
   - tipo: legenda
     texto: 'Esta aba mostra os dois pontos que decidem a resposta de um erro, no commit `702145a`: o endpoint que traduz um `Result` com falha e o middleware que trata as exceções. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: net-minimal-api no GitHub, commit 702145a
+      url: https://github.com/arkhibr/net-minimal-api/tree/702145a
   - tipo: editor
     rotulo: arquivo
     caminho: src/Pedidos/CreatePedido/CreatePedidoEndpoint.cs
@@ -127,6 +168,7 @@ abas:
     - linha: 24
       texto: 'Erro de domínio: o handler devolveu `Result` com falha.'
     inicio: 15
+    contexto: O `CreatePedidoEndpoint.cs` registra a rota `POST /api/v1/pedidos`, a fatia vertical de Pedidos que cria um pedido em status Rascunho. O trecho abaixo é o corpo da rota, que valida o comando com o FluentValidation, chama o handler e traduz o `Result` em `201`, em `ValidationProblem` ou em `400`, e por isso decide a resposta dos erros previstos.
   - tipo: editor
     rotulo: arquivo
     caminho: src/Shared/Middleware/ExceptionHandlingMiddleware.cs
@@ -228,6 +270,7 @@ abas:
     - linha: 103
       texto: Escreve o corpo em JSON.
     inicio: 23
+    contexto: O `ExceptionHandlingMiddleware.cs` é o middleware global da API que captura as exceções não tratadas e devolve respostas padronizadas. O trecho abaixo mostra o `try` em volta do restante do pipeline e o `switch` que escolhe o status de cada tipo de exceção, o ponto que define a resposta dos erros que nenhum endpoint previu.
 - id: simulacao
   titulo: Simulação
   blocos:

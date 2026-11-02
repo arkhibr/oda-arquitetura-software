@@ -17,7 +17,41 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 💡 Antes de começar
-    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux, caminho verificado com o Colima. No Linux ou no WSL, rode os comandos `dotnet test` direto, sem `sincronizar` e sem `docker exec`.
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e o bloco Como ter o código na sua máquina, logo abaixo, mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux, caminho verificado com o Colima. No Linux ou no WSL, rode os comandos `dotnet test` direto, sem `sincronizar` e sem `docker exec`.
+  - tipo: faixa
+    estilo: dica
+    titulo: 🧭 Como ter o código na sua máquina
+    texto: O código que esta ODA analisa está no repositório público `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. Todas as abas se referem ao commit `50a5344`, e os passos abaixo baixam o repositório, fixam esse commit e preparam a compilação. A pasta criada no primeiro passo é a raiz do repositório, de onde partem os caminhos de arquivo e os comandos desta ODA.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
+  - tipo: passos
+    itens:
+    - titulo: Clonar o repositório
+      texto: Rode os comandos numa pasta de trabalho da sua escolha. O Git cria a pasta `aspire-aws` com o histórico completo do repositório, e o `cd` entra nela. Se você já tem o clone, basta entrar na pasta dele.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git clone https://github.com/arkhibr/aspire-aws
+        - cd aspire-aws
+    - titulo: Fixar o commit `50a5344`
+      texto: O Git avisa que o repositório ficou em `detached HEAD`, e isso é esperado, porque os caminhos, os números de linha e as saídas desta ODA correspondem a esse commit. Se o Git recusar a troca por causa de alterações locais, a faixa Antes de começar, na aba Laboratório, mostra como guardá-las com `git stash`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout 50a5344
+    - titulo: Compilar a solução
+      texto: O comando baixa os pacotes NuGet e compila a solução `aspire-aws.sln`, com o AppHost e todos os cenários. A compilação mostra centenas de avisos e nenhum erro, e o Docker só passa a ser necessário quando os testes sobem o LocalStack.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet build
+    - titulo: Abrir o repositório no editor
+      texto: Abra a pasta do repositório no editor que preferir. Com o Visual Studio Code instalado, o comando abaixo abre a pasta atual, e a busca de arquivos, com Ctrl+P no Windows e no Linux ou Cmd+P no macOS, encontra cada arquivo pelo caminho que as abas mostram.
+      editor:
+        rotulo: terminal
+        linhas:
+        - code .
   - tipo: terminal
     titulo: terminal · o pipeline de ofertas
     comandos:
@@ -82,7 +116,14 @@ abas:
   titulo: No código
   blocos:
   - tipo: legenda
-    texto: Esta aba mostra, no commit `50a5344`, o roteador, o agendador e a regra semeada pela fixture do cenário 16. Clique nos marcadores para ler a explicação de cada linha.
+    texto: 'Esta aba mostra os arquivos do cenário 16 que decidem para onde vai cada oferta de crédito: a Lambda roteadora, que consulta as regras no DynamoDB, e dois trechos da fixture, um com o agendador que gera as ofertas e outro com a Lambda de eco ligada à fila de consignado. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam o caminho de uma oferta e o ponto em que a regra desta ODA muda.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 📂 Onde está o código
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    links:
+    - rotulo: aspire-aws no GitHub, commit 50a5344
+      url: https://github.com/arkhibr/aspire-aws/tree/50a5344
   - tipo: editor
     rotulo: arquivo
     caminho: src/lambdas/roteador_de_ofertas/handler.py
@@ -111,6 +152,7 @@ abas:
     - linha: 24
       texto: E a mensagem é apagada da fila, porque a invocação termina sem erro.
     inicio: 13
+    contexto: O `src/lambdas/roteador_de_ofertas/handler.py` é a Lambda em Python que o cenário 16 liga à fila de ofertas para encaminhar cada oferta à fila do segmento dela. O trecho abaixo lê as regras da tabela do DynamoDB, procura a fila de destino pelo segmento da oferta e, quando não há regra, só registra um aviso no log e passa à próxima oferta, que é o comportamento que esta ODA altera.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/16-Pipeline.Scheduler.Router/Fixture.cs
@@ -135,6 +177,7 @@ abas:
     - linha: 128
       texto: O alvo do agendador é a Lambda produtora.
     inicio: 119
+    contexto: O `scenarios/16-Pipeline.Scheduler.Router/Fixture.cs` é a fixture do cenário 16, que cria as tabelas, as filas, as Lambdas e as ligações do pipeline antes dos testes. O trecho abaixo, no fim da fixture, cria o agendador do EventBridge Scheduler que invoca a Lambda produtora a cada 20 segundos, por isso novas ofertas chegam às filas também enquanto os testes rodam.
   - tipo: editor
     rotulo: arquivo
     caminho: scenarios/16-Pipeline.Scheduler.Router/Fixture.cs
@@ -150,6 +193,7 @@ abas:
     - linha: 98
       texto: A `eco-consignado` consome a mesma fila que o teste consulta.
     inicio: 95
+    contexto: Na mesma fixture, logo depois de ligar o roteador à fila de ofertas, um segundo mapeamento liga a Lambda de eco à fila de consignado. O trecho abaixo mostra essa ligação, que faz a Lambda de eco consumir mensagens da mesma fila que o teste consulta para conferir o roteamento.
 - id: simulacao
   titulo: Simulação
   blocos:
