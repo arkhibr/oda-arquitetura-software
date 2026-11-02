@@ -1,0 +1,534 @@
+id: '32'
+titulo: Funções orientadas a eventos com Lambda
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é ligar funções Lambda a eventos de S3, SQS, DynamoDB e EventBridge, verificar o efeito de forma assíncrona nos testes e impedir que uma mensagem que a função não consegue processar seja repetida para sempre. No repositório `aspire-aws`, os cenários 07, 08, 11 e 14 implantam funções Python no LocalStack e esperam o resultado com um laço de consulta. Você vai rodar os cenários num contêiner Linux, provar que a fila do cenário 08 não tem destino para mensagens com falha e configurar uma fila de mensagens mortas com o teste escrito antes.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar como um evento chega a uma Lambda em cada um dos quatro gatilhos.
+    - Escrever um teste que espera um efeito assíncrono com tempo limite.
+    - Explicar o que acontece com uma mensagem do SQS quando a Lambda falha.
+    - Configurar uma fila de mensagens mortas com `RedrivePolicy` e `maxReceiveCount`.
+    - Rodar testes com Lambda do LocalStack num contêiner Linux.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux. Esse caminho foi verificado com o Colima, e no Linux ou no WSL os comandos `dotnet test` podem rodar direto, sem o contêiner.
+  - tipo: terminal
+    titulo: terminal · os quatro gatilhos
+    comandos:
+    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
+      saida: sha256:a0faca54756aacaea5097cc0979f311171edd1d6c09d612dccf1af343c214321
+      origem: executado
+      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
+    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+      saida: c010420897a4…
+      origem: executado
+      dica: O contêiner fica parado em `sleep infinity`, usa a rede da máquina e o Docker dela pelo socket. O identificador muda a cada execução.
+    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      saida: ''
+      origem: executado
+      dica: A função copia para `/repo` no contêiner os arquivos do repositório, inclusive os novos. O `COPYFILE_DISABLE=1` evita os arquivos `._*` do macOS.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 s - 08-SQS.Lambda.Consumer.dll (net10.0)'
+      origem: executado
+      dica: 'No Linux, o teste do cenário 08 roda: a mensagem válida chega à Lambda, que grava no DynamoDB.'
+    - entrada: dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: '  Ignorado Scenarios.SQS.LambdaConsumer.SqsLambdaConsumerTests.SendMessage_ShouldTriggerLambda_AndPersistToDynamoDb
+
+        Ignorado!  – Com falha:     0, Aprovado:     0, Ignorado:     1, Total:     1, Duração: 1 ms - 08-SQS.Lambda.Consumer.dll (net10.0)'
+      origem: executado
+      dica: No macOS com Apple Silicon, os testes com Lambda são ignorados de propósito. Rode-os no contêiner Linux do passo 2.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/07-S3.Lambda.Trigger 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 559 ms - 07-S3.Lambda.Trigger.dll (net10.0)'
+      origem: executado
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/11-DynamoDB.Lambda 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 453 ms - 11-DynamoDB.Lambda.dll (net10.0)'
+      origem: executado
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/14-EventBridge.Lambda 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 5 s - 14-EventBridge.Lambda.dll (net10.0)'
+      origem: executado
+    cenarios:
+    - rotulo: No macOS
+      comando: dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+    - rotulo: SQS no Linux
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+    - rotulo: S3 no Linux
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/07-S3.Lambda.Trigger 2>&1 | grep -E 'Passed!|Failed!'
+    - rotulo: EventBridge no Linux
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/14-EventBridge.Lambda 2>&1 | grep -E 'Passed!|Failed!'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba explica como cada gatilho entrega o evento à Lambda e como o teste confirma um efeito que acontece depois. A ADR-005 do repositório registra o uso de um laço de consulta com tempo limite para as asserções assíncronas.
+  - tipo: comparativo
+    colunas:
+    - Como o evento chega
+    - Se a Lambda falha
+    linhas:
+    - dimensao: S3, cenário 07
+      valores:
+      - O S3 invoca a função a cada objeto criado
+      - Até duas novas tentativas, e depois o evento se perde sem destino configurado
+    - dimensao: SQS, cenário 08
+      valores:
+      - Um mapeamento de origem lê a fila e entrega lotes
+      - A mensagem volta para a fila depois da visibilidade e é lida de novo
+    - dimensao: DynamoDB, cenário 11
+      valores:
+      - Um mapeamento lê o stream de alterações da tabela
+      - O lote é repetido até expirar ou dar certo, e bloqueia o fragmento
+    - dimensao: EventBridge, cenário 14
+      valores:
+      - Uma regra compara o evento e invoca a função
+      - Novas tentativas por até 24 horas, sem destino configurado
+  - tipo: conceito
+    titulo: Asserção assíncrona
+    texto: O teste não sabe quando a Lambda termina. Ele consulta o efeito, como um item no DynamoDB, a cada intervalo, até encontrá-lo ou até o tempo limite, que precisa cobrir a inicialização a frio da função.
+  - tipo: conceito
+    titulo: Fila de mensagens mortas
+    texto: A `RedrivePolicy` de uma fila aponta outra fila e um `maxReceiveCount`. Quando uma mensagem é recebida esse número de vezes sem ser apagada, o SQS a move para a fila de mensagens mortas, onde ela espera análise e não volta a acionar a função.
+  - tipo: adr
+    id: ADR-005
+    titulo: Tática de asserções assíncronas
+    status: proposed
+    contexto: Os efeitos das Lambdas aparecem depois da chamada que os provocou, em tempo variável.
+    decisao: '`PollingHelper` com `WaitUntilAsync`, que consulta uma condição a cada intervalo até um tempo limite, e `AssertNeverAsync`.'
+    alternativas: Espera fixa com `Task.Delay`, novas tentativas com Polly e assinatura de eventos do LocalStack.
+    consequencias: Testes que esperam só o necessário, com tempo limite que precisa ser ajustado por cenário.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `50a5344`, a função que consome a fila, a ligação entre a fila e a função e a regra que ignora os testes no macOS. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/lambdas/sqs_consumer/handler.py
+    commit: 50a5344
+    linhas:
+    - 'def lambda_handler(event, context):'
+    - '    endpoint = os.environ.get("AWS_ENDPOINT_URL")'
+    - '    dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint)'
+    - '    table = dynamodb.Table(os.environ["DYNAMODB_TABLE"])'
+    - ''
+    - '    for record in event.get("Records", []):'
+    - '        body = json.loads(record["body"])'
+    - '        table.put_item(Item={"id": record["messageId"], "body": json.dumps(body)})'
+    - ''
+    - '    return {"statusCode": 200}'
+    anotacoes:
+    - linha: 13
+      texto: Uma mensagem que não é JSON gera exceção, e a invocação inteira falha.
+    - linha: 14
+      texto: O `messageId` como chave torna a gravação repetível sem duplicar.
+    inicio: 7
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/08-SQS.Lambda.Consumer/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '        QueueUrl = (await SQS.CreateQueueAsync("consumer-queue")).QueueUrl;'
+    - '        QueueArn = (await SQS.GetQueueAttributesAsync(QueueUrl, ["QueueArn"])).Attributes["QueueArn"];'
+    - ''
+    - '        var mapping = await lambda.CreateEventSourceMappingAsync(new CreateEventSourceMappingRequest'
+    - '        {'
+    - '            FunctionName = FunctionName,'
+    - '            EventSourceArn = QueueArn,'
+    - '            BatchSize = 1,'
+    - '            Enabled = true'
+    - '        });'
+    - ''
+    - '        await PollingHelper.WaitUntilAsync(async () =>'
+    - '        {'
+    - '            var response = await lambda.GetEventSourceMappingAsync(new GetEventSourceMappingRequest'
+    - '            {'
+    - '                UUID = mapping.UUID'
+    - '            });'
+    - ''
+    - '            return string.Equals(response.State, "Enabled", StringComparison.OrdinalIgnoreCase);'
+    anotacoes:
+    - linha: 50
+      texto: 'A fila é criada sem atributos: sem `RedrivePolicy`.'
+    - linha: 57
+      texto: Uma mensagem por invocação.
+    - linha: 68
+      texto: A fixture espera o mapeamento ficar ativo.
+    inicio: 50
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/EnvironmentLimitations.cs
+    commit: 50a5344
+    linhas:
+    - '    public static bool IsMacOsArm64LocalStackLambdaUnsupported =>'
+    - '        OperatingSystem.IsMacOS() && RuntimeInformation.ProcessArchitecture == Architecture.Arm64;'
+    anotacoes:
+    - linha: 18
+      texto: 'A regra vale para o processo de teste: no Linux, inclusive num contêiner num Mac, os testes rodam.'
+    inicio: 17
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, o caminho de uma mensagem inválida na fila do cenário 08, antes e depois da fila de mensagens mortas. Depois, classifique o que cada configuração faz com a mensagem.
+  - tipo: fluxo
+    titulo: A mensagem `isto não é JSON`
+    etapas:
+    - titulo: Entrega
+      descricao: O mapeamento lê a mensagem, e ela fica invisível na fila por 30 s.
+    - titulo: Falha
+      descricao: O `json.loads` lança exceção, e a mensagem não é apagada.
+    - titulo: Sem redirecionamento
+      descricao: Depois da visibilidade, a mensagem volta e é entregue de novo, a cada 30 s, até o fim do período de retenção.
+    - titulo: Com redirecionamento
+      descricao: No segundo recebimento sem exclusão, o SQS move a mensagem para a `consumer-dlq`.
+    - titulo: Análise
+      descricao: A mensagem fica na fila de mensagens mortas sem acionar a função, à espera de correção ou descarte.
+  - tipo: classificador
+    enunciado: O que acontece com a mensagem inválida?
+    categorias:
+    - id: volta
+      rotulo: Volta à fila indefinidamente
+    - id: morta
+      rotulo: Vai para a fila de mensagens mortas
+    - id: some
+      rotulo: É apagada
+    itens:
+    - texto: Fila sem `RedrivePolicy`
+      categoria: volta
+      explicacao: O passo 4 mostrou que ela não chegou à `consumer-dlq` em 120 s.
+    - texto: Fila com `RedrivePolicy` e `maxReceiveCount` 2
+      categoria: morta
+      explicacao: O passo 6 mostrou a mudança.
+    - texto: Função que captura a exceção e retorna sucesso
+      categoria: some
+      explicacao: O mapeamento apaga a mensagem quando a invocação dá certo, e o erro fica escondido.
+    - texto: Fila de mensagens mortas criada, sem `RedrivePolicy` na fila de origem
+      categoria: volta
+      explicacao: A fila existe, mas nada aponta para ela.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é garantir que uma mensagem que a Lambda não consegue processar saia da fila principal e vá para uma fila de mensagens mortas, com um teste que comprova isso. Os passos 1 a 3 preparam o contêiner Linux e rodam o cenário 08, os passos 4 e 5 escrevem o teste e criam a fila de mensagens mortas, e o passo 6 liga as duas filas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/aspire-aws`, entre na pasta criada e rode `git checkout 50a5344`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `50a5344` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` continuam no lugar, porque o Git as ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Ver os testes ignorados no macOS
+      texto: Se você usa Linux ou WSL, pule para o passo 3 e rode os comandos `dotnet test` direto, sem `sincronizar` e sem `docker exec`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      sucesso: '`Ignorado: 1` no macOS com Apple Silicon.'
+    - titulo: Preparar o contêiner Linux
+      texto: Crie o arquivo abaixo na raiz do repositório, construa a imagem, suba o contêiner e defina a função `sincronizar`.
+      editor:
+        rotulo: arquivo
+        caminho: Dockerfile.linux (novo, na raiz do repositório)
+        commit: 50a5344
+        linhas:
+        - FROM mcr.microsoft.com/dotnet/sdk:10.0
+        - RUN apt-get update && apt-get install -y --no-install-recommends docker.io && rm -rf /var/lib/apt/lists/*
+        - WORKDIR /repo
+        - ''
+        - '# no terminal:'
+        - docker build -q -t aspire-aws-linux - < Dockerfile.linux
+        - docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+        - sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      sucesso: Um identificador `sha256:` da imagem e o identificador do contêiner.
+    - titulo: Rodar o cenário 08 no Linux
+      editor:
+        rotulo: terminal
+        linhas:
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      sucesso: '`Passed: 1`.'
+    - titulo: Escrever o teste da mensagem inválida
+      texto: O teste envia um texto que não é JSON e espera encontrá-lo na fila de mensagens mortas em até 120 s.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/08-SQS.Lambda.Consumer/MensagemInvalidaTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.SQS.Model;
+        - using Shared;
+        - ''
+        - namespace Scenarios.SQS.LambdaConsumer;
+        - ''
+        - 'public class MensagemInvalidaTests(Fixture fixture) : IClassFixture<Fixture>'
+        - '{'
+        - '    [SkipOnMacOsArm64LocalStackLambdaFact]'
+        - '    public async Task MensagemQueALambdaNaoProcessa_VaiParaAFilaDeMensagensMortas()'
+        - '    {'
+        - '        await fixture.SQS.SendMessageAsync(fixture.QueueUrl, "isto não é JSON");'
+        - ''
+        - '        Message? morta = null;'
+        - '        await PollingHelper.WaitUntilAsync(async () =>'
+        - '        {'
+        - '            var resposta = await fixture.SQS.ReceiveMessageAsync(new ReceiveMessageRequest'
+        - '            {'
+        - '                QueueUrl = fixture.DlqUrl,'
+        - '                WaitTimeSeconds = 1'
+        - '            });'
+        - '            morta = resposta.Messages?.FirstOrDefault();'
+        - '            return morta is not null;'
+        - '        }, timeout: TimeSpan.FromSeconds(120),'
+        - '        failureMessage: "A mensagem inválida não chegou à fila de mensagens mortas em 120 s.");'
+        - ''
+        - '        Assert.Equal("isto não é JSON", morta!.Body);'
+        - '    }'
+        - '}'
+    - titulo: Criar a fila de mensagens mortas
+      texto: Acrescente a propriedade e a criação da `consumer-dlq` na fixture e rode o teste.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/08-SQS.Lambda.Consumer/Fixture.cs (alteração)
+        commit: 50a5344
+        linhas:
+        - '// scenarios/08-SQS.Lambda.Consumer/Fixture.cs: abaixo da propriedade QueueUrl'
+        - '    public string DlqUrl { get; private set; } = null!;'
+        - ''
+        - // no InitializeScenarioAsync, antes da linha que cria a consumer-queue
+        - '        DlqUrl = (await SQS.CreateQueueAsync("consumer-dlq")).QueueUrl;'
+        - ''
+        - '// no terminal:'
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      efeito: fila_morta_criada
+      sucesso: '`Failed: 1` com `TimeoutException`, depois de cerca de 2 minutos: a fila existe, mas nada leva a mensagem até ela.'
+    - titulo: Ligar a fila principal à de mensagens mortas
+      texto: Troque a criação da `consumer-queue` pela versão com `RedrivePolicy`.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/08-SQS.Lambda.Consumer/Fixture.cs (alteração)
+        commit: 50a5344
+        linhas:
+        - '// scenarios/08-SQS.Lambda.Consumer/Fixture.cs: no lugar da linha que cria a consumer-queue'
+        - // e com using Amazon.SQS.Model; no topo do arquivo
+        - '        var dlqArn = (await SQS.GetQueueAttributesAsync(DlqUrl, ["QueueArn"])).Attributes["QueueArn"];'
+        - '        // A visibilidade de 30 s acompanha o tempo limite de 30 s da função.'
+        - '        QueueUrl = (await SQS.CreateQueueAsync(new CreateQueueRequest'
+        - '        {'
+        - '            QueueName = "consumer-queue",'
+        - '            Attributes = new Dictionary<string, string>'
+        - '            {'
+        - '                ["VisibilityTimeout"] = "30",'
+        - '                ["RedrivePolicy"] = $$"""{"deadLetterTargetArn":"{{dlqArn}}","maxReceiveCount":"2"}"""'
+        - '            }'
+        - '        })).QueueUrl;'
+        - ''
+        - '// no terminal:'
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      efeito: redirecionamento
+      sucesso: '`Passed: 2`, em cerca de um minuto e meio.'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
+      saida: sha256:a0faca54756aacaea5097cc0979f311171edd1d6c09d612dccf1af343c214321
+      origem: executado
+      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
+    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+      saida: c010420897a4…
+      origem: executado
+      dica: O contêiner fica parado em `sleep infinity`, usa a rede da máquina e o Docker dela pelo socket. O identificador muda a cada execução.
+    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      saida: ''
+      origem: executado
+      dica: A função copia para `/repo` no contêiner os arquivos do repositório, inclusive os novos. O `COPYFILE_DISABLE=1` evita os arquivos `._*` do macOS.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      condicao:
+      - fila_morta_criada
+      - redirecionamento
+      saida: 'Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 1 m 25 s - 08-SQS.Lambda.Consumer.dll (net10.0)'
+      origem: executado
+      dica: Depois de dois recebimentos com falha, o SQS moveu a mensagem para a `consumer-dlq`.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      condicao: fila_morta_criada
+      saida: "  Failed Scenarios.SQS.LambdaConsumer.MensagemInvalidaTests.MensagemQueALambdaNaoProcessa_VaiParaAFilaDeMensagensMortas\n   System.TimeoutException : A mensagem inválida não chegou à fila de mensagens mortas em 120 s.\nFailed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 2 m 21 s - 08-SQS.Lambda.Consumer.dll (net10.0)"
+      origem: executado
+      dica: A Lambda falhou em cada recebimento da mensagem inválida, e sem política de redirecionamento ela nunca foi para a fila de mensagens mortas.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 s - 08-SQS.Lambda.Consumer.dll (net10.0)'
+      origem: executado
+      dica: 'No Linux, o teste do cenário 08 roda: a mensagem válida chega à Lambda, que grava no DynamoDB.'
+    - entrada: dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: '  Ignorado Scenarios.SQS.LambdaConsumer.SqsLambdaConsumerTests.SendMessage_ShouldTriggerLambda_AndPersistToDynamoDb
+
+        Ignorado!  – Com falha:     0, Aprovado:     0, Ignorado:     1, Total:     1, Duração: 1 ms - 08-SQS.Lambda.Consumer.dll (net10.0)'
+      origem: executado
+      dica: No macOS com Apple Silicon, os testes com Lambda são ignorados de propósito. Rode-os no contêiner Linux do passo 2.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/07-S3.Lambda.Trigger 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 559 ms - 07-S3.Lambda.Trigger.dll (net10.0)'
+      origem: executado
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/11-DynamoDB.Lambda 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 453 ms - 11-DynamoDB.Lambda.dll (net10.0)'
+      origem: executado
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/14-EventBridge.Lambda 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 5 s - 14-EventBridge.Lambda.dll (net10.0)'
+      origem: executado
+    cenarios:
+    - rotulo: No macOS
+      comando: dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+    - rotulo: Cenário 08 no Linux
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com funções acionadas por eventos, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Mensagem que nunca sai da fila
+    origem: executado
+    rotulo_saida: log
+    saida: "$ sincronizar && docker exec aspire-linux dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Failed |A mensagem inválida|Passed!|Failed!' | sed -E 's/ \\[[0-9 ms.]+\\]//'\n  Failed Scenarios.SQS.LambdaConsumer.MensagemInvalidaTests.MensagemQueALambdaNaoProcessa_VaiParaAFilaDeMensagensMortas\n   System.TimeoutException : A mensagem inválida não chegou à fila de mensagens mortas em 120 s.\nFailed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 2 m 21 s - 08-SQS.Lambda.Consumer.dll (net10.0)"
+    pergunta: A fila de mensagens mortas existe, e a mensagem inválida não chegou a ela. Por quê?
+    correcao: Configurar a `RedrivePolicy` na fila de origem, com o ARN da fila de mensagens mortas e um `maxReceiveCount`.
+    alternativas:
+    - texto: O teste esperou pouco.
+      correta: false
+      explicacao: Com a política, a mesma espera bastou.
+    - texto: A fila de origem não tem `RedrivePolicy`, e o SQS não sabe para onde mover a mensagem.
+      correta: true
+      explicacao: A mensagem continua voltando à `consumer-queue` e acionando a função.
+    - texto: A Lambda apagou a mensagem.
+      correta: false
+      explicacao: A função falhou, e o mapeamento só apaga depois de sucesso.
+  - tipo: incidente
+    titulo: Testes de Lambda ignorados no Mac
+    origem: executado
+    rotulo_saida: log
+    saida: "$ dotnet test scenarios/08-SQS.Lambda.Consumer 2>&1 | grep -E '^  Ignorado|Aprovado!|Ignorado!' | sed -E 's/ \\[[0-9.]+ m?s\\]//'\n  Ignorado Scenarios.SQS.LambdaConsumer.SqsLambdaConsumerTests.SendMessage_ShouldTriggerLambda_AndPersistToDynamoDb\nIgnorado!  – Com falha:     0, Aprovado:     0, Ignorado:     1, Total:     1, Duração: 1 ms - 08-SQS.Lambda.Consumer.dll (net10.0)"
+    pergunta: No Mac com Apple Silicon, o cenário 08 não executa nada. O que fazer para rodá-lo?
+    correcao: Rodar os testes num processo Linux, como o contêiner do passo 2, ou num computador Linux, no WSL ou no CI.
+    alternativas:
+    - texto: Instalar o LocalStack Pro.
+      correta: false
+      explicacao: A regra não consulta a edição do LocalStack.
+    - texto: Apagar o atributo do teste.
+      correta: false
+      explicacao: O teste rodaria no ambiente que o repositório considera instável.
+    - texto: A regra do repositório ignora os testes quando o processo de teste roda no macOS ARM64, e um processo Linux não cai na regra.
+      correta: true
+      explicacao: No contêiner, o mesmo teste passou.
+  - tipo: incidente
+    titulo: Erro escondido por um try
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/lambdas/sqs_consumer/handler.py:12-14
+
+      for record in event.get("Records", []):
+
+      body = json.loads(record["body"])
+
+      table.put_item(Item={"id": record["messageId"], "body": json.dumps(body)})'
+    pergunta: Um colega sugere envolver o `json.loads` num `try` que ignora o erro, para a fila não travar. Qual é a consequência?
+    correcao: Deixar a exceção sair e configurar a fila de mensagens mortas, ou, com lotes maiores, devolver as falhas por item com `ReportBatchItemFailures`.
+    alternativas:
+    - texto: A invocação dá certo, o mapeamento apaga a mensagem, e o pedido se perde sem registro.
+      correta: true
+      explicacao: A fila de mensagens mortas guarda a mensagem para análise.
+    - texto: A mensagem vai para a fila de mensagens mortas.
+      correta: false
+      explicacao: Só mensagens não apagadas são movidas.
+    - texto: A Lambda tenta de novo sozinha.
+      correta: false
+      explicacao: Quem repete é o SQS, e só se a invocação falhar.
+  - tipo: incidente
+    titulo: Visibilidade menor que o tempo da função
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Shared/LambdaDeployer.cs:40
+
+      Timeout = 30,'
+    pergunta: Para a mensagem inválida chegar mais cedo à fila de mensagens mortas, alguém propõe visibilidade de 5 s na `consumer-queue`. Por que o passo 6 usa 30 s?
+    correcao: Manter a visibilidade da fila pelo menos igual ao tempo limite da função, que o `LambdaDeployer` define em 30 s, ou reduzir os dois juntos.
+    alternativas:
+    - texto: O `maxReceiveCount` exige 30 s.
+      correta: false
+      explicacao: O `maxReceiveCount` conta recebimentos, não tempo.
+    - texto: Com visibilidade menor que o tempo da função, a mensagem volta à fila enquanto ainda está sendo processada, e a AWS recusa o mapeamento nessa configuração.
+      correta: true
+      explicacao: A visibilidade precisa cobrir a execução inteira da função.
+    - texto: O SQS não aceita visibilidade abaixo de 30 s.
+      correta: false
+      explicacao: O mínimo do SQS é 0 s.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Como um teste confirma um efeito assíncrono da Lambda?
+      alternativas:
+      - texto: Lendo o retorno da chamada que enviou o evento.
+        correta: false
+        explicacao: O envio termina antes de a função rodar.
+      - texto: Com uma espera fixa longa.
+        correta: false
+        explicacao: Fica lenta quando sobra tempo e falha quando falta.
+      - texto: Consultando o efeito a cada intervalo até encontrá-lo ou até um tempo limite.
+        correta: true
+        explicacao: É o papel do `PollingHelper.WaitUntilAsync`.
+    - enunciado: O que acontece com uma mensagem do SQS quando a Lambda falha?
+      alternativas:
+      - texto: Não é apagada e volta a ficar visível depois do tempo de visibilidade.
+        correta: true
+        explicacao: E é entregue de novo.
+      - texto: É apagada.
+        correta: false
+        explicacao: Só a invocação bem-sucedida apaga a mensagem.
+      - texto: Vai direto para a fila de mensagens mortas.
+        correta: false
+        explicacao: Só depois de `maxReceiveCount` recebimentos e com a política configurada.
+    - enunciado: Onde fica a `RedrivePolicy`?
+      alternativas:
+      - texto: Na Lambda.
+        correta: false
+        explicacao: A função tem destinos próprios para invocações assíncronas, não para o SQS.
+      - texto: Na fila de origem, apontando para a fila de mensagens mortas.
+        correta: true
+        explicacao: A fila de mensagens mortas é uma fila comum.
+      - texto: Na fila de mensagens mortas.
+        correta: false
+        explicacao: Ela não sabe de onde vêm as mensagens.
+    - enunciado: Por que a gravação usa o `messageId` como chave?
+      alternativas:
+      - texto: Para ordenar os itens.
+        correta: false
+        explicacao: A chave de partição não define ordem.
+      - texto: Porque o corpo não pode ser chave.
+        correta: false
+        explicacao: O motivo é a idempotência.
+      - texto: Para que a mesma mensagem entregue duas vezes não crie dois itens.
+        correta: true
+        explicacao: O SQS entrega pelo menos uma vez.
+    - enunciado: Por que os testes com Lambda rodam no contêiner Linux num Mac?
+      alternativas:
+      - texto: Porque a regra que os ignora olha o sistema do processo de teste, e no contêiner o processo é Linux.
+        correta: true
+        explicacao: O LocalStack e as funções continuam no mesmo Docker.
+      - texto: Porque o contêiner tem o LocalStack Pro.
+        correta: false
+        explicacao: A imagem tem só o SDK e o cliente do Docker.
+      - texto: Porque o Mac não roda Docker.
+        correta: false
+        explicacao: O Docker roda, e é ele que o contêiner usa.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - Os cenários com Lambda rodaram no contêiner Linux.
+    - A mensagem inválida não chegou à fila de mensagens mortas sem a `RedrivePolicy`.
+    - Com a política, a mensagem foi movida depois de dois recebimentos.
+    - O comportamento de falha de cada gatilho está claro.
+    - O motivo do tempo limite nas asserções assíncronas está claro.

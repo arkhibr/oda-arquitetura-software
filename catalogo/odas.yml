@@ -341,7 +341,8 @@ odas:
     minutos: 90
     pre_requisitos: ["29", "30"]
     objetivo: "Ligar funções Lambda a gatilhos de S3, SQS, DynamoDB e EventBridge e verificar o efeito de forma assíncrona."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-32
   - id: "33"
     titulo: "Pipelines com vários serviços"
     trilha: 7
