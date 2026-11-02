@@ -1,0 +1,640 @@
+id: '34'
+titulo: Orquestração com Step Functions e tarefas em ECS
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é comparar duas formas de executar um processo na AWS, uma máquina de estados do Step Functions e uma tarefa em contêiner no ECS, e escrever uma máquina de estados que trata um erro de negócio em vez de falhar. No repositório `aspire-aws`, o cenário 15 tem uma máquina de estados que chama uma Lambda e por isso fica com os testes ignorados, e o cenário 18 roda um worker em contêiner que consome uma fila. Você vai criar uma máquina de estados sem Lambda que registra pedidos no DynamoDB e fazê-la reconhecer um pedido repetido com um `Catch`.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Descrever quando usar uma máquina de estados e quando usar uma tarefa em contêiner.
+    - Ler uma definição em Amazon States Language, com `Task`, `Pass`, `Choice` e `Catch`.
+    - Integrar o Step Functions direto ao DynamoDB, sem Lambda.
+    - Transformar um erro previsto num estado de negócio com `Catch`.
+    - Explicar por que os testes originais do cenário 15 ficam ignorados.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+  - tipo: terminal
+    titulo: terminal · rodar o cenário 15
+    comandos:
+    - entrada: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Ignorado!  – Com falha:     0, Aprovado:     0, Ignorado:     2, Total:     2, Duração: 4 ms - 15-StepFunctions.Orchestration.dll (net10.0)'
+      origem: executado
+      dica: Os dois testes do cenário 15 estão marcados com `Skip`, porque a máquina de estados original chama uma Lambda.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Docker em execução
+      comando: docker info --format '{{.ServerVersion}}'
+    - rotulo: Rodar o cenário 15
+      comando: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba compara as duas formas de execução e apresenta os elementos da Amazon States Language usados no laboratório. A ADR-003 do repositório registra que os cenários com Lambda ficam ignorados no macOS ARM64 e que o cenário 15 exige suporte que o LocalStack Community nem sempre oferece.
+  - tipo: comparativo
+    colunas:
+    - Step Functions
+    - Tarefa no ECS
+    linhas:
+    - dimensao: O que define o fluxo
+      valores:
+      - A definição JSON, com cada estado e transição
+      - O código do contêiner
+    - dimensao: Estado do processo
+      valores:
+      - Guardado pelo serviço, consultável por execução
+      - Guardado pelo próprio código, num banco ou fila
+    - dimensao: Erros e novas tentativas
+      valores:
+      - '`Retry` e `Catch` declarados por estado'
+      - Escritos no código do worker
+    - dimensao: Duração
+      valores:
+      - Até um ano por execução, no tipo Standard
+      - Enquanto o contêiner estiver rodando
+    - dimensao: No repositório
+      valores:
+      - Cenário 15
+      - Cenário 18, com o worker de `src/tasks/pedido_processor`
+  - tipo: conceito
+    titulo: Integração direta com serviços
+    texto: 'Um estado `Task` pode chamar outro serviço da AWS sem código, pelo recurso `arn:aws:states:::dynamodb:putItem`, por exemplo. Os parâmetros da chamada saem da entrada da execução com a notação `.$`, como em `"S.$": "$.id"`.'
+  - tipo: conceito
+    titulo: Catch
+    texto: Quando um estado falha, o `Catch` compara o nome do erro com a lista `ErrorEquals` e desvia a execução para outro estado, guardando o erro no caminho indicado por `ResultPath`. Sem `Catch`, a execução inteira termina em `FAILED`.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `50a5344`, a máquina de estados original do cenário 15 e o worker em contêiner do cenário 18. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/15-StepFunctions.Orchestration/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '        await new LambdaDeployer(lambda).DeployAsync(FunctionName, "stepfunctions_task");'
+    - ''
+    - '        var function = await lambda.GetFunctionAsync(new GetFunctionRequest'
+    - '        {'
+    - '            FunctionName = FunctionName'
+    - '        });'
+    - ''
+    - '        var definition = $$"""'
+    - '        {'
+    - '          "Comment": "Example Step Functions workflow",'
+    - '          "StartAt": "ProcessStep",'
+    - '          "States": {'
+    - '            "ProcessStep": {'
+    - '              "Type": "Task",'
+    - '              "Resource": "{{function.Configuration.FunctionArn}}",'
+    - '              "Parameters": { "step": "process", "id.$": "$.id" },'
+    - '              "ResultPath": "$.result",'
+    - '              "Next": "CheckResult"'
+    - '            },'
+    - '            "CheckResult": {'
+    - '              "Type": "Choice",'
+    - '              "Choices": ['
+    - '                {'
+    - '                  "Variable": "$.result.processed",'
+    - '                  "BooleanEquals": true,'
+    - '                  "Next": "SuccessState"'
+    - '                }'
+    - '              ],'
+    - '              "Default": "FailState"'
+    - '            },'
+    - '            "SuccessState": {'
+    - '              "Type": "Succeed"'
+    - '            },'
+    - '            "FailState": {'
+    - '              "Type": "Fail",'
+    - '              "Error": "ProcessingFailed"'
+    anotacoes:
+    - linha: 47
+      texto: A fixture implanta uma Lambda antes de criar a máquina de estados.
+    - linha: 61
+      texto: O estado `Task` chama essa Lambda, que precisa do Docker da máquina para rodar.
+    - linha: 67
+      texto: O `Choice` decide o próximo estado pelo resultado da Lambda.
+    inicio: 47
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/18-ECS.RunTask/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '        await RunDockerAsync("build", workerPath, "-t", "ecs-worker:latest");'
+    - ''
+    - '        // Inicia o container com nome único para evitar conflitos entre runs.'
+    - '        // host.docker.internal resolve o host a partir do container. No Docker Desktop'
+    - '        // (macOS/Windows) já existe nativamente; no Docker Engine puro (Linux/WSL2) não —'
+    - '        // por isso o --add-host com host-gateway, que o define em ambos os ambientes.'
+    - '        var containerName = $"ecs-worker-{Guid.NewGuid():N}";'
+    - '        _workerContainerId = await RunDockerAsync('
+    - '            "run", "-d",'
+    - '            "--name", containerName,'
+    - '            "--add-host", "host.docker.internal:host-gateway",'
+    - '            "-e", "AWS_ENDPOINT_URL=http://host.docker.internal:4566",'
+    anotacoes:
+    - linha: 115
+      texto: A fixture constrói a imagem do worker com o Docker da máquina.
+    - linha: 125
+      texto: O contêiner alcança o LocalStack e o PostgreSQL pela máquina hospedeira.
+    inicio: 115
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/tasks/pedido_processor/handler.py
+    commit: 50a5344
+    linhas:
+    - '        try:'
+    - '            response = sqs.receive_message('
+    - '                QueueUrl=fila_pedidos_url,'
+    - '                MaxNumberOfMessages=10,'
+    - '                WaitTimeSeconds=2,'
+    - '            )'
+    - '            for msg in response.get("Messages", []):'
+    - '                pedido = json.loads(msg["Body"])'
+    - '                try:'
+    - '                    # Reconecta se a conexão PostgreSQL estiver morta'
+    - '                    if conn.closed:'
+    - '                        print("[WORKER] Conexão PostgreSQL fechada — reconectando...")'
+    - '                        conn = connect_with_retry(database_url)'
+    - '                    with conn.cursor() as cur:'
+    - '                        cur.execute('
+    - '                            """'
+    - '                            INSERT INTO pedidos (id, cliente, valor, status)'
+    - '                            VALUES (%s, %s, %s, %s)'
+    - '                            ON CONFLICT (id) DO NOTHING'
+    - '                            """,'
+    - '                            (pedido["id"], pedido["cliente"],'
+    - '                             str(pedido["valor"]), "processado"),'
+    - '                        )'
+    - '                    conn.commit()'
+    - '                    sqs.delete_message('
+    - '                        QueueUrl=fila_pedidos_url,'
+    - '                        ReceiptHandle=msg["ReceiptHandle"],'
+    - '                    )'
+    anotacoes:
+    - linha: 51
+      texto: O worker lê até dez mensagens por vez.
+    - linha: 55
+      texto: A leitura do corpo fica fora do `try` de cada mensagem.
+    - linha: 66
+      texto: Um pedido repetido não gera erro nem segunda linha.
+    inicio: 48
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, duas execuções da máquina de estados com o mesmo pedido, sem e com o `Catch`. Depois, classifique onde cada tipo de processo fica melhor.
+  - tipo: fluxo
+    titulo: O mesmo pedido duas vezes
+    etapas:
+    - titulo: Primeira execução
+      descricao: 'O estado `GravarPedido` grava o pedido com a condição `attribute_not_exists(id)`, e o `Registrado` acrescenta `situacao: registrado`.'
+    - titulo: Segunda execução
+      descricao: A condição é falsa, e o DynamoDB devolve `ConditionalCheckFailedException`.
+    - titulo: Sem Catch
+      descricao: A execução termina em `FAILED`, e quem a iniciou precisa ler o erro para saber que o pedido já existia.
+    - titulo: Com Catch
+      descricao: O erro é guardado em `$.erro`, e a execução segue para o estado `Duplicado`.
+    - titulo: Resultado
+      descricao: 'A execução termina em `SUCCEEDED` com `situacao: duplicado`, uma resposta de negócio.'
+  - tipo: classificador
+    enunciado: Este processo fica melhor numa máquina de estados ou numa tarefa em contêiner?
+    categorias:
+    - id: sfn
+      rotulo: Step Functions
+    - id: ecs
+      rotulo: Tarefa no ECS
+    itens:
+    - texto: Aprovação de crédito com espera de dias por um analista
+      categoria: sfn
+      explicacao: A execução guarda o estado durante a espera, sem contêiner rodando.
+    - texto: Consumo contínuo de uma fila de pedidos
+      categoria: ecs
+      explicacao: É um processo longo e repetitivo, como o worker do cenário 18.
+    - texto: Gravação condicional seguida de notificação
+      categoria: sfn
+      explicacao: Duas integrações diretas, sem código.
+    - texto: Conversão de vídeos de uma hora
+      categoria: ecs
+      explicacao: Exige CPU e bibliotecas próprias por muito tempo.
+    - texto: Fluxo com três etapas e tratamento de erro por etapa
+      categoria: sfn
+      explicacao: '`Retry` e `Catch` ficam declarados em cada estado.'
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é criar uma máquina de estados que registra pedidos no DynamoDB e responde a um pedido repetido com um estado de negócio, testada contra o LocalStack. O passo 1 roda o cenário 15, os passos 2 a 4 criam a fixture, o teste e a primeira definição, e o passo 5 acrescenta o `Catch`. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/aspire-aws`, entre na pasta criada e rode `git checkout 50a5344`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `50a5344` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` continuam no lugar, porque o Git as ignora.'
+  - tipo: faixa
+    estilo: erro
+    titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
+    sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
+    causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
+    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda, e a máquina de estados do laboratório não usa Lambda.
+  - tipo: passos
+    itens:
+    - titulo: Rodar o cenário 15
+      editor:
+        rotulo: terminal
+        linhas:
+        - docker info --format '{{.ServerVersion}}'
+        - dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      sucesso: '`Ignorado: 2`: os testes originais dependem de Lambda.'
+    - titulo: Criar a fixture sem Lambda
+      texto: A fixture cria a tabela `pedidos-sfn` e os clientes do Step Functions e do DynamoDB.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/15-StepFunctions.Orchestration/PedidoFixture.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.DynamoDBv2;
+        - using Amazon.DynamoDBv2.Model;
+        - using Amazon.StepFunctions;
+        - using Shared;
+        - ''
+        - namespace Scenarios.StepFunctions.Orchestration;
+        - ''
+        - '// Fixture sem Lambda: a máquina de estados grava direto no DynamoDB'
+        - 'public class PedidoFixture : LocalStackFixture'
+        - '{'
+        - '    public const string Tabela = "pedidos-sfn";'
+        - ''
+        - '    public AmazonStepFunctionsClient StepFunctions { get; private set; } = null!;'
+        - '    public AmazonDynamoDBClient DynamoDB { get; private set; } = null!;'
+        - ''
+        - '    protected override async Task InitializeScenarioAsync()'
+        - '    {'
+        - '        StepFunctions = AwsClientFactory.StepFunctions();'
+        - '        DynamoDB = AwsClientFactory.DynamoDB();'
+        - ''
+        - '        await DynamoDB.CreateTableAsync(new CreateTableRequest'
+        - '        {'
+        - '            TableName = Tabela,'
+        - '            AttributeDefinitions = [new AttributeDefinition("id", ScalarAttributeType.S)],'
+        - '            KeySchema = [new KeySchemaElement("id", KeyType.HASH)],'
+        - '            BillingMode = BillingMode.PAY_PER_REQUEST'
+        - '        });'
+        - ''
+        - '        await PollingHelper.WaitUntilAsync(async () =>'
+        - '            (await DynamoDB.DescribeTableAsync(Tabela)).Table.TableStatus == TableStatus.ACTIVE);'
+        - '    }'
+        - ''
+        - '    protected override Task DisposeScenarioAsync()'
+        - '    {'
+        - '        StepFunctions.Dispose();'
+        - '        DynamoDB.Dispose();'
+        - '        return Task.CompletedTask;'
+        - '    }'
+        - '}'
+    - titulo: Escrever o teste
+      texto: 'O teste cria a máquina, executa duas vezes com o mesmo pedido e espera que a segunda termine em `SUCCEEDED` com `situacao: duplicado`.'
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/15-StepFunctions.Orchestration/RegistroDePedidoTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.StepFunctions.Model;
+        - using Shared;
+        - ''
+        - namespace Scenarios.StepFunctions.Orchestration;
+        - ''
+        - 'public class RegistroDePedidoTests(PedidoFixture fixture) : IClassFixture<PedidoFixture>'
+        - '{'
+        - '    [Fact]'
+        - '    public async Task MesmoPedidoDuasVezes_SegundaExecucaoTerminaComoDuplicado()'
+        - '    {'
+        - '        var maquina = await fixture.StepFunctions.CreateStateMachineAsync(new CreateStateMachineRequest'
+        - '        {'
+        - '            Name = $"registro-pedido-{Guid.NewGuid():N}",'
+        - '            Definition = DefinicaoRegistroDePedido.Json,'
+        - '            RoleArn = "arn:aws:iam::000000000000:role/local-role"'
+        - '        });'
+        - '        var entrada = $$"""{"id":"pedido-{{Guid.NewGuid():N}}"}""";'
+        - ''
+        - '        var primeira = await ExecutarAsync(maquina.StateMachineArn, entrada);'
+        - '        var segunda = await ExecutarAsync(maquina.StateMachineArn, entrada);'
+        - ''
+        - '        Assert.Equal("SUCCEEDED", primeira.Status);'
+        - '        Assert.True(segunda.Status == "SUCCEEDED", $"segunda execução: {segunda.Status} {segunda.Error}");'
+        - '        Assert.Contains("\"situacao\":\"duplicado\"", segunda.Output);'
+        - '    }'
+        - ''
+        - '    private async Task<DescribeExecutionResponse> ExecutarAsync(string maquina, string entrada)'
+        - '    {'
+        - '        var execucao = await fixture.StepFunctions.StartExecutionAsync(new StartExecutionRequest'
+        - '        {'
+        - '            StateMachineArn = maquina,'
+        - '            Input = entrada'
+        - '        });'
+        - ''
+        - '        DescribeExecutionResponse estado = null!;'
+        - '        await PollingHelper.WaitUntilAsync(async () =>'
+        - '        {'
+        - '            estado = await fixture.StepFunctions.DescribeExecutionAsync(new DescribeExecutionRequest'
+        - '            {'
+        - '                ExecutionArn = execucao.ExecutionArn'
+        - '            });'
+        - '            return estado.Status != "RUNNING";'
+        - '        }, timeout: TimeSpan.FromSeconds(30));'
+        - '        return estado;'
+        - '    }'
+        - '}'
+    - titulo: Escrever a primeira definição
+      texto: A máquina grava o pedido com a condição de que ele ainda não exista.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/15-StepFunctions.Orchestration/DefinicaoRegistroDePedido.cs (novo)
+        commit: 50a5344
+        linhas:
+        - namespace Scenarios.StepFunctions.Orchestration;
+        - ''
+        - public static class DefinicaoRegistroDePedido
+        - '{'
+        - '    public const string Json = """'
+        - '    {'
+        - '      "StartAt": "GravarPedido",'
+        - '      "States": {'
+        - '        "GravarPedido": {'
+        - '          "Type": "Task",'
+        - '          "Resource": "arn:aws:states:::dynamodb:putItem",'
+        - '          "Parameters": {'
+        - '            "TableName": "pedidos-sfn",'
+        - '            "Item": { "id": { "S.$": "$.id" } },'
+        - '            "ConditionExpression": "attribute_not_exists(id)"'
+        - '          },'
+        - '          "ResultPath": null,'
+        - '          "Next": "Registrado"'
+        - '        },'
+        - '        "Registrado": {'
+        - '          "Type": "Pass",'
+        - '          "Result": "registrado",'
+        - '          "ResultPath": "$.situacao",'
+        - '          "End": true'
+        - '        }'
+        - '      }'
+        - '    }'
+        - '    """;'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: maquina_sem_catch
+      sucesso: '`Com falha: 1`, com `segunda execução: FAILED DynamoDB.ConditionalCheckFailedException`.'
+    - titulo: Tratar o pedido repetido
+      texto: Substitua o arquivo pela versão abaixo, que acrescenta o `Catch` no `GravarPedido` e o estado `Duplicado`.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/15-StepFunctions.Orchestration/DefinicaoRegistroDePedido.cs (substituição)
+        commit: 50a5344
+        linhas:
+        - namespace Scenarios.StepFunctions.Orchestration;
+        - ''
+        - public static class DefinicaoRegistroDePedido
+        - '{'
+        - '    public const string Json = """'
+        - '    {'
+        - '      "StartAt": "GravarPedido",'
+        - '      "States": {'
+        - '        "GravarPedido": {'
+        - '          "Type": "Task",'
+        - '          "Resource": "arn:aws:states:::dynamodb:putItem",'
+        - '          "Parameters": {'
+        - '            "TableName": "pedidos-sfn",'
+        - '            "Item": { "id": { "S.$": "$.id" } },'
+        - '            "ConditionExpression": "attribute_not_exists(id)"'
+        - '          },'
+        - '          "ResultPath": null,'
+        - '          "Catch": ['
+        - '            {'
+        - '              "ErrorEquals": ["DynamoDB.ConditionalCheckFailedException"],'
+        - '              "ResultPath": "$.erro",'
+        - '              "Next": "Duplicado"'
+        - '            }'
+        - '          ],'
+        - '          "Next": "Registrado"'
+        - '        },'
+        - '        "Duplicado": {'
+        - '          "Type": "Pass",'
+        - '          "Result": "duplicado",'
+        - '          "ResultPath": "$.situacao",'
+        - '          "End": true'
+        - '        },'
+        - '        "Registrado": {'
+        - '          "Type": "Pass",'
+        - '          "Result": "registrado",'
+        - '          "ResultPath": "$.situacao",'
+        - '          "End": true'
+        - '        }'
+        - '      }'
+        - '    }'
+        - '    """;'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: maquina_com_catch
+      sucesso: '`Aprovado: 1` e `Ignorado: 2`.'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao:
+      - maquina_sem_catch
+      - maquina_com_catch
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     1, Ignorado:     2, Total:     3, Duração: 55 s - 15-StepFunctions.Orchestration.dll (net10.0)'
+      origem: executado
+      dica: A segunda execução passou a terminar em `SUCCEEDED`, no estado `Duplicado`.
+    - entrada: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao: maquina_sem_catch
+      saida: "  Com falha Scenarios.StepFunctions.Orchestration.RegistroDePedidoTests.MesmoPedidoDuasVezes_SegundaExecucaoTerminaComoDuplicado\n   segunda execução: FAILED DynamoDB.ConditionalCheckFailedException\nCom falha! – Com falha:     1, Aprovado:     0, Ignorado:     2, Total:     3, Duração: 53 s - 15-StepFunctions.Orchestration.dll (net10.0)"
+      origem: executado
+      dica: A primeira execução gravou o pedido, e a segunda terminou em `FAILED` com o erro da condição do DynamoDB.
+    - entrada: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Ignorado!  – Com falha:     0, Aprovado:     0, Ignorado:     2, Total:     2, Duração: 4 ms - 15-StepFunctions.Orchestration.dll (net10.0)'
+      origem: executado
+      dica: Os dois testes do cenário 15 estão marcados com `Skip`, porque a máquina de estados original chama uma Lambda.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Docker
+      comando: docker info --format '{{.ServerVersion}}'
+    - rotulo: Cenário 15
+      comando: dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com essas duas formas de execução, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Execução que falha num pedido repetido
+    origem: executado
+    rotulo_saida: log
+    saida: "$ dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E '^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!' | sed -E 's/ \\[[0-9.]+ m?s\\]//'\n  Com falha Scenarios.StepFunctions.Orchestration.RegistroDePedidoTests.MesmoPedidoDuasVezes_SegundaExecucaoTerminaComoDuplicado\n   segunda execução: FAILED DynamoDB.ConditionalCheckFailedException\nCom falha! – Com falha:     1, Aprovado:     0, Ignorado:     2, Total:     3, Duração: 53 s - 15-StepFunctions.Orchestration.dll (net10.0)"
+    pergunta: O aplicativo reenviou um pedido, e o painel do Step Functions mostrou uma execução em `FAILED`. O que aconteceu?
+    correcao: Acrescentar um `Catch` para `DynamoDB.ConditionalCheckFailedException` que leve a um estado de negócio, como no passo 5.
+    alternativas:
+    - texto: A máquina de estados tem uma definição inválida.
+      correta: false
+      explicacao: A criação da máquina valida a definição, e a primeira execução passou.
+    - texto: A condição `attribute_not_exists(id)` recusou a gravação, e sem `Catch` o erro encerrou a execução.
+      correta: true
+      explicacao: O pedido já existia, o que é uma situação prevista, e não uma falha.
+    - texto: O DynamoDB estava indisponível.
+      correta: false
+      explicacao: A primeira execução gravou o pedido na mesma tabela.
+  - tipo: incidente
+    titulo: Cenário com todos os testes ignorados
+    origem: executado
+    rotulo_saida: log
+    saida: '$ dotnet test scenarios/15-StepFunctions.Orchestration 2>&1 | grep -E ''^  Com falha|segunda execução|Aprovado!|Com falha!|Ignorado!'' | sed -E ''s/ \[[0-9.]+ m?s\]//''
+
+      Ignorado!  – Com falha:     0, Aprovado:     0, Ignorado:     2, Total:     2, Duração: 4 ms - 15-StepFunctions.Orchestration.dll (net10.0)
+
+
+      scenarios/15-StepFunctions.Orchestration/Fixture.cs:61
+
+      "Resource": "{{function.Configuration.FunctionArn}}",'
+    pergunta: O laboratório mostrou o Step Functions funcionando no LocalStack Community. Por que os testes originais estão ignorados?
+    correcao: Testar a orquestração com integrações diretas, como no laboratório, e deixar a Lambda para um ambiente que a execute, com `AWS_TARGET=aws` ou em Linux.
+    alternativas:
+    - texto: O Step Functions não existe no LocalStack Community.
+      correta: false
+      explicacao: O teste do laboratório executou duas máquinas.
+    - texto: Os testes são lentos demais.
+      correta: false
+      explicacao: O motivo registrado é a falta de suporte.
+    - texto: A máquina original chama uma Lambda, e a execução de Lambda no LocalStack depende do Docker da máquina e não funciona de forma estável no macOS ARM64.
+      correta: true
+      explicacao: A mensagem do `Skip` atribui o problema ao Step Functions, e o laboratório mostrou que o serviço responde.
+  - tipo: incidente
+    titulo: Mensagem malformada que trava o lote
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: "src/tasks/pedido_processor/handler.py:54-56 e 93-96\n            for msg in response.get(\"Messages\", []):\n                pedido = json.loads(msg[\"Body\"])\n                try:\n…\n        except Exception as e:\n            # Fila ainda não criada (fixture em inicialização) ou erro transitório\n            print(f\"[WORKER] Erro SQS (aguardando fila): {e}\")\n            time.sleep(2)"
+    pergunta: Uma mensagem com JSON inválido chega à fila do worker do cenário 18. O que acontece com ela e com as outras do mesmo lote?
+    correcao: Envolver a leitura de cada mensagem no `try` dela e configurar uma fila de mensagens mortas com `maxReceiveCount` na fila de pedidos.
+    alternativas:
+    - texto: O erro sai do laço das mensagens, o log registra `Erro SQS (aguardando fila)`, nenhuma mensagem restante do lote é apagada, e a malformada volta a cada leitura.
+      correta: true
+      explicacao: O `json.loads` fica fora do `try` interno, e a fila não tem redirecionamento para mensagens mortas.
+    - texto: A mensagem é descartada e as outras seguem.
+      correta: false
+      explicacao: Nenhum `delete_message` roda para o lote.
+    - texto: O worker para.
+      correta: false
+      explicacao: O `except` externo dorme 2 s e volta ao laço.
+  - tipo: incidente
+    titulo: Pedido repetido no worker
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/tasks/pedido_processor/handler.py:63-67
+
+      """
+
+      INSERT INTO pedidos (id, cliente, valor, status)
+
+      VALUES (%s, %s, %s, %s)
+
+      ON CONFLICT (id) DO NOTHING
+
+      """,'
+    pergunta: A mesma mensagem é entregue duas vezes ao worker. O que fica no banco?
+    correcao: 'Nenhuma correção: o worker já é idempotente pela chave primária. Para avisar o cliente, seria preciso registrar a repetição.'
+    alternativas:
+    - texto: Um erro que derruba o worker.
+      correta: false
+      explicacao: O conflito é absorvido pelo `DO NOTHING`.
+    - texto: Uma linha só, porque o `ON CONFLICT (id) DO NOTHING` ignora a segunda inserção sem erro.
+      correta: true
+      explicacao: É o mesmo papel que o `attribute_not_exists` cumpre na máquina de estados.
+    - texto: Duas linhas com o mesmo `id`.
+      correta: false
+      explicacao: O `id` é chave primária.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Quando uma máquina de estados é a melhor escolha?
+      alternativas:
+      - texto: Quando o processo exige horas de CPU.
+        correta: false
+        explicacao: Esse é o caso da tarefa em contêiner.
+      - texto: Quando não há integração com outros serviços.
+        correta: false
+        explicacao: A integração é um dos pontos fortes do Step Functions.
+      - texto: Quando o processo tem etapas, esperas e tratamento de erro que precisam ficar visíveis e guardados pelo serviço.
+        correta: true
+        explicacao: Cada execução pode ser consultada estado por estado.
+    - enunciado: O que o recurso `arn:aws:states:::dynamodb:putItem` dispensa?
+      alternativas:
+      - texto: Uma Lambda só para gravar no DynamoDB.
+        correta: true
+        explicacao: O próprio Step Functions faz a chamada.
+      - texto: A tabela.
+        correta: false
+        explicacao: A fixture cria a tabela antes.
+      - texto: O papel IAM da máquina.
+        correta: false
+        explicacao: O papel continua obrigatório na AWS.
+    - enunciado: O que o `Catch` faz com o erro do estado?
+      alternativas:
+      - texto: Apaga o erro sem registro.
+        correta: false
+        explicacao: O erro fica disponível na saída.
+      - texto: Desvia para outro estado e guarda o erro no `ResultPath`.
+        correta: true
+        explicacao: No laboratório, o erro foi para `$.erro`.
+      - texto: Repete o estado.
+        correta: false
+        explicacao: Repetir é papel do `Retry`.
+    - enunciado: Por que tratar o pedido repetido como estado de negócio?
+      alternativas:
+      - texto: Para o DynamoDB aceitar a segunda gravação.
+        correta: false
+        explicacao: A gravação continua recusada.
+      - texto: Para a execução ficar mais rápida.
+        correta: false
+        explicacao: O tempo não é o objetivo.
+      - texto: Porque a repetição é prevista, e quem chamou recebe uma resposta clara em vez de uma falha para investigar.
+        correta: true
+        explicacao: 'A execução termina em `SUCCEEDED` com `situacao: duplicado`.'
+    - enunciado: O que falta ao worker do cenário 18 para mensagens malformadas?
+      alternativas:
+      - texto: Tratar cada mensagem no próprio `try` e ter uma fila de mensagens mortas.
+        correta: true
+        explicacao: Sem isso, a mensagem volta indefinidamente e atrasa o lote.
+      - texto: Ler uma mensagem por vez.
+        correta: false
+        explicacao: Reduz o impacto, mas a mensagem continua voltando.
+      - texto: Aumentar o `WaitTimeSeconds`.
+        correta: false
+        explicacao: Afeta só a espera por mensagens novas.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O motivo dos testes ignorados do cenário 15 está claro.
+    - A máquina sem Lambda gravou o pedido no DynamoDB do LocalStack.
+    - A segunda execução falhou sem o `Catch` e terminou como duplicado com ele.
+    - As diferenças entre máquina de estados e tarefa em contêiner estão claras.
+    - Os pontos frágeis do worker do cenário 18 foram identificados.

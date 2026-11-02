@@ -359,7 +359,8 @@ odas:
     minutos: 75
     pre_requisitos: ["32"]
     objetivo: "Comparar orquestração por máquina de estados com execução de tarefas em contêiner."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-34
   - id: "35"
     titulo: "Caso integrador: agendamento e roteamento de ofertas de crédito"
     trilha: 7
