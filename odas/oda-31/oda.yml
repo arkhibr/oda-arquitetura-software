@@ -1,0 +1,627 @@
+id: '31'
+titulo: 'Dados gerenciados: DynamoDB e RDS'
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é comparar como o DynamoDB e um banco relacional garantem uma regra de negócio quando várias requisições chegam ao mesmo tempo, com testes de integração contra os dois. No repositório `aspire-aws`, o cenário 03 usa o DynamoDB do LocalStack, e o cenário 17 usa um PostgreSQL que faz o papel do RDS, porque a API de controle do RDS não existe no LocalStack Community. Você vai provar que ler o estoque e depois gravar vende mais do que existe e corrigir a reserva com uma escrita condicional em cada banco.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar a diferença entre chave de partição no DynamoDB e chave primária numa tabela relacional.
+    - Reconhecer a perda de atualização em ler, calcular e gravar.
+    - Escrever uma atualização condicional no DynamoDB com `ConditionExpression`.
+    - Escrever a mesma regra em SQL com a condição no `WHERE`.
+    - Explicar o que o LocalStack Community emula do RDS e o que fica de fora.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+  - tipo: terminal
+    titulo: terminal · rodar os cenários 03 e 17
+    comandos:
+    - entrada: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     4, Ignorado:     0, Total:     4, Duração: 140 ms - 03-DynamoDB.Basic.dll (net10.0)'
+      origem: executado
+      dica: Os quatro testes do cenário 03 gravam e leem itens um de cada vez.
+    - entrada: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     3, Total:     8, Duração: 46 ms - 17-RDS.Basic.dll (net10.0)'
+      origem: executado
+      dica: Os três ignorados chamam a API de controle do RDS, que o LocalStack Community não oferece. Os cinco aprovados usam o PostgreSQL do AppHost.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Cenário 03, DynamoDB
+      comando: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+    - rotulo: Cenário 17, PostgreSQL
+      comando: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba compara os dois modelos de dados e explica por que ler e depois gravar falha com acessos simultâneos. A ADR-003 do repositório registra o uso do LocalStack Community e as limitações que isso traz para o RDS.
+  - tipo: comparativo
+    colunas:
+    - DynamoDB
+    - PostgreSQL no papel do RDS
+    linhas:
+    - dimensao: Acesso
+      valores:
+      - Por chave, com `GetItem`, `Query` e `Scan`
+      - Por SQL, com junções e consultas livres
+    - dimensao: Esquema
+      valores:
+      - Só a chave é declarada na tabela
+      - Colunas e tipos declarados no `CREATE TABLE`
+    - dimensao: Escrita condicional
+      valores:
+      - '`ConditionExpression` no `UpdateItem`'
+      - Condição no `WHERE` do `UPDATE`
+    - dimensao: Transação
+      valores:
+      - '`TransactWriteItems`, até 100 itens'
+      - '`BEGIN` e `COMMIT` com qualquer número de linhas'
+    - dimensao: No LocalStack Community
+      valores:
+      - Emulado
+      - API de controle indisponível, banco real no contêiner do AppHost
+  - tipo: conceito
+    titulo: Perda de atualização
+    texto: Quando duas requisições leem o mesmo valor, calculam o novo e gravam, a segunda gravação apaga o efeito da primeira. Com estoque 5 e dez reservas de uma unidade, todas podem ler 5 e aprovar a venda.
+  - tipo: conceito
+    titulo: Escrita condicional
+    texto: 'A correção leva a condição para dentro da própria escrita: o banco confere e altera numa única operação atômica. No DynamoDB, a condição falsa gera `ConditionalCheckFailedException`, e no SQL o `UPDATE` afeta zero linhas.'
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `50a5344`, como cada cenário prepara o banco e o que os testes existentes deixam de cobrir. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/03-DynamoDB.Basic/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '        await DynamoDB.CreateTableAsync(new CreateTableRequest'
+    - '        {'
+    - '            TableName = TableName,'
+    - '            AttributeDefinitions ='
+    - '            ['
+    - '                new AttributeDefinition("id", ScalarAttributeType.S)'
+    - '            ],'
+    - '            KeySchema ='
+    - '            ['
+    - '                new KeySchemaElement("id", KeyType.HASH)'
+    - '            ],'
+    - '            BillingMode = BillingMode.PAY_PER_REQUEST'
+    - '        });'
+    - ''
+    - '        await PollingHelper.WaitUntilAsync(async () =>'
+    - '        {'
+    - '            var table = await DynamoDB.DescribeTableAsync(TableName);'
+    - '            return table.Table.TableStatus == TableStatus.ACTIVE;'
+    anotacoes:
+    - linha: 26
+      texto: A tabela só declara a chave de partição `id`.
+    - linha: 28
+      texto: Cobrança por requisição, sem capacidade reservada.
+    - linha: 34
+      texto: A criação é assíncrona, e a fixture espera a tabela ficar ativa.
+    inicio: 17
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/03-DynamoDB.Basic/DynamoDbBasicTests.cs
+    commit: 50a5344
+    linhas:
+    - '        var response = await fixture.DynamoDB.ScanAsync(new ScanRequest'
+    - '        {'
+    - '            TableName = Fixture.TableName'
+    - '        });'
+    - '        output.WriteLine($"    Itens encontrados: {response.Count}");'
+    - ''
+    - '        Assert.True(response.Count >= 2);'
+    anotacoes:
+    - linha: 47
+      texto: O `>=` tolera itens de outros testes na mesma tabela.
+    inicio: 41
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/17-RDS.Basic/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '            await RDS.CreateDBInstanceAsync(new CreateDBInstanceRequest'
+    - '            {'
+    - '                DBInstanceIdentifier = NomeInstancia,'
+    - '                DBInstanceClass      = "db.t3.micro",'
+    - '                Engine               = "postgres",'
+    - '                MasterUsername       = "test",'
+    - '                MasterUserPassword   = "test",'
+    - '                AllocatedStorage     = 20,'
+    - '                DBName               = "testdb"'
+    - '            });'
+    - ''
+    - '            // 3. Aguarda status "available" (LocalStack Pro transiciona rapidamente)'
+    - '            await PollingHelper.WaitUntilAsync(async () =>'
+    - '            {'
+    - '                var r = await RDS.DescribeDBInstancesAsync(new DescribeDBInstancesRequest'
+    - '                {'
+    - '                    DBInstanceIdentifier = NomeInstancia'
+    - '                });'
+    - '                return r.DBInstances.Count > 0 &&'
+    - '                       r.DBInstances[0].DBInstanceStatus == "available";'
+    - '            }, timeout: TimeSpan.FromSeconds(30),'
+    - '            failureMessage: $"Instância RDS ''{NomeInstancia}'' não ficou ''available'' em 30s.");'
+    - ''
+    - '            RdsApiAvailable = true;'
+    - '        }'
+    - '        catch (Amazon.RDS.AmazonRDSException)'
+    - '        {'
+    - '            // API RDS não disponível no LocalStack Community — testes de plano de controle serão pulados.'
+    - '            RdsApiAvailable = false;'
+    anotacoes:
+    - linha: 42
+      texto: A API de controle do RDS, que cria a instância.
+    - linha: 67
+      texto: No LocalStack Community, a chamada falha, e a fixture segue só com o PostgreSQL.
+    inicio: 42
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, duas reservas simultâneas do último item em estoque, com a leitura seguida de gravação e com a escrita condicional. Depois, classifique cada técnica pelo resultado.
+  - tipo: fluxo
+    titulo: Duas reservas do último item
+    etapas:
+    - titulo: Leituras
+      descricao: As reservas A e B leem o produto ao mesmo tempo e encontram estoque 1.
+    - titulo: Cálculo
+      descricao: As duas concluem que há estoque e calculam o novo valor 0.
+    - titulo: Gravações
+      descricao: 'A grava 0, e B grava 0 por cima: duas vendas aprovadas para uma unidade.'
+    - titulo: Com condição
+      descricao: A pede a subtração se o estoque for pelo menos 1, e o banco aplica e deixa 0.
+    - titulo: Recusa
+      descricao: B pede a mesma operação, a condição é falsa, e o banco recusa sem alterar nada.
+  - tipo: classificador
+    enunciado: Com dez reservas simultâneas e estoque 5, quantas são aprovadas?
+    categorias:
+    - id: cinco
+      rotulo: Exatamente cinco
+    - id: mais
+      rotulo: Podem passar de cinco
+    itens:
+    - texto: '`GetItem`, cálculo na aplicação e `PutItem`'
+      categoria: mais
+      explicacao: O passo 3 aprovou as dez.
+    - texto: '`UpdateItem` com `ConditionExpression` sobre o estoque'
+      categoria: cinco
+      explicacao: O DynamoDB confere e altera de forma atômica.
+    - texto: '`SELECT`, cálculo na aplicação e `UPDATE` sem condição'
+      categoria: mais
+      explicacao: É a mesma perda de atualização, agora em SQL.
+    - texto: '`UPDATE` com `estoque >= @quantidade` no `WHERE`'
+      categoria: cinco
+      explicacao: O banco trava a linha e reavalia a condição.
+    - texto: '`PutItem` com o estoque calculado e sem condição'
+      categoria: mais
+      explicacao: A última gravação vence.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é implementar a reserva de estoque nos dois bancos de forma que dez reservas simultâneas nunca vendam mais que as cinco unidades existentes. Os passos 1 a 4 escrevem o teste no DynamoDB, mostram a versão que lê e grava falhar e corrigem com a escrita condicional, e os passos 5 a 7 repetem o teste no PostgreSQL. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/aspire-aws`, entre na pasta criada e rode `git checkout 50a5344`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `50a5344` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` continuam no lugar, porque o Git as ignora.'
+  - tipo: faixa
+    estilo: erro
+    titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
+    sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
+    causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
+    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
+  - tipo: passos
+    itens:
+    - titulo: Rodar o cenário 03
+      editor:
+        rotulo: terminal
+        linhas:
+        - docker info --format '{{.ServerVersion}}'
+        - dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      sucesso: 'A versão do Docker e `Aprovado: 4`.'
+    - titulo: Escrever o teste da reserva
+      texto: O teste cria um produto com estoque 5, dispara dez reservas de uma unidade ao mesmo tempo e espera cinco aprovadas e estoque 0.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/03-DynamoDB.Basic/ReservaDeEstoqueTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.DynamoDBv2.Model;
+        - ''
+        - namespace Scenarios.DynamoDB.Basic;
+        - ''
+        - 'public class ReservaDeEstoqueTests(Fixture fixture) : IClassFixture<Fixture>'
+        - '{'
+        - '    [Fact]'
+        - '    public async Task DezReservasSimultaneas_ComEstoqueCinco_AprovamCinco()'
+        - '    {'
+        - '        var produto = $"produto-{Guid.NewGuid():N}";'
+        - '        await fixture.DynamoDB.PutItemAsync(Fixture.TableName, new Dictionary<string, AttributeValue>'
+        - '        {'
+        - '            ["id"] = new() { S = produto },'
+        - '            ["estoque"] = new() { N = "5" }'
+        - '        });'
+        - ''
+        - '        var reservas = await Task.WhenAll(Enumerable.Range(0, 10)'
+        - '            .Select(_ => ReservaDeEstoque.ReservarAsync(fixture.DynamoDB, produto, 1)));'
+        - ''
+        - '        var item = await fixture.DynamoDB.GetItemAsync(Fixture.TableName,'
+        - '            new Dictionary<string, AttributeValue> { ["id"] = new() { S = produto } });'
+        - '        Assert.Equal(5, reservas.Count(aprovada => aprovada));'
+        - '        Assert.Equal("0", item.Item["estoque"].N);'
+        - '    }'
+        - '}'
+    - titulo: Reservar lendo e gravando
+      texto: Esta versão lê o estoque, confere na aplicação e grava o valor calculado.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/03-DynamoDB.Basic/ReservaDeEstoque.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.DynamoDBv2;
+        - using Amazon.DynamoDBv2.Model;
+        - ''
+        - namespace Scenarios.DynamoDB.Basic;
+        - ''
+        - public static class ReservaDeEstoque
+        - '{'
+        - '    public static async Task<bool> ReservarAsync(IAmazonDynamoDB dynamo, string produto, int quantidade)'
+        - '    {'
+        - '        var chave = new Dictionary<string, AttributeValue> { ["id"] = new() { S = produto } };'
+        - '        var item = await dynamo.GetItemAsync(Fixture.TableName, chave);'
+        - '        var estoque = int.Parse(item.Item["estoque"].N);'
+        - '        if (estoque < quantidade)'
+        - '        {'
+        - '            return false;'
+        - '        }'
+        - ''
+        - '        await dynamo.PutItemAsync(Fixture.TableName, new Dictionary<string, AttributeValue>'
+        - '        {'
+        - '            ["id"] = new() { S = produto },'
+        - '            ["estoque"] = new() { N = (estoque - quantidade).ToString() }'
+        - '        });'
+        - '        return true;'
+        - '    }'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: reserva_dynamo_simples
+      sucesso: '`Com falha: 1`, com `Expected: 5` e `Actual: 10`.'
+    - titulo: Reservar com escrita condicional
+      texto: Substitua o arquivo pela versão abaixo, que pede ao DynamoDB a subtração só se o estoque bastar.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/03-DynamoDB.Basic/ReservaDeEstoque.cs (substituição)
+        commit: 50a5344
+        linhas:
+        - using Amazon.DynamoDBv2;
+        - using Amazon.DynamoDBv2.Model;
+        - ''
+        - namespace Scenarios.DynamoDB.Basic;
+        - ''
+        - public static class ReservaDeEstoque
+        - '{'
+        - '    public static async Task<bool> ReservarAsync(IAmazonDynamoDB dynamo, string produto, int quantidade)'
+        - '    {'
+        - '        try'
+        - '        {'
+        - '            // A condição e a subtração acontecem numa única operação no DynamoDB'
+        - '            await dynamo.UpdateItemAsync(new UpdateItemRequest'
+        - '            {'
+        - '                TableName = Fixture.TableName,'
+        - '                Key = new Dictionary<string, AttributeValue> { ["id"] = new() { S = produto } },'
+        - '                UpdateExpression = "SET estoque = estoque - :quantidade",'
+        - '                ConditionExpression = "estoque >= :quantidade",'
+        - '                ExpressionAttributeValues = new Dictionary<string, AttributeValue>'
+        - '                {'
+        - '                    [":quantidade"] = new() { N = quantidade.ToString() }'
+        - '                }'
+        - '            });'
+        - '            return true;'
+        - '        }'
+        - '        catch (ConditionalCheckFailedException)'
+        - '        {'
+        - '            return false;'
+        - '        }'
+        - '    }'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: reserva_dynamo_condicional
+      sucesso: '`Aprovado: 5`.'
+    - titulo: Escrever o teste em SQL
+      texto: No cenário 17, o mesmo teste usa o PostgreSQL, com a condição no `WHERE` do `UPDATE`.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/17-RDS.Basic/ReservaDeEstoqueSqlTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Npgsql;
+        - ''
+        - namespace Scenarios.RDS.Basic;
+        - ''
+        - 'public class ReservaDeEstoqueSqlTests(Fixture fixture) : IClassFixture<Fixture>'
+        - '{'
+        - '    [Fact]'
+        - '    public async Task DezReservasSimultaneas_ComEstoqueCinco_AprovamCinco()'
+        - '    {'
+        - '        var produto = $"p-reserva-{Guid.NewGuid():N}"[..20];'
+        - '        await using (var conn = new NpgsqlConnection(fixture.ConnectionString))'
+        - '        {'
+        - '            await conn.OpenAsync();'
+        - '            await using var insert = new NpgsqlCommand('
+        - '                $"INSERT INTO {Fixture.NomeTabelaProdutos} (id, nome, preco, estoque) VALUES (@id, ''Caderno'', 15.00, 5)", conn);'
+        - '            insert.Parameters.AddWithValue("id", produto);'
+        - '            await insert.ExecuteNonQueryAsync();'
+        - '        }'
+        - ''
+        - '        var reservas = await Task.WhenAll(Enumerable.Range(0, 10)'
+        - '            .Select(_ => ReservarAsync(fixture.ConnectionString, produto, 1)));'
+        - ''
+        - '        await using var leitura = new NpgsqlConnection(fixture.ConnectionString);'
+        - '        await leitura.OpenAsync();'
+        - '        await using var select = new NpgsqlCommand($"SELECT estoque FROM {Fixture.NomeTabelaProdutos} WHERE id = @id", leitura);'
+        - '        select.Parameters.AddWithValue("id", produto);'
+        - '        Assert.Equal(5, reservas.Count(aprovada => aprovada));'
+        - '        Assert.Equal(0, (int)(await select.ExecuteScalarAsync())!);'
+        - '    }'
+        - ''
+        - '    private static async Task<bool> ReservarAsync(string conexao, string produto, int quantidade)'
+        - '    {'
+        - '        await using var conn = new NpgsqlConnection(conexao);'
+        - '        await conn.OpenAsync();'
+        - '        // A condição no WHERE faz o banco recusar a linha quando o estoque não basta'
+        - '        await using var update = new NpgsqlCommand('
+        - '            $"UPDATE {Fixture.NomeTabelaProdutos} SET estoque = estoque - @quantidade WHERE id = @id AND estoque >= @quantidade", conn);'
+        - '        update.Parameters.AddWithValue("id", produto);'
+        - '        update.Parameters.AddWithValue("quantidade", quantidade);'
+        - '        return await update.ExecuteNonQueryAsync() == 1;'
+        - '    }'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      efeito: reserva_sql
+      sucesso: '`Com falha: 1` com `PostgresException : 57P01`, antes de qualquer reserva.'
+    - titulo: Limpar o pool de conexões na fixture
+      texto: A classe nova recebeu outra fixture, que subiu outro PostgreSQL na mesma porta, e o pool do Npgsql ainda guardava conexões do contêiner anterior. Acrescente a linha abaixo.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/17-RDS.Basic/Fixture.cs (alteração)
+        commit: 50a5344
+        linhas:
+        - '// scenarios/17-RDS.Basic/Fixture.cs: no início do InitializeScenarioAsync, logo depois de RDS = AwsClientFactory.RDS();'
+        - '        // O pool do Npgsql é do processo e pode guardar conexões do PostgreSQL de outra classe de teste, já descartado'
+        - '        NpgsqlConnection.ClearAllPools();'
+      efeito: pool_limpo
+    - titulo: Ver as reservas em SQL
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      sucesso: '`Aprovado: 6` e `Ignorado: 3`.'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao:
+      - reserva_dynamo_simples
+      - reserva_dynamo_condicional
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     0, Total:     5, Duração: 16 s - 03-DynamoDB.Basic.dll (net10.0)'
+      origem: executado
+      dica: Cinco aprovadas e cinco recusadas pela condição, com o estoque final em 0.
+    - entrada: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao: reserva_dynamo_simples
+      saida: "  Com falha Scenarios.DynamoDB.Basic.ReservaDeEstoqueTests.DezReservasSimultaneas_ComEstoqueCinco_AprovamCinco\n   Assert.Equal() Failure: Values differ\nExpected: 5\nActual:   10\nCom falha! – Com falha:     1, Aprovado:     4, Ignorado:     0, Total:     5, Duração: 21 s - 03-DynamoDB.Basic.dll (net10.0)"
+      origem: executado
+      dica: 'Dez reservas aprovadas para cinco unidades: as dez leram o estoque 5 antes de qualquer gravação.'
+    - entrada: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     4, Ignorado:     0, Total:     4, Duração: 140 ms - 03-DynamoDB.Basic.dll (net10.0)'
+      origem: executado
+      dica: Os quatro testes do cenário 03 gravam e leem itens um de cada vez.
+    - entrada: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao:
+      - reserva_sql
+      - pool_limpo
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     6, Ignorado:     3, Total:     9, Duração: 15 s - 17-RDS.Basic.dll (net10.0)'
+      origem: executado
+      dica: Cinco reservas aprovadas também no PostgreSQL, com a condição no `WHERE`.
+    - entrada: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      condicao: reserva_sql
+      saida: "  Com falha Scenarios.RDS.Basic.ReservaDeEstoqueSqlTests.DezReservasSimultaneas_ComEstoqueCinco_AprovamCinco\n   Npgsql.PostgresException : 57P01: terminating connection due to administrator command\nCom falha! – Com falha:     1, Aprovado:     5, Ignorado:     3, Total:     9, Duração: 23 s - 17-RDS.Basic.dll (net10.0)"
+      origem: executado
+      dica: A classe nova falhou na primeira conexão, antes de qualquer reserva. Veja o passo 6.
+    - entrada: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     3, Total:     8, Duração: 46 ms - 17-RDS.Basic.dll (net10.0)'
+      origem: executado
+      dica: Os três ignorados chamam a API de controle do RDS, que o LocalStack Community não oferece. Os cinco aprovados usam o PostgreSQL do AppHost.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Docker
+      comando: docker info --format '{{.ServerVersion}}'
+    - rotulo: Cenário 03
+      comando: dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+    - rotulo: Cenário 17
+      comando: dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \[[0-9.]+ m?s\]//'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com esses bancos e esses testes, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Venda acima do estoque
+    origem: executado
+    rotulo_saida: log
+    saida: "$ dotnet test scenarios/03-DynamoDB.Basic 2>&1 | grep -E '^  Com falha|Assert\\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \\[[0-9.]+ m?s\\]//'\n  Com falha Scenarios.DynamoDB.Basic.ReservaDeEstoqueTests.DezReservasSimultaneas_ComEstoqueCinco_AprovamCinco\n   Assert.Equal() Failure: Values differ\nExpected: 5\nActual:   10\nCom falha! – Com falha:     1, Aprovado:     4, Ignorado:     0, Total:     5, Duração: 21 s - 03-DynamoDB.Basic.dll (net10.0)"
+    pergunta: Numa promoção, a loja vendeu dez unidades de um produto com cinco em estoque. O que aconteceu?
+    correcao: Trocar a leitura seguida de gravação por um `UpdateItem` com `ConditionExpression`, como no passo 4.
+    alternativas:
+    - texto: O teste criou dez produtos.
+      correta: false
+      explicacao: As dez reservas usam o mesmo `id`.
+    - texto: As dez reservas leram estoque 5 antes de qualquer gravação, e cada uma gravou o próprio cálculo.
+      correta: true
+      explicacao: A conferência na aplicação não vê as gravações das outras requisições.
+    - texto: O DynamoDB perdeu gravações.
+      correta: false
+      explicacao: Todas as gravações foram aceitas, e a última venceu.
+  - tipo: incidente
+    titulo: Primeira consulta que falha na classe nova
+    origem: executado
+    rotulo_saida: log
+    saida: "$ dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E '^  Com falha|Assert\\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!' | sed -E 's/ \\[[0-9.]+ m?s\\]//'\n  Com falha Scenarios.RDS.Basic.ReservaDeEstoqueSqlTests.DezReservasSimultaneas_ComEstoqueCinco_AprovamCinco\n   Npgsql.PostgresException : 57P01: terminating connection due to administrator command\nCom falha! – Com falha:     1, Aprovado:     5, Ignorado:     3, Total:     9, Duração: 23 s - 17-RDS.Basic.dll (net10.0)"
+    pergunta: O teste novo falhou antes de reservar qualquer item, e passa quando roda sozinho. Qual é a causa?
+    correcao: Chamar `NpgsqlConnection.ClearAllPools()` no início da fixture, ou compartilhar uma fixture entre as classes.
+    alternativas:
+    - texto: O PostgreSQL recusou dez conexões simultâneas.
+      correta: false
+      explicacao: O limite padrão é de cem conexões.
+    - texto: A tabela não existe.
+      correta: false
+      explicacao: O erro seria `42P01`, de relação inexistente.
+    - texto: O pool do Npgsql entregou uma conexão aberta com o PostgreSQL da classe anterior, que o Aspire já tinha encerrado.
+      correta: true
+      explicacao: Cada classe com `IClassFixture` sobe outro PostgreSQL na mesma porta, e o pool é do processo inteiro.
+  - tipo: incidente
+    titulo: Testes de RDS ignorados
+    origem: executado
+    rotulo_saida: log
+    saida: '$ dotnet test scenarios/17-RDS.Basic 2>&1 | grep -E ''^  Com falha|Assert\.|Expected:|Actual:|PostgresException|Aprovado!|Com falha!'' | sed -E ''s/ \[[0-9.]+ m?s\]//''
+
+      Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     3, Total:     8, Duração: 46 ms - 17-RDS.Basic.dll (net10.0)
+
+
+      scenarios/17-RDS.Basic/RdsBasicTests.cs:11
+
+      [Fact(Skip = EnvironmentLimitations.LocalStackRdsApiReason)]'
+    pergunta: Três testes do cenário 17 aparecem como ignorados em toda execução. Por quê?
+    correcao: Rodar esses testes com `AWS_TARGET=aws` ou com o LocalStack Pro, e manter os testes de dados no PostgreSQL local.
+    alternativas:
+    - texto: Eles chamam a API de controle do RDS, que o LocalStack Community não oferece, e estão marcados com `Skip`.
+      correta: true
+      explicacao: A ADR-003 registra essa limitação.
+    - texto: O PostgreSQL não subiu.
+      correta: false
+      explicacao: Os cinco testes de dados passaram.
+    - texto: Eles são lentos e foram desligados.
+      correta: false
+      explicacao: O motivo está na constante `LocalStackRdsApiReason`.
+  - tipo: incidente
+    titulo: Asserção que aceita qualquer coisa a mais
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'scenarios/03-DynamoDB.Basic/DynamoDbBasicTests.cs:41-47
+
+      var response = await fixture.DynamoDB.ScanAsync(new ScanRequest
+
+      {
+
+      TableName = Fixture.TableName
+
+      });
+
+      output.WriteLine($"    Itens encontrados: {response.Count}");
+
+      Assert.True(response.Count >= 2);'
+    pergunta: O teste grava dois itens e confere `Count >= 2`. Que falha ele deixaria passar?
+    correcao: Conferir os itens gravados pelo próprio teste, por exemplo filtrando pelo prefixo `scan-`, e comparar com igualdade.
+    alternativas:
+    - texto: Uma gravação que falhasse.
+      correta: false
+      explicacao: Essa falha geraria uma exceção no `PutItem`.
+    - texto: Um `Scan` que devolvesse itens duplicados ou de outra tabela, porque qualquer contagem acima de dois passa.
+      correta: true
+      explicacao: O `>=` existe porque outros testes gravam na mesma tabela.
+    - texto: Nenhuma, porque o `Scan` sempre devolve a tabela inteira.
+      correta: false
+      explicacao: O `Scan` também pagina, a cada 1 MB lido.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que ler, conferir e gravar falha com requisições simultâneas?
+      alternativas:
+      - texto: Porque o DynamoDB não aceita gravações paralelas.
+        correta: false
+        explicacao: Ele aceitou as dez.
+      - texto: Porque o cálculo é feito com `int`.
+        correta: false
+        explicacao: O tipo não muda o problema.
+      - texto: Porque todas podem ler o mesmo valor antes de qualquer gravação.
+        correta: true
+        explicacao: A conferência usa um valor que já ficou velho.
+    - enunciado: O que acontece no DynamoDB quando a `ConditionExpression` é falsa?
+      alternativas:
+      - texto: O item não muda, e a chamada lança `ConditionalCheckFailedException`.
+        correta: true
+        explicacao: A reserva trata a exceção como recusa.
+      - texto: O item é gravado com o valor antigo.
+        correta: false
+        explicacao: Nada é gravado.
+      - texto: A chamada fica esperando o estoque voltar.
+        correta: false
+        explicacao: A resposta é imediata.
+    - enunciado: Qual é o equivalente em SQL da escrita condicional?
+      alternativas:
+      - texto: Um índice único no estoque.
+        correta: false
+        explicacao: O índice não limita valores.
+      - texto: Um `UPDATE` com a condição no `WHERE`, conferindo as linhas afetadas.
+        correta: true
+        explicacao: Zero linhas afetadas significa recusa.
+      - texto: Um `SELECT` antes do `UPDATE`.
+        correta: false
+        explicacao: É a mesma perda de atualização.
+    - enunciado: Por que o pool de conexões quebrou na classe nova do cenário 17?
+      alternativas:
+      - texto: A senha mudou entre as classes.
+        correta: false
+        explicacao: A string de conexão é a mesma.
+      - texto: O PostgreSQL só aceita uma classe de teste.
+        correta: false
+        explicacao: Com o pool limpo, as duas classes passaram.
+      - texto: O pool é do processo e guardava conexões do PostgreSQL que a fixture anterior encerrou.
+        correta: true
+        explicacao: O erro `57P01` é o de conexão encerrada pelo servidor.
+    - enunciado: O que o PostgreSQL do AppHost não substitui no RDS?
+      alternativas:
+      - texto: A API de controle, que cria, altera e descreve instâncias.
+        correta: true
+        explicacao: Os três testes dessa API ficam ignorados.
+      - texto: As consultas SQL.
+        correta: false
+        explicacao: O motor PostgreSQL é o mesmo.
+      - texto: As transações.
+        correta: false
+        explicacao: O teste de rollback passa.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A reserva que lê e grava aprovou dez vendas para cinco unidades.
+    - A escrita condicional no DynamoDB aprovou exatamente cinco.
+    - O mesmo teste passou no PostgreSQL com a condição no `WHERE`.
+    - A falha do pool de conexões entre classes foi entendida e corrigida.
+    - O que o LocalStack Community emula do RDS está claro.

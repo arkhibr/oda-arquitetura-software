@@ -331,7 +331,8 @@ odas:
     minutos: 60
     pre_requisitos: ["28"]
     objetivo: "Comparar o acesso a DynamoDB e a um banco relacional emulado nos testes de integração."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-31
   - id: "32"
     titulo: "Funções orientadas a eventos com Lambda"
     trilha: 7
