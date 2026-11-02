@@ -1,0 +1,688 @@
+id: '27'
+titulo: Testes de API com WebApplicationFactory
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é escrever testes de integração que sobem a API real em memória, com um banco isolado por classe de teste e criado pelas mesmas migrations da produção. No repositório `net-minimal-api`, a `ApiFactory` dos testes cria um arquivo SQLite no diretório temporário a cada execução, nunca o apaga e monta o esquema com `EnsureCreated`, que ignora as migrations. Você vai medir os dois efeitos, escrever os testes que os denunciam e trocar a factory por uma que usa SQLite em memória e `Migrate`.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar o que o `WebApplicationFactory` sobe e por que os testes não abrem porta de rede.
+    - Substituir um serviço da API nos testes com `ConfigureTestServices`.
+    - Diferenciar `EnsureCreated` de `Migrate` e o que cada um prova sobre o esquema.
+    - Isolar o banco de cada classe de teste sem deixar arquivos para trás.
+    - Escrever um teste que falha quando o modelo muda sem migration.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10 e do Git. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · contar os bancos deixados pela suíte
+    comandos:
+    - entrada: contar() { ls "${TMPDIR:-/tmp}"/TestDb_*.db 2>/dev/null | wc -l | tr -d ' '; }
+      saida: ''
+      origem: executado
+      dica: A função `contar` mostra quantos bancos `TestDb_*.db` existem no diretório temporário que o .NET usa.
+    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      condicao: fabrica_nova
+      saida: 300 -> 300
+      origem: executado
+      dica: 'Nenhum arquivo novo: cada factory usa um banco em memória.'
+    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      condicao: teste_banco
+      saida: 291 -> 300
+      origem: executado
+      dica: 'Mais 9 arquivos: a classe nova criou mais uma factory.'
+    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      saida: 282 -> 290
+      origem: executado
+      dica: 'Os números absolutos dependem das execuções anteriores na sua máquina. O que importa é a diferença: mais 8 arquivos, um por factory, que ninguém apaga.'
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 979 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    cenarios:
+    - rotulo: Rodar a suíte
+      comando: dotnet test tests/ProdutosAPI.Tests
+    - rotulo: Contar os bancos
+      comando: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba explica o que um teste de integração com `WebApplicationFactory` executa de verdade e as duas decisões que definem o banco desses testes: onde ele fica e quem cria o esquema. O repositório documenta a estratégia de testes em `docs/05-TESTES.md`, sem ADR específica.'
+  - tipo: conceito
+    titulo: WebApplicationFactory
+    texto: A factory executa o `Program.cs` da API com o ambiente escolhido e troca o Kestrel por um `TestServer`, que atende o `HttpClient` do teste na memória. Rotas, middlewares, autenticação, validação e banco são os reais, e só a rede fica de fora.
+  - tipo: conceito
+    titulo: ConfigureTestServices
+    texto: O `ConfigureTestServices` roda depois dos registros do `Program.cs` e permite remover e substituir serviços só nos testes. É o ponto para trocar o banco, um relógio ou um cliente HTTP externo sem condicionais de ambiente no código da API.
+  - tipo: comparativo
+    colunas:
+    - '`EnsureCreated`'
+    - '`Migrate`'
+    linhas:
+    - dimensao: De onde vem o esquema
+      valores:
+      - Do modelo atual do `DbContext`
+      - Das migrations, em ordem
+    - dimensao: Mudança de modelo sem migration
+      valores:
+      - Passa despercebida
+      - Falha com `PendingModelChangesWarning`
+    - dimensao: Tabela de histórico
+      valores:
+      - Não existe
+      - '`__EFMigrationsHistory` com cada migration aplicada'
+    - dimensao: Usado no commit `702145a`
+      valores:
+      - Na `ApiFactory` dos testes
+      - No `Program.cs`, fora do ambiente Testing
+  - tipo: conceito
+    titulo: SQLite em memória
+    texto: Com `Data Source=:memory:`, o SQLite guarda o banco na conexão, e o banco deixa de existir quando a conexão fecha. Uma conexão aberta por factory dá a cada classe de teste um banco próprio, que é descartado com a factory.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `702145a`, como o `Program.cs` escolhe o banco no ambiente Testing e como a `ApiFactory` prepara esse banco. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - if (builder.Environment.IsEnvironment("Testing"))
+    - '{'
+    - '    var testDbName = $"TestDb_{Guid.NewGuid():N}.db";'
+    - '    var testDbPath = Path.Combine(Path.GetTempPath(), testDbName);'
+    - '    builder.Services.AddDbContext<AppDbContext>(options =>'
+    - '        options.UseSqlite($"Data Source={testDbPath}"));'
+    - '}'
+    anotacoes:
+    - linha: 54
+      texto: Um nome novo a cada host criado, isto é, a cada factory.
+    - linha: 55
+      texto: O arquivo vai para o diretório temporário, e nenhum código o apaga.
+    inicio: 52
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - if (!app.Environment.IsEnvironment("Testing"))
+    - '{'
+    - '    using var scope = app.Services.CreateScope();'
+    - '    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();'
+    - '    dbContext.Database.Migrate();'
+    - '    ProdutosAPI.Catalogo.Infrastructure.Data.DbSeeder.Seed(dbContext);'
+    - '}'
+    anotacoes:
+    - linha: 213
+      texto: Em Testing, a API não aplica as migrations.
+    - linha: 217
+      texto: Fora dos testes, o esquema vem das migrations.
+    inicio: 213
+  - tipo: editor
+    rotulo: arquivo
+    caminho: tests/ProdutosAPI.Tests/Integration/ApiFactory.cs
+    commit: 702145a
+    linhas:
+    - '    protected override IHost CreateHost(IHostBuilder builder)'
+    - '    {'
+    - '        var host = base.CreateHost(builder);'
+    - '        using var scope = host.Services.CreateScope();'
+    - '        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();'
+    - '        db.Database.EnsureCreated();'
+    - '        DbSeeder.Seed(db);'
+    - '        return host;'
+    - '    }'
+    anotacoes:
+    - linha: 30
+      texto: Nos testes, o esquema vem do modelo, e as migrations nunca rodam.
+    - linha: 31
+      texto: Os oito produtos do seed entram em cada banco de teste.
+    inicio: 25
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, o que acontece quando alguém altera o modelo do EF Core e esquece a migration, com a factory antiga e com a nova. Depois, classifique o que cada técnica de teste prova.
+  - tipo: fluxo
+    titulo: Um índice alterado sem migration
+    etapas:
+    - titulo: Mudança
+      descricao: Um desenvolvedor acrescenta `HasFilter` ao índice de SKU da variante e não gera a migration.
+    - titulo: Factory antiga
+      descricao: O `EnsureCreated` cria o banco com o índice novo, e os 143 testes passam.
+    - titulo: Deploy
+      descricao: A API chama `Migrate` ao subir, encontra um modelo sem migration e para com `PendingModelChangesWarning`.
+    - titulo: Factory nova
+      descricao: A factory chama `Migrate`, e a criação do banco de teste falha com o mesmo erro antes do merge.
+    - titulo: Correção
+      descricao: O desenvolvedor gera a migration, e a suíte e a API voltam a subir com o mesmo esquema.
+  - tipo: classificador
+    enunciado: O que esta escolha de teste prova?
+    categorias:
+    - id: prova
+      rotulo: Prova
+    - id: nao
+      rotulo: Não prova
+    itens:
+    - texto: Com `WebApplicationFactory`, a rota exige token
+      categoria: prova
+      explicacao: A autenticação real roda no pipeline do `TestServer`.
+    - texto: Com `EnsureCreated`, as migrations criam o esquema da produção
+      categoria: nao
+      explicacao: O esquema vem do modelo, e as migrations nunca rodam.
+    - texto: Com `Migrate`, o modelo e as migrations estão de acordo
+      categoria: prova
+      explicacao: Um modelo sem migration derruba a criação do banco.
+    - texto: Com `TestServer`, a API aceita conexões na porta 5000
+      categoria: nao
+      explicacao: O `TestServer` não abre porta de rede.
+    - texto: Com SQLite em memória, uma classe não vê os dados de outra
+      categoria: prova
+      explicacao: Cada factory tem a própria conexão e, portanto, o próprio banco.
+    - texto: Com SQLite, o comportamento é igual ao de outro banco de produção
+      categoria: nao
+      explicacao: Os testes provam o comportamento no SQLite, que é o banco da API neste repositório.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é trocar o banco dos testes de integração por um banco em memória criado pelas migrations, e provar com testes que a troca funcionou. Os passos 1 a 4 medem os arquivos deixados pela suíte e mostram uma mudança de modelo que a suíte não percebe, os passos 5 a 8 escrevem os testes e trocam a factory, e os passos 9 e 10 repetem a mudança de modelo com a factory nova. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/net-minimal-api`, entre na pasta criada e rode `git checkout 702145a`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Contar os bancos deixados pela suíte
+      editor:
+        rotulo: terminal
+        linhas:
+        - contar() { ls "${TMPDIR:-/tmp}"/TestDb_*.db 2>/dev/null | wc -l | tr -d ' '; }
+        - antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      sucesso: Dois números, e o segundo é 8 maior que o primeiro.
+    - titulo: Alterar o modelo sem migration
+      texto: Acrescente a linha do `HasFilter` ao índice e não gere migration.
+      editor:
+        rotulo: arquivo
+        caminho: src/Shared/Data/AppDbContext.cs (alteração temporária)
+        commit: 702145a
+        linhas:
+        - '// src/Shared/Data/AppDbContext.cs: no índice de ProdutoId e Sku da Variante, acrescente a linha do HasFilter'
+        - '            entity.HasIndex(v => new { v.ProdutoId, v.Sku })'
+        - '                .IsUnique()'
+        - '                .HasFilter("Ativa = 1")'
+        - '                .HasDatabaseName("idx_variante_produto_sku");'
+      efeito: modelo_alterado
+    - titulo: Rodar a suíte e a API
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests
+        - rm -f produtos-api.db && dotnet run --launch-profile http
+      sucesso: '`Aprovado: 143` na suíte e a API parada com `PendingModelChangesWarning`.'
+    - titulo: Desfazer a alteração
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout src/Shared/Data/AppDbContext.cs
+      sucesso: '`Updated 1 path from the index`.'
+    - titulo: Escrever os testes do banco de teste
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/BancoDeTesteTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using FluentAssertions;
+        - using Microsoft.EntityFrameworkCore;
+        - using Microsoft.Extensions.DependencyInjection;
+        - using ProdutosAPI.Shared.Data;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration;
+        - ''
+        - 'public class BancoDeTesteTests(ApiFactory factory) : IClassFixture<ApiFactory>'
+        - '{'
+        - '    [Fact]'
+        - '    public void Migrations_CobremOModeloAtual()'
+        - '    {'
+        - '        using var scope = factory.Services.CreateScope();'
+        - '        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();'
+        - ''
+        - '        db.Database.HasPendingModelChanges().Should().BeFalse("toda mudança no modelo precisa de uma migration");'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public void Banco_FoiCriadoPelasMigrations()'
+        - '    {'
+        - '        using var scope = factory.Services.CreateScope();'
+        - '        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();'
+        - ''
+        - '        db.Database.GetPendingMigrations().Should().BeEmpty("o banco de teste precisa ter o mesmo esquema do banco de produção");'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public void Banco_FicaNaMemoria()'
+        - '    {'
+        - '        using var scope = factory.Services.CreateScope();'
+        - '        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();'
+        - ''
+        - '        db.Database.GetConnectionString().Should().Contain(":memory:", "a suíte não pode deixar arquivos de banco no diretório temporário");'
+        - '    }'
+        - '}'
+      efeito: teste_banco
+    - titulo: Ver os testes falharem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+      sucesso: '`Com falha: 2`, com o caminho de um `TestDb_*.db` e as 4 migrations pendentes.'
+    - titulo: Trocar a factory
+      texto: Substitua o arquivo pela versão abaixo. Ela abre uma conexão SQLite em memória por factory, troca o registro do `AppDbContext` com `ConfigureTestServices` e cria o esquema com `Migrate`.
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/ApiFactory.cs (substituição)
+        commit: 702145a
+        linhas:
+        - using Microsoft.AspNetCore.Hosting;
+        - using Microsoft.AspNetCore.Mvc.Testing;
+        - using Microsoft.AspNetCore.TestHost;
+        - using Microsoft.Data.Sqlite;
+        - using Microsoft.EntityFrameworkCore;
+        - using Microsoft.EntityFrameworkCore.Infrastructure;
+        - using Microsoft.Extensions.DependencyInjection;
+        - using Microsoft.Extensions.DependencyInjection.Extensions;
+        - using Microsoft.Extensions.Hosting;
+        - using ProdutosAPI.Catalogo.API.Extensions;
+        - using ProdutosAPI.Shared.Data;
+        - using ProdutosAPI.Catalogo.Infrastructure.Data;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration;
+        - ''
+        - 'public class ApiFactory : WebApplicationFactory<Program>'
+        - '{'
+        - '    // Um banco SQLite em memória por factory: existe enquanto a conexão estiver aberta'
+        - '    private readonly SqliteConnection _conexao = new("Data Source=:memory:");'
+        - ''
+        - '    protected override void ConfigureWebHost(IWebHostBuilder builder)'
+        - '    {'
+        - '        builder.UseEnvironment("Testing");'
+        - '        // Program.cs pula AddCatalogoRateLimiting() em Testing; cada factory registra seus próprios limites'
+        - '        builder.ConfigureServices(AddRateLimiting);'
+        - '        builder.ConfigureTestServices(services =>'
+        - '        {'
+        - '            // Remove o banco em arquivo registrado pelo Program.cs, inclusive a configuração que o EF Core guarda à parte'
+        - '            services.RemoveAll<DbContextOptions<AppDbContext>>();'
+        - '            services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();'
+        - '            _conexao.Open();'
+        - '            services.AddDbContext<AppDbContext>(options => options.UseSqlite(_conexao));'
+        - '        });'
+        - '    }'
+        - ''
+        - '    // Limites altos para não interferir em testes funcionais existentes'
+        - '    protected virtual void AddRateLimiting(IServiceCollection services) =>'
+        - '        services.AddCatalogoRateLimitingWithLimits(leituraLimit: 10000, escritaLimit: 10000, criacaoProdutoLimit: 10000);'
+        - ''
+        - '    protected override IHost CreateHost(IHostBuilder builder)'
+        - '    {'
+        - '        var host = base.CreateHost(builder);'
+        - '        using var scope = host.Services.CreateScope();'
+        - '        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();'
+        - '        db.Database.Migrate();'
+        - '        DbSeeder.Seed(db);'
+        - '        return host;'
+        - '    }'
+        - ''
+        - '    protected override void Dispose(bool disposing)'
+        - '    {'
+        - '        base.Dispose(disposing);'
+        - '        if (disposing)'
+        - '        {'
+        - '            _conexao.Dispose();'
+        - '        }'
+        - '    }'
+        - '}'
+      efeito: fabrica_nova
+    - titulo: Ver os testes passarem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+        - dotnet test tests/ProdutosAPI.Tests
+        - antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      sucesso: '`Aprovado: 3`, a suíte com `Aprovado: 146` e os dois números iguais.'
+    - titulo: Alterar o modelo de novo
+      texto: Repita a alteração do passo 2 e rode os testes.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests
+        - dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests 2>&1 | grep -E '^  Com falha|InvalidOperationException|Com falha!' | cut -c1-200
+      efeito: modelo_alterado_de_novo
+      sucesso: '`Com falha: 49` na suíte e `PendingModelChangesWarning` nos testes do banco.'
+    - titulo: Desfazer e conferir
+      editor:
+        rotulo: terminal
+        linhas:
+        - git checkout src/Shared/Data/AppDbContext.cs
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Aprovado: 146`.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: contar() { ls "${TMPDIR:-/tmp}"/TestDb_*.db 2>/dev/null | wc -l | tr -d ' '; }
+      saida: ''
+      origem: executado
+      dica: A função `contar` mostra quantos bancos `TestDb_*.db` existem no diretório temporário que o .NET usa.
+    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      condicao: fabrica_nova
+      saida: 300 -> 300
+      origem: executado
+      dica: 'Nenhum arquivo novo: cada factory usa um banco em memória.'
+    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      condicao: teste_banco
+      saida: 291 -> 300
+      origem: executado
+      dica: 'Mais 9 arquivos: a classe nova criou mais uma factory.'
+    - entrada: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+      saida: 282 -> 290
+      origem: executado
+      dica: 'Os números absolutos dependem das execuções anteriores na sua máquina. O que importa é a diferença: mais 8 arquivos, um por factory, que ninguém apaga.'
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      condicao:
+      - modelo_alterado
+      - '!modelo_restaurado'
+      saida: 'System.InvalidOperationException: An error was generated for warning ''Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning'': The model for context ''AppDbContext'' has pending changes. Add a new migration before updating the database. See https://'
+      origem: executado
+      dica: A API aplica as migrations ao subir e recusa um modelo que nenhuma migration descreve.
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      condicao:
+      - modelo_alterado_de_novo
+      - '!modelo_restaurado_de_novo'
+      saida: 'System.InvalidOperationException: An error was generated for warning ''Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning'': The model for context ''AppDbContext'' has pending changes. Add a new migration before updating the database. See https://'
+      origem: executado
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: Pare a API com Ctrl+C antes de continuar.
+    - entrada: git checkout src/Shared/Data/AppDbContext.cs
+      condicao:
+      - modelo_alterado_de_novo
+      - '!modelo_restaurado_de_novo'
+      saida: Updated 1 path from the index
+      origem: executado
+      efeito: modelo_restaurado_de_novo
+    - entrada: git checkout src/Shared/Data/AppDbContext.cs
+      condicao:
+      - modelo_alterado
+      - '!modelo_restaurado'
+      saida: Updated 1 path from the index
+      origem: executado
+      efeito: modelo_restaurado
+    - entrada: git checkout src/Shared/Data/AppDbContext.cs
+      saida: Updated 0 paths from the index
+      origem: executado
+      dica: O arquivo já está igual ao commit.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests 2>&1 | grep -E '^  Com falha|InvalidOperationException|Com falha!' | cut -c1-200
+      condicao:
+      - fabrica_nova
+      - modelo_alterado_de_novo
+      - '!modelo_restaurado_de_novo'
+      saida: "  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Banco_FicaNaMemoria [387 ms]\n   System.InvalidOperationException : An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'AppDbContext' has pending changes\n  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Migrations_CobremOModeloAtual [72 ms]\n   System.InvalidOperationException : An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'AppDbContext' has pending changes\n  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Banco_FoiCriadoPelasMigrations [79 ms]\n   System.InvalidOperationException : An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'AppDbContext' has pending changes\nCom falha! – Com falha:     3, Aprovado:     0, Ignorado:     0, Total:     3, Duração: 538 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: A factory aplica as migrations, e o mesmo erro da API derruba a criação do banco de teste.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+      condicao:
+      - fabrica_nova
+      - modelo_alterado_de_novo
+      - '!modelo_restaurado_de_novo'
+      saida: "  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Banco_FicaNaMemoria [387 ms]\n   System.InvalidOperationException : An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'AppDbContext' has pending changes\n  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Migrations_CobremOModeloAtual [72 ms]\n   System.InvalidOperationException : An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'AppDbContext' has pending changes\n  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Banco_FoiCriadoPelasMigrations [79 ms]\n   System.InvalidOperationException : An error was generated for warning 'Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning': The model for context 'AppDbContext' has pending changes\nCom falha! – Com falha:     3, Aprovado:     0, Ignorado:     0, Total:     3, Duração: 538 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+      condicao:
+      - teste_banco
+      - fabrica_nova
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 568 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+      condicao: teste_banco
+      saida: "  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Banco_FicaNaMemoria [559 ms]\n   Expected db.Database.GetConnectionString() \"Data Source=<tmp>/TestDb_1a70b79c00af4c419038a9ba338b02b1.db\" to contain \":memory:\" because a suíte não pode deixar arquivos de banco no diretório temporário.\n  Com falha ProdutosAPI.Tests.Integration.BancoDeTesteTests.Banco_FoiCriadoPelasMigrations [5 ms]\n   Expected db.Database.GetPendingMigrations() to be empty because o banco de teste precisa ter o mesmo esquema do banco de produção, but found {\"20260227173933_AddPedidos\", \"20260417184630_AddCategorias\", \"20260417185252_AddVariantes\", \"20260417185704_AddAtributosEMidias\"}.\nCom falha! – Com falha:     2, Aprovado:     1, Ignorado:     0, Total:     3, Duração: 590 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: O teste das mudanças de modelo passa, e os outros dois mostram o banco em arquivo e as 4 migrations que nunca rodaram.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+      saida: Nenhum teste corresponde ao filtro de testcase `BancoDeTesteTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - fabrica_nova
+      - modelo_alterado_de_novo
+      - '!modelo_restaurado_de_novo'
+      saida: 'Com falha! – Com falha:    49, Aprovado:    97, Ignorado:     0, Total:   146, Duração: 2 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: 'Os 49 testes que sobem a API falham: a suíte passou a recusar o que a API recusa.'
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_banco
+      - fabrica_nova
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   146, Ignorado:     0, Total:   146, Duração: 962 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_banco
+      saida: 'Com falha! – Com falha:     2, Aprovado:   144, Ignorado:     0, Total:   146, Duração: 892 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - modelo_alterado
+      - '!modelo_restaurado'
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 909 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: 'Os 143 testes passam com o modelo alterado: o `EnsureCreated` monta o banco a partir do modelo e ignora as migrations.'
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 979 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    cenarios:
+    - rotulo: Contar os bancos
+      comando: antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+    - rotulo: Suíte
+      comando: dotnet test tests/ProdutosAPI.Tests
+    - rotulo: Testes do banco
+      comando: dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+    - rotulo: Subir a API
+      comando: rm -f produtos-api.db && dotnet run --launch-profile http
+    - rotulo: Desfazer
+      comando: git checkout src/Shared/Data/AppDbContext.cs
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com essa suíte de testes, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Diretório temporário cheio de bancos
+    origem: executado
+    rotulo_saida: log
+    saida: '$ antes=$(contar); dotnet test tests/ProdutosAPI.Tests > /dev/null; echo "$antes -> $(contar)"
+
+      282 -> 290'
+    pergunta: O agente de CI fica sem espaço depois de semanas de execução. De onde vêm os arquivos `TestDb_*.db`?
+    correcao: Usar SQLite em memória com uma conexão por factory e fechá-la no `Dispose`, como no passo 7.
+    alternativas:
+    - texto: O seed grava um arquivo por produto.
+      correta: false
+      explicacao: O seed insere linhas no banco da factory.
+    - texto: Cada factory cria um banco com nome novo no diretório temporário, e nenhum código o apaga.
+      correta: true
+      explicacao: São 8 factories por execução, uma por classe de teste com `IClassFixture`.
+    - texto: O `dotnet test` guarda uma cópia do banco de produção.
+      correta: false
+      explicacao: O banco de produção é o `produtos-api.db`, na raiz.
+  - tipo: incidente
+    titulo: Suíte verde e API que não sobe
+    origem: executado
+    rotulo_saida: log
+    saida: '$ dotnet test tests/ProdutosAPI.Tests
+
+      Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 909 ms - ProdutosAPI.Tests.dll (net10.0)
+
+
+      $ rm -f produtos-api.db && dotnet run --launch-profile http
+
+      System.InvalidOperationException: An error was generated for warning ''Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning'': The model for context ''AppDbContext'' has pending changes. Add a new migration before updating the database. See https://'
+    pergunta: A suíte passou no pull request, e a API parou no deploy. Por que os testes não perceberam?
+    correcao: Criar o banco de teste com `Migrate` e manter um teste com `HasPendingModelChanges`, como nos passos 5 e 7.
+    alternativas:
+    - texto: Os testes usam outro `DbContext`.
+      correta: false
+      explicacao: É o mesmo `AppDbContext`, com outra string de conexão.
+    - texto: O SQLite dos testes é de outra versão.
+      correta: false
+      explicacao: O pacote é o mesmo projeto da API.
+    - texto: A factory monta o banco com `EnsureCreated`, a partir do modelo, e as migrations nunca rodam nos testes.
+      correta: true
+      explicacao: A API roda `Migrate` ao subir e recusa o modelo sem migration.
+  - tipo: incidente
+    titulo: Migration que o EF Core não enxerga
+    origem: executado
+    rotulo_saida: log
+    saida: '$ dotnet test tests/ProdutosAPI.Tests --filter BancoDeTesteTests
+
+      Expected db.Database.GetPendingMigrations() to be empty because o banco de teste precisa ter o mesmo esquema do banco de produção, but found {"20260227173933_AddPedidos", "20260417184630_AddCategorias", "20260417185252_AddVariantes", "20260417185704_AddAtributosEMidias"}.
+
+
+      $ ls src/Shared/Data/Migrations/*_*.cs | grep -v Designer
+
+      src/Shared/Data/Migrations/20250225000000_CreateInitialSchema.cs
+
+      src/Shared/Data/Migrations/20260227173933_AddPedidos.cs
+
+      src/Shared/Data/Migrations/20260417184630_AddCategorias.cs
+
+      src/Shared/Data/Migrations/20260417185252_AddVariantes.cs
+
+      src/Shared/Data/Migrations/20260417185704_AddAtributosEMidias.cs'
+    pergunta: A pasta tem cinco migrations, e o EF Core lista quatro. Por que a `CreateInitialSchema` ficou de fora?
+    correcao: Remover o arquivo, porque a `AddPedidos` já cria a tabela `Produtos`, ou restaurar os atributos `[DbContext]` e `[Migration]` com o arquivo `.Designer.cs`.
+    alternativas:
+    - texto: O arquivo não tem os atributos `[DbContext]` e `[Migration]`, que ficam no `.Designer.cs`, e o EF Core só reconhece classes com eles.
+      correta: true
+      explicacao: As outras quatro têm o `.Designer.cs` correspondente.
+    - texto: A data de 2025 é anterior ao projeto.
+      correta: false
+      explicacao: O EF Core ordena pelo identificador, sem validar datas.
+    - texto: Ela já foi aplicada e por isso não aparece.
+      correta: false
+      explicacao: O banco de teste não tinha nenhuma migration aplicada.
+  - tipo: incidente
+    titulo: Falha que não mostra a causa
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'tests/ProdutosAPI.Tests/Integration/Pedidos/ListPedidosTests.cs:39-48
+
+      // Create a pedido first so there''s something to list
+
+      await _client.PostAsJsonAsync("/api/v1/pedidos",
+
+      new CreatePedidoCommand([new(1, 1)]));
+
+      var response = await _client.GetAsync("/api/v1/pedidos");
+
+      response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+      var result = await response.Content.ReadFromJsonAsync<ListPedidosResponse>();
+
+      result.Should().NotBeNull();
+
+      result!.Total.Should().BeGreaterThan(0);'
+    pergunta: Se o pedido de preparação receber 400, que mensagem o teste mostra?
+    correcao: Conferir o status do POST de preparação antes de listar, para que a falha aponte a etapa que quebrou.
+    alternativas:
+    - texto: Nenhuma, porque o teste passa.
+      correta: false
+      explicacao: Sem pedido, o total da listagem é zero, e a asserção falha.
+    - texto: Que o total deveria ser maior que zero, sem dizer que a criação do pedido falhou.
+      correta: true
+      explicacao: O resultado do `PostAsJsonAsync` é descartado.
+    - texto: O corpo do 400 com o erro de validação.
+      correta: false
+      explicacao: O teste não lê a resposta do POST.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: O que o `WebApplicationFactory` deixa de fora da API real?
+      alternativas:
+      - texto: A autenticação.
+        correta: false
+        explicacao: Os testes de 401 provam que ela roda.
+      - texto: O `Program.cs`.
+        correta: false
+        explicacao: A factory executa o `Program.cs`.
+      - texto: 'A rede: o `TestServer` atende o `HttpClient` na memória, sem porta.'
+        correta: true
+        explicacao: Rotas, middlewares e banco são os da API.
+    - enunciado: Por que trocar `EnsureCreated` por `Migrate` na factory?
+      alternativas:
+      - texto: Para o banco de teste ter o esquema das migrations, o mesmo que a produção recebe.
+        correta: true
+        explicacao: Assim a suíte recusa um modelo sem migration.
+      - texto: Porque `Migrate` é mais rápido.
+        correta: false
+        explicacao: O motivo é a fidelidade do esquema.
+      - texto: Porque `EnsureCreated` não funciona com SQLite.
+        correta: false
+        explicacao: Funciona, e era usado no commit.
+    - enunciado: Por que a conexão SQLite em memória fica aberta durante toda a vida da factory?
+      alternativas:
+      - texto: Porque o EF Core exige uma conexão aberta.
+        correta: false
+        explicacao: Com arquivo, o EF Core abre e fecha a conexão sozinho.
+      - texto: Porque o banco em memória deixa de existir quando a conexão fecha.
+        correta: true
+        explicacao: O `Dispose` da factory fecha a conexão e descarta o banco.
+      - texto: Para o banco ser compartilhado entre todas as classes.
+        correta: false
+        explicacao: Cada factory abre a própria conexão.
+    - enunciado: Onde a troca do banco deve acontecer?
+      alternativas:
+      - texto: Num `if` a mais no `Program.cs`.
+        correta: false
+        explicacao: É a condição de ambiente que o laboratório deixou de depender.
+      - texto: Em cada classe de teste.
+        correta: false
+        explicacao: A factory concentra a configuração.
+      - texto: No `ConfigureTestServices` da factory, depois dos registros do `Program.cs`.
+        correta: true
+        explicacao: O código da API não precisa saber dos testes.
+    - enunciado: O que o teste `Migrations_CobremOModeloAtual` impede?
+      alternativas:
+      - texto: O merge de uma mudança de modelo sem migration.
+        correta: true
+        explicacao: '`HasPendingModelChanges` compara o modelo com o snapshot das migrations.'
+      - texto: Migrations duplicadas.
+        correta: false
+        explicacao: Ele não compara migrations entre si.
+      - texto: Dados de seed errados.
+        correta: false
+        explicacao: Ele não lê dados.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A suíte original deixou um banco por factory no diretório temporário.
+    - A mudança de modelo sem migration passou na suíte original e parou a API.
+    - Os testes do banco falharam antes da troca da factory e passaram depois.
+    - A suíte com a factory nova não deixou arquivos.
+    - A mesma mudança de modelo passou a falhar nos testes.

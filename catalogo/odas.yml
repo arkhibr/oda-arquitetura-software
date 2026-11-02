@@ -291,7 +291,8 @@ odas:
     minutos: 75
     pre_requisitos: ["17"]
     objetivo: "Escrever testes de integração isolados que exercitam a API real em memória."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-27
   - id: "28"
     titulo: "Aspire, LocalStack e testes de integração com nuvem emulada"
     trilha: 7
