@@ -186,6 +186,8 @@ select { background: var(--terminal); border: 1px solid var(--borda); border-rad
 .incidente__correcao { border-left: 4px solid var(--sucesso); background: var(--sucesso-fundo); padding: 8px 12px; border-radius: 8px; margin-top: 8px; }
 @media (max-width: 600px) { .classificador__item { grid-template-columns: minmax(0, 1fr); } }
 .painel, .bloco, .passo, .passo > *, .arvore, .fluxo, .incidente, .api, .quiz, .classificador { min-width: 0; }
+/* Identificadores longos (pacotes, ARNs, chamadas encadeadas) quebram em vez de alargar a página em telas estreitas */
+.painel { overflow-wrap: anywhere; }
 .passo__titulo, .arvore__no, .fluxo__etapa, .quiz__alternativa { overflow-wrap: anywhere; }
 fieldset { min-width: 0; }
 .legenda code, .faixa code, .passo code, .classificador code, .quiz code, .incidente code, .comparativo code, .arvore__descricao code, .api__nota code, legend code { overflow-wrap: anywhere; }
