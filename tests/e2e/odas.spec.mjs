@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -381,6 +381,21 @@ test('oda-21: o agregado aceita oito unidades com estoque cinco até a correçã
   await painel.getByLabel('Passo 5 concluído').check();
   await rodar(adicionar);
   await expect(tela).toContainText('sem estoque suficiente');
+});
+
+test('oda-22: o JSON ilegível muda de 500 em Development para problem+json depois da correção', async ({ page }) => {
+  await page.goto('/oda-22/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  const json = `curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"nome":' http://localhost:5000/api/v1/catalogo/produtos | tr -d '\\r' | grep -i -E '^HTTP|^content-type|^content-length|^\\{'`;
+  await rodar('ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000');
+  await rodar(json);
+  await expect(tela).toContainText('500 Internal Server Error');
+  await painel.getByLabel('Passo 5 concluído').check();
+  await rodar(json);
+  await expect(tela).toContainText('application/problem+json');
 });
 
 test('oda-30: linha do tempo retém a mensagem na fila 2 quando a leitura não é executada', async ({ page }) => {

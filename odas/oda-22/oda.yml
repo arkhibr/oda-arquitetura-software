@@ -1,0 +1,719 @@
+id: '22'
+titulo: 'Erros e validação: Result, FluentValidation e exceções'
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é aprender a separar três tipos de erro numa API, a requisição que o servidor não consegue ler, a regra de negócio violada e a falha inesperada, e a dar a cada um um status e um formato de resposta próprios. Na API `net-minimal-api`, um JSON ilegível recebe 500 em desenvolvimento e 400 sem corpo em produção, e você vai fazer os dois ambientes responderem 400 com `application/problem+json`, com o teste escrito antes.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Classificar um erro como de entrada, de domínio ou inesperado, e dizer quem deve tratá-lo.
+    - Explicar como `Result`, validação e middleware de exceções dividem o trabalho na API.
+    - Reconhecer uma resposta que muda de status conforme o ambiente.
+    - Mapear `BadHttpRequestException` para 400 em `application/problem+json`, com o teste escrito antes.
+    - Identificar uma asserção que passa sem conferir nada.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10, do Git e do `curl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · o mesmo erro em dois ambientes
+    comandos:
+    - entrada: ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      efeito:
+      - amb_dev
+      - '!amb_prod'
+      dica: Apague `produtos-api.db` antes, para partir do banco do seed.
+    - entrada: ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Production'
+      origem: executado
+      efeito:
+      - amb_prod
+      - '!amb_dev'
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      condicao: amb_prod
+      saida: 'HTTP/1.1 400 Bad Request
+
+        Content-Length: 0'
+      origem: executado
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      saida: 'HTTP/1.1 500 Internal Server Error
+
+        Content-Type: application/json; charset=utf-8
+
+        {"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/produtos","errors":{}}'
+      origem: executado
+    cenarios:
+    - rotulo: Subir em Development
+      comando: ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
+    - rotulo: Subir em Production
+      comando: ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
+    - rotulo: Enviar JSON ilegível
+      comando: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba define os três tipos de erro e o ponto da API que deve tratar cada um. No repositório, a ADR-0003 registra o uso de `Result` para os erros de domínio e a ADR-0010 registra o FluentValidation para a entrada.
+  - tipo: comparativo
+    colunas:
+    - Quem detecta
+    - Resposta esperada
+    linhas:
+    - dimensao: 'Erro de entrada: JSON ilegível, tipo errado, corpo ausente'
+      valores:
+      - O framework, ao ler o corpo, ou o validador
+      - 400 com problem details, ou 422 para requisição legível que viola uma regra de formato
+    - dimensao: 'Erro de domínio: produto inexistente, pedido já cancelado'
+      valores:
+      - O agregado ou o handler, com `Result`
+      - 400, 404, 409 ou 422, conforme a regra, com a mensagem da regra
+    - dimensao: 'Falha inesperada: banco fora do ar, erro de programação'
+      valores:
+      - 'Ninguém: a exceção sobe até o middleware'
+      - 500 com mensagem genérica, sem detalhes internos
+  - tipo: conceito
+    titulo: Result para o esperado, exceção para o inesperado
+    texto: Uma regra de negócio violada faz parte do fluxo normal e volta como `Result.Fail`, que o endpoint transforma num status. A exceção fica para o que ninguém previu, e o middleware a transforma em 500 sem expor a mensagem interna.
+  - tipo: conceito
+    titulo: ThrowOnBadRequest
+    texto: Quando o ASP.NET não consegue ler o corpo de um endpoint mínimo, ele lança `BadHttpRequestException` se a opção `ThrowOnBadRequest`, de `RouteHandlerOptions`, estiver ligada, e responde 400 sem corpo se estiver desligada. A opção vem ligada só em `Development`, e é isso que faz o mesmo erro ter duas respostas.
+  - tipo: adr
+    id: ADR-0003
+    titulo: Padrão Result<T> para Erros de Domínio
+    status: accepted
+    contexto: Operações de domínio podem falhar por regras de negócio, e exceções interrompem o fluxo e carregam custo de stack trace.
+    decisao: '`Result<T>` como retorno explícito, com `IsSuccess`, `Value` e `Error`.'
+    alternativas: Exceções de domínio e `null` para ausência.
+    consequencias: O chamador é obrigado a tratar a falha, e o uso diferente entre Catálogo e Pedidos aumenta a carga cognitiva.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba mostra os dois pontos que decidem a resposta de um erro, no commit `702145a`: o endpoint que traduz um `Result` com falha e o middleware que trata as exceções. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/CreatePedido/CreatePedidoEndpoint.cs
+    commit: 702145a
+    linhas:
+    - '            CancellationToken ct) =>'
+    - '        {'
+    - '            var validation = await validator.ValidateAsync(cmd, ct);'
+    - '            if (!validation.IsValid)'
+    - '                return Results.ValidationProblem(validation.ToDictionary());'
+    - ''
+    - '            var result = await handler.HandleAsync(cmd, ct);'
+    - '            return result.IsSuccess'
+    - '                ? Results.Created($"/api/v1/pedidos/{result.Value!.Id}", result.Value)'
+    - '                : Results.BadRequest(new { error = result.Error });'
+    anotacoes:
+    - linha: 19
+      texto: 'Erro de entrada legível: o validador encontrou campos inválidos.'
+    - linha: 24
+      texto: 'Erro de domínio: o handler devolveu `Result` com falha.'
+    inicio: 15
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Middleware/ExceptionHandlingMiddleware.cs
+    commit: 702145a
+    linhas:
+    - '    public async Task InvokeAsync(HttpContext context)'
+    - '    {'
+    - '        try'
+    - '        {'
+    - '            await _next(context);'
+    - '        }'
+    - '        catch (Exception ex)'
+    - '        {'
+    - '            _logger.LogError(ex, "Exceção não tratada na requisição");'
+    - '            await HandleExceptionAsync(context, ex);'
+    - '        }'
+    - '    }'
+    - ''
+    - '    private static Task HandleExceptionAsync(HttpContext context, Exception exception)'
+    - '    {'
+    - '        context.Response.ContentType = "application/json";'
+    - ''
+    - '        var response = new ErrorResponse'
+    - '        {'
+    - '            Instance = context.Request.Path'
+    - '        };'
+    - ''
+    - '        // Tratar diferentes tipos de exceções'
+    - '        switch (exception)'
+    - '        {'
+    - '            case ValidationException validationEx:'
+    - '                // Exceção de validação do FluentValidation'
+    - '                // Referência: Melhores-Praticas-API.md - Seção "Validação de Dados"'
+    - '                context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;'
+    - '                response.Status = StatusCodes.Status422UnprocessableEntity;'
+    - '                response.Title = "Validation Failed";'
+    - '                response.Type = "https://example.com/errors/validation-error";'
+    - '                response.Detail = "One or more validation errors occurred.";'
+    - ''
+    - '                foreach (var failure in validationEx.Errors.GroupBy(e => e.PropertyName))'
+    - '                {'
+    - '                    response.Errors[failure.Key] = failure.Select(e => e.ErrorMessage).ToList();'
+    - '                }'
+    - '                break;'
+    - ''
+    - '            case KeyNotFoundException:'
+    - '                // Recurso não encontrado'
+    - '                // Referência: Melhores-Praticas-API.md - Seção "HTTP Status Codes"'
+    - '                context.Response.StatusCode = StatusCodes.Status404NotFound;'
+    - '                response.Status = StatusCodes.Status404NotFound;'
+    - '                response.Title = "Not Found";'
+    - '                response.Type = "https://example.com/errors/not-found";'
+    - '                response.Detail = exception.Message;'
+    - '                break;'
+    - ''
+    - '            case ArgumentException:'
+    - '                // Argumento inválido'
+    - '                context.Response.StatusCode = StatusCodes.Status400BadRequest;'
+    - '                response.Status = StatusCodes.Status400BadRequest;'
+    - '                response.Title = "Bad Request";'
+    - '                response.Type = "https://example.com/errors/bad-request";'
+    - '                response.Detail = exception.Message;'
+    - '                break;'
+    - ''
+    - '            case UnauthorizedAccessException:'
+    - '                // Acesso não autorizado'
+    - '                context.Response.StatusCode = StatusCodes.Status401Unauthorized;'
+    - '                response.Status = StatusCodes.Status401Unauthorized;'
+    - '                response.Title = "Unauthorized";'
+    - '                response.Type = "https://example.com/errors/unauthorized";'
+    - '                response.Detail = "Autenticação necessária";'
+    - '                break;'
+    - ''
+    - '            default:'
+    - '                // Erro genérico do servidor'
+    - '                // Referência: Melhores-Praticas-API.md - Seção "Tratamento de Erros"'
+    - '                // NÃO expor stack trace em produção'
+    - '                context.Response.StatusCode = StatusCodes.Status500InternalServerError;'
+    - '                response.Status = StatusCodes.Status500InternalServerError;'
+    - '                response.Title = "Internal Server Error";'
+    - '                response.Type = "https://example.com/errors/internal-server-error";'
+    - '                response.Detail = "Um erro interno ocorreu ao processar sua requisição";'
+    - '                break;'
+    - '        }'
+    - ''
+    - '        return context.Response.WriteAsJsonAsync(response);'
+    - '    }'
+    anotacoes:
+    - linha: 29
+      texto: Qualquer exceção não tratada chega aqui.
+    - linha: 38
+      texto: Tipo definido antes da escrita do corpo.
+    - linha: 48
+      texto: Ramo para exceções do FluentValidation.
+    - linha: 63
+      texto: Não há ramo para `BadHttpRequestException`, que cai no `default`.
+    - linha: 91
+      texto: Tudo que não foi previsto vira 500.
+    - linha: 103
+      texto: Escreve o corpo em JSON.
+    inicio: 23
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, o caminho de uma requisição com JSON ilegível nos dois ambientes, antes e depois da correção. Depois, classifique cada situação pelo tipo de erro, para fixar quem deve tratá-la.
+  - tipo: fluxo
+    titulo: POST com corpo ilegível
+    etapas:
+    - titulo: Leitura do corpo
+      descricao: O ASP.NET tenta desserializar `{"nome":` em `CriarProdutoRequest` e encontra um objeto JSON sem fim.
+    - titulo: Production, antes
+      descricao: 'Com `ThrowOnBadRequest` desligado, o framework responde 400 com `Content-Length: 0`, sem passar pelo middleware.'
+    - titulo: Development, antes
+      descricao: Com a opção ligada, o framework lança `BadHttpRequestException`, e o middleware, sem ramo para ela, responde 500.
+    - titulo: Depois
+      descricao: A opção fica ligada em todo ambiente, e o ramo novo responde 400 com título e detalhe próprios.
+    - titulo: Escrita
+      descricao: O `WriteAsJsonAsync` recebe `application/problem+json` como tipo de conteúdo, e o cabeçalho chega ao cliente com esse valor.
+  - tipo: classificador
+    enunciado: Que tipo de erro é cada situação?
+    categorias:
+    - id: entrada
+      rotulo: Erro de entrada
+    - id: dominio
+      rotulo: Erro de domínio
+    - id: inesperado
+      rotulo: Falha inesperada
+    itens:
+    - texto: Corpo `{"nome":` num POST de produto
+      categoria: entrada
+      explicacao: O servidor não consegue ler a requisição.
+    - texto: Pedido com o produto 99999, que não existe
+      categoria: dominio
+      explicacao: A requisição é legível e viola uma regra do pedido.
+    - texto: Cancelar um pedido já cancelado
+      categoria: dominio
+      explicacao: '`Pedido.Cancelar` devolve `Result.Fail`.'
+    - texto: Banco SQLite apagado com a API no ar
+      categoria: inesperado
+      explicacao: Ninguém trata, e a exceção sobe ao middleware.
+    - texto: '`preco` enviado como texto, `"caro"`'
+      categoria: entrada
+      explicacao: O tipo do campo não converte.
+    - texto: Pedido sem itens
+      categoria: entrada
+      explicacao: O validador recusa a requisição antes do domínio.
+    - texto: '`NullReferenceException` num handler'
+      categoria: inesperado
+      explicacao: Bug, com resposta 500 genérica.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é fazer a API responder a um corpo ilegível com 400 em `application/problem+json`, igual em todos os ambientes, sem mudar a resposta dos erros de domínio. Os passos 1 e 2 mostram a diferença entre os ambientes, os passos 3 a 6 escrevem os testes e mudam o `Program.cs` e o middleware, e o passo 7 repete as chamadas. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/net-minimal-api`, entre na pasta criada e rode `git checkout 702145a`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Enviar JSON ilegível em Development
+      texto: Suba a API num terminal e, noutro, obtenha o token e envie o corpo truncado. Encerre a API com Ctrl+C no fim.
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db
+        - ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+        - 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":99999,"quantidade":1}]}'' http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^\{'''
+      sucesso: '`HTTP/1.1 500 Internal Server Error` no JSON ilegível e `400` com `{"error":"Produto 99999 não encontrado."}` no pedido.'
+    - titulo: Repetir em Production
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db
+        - ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      sucesso: '`HTTP/1.1 400 Bad Request` com `Content-Length: 0`.'
+    - titulo: Escrever os testes de erro de entrada
+      texto: Crie o arquivo abaixo. Ele confere o status e o tipo de conteúdo dos dois erros de entrada e mantém o erro de domínio como está.
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/ErrosDeEntradaTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Net;
+        - using System.Net.Http.Headers;
+        - using System.Text;
+        - using FluentAssertions;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration;
+        - ''
+        - 'public class ErrosDeEntradaTests : IClassFixture<ApiFactory>'
+        - '{'
+        - '    private readonly HttpClient _client;'
+        - ''
+        - '    public ErrosDeEntradaTests(ApiFactory factory)'
+        - '    {'
+        - '        _client = factory.CreateClient();'
+        - '    }'
+        - ''
+        - '    private async Task AuthenticateAsync()'
+        - '    {'
+        - '        var token = await AuthHelper.ObterTokenAsync(_client);'
+        - '        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);'
+        - '    }'
+        - ''
+        - '    private static StringContent Json(string corpo) => new(corpo, Encoding.UTF8, "application/json");'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Produto_JsonIlegivel_Retorna400ComProblemDetails()'
+        - '    {'
+        - '        await AuthenticateAsync();'
+        - ''
+        - '        var response = await _client.PostAsync("/api/v1/catalogo/produtos", Json("{\"nome\":"));'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);'
+        - '        var tipo = response.Content.Headers.ContentType?.MediaType;'
+        - '        tipo.Should().Be("application/problem+json");'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Cancelar_SemCorpo_Retorna400ComProblemDetails()'
+        - '    {'
+        - '        await AuthenticateAsync();'
+        - ''
+        - '        var response = await _client.PostAsync("/api/v1/pedidos/1/cancelar", Json(""));'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);'
+        - '        var tipo = response.Content.Headers.ContentType?.MediaType;'
+        - '        tipo.Should().Be("application/problem+json");'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Pedido_ProdutoInexistente_ContinuaErroDeDominio()'
+        - '    {'
+        - '        await AuthenticateAsync();'
+        - ''
+        - '        var response = await _client.PostAsync("/api/v1/pedidos", Json("{\"itens\":[{\"produtoId\":99999,\"quantidade\":1}]}"));'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);'
+        - '        (await response.Content.ReadAsStringAsync()).Should().Contain("error");'
+        - '    }'
+        - '}'
+      efeito: teste_erros
+    - titulo: Ver os testes falharem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter ErrosDeEntradaTests
+      sucesso: '`Com falha: 2, Aprovado: 1`, com `Expected tipo to be "application/problem+json", but found <null>.`'
+    - titulo: Ligar a exceção e tratar o erro de entrada
+      texto: Faça as três mudanças abaixo no `Program.cs` e no middleware.
+      editor:
+        rotulo: arquivo
+        caminho: Program.cs e src/Shared/Middleware/ExceptionHandlingMiddleware.cs (alteração)
+        commit: 702145a
+        linhas:
+        - '// Program.cs: depois de builder.Services.AddAuthorization();'
+        - // Corpo ilegível vira exceção em todo ambiente, e o middleware decide a resposta
+        - // (sem isso, só Development lança; os demais respondem 400 sem corpo).
+        - builder.Services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(o => o.ThrowOnBadRequest = true);
+        - ''
+        - '// src/Shared/Middleware/ExceptionHandlingMiddleware.cs: novo case, antes de KeyNotFoundException'
+        - '            case BadHttpRequestException badRequest:'
+        - '                // Erro de entrada: o corpo ou um parâmetro não pôde ser lido'
+        - '                context.Response.StatusCode = badRequest.StatusCode;'
+        - '                response.Status = badRequest.StatusCode;'
+        - '                response.Title = "Requisição inválida";'
+        - '                response.Type = "https://example.com/errors/bad-request";'
+        - '                response.Detail = "O corpo ou um parâmetro da requisição não pôde ser lido.";'
+        - '                break;'
+        - ''
+        - '// ExceptionHandlingMiddleware.cs: apague a linha context.Response.ContentType = "application/json";'
+        - '// e troque a última linha por:'
+        - '        // WriteAsJsonAsync sem contentType grava application/json por cima do valor definido antes.'
+        - '        return context.Response.WriteAsJsonAsync(response, options: null, contentType: "application/problem+json");'
+      efeito: erros_mapeados
+    - titulo: Ver os testes passarem
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter ErrosDeEntradaTests
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Aprovado: 3` e a suíte com `Aprovado: 146`.'
+    - titulo: Repetir nos dois ambientes
+      texto: Suba a API em cada ambiente e repita o JSON ilegível.
+      editor:
+        rotulo: terminal
+        linhas:
+        - ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+        - ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      sucesso: '`HTTP/1.1 400 Bad Request` com `Content-Type: application/problem+json` e o título `Requisição inválida` nos dois.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      efeito:
+      - amb_dev
+      - '!amb_prod'
+      dica: Apague `produtos-api.db` antes, para partir do banco do seed.
+    - entrada: ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Production'
+      origem: executado
+      efeito:
+      - amb_prod
+      - '!amb_dev'
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      condicao:
+      - erros_mapeados
+      - amb_prod
+      saida: 'HTTP/1.1 400 Bad Request
+
+        Content-Type: application/problem+json
+
+        {"type":"https://example.com/errors/bad-request","title":"Requisição inválida","status":400,"detail":"O corpo ou um parâmetro da requisição não pôde ser lido.","instance":"/api/v1/catalogo/produtos","errors":{}}'
+      origem: executado
+      dica: O mesmo contrato nos dois ambientes.
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      condicao: erros_mapeados
+      saida: 'HTTP/1.1 400 Bad Request
+
+        Content-Type: application/problem+json
+
+        {"type":"https://example.com/errors/bad-request","title":"Requisição inválida","status":400,"detail":"O corpo ou um parâmetro da requisição não pôde ser lido.","instance":"/api/v1/catalogo/produtos","errors":{}}'
+      origem: executado
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      condicao: amb_prod
+      saida: 'HTTP/1.1 400 Bad Request
+
+        Content-Length: 0'
+      origem: executado
+      dica: Em `Production`, o framework responde sem passar pelo middleware e sem corpo.
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+      saida: 'HTTP/1.1 500 Internal Server Error
+
+        Content-Type: application/json; charset=utf-8
+
+        {"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/produtos","errors":{}}'
+      origem: executado
+      dica: Em `Development`, o mesmo erro do cliente aparece como falha do servidor.
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":99999,"quantidade":1}]}'' http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^\{'''
+      condicao: amb_prod
+      saida: 'HTTP/1.1 400 Bad Request
+
+        Content-Type: application/json; charset=utf-8
+
+        {"error":"Produto 99999 não encontrado."}'
+      origem: executado
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":99999,"quantidade":1}]}'' http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^\{'''
+      saida: 'HTTP/1.1 400 Bad Request
+
+        Content-Type: application/json; charset=utf-8
+
+        {"error":"Produto 99999 não encontrado."}'
+      origem: executado
+      dica: 'Erro de domínio: o handler devolve `Result` com falha, e o endpoint escolhe o status.'
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter ErrosDeEntradaTests
+      condicao:
+      - teste_erros
+      - erros_mapeados
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 658 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter ErrosDeEntradaTests
+      condicao: teste_erros
+      saida: "  Com falha ProdutosAPI.Tests.Integration.ErrosDeEntradaTests.POST_Cancelar_SemCorpo_Retorna400ComProblemDetails [25 ms]\n   Expected tipo to be \"application/problem+json\", but found <null>.\n  Com falha ProdutosAPI.Tests.Integration.ErrosDeEntradaTests.POST_Produto_JsonIlegivel_Retorna400ComProblemDetails [7 ms]\n   Expected tipo to be \"application/problem+json\", but found <null>.\nCom falha! – Com falha:     2, Aprovado:     1, Ignorado:     0, Total:     3, Duração: 692 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: 'Os testes rodam no ambiente `Testing`, que se comporta como `Production`: status 400 e nenhum corpo.'
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter ErrosDeEntradaTests
+      saida: Nenhum teste corresponde ao filtro de testcase `ErrosDeEntradaTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 3.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_erros
+      - erros_mapeados
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   146, Ignorado:     0, Total:   146, Duração: 833 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_erros
+      saida: 'Com falha! – Com falha:     2, Aprovado:   144, Ignorado:     0, Total:   146, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`.
+    cenarios:
+    - rotulo: Subir em Development
+      comando: ASPNETCORE_ENVIRONMENT=Development dotnet run --no-launch-profile --urls http://localhost:5000
+    - rotulo: Subir em Production
+      comando: ASPNETCORE_ENVIRONMENT=Production dotnet run --no-launch-profile --urls http://localhost:5000
+    - rotulo: JSON ilegível
+      comando: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^content-type|^content-length|^\{'''
+    - rotulo: Testes de erro de entrada
+      comando: dotnet test tests/ProdutosAPI.Tests --filter ErrosDeEntradaTests
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que aparecem ao tratar erros nessa API, cada uma com a saída ou o trecho de código que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Erro do cliente que vira alerta de servidor
+    origem: executado
+    rotulo_saida: log
+    saida: '# Development
+
+      HTTP/1.1 500 Internal Server Error
+
+      Content-Type: application/json; charset=utf-8
+
+      {"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/produtos","errors":{}}
+
+
+      # Production
+
+      HTTP/1.1 400 Bad Request
+
+      Content-Length: 0'
+    pergunta: O monitoramento de desenvolvimento registra 500, e o de produção registra 400 sem corpo, para o mesmo JSON truncado. Por quê?
+    correcao: Ligar `ThrowOnBadRequest` em todo ambiente e tratar `BadHttpRequestException` no middleware, como no passo 5.
+    alternativas:
+    - texto: O Swagger muda a leitura do corpo em desenvolvimento.
+      correta: false
+      explicacao: O Swagger só documenta as rotas.
+    - texto: Só em `Development` o framework lança `BadHttpRequestException`, e o middleware, sem ramo para ela, a trata como falha inesperada.
+      correta: true
+      explicacao: Em `Production`, o framework responde direto, sem chegar ao middleware.
+    - texto: O banco de produção recusa o JSON.
+      correta: false
+      explicacao: O erro acontece antes de qualquer acesso ao banco.
+  - tipo: incidente
+    titulo: Teste verde que não confere nada
+    origem: executado
+    rotulo_saida: log
+    saida: 'response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+      response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+
+      $ dotnet test tests/ProdutosAPI.Tests --filter ErrosDeEntradaTests
+
+      Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 685 ms - ProdutosAPI.Tests.dll (net10.0)'
+    pergunta: Com essa asserção, os três testes passaram antes de qualquer correção. Por quê?
+    correcao: Guardar o valor numa variável e chamar `Should()` sobre ela, como na versão do passo 3.
+    alternativas:
+    - texto: O FluentAssertions ignora cabeçalhos.
+      correta: false
+      explicacao: A versão com variável confere o cabeçalho.
+    - texto: A API já respondia `problem+json`.
+      correta: false
+      explicacao: 'O `curl` mostrou `Content-Length: 0`, sem tipo de conteúdo.'
+    - texto: Com o cabeçalho nulo, o operador `?.` interrompe a expressão inteira, e o `Should().Be(...)` nunca é chamado.
+      correta: true
+      explicacao: Com a variável, a mesma verificação falha com `found <null>`.
+  - tipo: incidente
+    titulo: Tipo de conteúdo que não muda
+    origem: executado
+    rotulo_saida: log
+    saida: "  Com falha ProdutosAPI.Tests.Integration.ErrosDeEntradaTests.POST_Cancelar_SemCorpo_Retorna400ComProblemDetails [26 ms]\n   Expected tipo to be \"application/problem+json\" with a length of 24, but \"application/json\" has a length of 16, differs near \"jso\" (index 12).\n  Com falha ProdutosAPI.Tests.Integration.ErrosDeEntradaTests.POST_Produto_JsonIlegivel_Retorna400ComProblemDetails [5 ms]\n   Expected tipo to be \"application/problem+json\" with a length of 24, but \"application/json\" has a length of 16, differs near \"jso\" (index 12).\nCom falha! – Com falha:     2, Aprovado:     1, Ignorado:     0, Total:     3, Duração: 712 ms - ProdutosAPI.Tests.dll (net10.0)"
+    pergunta: O middleware definiu `context.Response.ContentType = "application/problem+json"`, e o cliente recebeu `application/json`. O que aconteceu?
+    correcao: Passar o tipo de conteúdo no próprio `WriteAsJsonAsync`, como no passo 5.
+    alternativas:
+    - texto: O `WriteAsJsonAsync` sem `contentType` grava `application/json` ao escrever o corpo, por cima do valor definido antes.
+      correta: true
+      explicacao: O status já saía certo nesse estado, e só o tipo divergia.
+    - texto: O navegador troca o tipo.
+      correta: false
+      explicacao: O teste roda sem navegador.
+    - texto: O `problem+json` não é um tipo válido.
+      correta: false
+      explicacao: É o tipo da RFC 9457 para problem details.
+  - tipo: incidente
+    titulo: Ramo de validação que nunca executa
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Shared/Middleware/ExceptionHandlingMiddleware.cs:48-51
+
+      case ValidationException validationEx:
+
+      // Exceção de validação do FluentValidation
+
+      // Referência: Melhores-Praticas-API.md - Seção "Validação de Dados"
+
+      context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;'
+    pergunta: Nenhum arquivo de `src/` lança `ValidationException` nem chama `ValidateAndThrow`. Que consequência isso tem?
+    correcao: Remover o ramo ou adotar `ValidateAndThrow` de forma consistente, e registrar a escolha.
+    alternativas:
+    - texto: O FluentValidation lança sozinho.
+      correta: false
+      explicacao: Só o `ValidateAndThrow` lança, e ninguém o chama.
+    - texto: O ramo 422 do middleware nunca executa, e quem lê o código conclui que a validação passa por ele, quando ela é feita nos endpoints.
+      correta: true
+      explicacao: O Catálogo responde 422 com `Results.UnprocessableEntity`, e os Pedidos, 400 com `ValidationProblem`.
+    - texto: Toda validação vira 500.
+      correta: false
+      explicacao: Os endpoints validam e respondem sem lançar.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Quem deve tratar um JSON que não pode ser lido?
+      alternativas:
+      - texto: O agregado, com `Result.Fail`.
+        correta: false
+        explicacao: O agregado nunca é chamado.
+      - texto: O banco, com uma constraint.
+        correta: false
+        explicacao: A requisição para antes do banco.
+      - texto: A borda da API, com 400, antes de qualquer regra de negócio.
+        correta: true
+        explicacao: O domínio nem chega a receber a requisição.
+    - enunciado: Por que o mesmo erro tinha dois status?
+      alternativas:
+      - texto: Porque `ThrowOnBadRequest` vem ligado só em `Development`.
+        correta: true
+        explicacao: Em produção, o framework respondia direto.
+      - texto: Porque produção usa HTTPS.
+        correta: false
+        explicacao: As chamadas foram em HTTP nos dois.
+      - texto: Porque o seed muda.
+        correta: false
+        explicacao: O erro acontece antes do banco.
+    - enunciado: Que resposta uma falha inesperada deve ter?
+      alternativas:
+      - texto: '400.'
+        correta: false
+        explicacao: O cliente não errou.
+      - texto: 500 com mensagem genérica, e o detalhe só no log.
+        correta: true
+        explicacao: O `default` do middleware faz isso.
+      - texto: 500 com a stack trace.
+        correta: false
+        explicacao: A stack expõe a implementação.
+    - enunciado: Por que o erro de domínio do pedido não mudou?
+      alternativas:
+      - texto: Porque o middleware ignora Pedidos.
+        correta: false
+        explicacao: O middleware vale para todas as rotas.
+      - texto: Porque o teste não chama Pedidos.
+        correta: false
+        explicacao: O terceiro teste chama `POST /api/v1/pedidos`.
+      - texto: 'Porque não é exceção: o handler devolve `Result` com falha, e o endpoint escolhe o status.'
+        correta: true
+        explicacao: O middleware só trata exceções.
+    - enunciado: Como evitar a asserção que passa sem conferir?
+      alternativas:
+      - texto: 'Não usar `?.` antes de `Should()`: guardar o valor e verificar a variável.'
+        correta: true
+        explicacao: O teste corrigido mostrou `found <null>`.
+      - texto: Rodar os testes duas vezes.
+        correta: false
+        explicacao: O resultado seria o mesmo.
+      - texto: Usar `Assert.True`.
+        correta: false
+        explicacao: Com `?.`, qualquer chamada seria pulada.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - Os três tipos de erro e quem trata cada um estão claros.
+    - A diferença entre `Development` e `Production` foi reproduzida.
+    - Os testes falharam antes da correção e passaram depois.
+    - Os dois ambientes passaram a responder 400 em `application/problem+json`.
+    - O erro de domínio continuou com a resposta do handler.

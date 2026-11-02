@@ -241,7 +241,8 @@ odas:
     minutos: 60
     pre_requisitos: ["17"]
     objetivo: "Distinguir erro de domínio, erro de entrada e falha inesperada e tratar cada um no lugar certo."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-22
   - id: "23"
     titulo: "CQRS com EF Core e Dapper, migrations e soft delete"
     trilha: 6
