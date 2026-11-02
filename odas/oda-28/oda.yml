@@ -1,0 +1,535 @@
+id: '28'
+titulo: Aspire, LocalStack e testes de integração com nuvem emulada
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é entender como um teste de integração sobe a nuvem emulada e escolher o escopo da fixture, pesando o tempo de cada execução contra o isolamento entre os testes. No repositório `aspire-aws`, cada cenário é um projeto de testes cuja `Fixture` usa o .NET Aspire para subir o LocalStack, que emula serviços da AWS, e cada classe de teste com `IClassFixture` sobe uma cópia nova. Você vai medir o custo de uma classe a mais, compartilhar a fixture entre classes e corrigir o teste que passa a interferir no vizinho.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar o que o builder de testes do Aspire sobe a partir do projeto `AppHost`.
+    - Descrever o caminho de um teste até o LocalStack, pela porta 4566.
+    - Diferenciar `IClassFixture` de `ICollectionFixture` pelo número de ambientes que sobem.
+    - Reconhecer um teste que depende de estado deixado por outro teste.
+    - Explicar por que os cenários rodam um de cada vez.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, exigido pelo `global.json`, do Git e de um Docker em execução. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa um terminal na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no WSL.
+  - tipo: terminal
+    titulo: terminal · rodar o cenário 01
+    comandos:
+    - entrada: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     0, Total:     5, Duração: 501 ms - 01-S3.Basic.dll (net10.0)
+
+        14 s'
+      origem: executado
+      dica: Os testes levam menos de um segundo, e o resto dos 14 s é o Aspire subindo o LocalStack e o PostgreSQL. A primeira execução na máquina demora mais, porque baixa as imagens.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Docker em execução
+      comando: docker info --format '{{.ServerVersion}}'
+    - rotulo: Rodar o cenário 01
+      comando: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba explica as três peças que separam um teste de um serviço da AWS emulado e o que define quantas vezes o ambiente sobe. No repositório, a ADR-002 registra a escolha do Aspire, a ADR-003 a do LocalStack e a ADR-004 a execução de um cenário por vez.
+  - tipo: conceito
+    titulo: AppHost
+    texto: 'O `src/AppHost/Program.cs` declara os contêineres que o ambiente precisa: o LocalStack na porta 4566 e um PostgreSQL na porta 5433. O teste não roda o AppHost como programa: o builder de testes do Aspire, chamado na `LocalStackFixture`, lê essa declaração e sobe os contêineres dentro do processo de teste.'
+  - tipo: conceito
+    titulo: LocalStack
+    texto: O LocalStack responde na porta 4566 às mesmas chamadas HTTP que a AWS, para os serviços listados na variável `SERVICES`. O SDK da AWS só precisa apontar para `http://localhost:4566`, o que o `AwsClientFactory` faz em cada cliente.
+  - tipo: comparativo
+    colunas:
+    - IClassFixture
+    - ICollectionFixture
+    linhas:
+    - dimensao: Quantas vezes o ambiente sobe
+      valores:
+      - Uma vez por classe de teste
+      - Uma vez por coleção
+    - dimensao: Estado entre classes
+      valores:
+      - 'Separado: cada classe tem o próprio LocalStack'
+      - 'Compartilhado: buckets e filas de uma classe aparecem na outra'
+    - dimensao: Exigência sobre os testes
+      valores:
+      - Nomes únicos dentro da classe
+      - Nomes únicos em toda a coleção
+  - tipo: adr
+    id: ADR-004
+    titulo: Tática de isolamento entre cenários de teste
+    status: proposed
+    contexto: Os 16 projetos de teste usam a mesma porta 4566, e dois LocalStack ao mesmo tempo disputariam a porta.
+    decisao: 'Porta fixa com execução sequencial: `MaxCpuCount=1` no `test.runsettings` e um lock de arquivo na `LocalStackFixture`.'
+    alternativas: Porta aleatória por cenário, rede Docker por cenário e nenhuma proteção.
+    consequencias: Comportamento previsível e simples, com a suíte inteira rodando em sequência e sem usar vários núcleos.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `50a5344`, o que o AppHost declara e o que a `LocalStackFixture` faz antes do primeiro teste de cada classe. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/AppHost/Program.cs
+    commit: 50a5344
+    linhas:
+    - '    builder'
+    - '        .AddContainer("localstack", "localstack/localstack", "3.8")'
+    - '        .WithEnvironment("AWS_ACCESS_KEY_ID", "test")'
+    - '        .WithEnvironment("AWS_DEFAULT_REGION", "us-east-1")'
+    - '        .WithEnvironment("AWS_SECRET_ACCESS_KEY", "test")'
+    - '        .WithEnvironment("SERVICES", "s3,sqs,sns,dynamodb,lambda,ssm,secretsmanager,events,scheduler,stepfunctions,rds,ecs")'
+    - '        .WithEnvironment("LAMBDA_REMOVE_CONTAINERS", "true")'
+    - '        .WithEnvironment("LAMBDA_RUNTIME_ENVIRONMENT_TIMEOUT", "120")'
+    - '        .WithEnvironment("DOCKER_HOST", "unix:///var/run/docker.sock")'
+    - '        .WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")'
+    - '        .WithHttpEndpoint(port: 4566, targetPort: 4566, name: "gateway", isProxied: false);'
+    - ''
+    - '    builder'
+    - '        .AddContainer("postgres-rds", "postgres", "16.9")'
+    - '        .WithEnvironment("POSTGRES_USER", "test")'
+    - '        .WithEnvironment("POSTGRES_PASSWORD", "test")'
+    - '        .WithEnvironment("POSTGRES_DB", "testdb")'
+    - '        .WithHttpEndpoint(port: 5433, targetPort: 5432, name: "tcp", isProxied: false);'
+    anotacoes:
+    - linha: 11
+      texto: A imagem do LocalStack Community, versão fixa.
+    - linha: 15
+      texto: Só esses serviços respondem.
+    - linha: 19
+      texto: O LocalStack usa o Docker da máquina para executar funções Lambda.
+    - linha: 23
+      texto: O PostgreSQL sobe em todo cenário, mesmo nos que não usam banco.
+    inicio: 10
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/LocalStackFixture.cs
+    commit: 50a5344
+    linhas:
+    - '        _portLock = await AcquirePortLockAsync().ConfigureAwait(false);'
+    - ''
+    - '        try'
+    - '        {'
+    - '            var appHost = await DistributedApplicationTestingBuilder'
+    - '                .CreateAsync<Projects.AppHost>()'
+    - '                .ConfigureAwait(false);'
+    - ''
+    - '            _app = await appHost.BuildAsync().ConfigureAwait(false);'
+    - '            await _app.StartAsync().ConfigureAwait(false);'
+    - '            await WaitForLocalStackAsync().ConfigureAwait(false);'
+    - '            await ImprimirUrlDashboardAsync().ConfigureAwait(false);'
+    - '            await InitializeScenarioAsync().ConfigureAwait(false);'
+    - '            _scenarioInitialized = true;'
+    anotacoes:
+    - linha: 40
+      texto: Espera até nenhum outro processo de teste estar usando a porta 4566.
+    - linha: 45
+      texto: Lê a declaração do AppHost.
+    - linha: 50
+      texto: Consulta `/_localstack/health` por até 120 s.
+    - linha: 52
+      texto: Cada cenário cria aqui os seus clientes e recursos.
+    inicio: 40
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/01-S3.Basic/S3BasicTests.cs
+    commit: 50a5344
+    linhas:
+    - '    public async Task ListObjects_ShouldReturnUploadedKeys()'
+    - '    {'
+    - '        output.WriteLine(">>> S3.PutBucket: criando bucket ''test-bucket-list''");'
+    - '        await fixture.S3.PutBucketAsync("test-bucket-list");'
+    - ''
+    - '        output.WriteLine(">>> S3.PutObject: fazendo upload de ''a.txt''");'
+    - '        await fixture.S3.PutObjectAsync(new PutObjectRequest'
+    - '        {'
+    - '            BucketName = "test-bucket-list",'
+    - '            Key = "a.txt",'
+    - '            ContentBody = "a"'
+    - '        });'
+    - ''
+    - '        output.WriteLine(">>> S3.PutObject: fazendo upload de ''b.txt''");'
+    - '        await fixture.S3.PutObjectAsync(new PutObjectRequest'
+    - '        {'
+    - '            BucketName = "test-bucket-list",'
+    - '            Key = "b.txt",'
+    - '            ContentBody = "b"'
+    - '        });'
+    - ''
+    - '        output.WriteLine(">>> S3.ListObjectsV2: listando todos os objetos do bucket");'
+    - '        var response = await fixture.S3.ListObjectsV2Async(new ListObjectsV2Request'
+    - '        {'
+    - '            BucketName = "test-bucket-list"'
+    - '        });'
+    - '        output.WriteLine($"    Objetos encontrados: {string.Join(", ", response.S3Objects.Select(o => o.Key))}");'
+    - ''
+    - '        Assert.Equal(2, response.S3Objects.Count);'
+    anotacoes:
+    - linha: 48
+      texto: Um nome fixo, único dentro desta classe.
+    - linha: 73
+      texto: A contagem supõe que só este teste grava no bucket.
+    inicio: 45
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, o que acontece entre o `dotnet test` e o primeiro teste, com uma e com duas classes de teste. Depois, classifique onde cada recurso precisa de nome único.
+  - tipo: fluxo
+    titulo: Do `dotnet test` ao primeiro teste
+    etapas:
+    - titulo: Lock
+      descricao: A `Fixture` abre com exclusividade um arquivo no diretório temporário e espera se outro processo de teste o tiver aberto.
+    - titulo: Contêineres
+      descricao: O Aspire sobe o LocalStack e o PostgreSQL declarados no AppHost.
+    - titulo: Saúde
+      descricao: A `Fixture` consulta `/_localstack/health` a cada segundo até a resposta 200.
+    - titulo: Cenário
+      descricao: O `InitializeScenarioAsync` cria o cliente do S3, e os testes da classe rodam um depois do outro.
+    - titulo: Segunda classe
+      descricao: Com `IClassFixture`, os contêineres são descartados e tudo recomeça para a próxima classe. Com `ICollectionFixture`, a próxima classe usa o mesmo LocalStack.
+  - tipo: classificador
+    enunciado: Com a `Fixture` compartilhada pela coleção, o recurso precisa de nome único?
+    categorias:
+    - id: sim
+      rotulo: Precisa
+    - id: nao
+      rotulo: Não precisa
+    itens:
+    - texto: Bucket criado por dois testes de classes diferentes
+      categoria: sim
+      explicacao: Os dois testes gravam no mesmo LocalStack.
+    - texto: Fila criada pela `Fixture` e lida por todos os testes
+      categoria: nao
+      explicacao: É um recurso comum de propósito, criado uma vez.
+    - texto: Chave de objeto dentro de um bucket com nome único
+      categoria: nao
+      explicacao: O bucket já separa o teste dos vizinhos.
+    - texto: Bucket de um teste que conta os objetos
+      categoria: sim
+      explicacao: Qualquer objeto de outro teste altera a contagem.
+    - texto: Recurso de um cenário rodando em outro processo
+      categoria: nao
+      explicacao: O lock garante que cada processo tenha um LocalStack só para ele.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é medir quanto custa cada `Fixture` e reduzir esse custo sem deixar um teste interferir no outro. Os passos 1 e 2 medem o cenário 01 com uma e com duas classes, os passos 3 e 4 compartilham a fixture e mostram o teste que quebra, e o passo 5 corrige o teste novo. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/aspire-aws`, entre na pasta criada e rode `git checkout 50a5344`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `50a5344` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` continuam no lugar, porque o Git as ignora.'
+  - tipo: faixa
+    estilo: erro
+    titulo: ⚠️ Se você usa Colima ou outro Docker sem /var/run/docker.sock
+    sintoma: Os testes falham depois de cerca de dois minutos, com a mensagem `LocalStack did not become healthy within 120s`.
+    causa: O `src/AppHost/Program.cs` monta o arquivo `/var/run/docker.sock` da máquina no contêiner do LocalStack, e a montagem falha quando o arquivo não existe.
+    correcao: Depois do `git stash` da faixa acima, retire a linha `.WithBindMount("/var/run/docker.sock", "/var/run/docker.sock")` de `src/AppHost/Program.cs`. A montagem só serve aos cenários com Lambda e não afeta esta ODA.
+  - tipo: passos
+    itens:
+    - titulo: Medir o cenário 01
+      editor:
+        rotulo: terminal
+        linhas:
+        - docker info --format '{{.ServerVersion}}'
+        - inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      sucesso: 'A versão do Docker, `Aprovado: 5` e cerca de 14 s, conforme a máquina.'
+    - titulo: Acrescentar uma classe de teste
+      texto: Crie a classe abaixo, que reaproveita o nome de bucket de um teste existente, e meça de novo.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/01-S3.Basic/S3IsolamentoTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.S3.Model;
+        - using Xunit.Abstractions;
+        - ''
+        - namespace Scenarios.S3.Basic;
+        - ''
+        - 'public class S3IsolamentoTests(Fixture fixture, ITestOutputHelper output) : IClassFixture<Fixture>'
+        - '{'
+        - '    [Fact]'
+        - '    public async Task PutObject_ShouldStoreKey()'
+        - '    {'
+        - '        const string bucket = "test-bucket-list";'
+        - '        output.WriteLine($">>> S3.PutBucket: criando bucket ''{bucket}''");'
+        - '        await fixture.S3.PutBucketAsync(bucket);'
+        - ''
+        - '        output.WriteLine(">>> S3.PutObject: fazendo upload de ''c.txt''");'
+        - '        await fixture.S3.PutObjectAsync(new PutObjectRequest'
+        - '        {'
+        - '            BucketName = bucket,'
+        - '            Key = "c.txt",'
+        - '            ContentBody = "c"'
+        - '        });'
+        - ''
+        - '        var metadata = await fixture.S3.GetObjectMetadataAsync(bucket, "c.txt");'
+        - '        Assert.Equal(1, metadata.ContentLength);'
+        - '    }'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      efeito: classe_nova
+      sucesso: '`Aprovado: 6` e cerca de 34 s: outro LocalStack subiu para a classe nova.'
+    - titulo: Compartilhar a fixture
+      texto: Crie a definição da coleção e marque as duas classes com ela, no lugar do `IClassFixture<Fixture>`.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/01-S3.Basic/LocalStackCollection.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Xunit;
+        - ''
+        - namespace Scenarios.S3.Basic;
+        - ''
+        - // Uma única Fixture, e portanto um único LocalStack, para todas as classes marcadas com [Collection("LocalStack")]
+        - '[CollectionDefinition("LocalStack")]'
+        - 'public class LocalStackCollection : ICollectionFixture<Fixture>;'
+        - ''
+        - '// scenarios/01-S3.Basic/S3BasicTests.cs e S3IsolamentoTests.cs: troque a declaração da classe'
+        - '[Collection("LocalStack")]'
+        - public class S3BasicTests(Fixture fixture, ITestOutputHelper output)
+        - ''
+        - '[Collection("LocalStack")]'
+        - public class S3IsolamentoTests(Fixture fixture, ITestOutputHelper output)
+    - titulo: Medir com a fixture compartilhada
+      editor:
+        rotulo: terminal
+        linhas:
+        - inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      efeito: fixture_compartilhada
+      sucesso: 'Cerca de 18 s e `Com falha: 1` no `ListObjects_ShouldReturnUploadedKeys`, com `Expected: 2` e `Actual: 3`.'
+    - titulo: Dar ao teste novo um bucket próprio
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/01-S3.Basic/S3IsolamentoTests.cs (alteração)
+        commit: 50a5344
+        linhas:
+        - '// scenarios/01-S3.Basic/S3IsolamentoTests.cs: no lugar de const string bucket = "test-bucket-list";'
+        - '        // Nome único: com a Fixture compartilhada, outro teste pode usar o mesmo LocalStack'
+        - '        var bucket = $"test-bucket-{Guid.NewGuid():N}";'
+        - ''
+        - '// no terminal:'
+        - inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      efeito: nome_unico
+      sucesso: '`Aprovado: 6` em cerca de 19 s.'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      condicao:
+      - classe_nova
+      - fixture_compartilhada
+      - nome_unico
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     6, Ignorado:     0, Total:     6, Duração: 498 ms - 01-S3.Basic.dll (net10.0)
+
+        19 s'
+      origem: executado
+      dica: Tempo de uma `Fixture` e os seis testes aprovados.
+    - entrada: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      condicao:
+      - classe_nova
+      - fixture_compartilhada
+      saida: "  Com falha Scenarios.S3.Basic.S3BasicTests.ListObjects_ShouldReturnUploadedKeys [9 ms]\n   Assert.Equal() Failure: Values differ\nExpected: 2\nActual:   3\nCom falha! – Com falha:     1, Aprovado:     5, Ignorado:     0, Total:     6, Duração: 522 ms - 01-S3.Basic.dll (net10.0)\n18 s"
+      origem: executado
+      dica: 'O tempo voltou a cair, e o teste antigo falhou: ele encontrou o `c.txt` que a classe nova gravou no mesmo bucket.'
+    - entrada: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      condicao: classe_nova
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     6, Ignorado:     0, Total:     6, Duração: 15 s - 01-S3.Basic.dll (net10.0)
+
+        34 s'
+      origem: executado
+      dica: 'Mais um teste e 20 s a mais: a classe nova recebeu outra `Fixture`, que subiu outro LocalStack.'
+    - entrada: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     0, Total:     5, Duração: 501 ms - 01-S3.Basic.dll (net10.0)
+
+        14 s'
+      origem: executado
+      dica: Os testes levam menos de um segundo, e o resto dos 14 s é o Aspire subindo o LocalStack e o PostgreSQL. A primeira execução na máquina demora mais, porque baixa as imagens.
+    - entrada: docker info --format '{{.ServerVersion}}'
+      saida: 29.5.2
+      origem: executado
+      dica: Qualquer versão recente serve. Se o comando falhar, o Docker não está em execução.
+    cenarios:
+    - rotulo: Docker
+      comando: docker info --format '{{.ServerVersion}}'
+    - rotulo: Cenário 01
+      comando: inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!'; echo "$(( $(date +%s) - inicio )) s"
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria com esses testes, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Teste antigo que quebra sem ter mudado
+    origem: executado
+    rotulo_saida: log
+    saida: "$ inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E '^  Com falha|Assert\\.|Expected:|Actual:|Aprovado!|Com falha!'; echo \"$(( $(date +%s) - inicio )) s\"\n  Com falha Scenarios.S3.Basic.S3BasicTests.ListObjects_ShouldReturnUploadedKeys [9 ms]\n   Assert.Equal() Failure: Values differ\nExpected: 2\nActual:   3\nCom falha! – Com falha:     1, Aprovado:     5, Ignorado:     0, Total:     6, Duração: 522 ms - 01-S3.Basic.dll (net10.0)\n18 s"
+    pergunta: Depois da troca para `ICollectionFixture`, o `ListObjects_ShouldReturnUploadedKeys` encontrou três objetos. De onde veio o terceiro?
+    correcao: Dar a cada teste recursos com nome único, como o bucket com `Guid` do passo 5.
+    alternativas:
+    - texto: Do seed do LocalStack.
+      correta: false
+      explicacao: O LocalStack sobe sem buckets.
+    - texto: Do `PutObject_ShouldStoreKey`, que gravou `c.txt` no `test-bucket-list` do mesmo LocalStack.
+      correta: true
+      explicacao: Com `IClassFixture`, cada classe tinha o próprio LocalStack, e a colisão de nomes não aparecia.
+    - texto: De uma execução anterior do cenário.
+      correta: false
+      explicacao: O contêiner é descartado ao fim de cada execução.
+  - tipo: incidente
+    titulo: Suíte que fica mais lenta a cada classe
+    origem: executado
+    rotulo_saida: log
+    saida: '$ inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E ''^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!''; echo "$(( $(date +%s) - inicio )) s"
+
+      Aprovado!  – Com falha:     0, Aprovado:     5, Ignorado:     0, Total:     5, Duração: 501 ms - 01-S3.Basic.dll (net10.0)
+
+      14 s
+
+
+      $ inicio=$(date +%s); dotnet test scenarios/01-S3.Basic 2>&1 | grep -E ''^  Com falha|Assert\.|Expected:|Actual:|Aprovado!|Com falha!''; echo "$(( $(date +%s) - inicio )) s"
+
+      Aprovado!  – Com falha:     0, Aprovado:     6, Ignorado:     0, Total:     6, Duração: 15 s - 01-S3.Basic.dll (net10.0)
+
+      34 s'
+    pergunta: Uma classe com um teste de menos de um segundo acrescentou mais de 15 s à execução. Por quê?
+    correcao: Agrupar as classes do cenário numa coleção com `ICollectionFixture` e nomes de recurso únicos.
+    alternativas:
+    - texto: O teste novo espera o upload terminar.
+      correta: false
+      explicacao: O upload de um byte leva milissegundos.
+    - texto: O lock de porta espera o fim da outra classe.
+      correta: false
+      explicacao: As classes rodam no mesmo processo, e o lock é por processo.
+    - texto: Cada classe com `IClassFixture` sobe e descarta o próprio ambiente com LocalStack e PostgreSQL.
+      correta: true
+      explicacao: O tempo dos testes é pequeno perto da subida dos contêineres.
+  - tipo: incidente
+    titulo: Todos os testes falham depois de dois minutos
+    origem: executado
+    rotulo_saida: log
+    saida: '2: [sys] Could not create bind mount source path: ContainerName = localstack-tccabmam, Error = mkdir /var/run/docker.sock: permission denied
+
+      [xUnit.net 00:02:06.93]       System.TimeoutException : LocalStack did not become healthy within 120s.
+
+      [xUnit.net 00:02:06.94]       System.TimeoutException : LocalStack did not become healthy within 120s.
+
+      System.TimeoutException : LocalStack did not become healthy within 120s.'
+    pergunta: Num Mac com Colima, todos os cenários falham com essas duas linhas. Qual é a causa?
+    correcao: Usar um Docker que exponha `/var/run/docker.sock` ou, para cenários sem Lambda, retirar a montagem do AppHost numa cópia local.
+    alternativas:
+    - texto: O AppHost monta `/var/run/docker.sock`, que não existe nessa máquina, e o LocalStack nunca sobe.
+      correta: true
+      explicacao: A espera por `/_localstack/health` termina sem resposta em 120 s.
+    - texto: A porta 4566 está ocupada.
+      correta: false
+      explicacao: O erro é a montagem do arquivo, antes da porta.
+    - texto: A imagem do LocalStack não foi baixada.
+      correta: false
+      explicacao: A mensagem seria de imagem não encontrada.
+  - tipo: incidente
+    titulo: Dois cenários em dois terminais
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Shared/LocalStackFixture.cs:152-153
+
+      }, timeout: TimeSpan.FromMinutes(15), interval: TimeSpan.FromMilliseconds(250),
+
+      failureMessage: "Timed out waiting for exclusive access to LocalStack port 4566.")'
+    pergunta: Um desenvolvedor roda o cenário 01 num terminal e o 02 noutro. O que acontece com o segundo?
+    correcao: 'Nenhuma correção: é a decisão da ADR-004. Para paralelizar, cada cenário precisaria de porta própria.'
+    alternativas:
+    - texto: Falha na hora com porta ocupada.
+      correta: false
+      explicacao: O lock é obtido antes de subir os contêineres.
+    - texto: Espera o primeiro liberar o lock de arquivo, por até 15 minutos, e só então sobe o próprio LocalStack.
+      correta: true
+      explicacao: A porta 4566 é fixa, e o lock impede dois LocalStack ao mesmo tempo.
+    - texto: Usa o LocalStack do primeiro.
+      correta: false
+      explicacao: Cada processo sobe o próprio AppHost.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: O que o builder de testes do Aspire faz com o projeto `AppHost`?
+      alternativas:
+      - texto: Publica o AppHost na AWS.
+        correta: false
+        explicacao: Sem `AWS_TARGET=aws`, tudo roda no LocalStack.
+      - texto: Gera os testes do cenário.
+        correta: false
+        explicacao: Os testes são escritos à mão.
+      - texto: Lê os contêineres declarados e os sobe dentro do processo de teste.
+        correta: true
+        explicacao: O teste não precisa rodar o AppHost à parte.
+    - enunciado: Quantos LocalStack sobem num cenário com duas classes de teste com `IClassFixture<Fixture>`?
+      alternativas:
+      - texto: Dois, um depois do outro.
+        correta: true
+        explicacao: O passo 2 mediu o tempo a mais.
+      - texto: Um, compartilhado.
+        correta: false
+        explicacao: Isso exige `ICollectionFixture`.
+      - texto: Dois ao mesmo tempo.
+        correta: false
+        explicacao: O xUnit do repositório roda uma classe por vez.
+    - enunciado: O que muda para os testes quando a fixture passa a ser da coleção?
+      alternativas:
+      - texto: O LocalStack passa a persistir dados entre execuções.
+        correta: false
+        explicacao: O contêiner continua descartado ao fim.
+      - texto: Os recursos de uma classe aparecem para a outra, e os nomes precisam ser únicos na coleção.
+        correta: true
+        explicacao: O `test-bucket-list` passou a ser o mesmo nas duas classes.
+      - texto: Os testes passam a rodar em paralelo.
+        correta: false
+        explicacao: O paralelismo continua desligado no `xunit.runner.json`.
+    - enunciado: Por que os cenários do repositório rodam um de cada vez?
+      alternativas:
+      - texto: Porque o LocalStack só aceita um cliente.
+        correta: false
+        explicacao: Ele atende vários clientes ao mesmo tempo.
+      - texto: Porque o Aspire não roda em paralelo.
+        correta: false
+        explicacao: A limitação vem da porta.
+      - texto: Porque todos usam a porta fixa 4566, e só um LocalStack pode ocupá-la.
+        correta: true
+        explicacao: '`MaxCpuCount=1` e o lock de arquivo garantem a sequência.'
+    - enunciado: Qual é a forma robusta de um teste contar objetos num bucket?
+      alternativas:
+      - texto: Contar num bucket com nome único, que só ele usa.
+        correta: true
+        explicacao: Assim nenhum vizinho altera a contagem.
+      - texto: Rodar o teste antes dos outros.
+        correta: false
+        explicacao: A ordem dos testes não é um contrato.
+      - texto: Apagar todos os buckets no início do teste.
+        correta: false
+        explicacao: Isso quebraria os testes vizinhos.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O cenário 01 rodou, e a maior parte do tempo foi a subida do ambiente.
+    - A classe nova acrescentou o tempo de outro LocalStack.
+    - A fixture compartilhada reduziu o tempo e expôs a colisão de nomes.
+    - O bucket com nome único fez os seis testes passarem.
+    - A razão da execução sequencial dos cenários está clara.

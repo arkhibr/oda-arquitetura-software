@@ -301,7 +301,8 @@ odas:
     minutos: 60
     pre_requisitos: []
     objetivo: "Explicar como o Aspire sobe o LocalStack e como o fixture isola cada cenário de teste."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-28
   - id: "29"
     titulo: "Armazenamento e configuração: S3, SSM e Secrets Manager"
     trilha: 7
