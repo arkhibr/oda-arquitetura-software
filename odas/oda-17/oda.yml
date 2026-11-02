@@ -1,0 +1,736 @@
+id: '17'
+titulo: 'Minimal API: endpoints, auto-descoberta e versionamento'
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: Os Pedidos registram endpoints por auto-descoberta, e o Catálogo os organiza em route groups versionados. Esta ODA acrescenta uma fatia nova sem tocar no `Program.cs`, mostra que ela nasce aberta sem token porque cada fatia repete a própria autorização e leva os Pedidos para um grupo versionado que aplica prefixo e autenticação a todas as fatias.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Explicar como `AddEndpointsFromAssembly` e `MapRegisteredEndpoints` descobrem as fatias.
+    - Criar uma fatia nova com o teste de integração escrito antes, sem alterar o `Program.cs`.
+    - Reconhecer o risco de cada fatia repetir prefixo de versão e autorização.
+    - Aplicar um route group versionado aos Pedidos, como a ADR-0012 faz no Catálogo.
+    - Conferir que a refatoração manteve os 13 testes de integração anteriores.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 16. Os comandos rodam na raiz do `net-minimal-api`, com a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · rotas dos Pedidos
+    comandos:
+    - entrada: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+      saida: "        app.MapPost(\"/api/v1/pedidos/{id:int}/itens\", async (\n        app.MapPost(\"/api/v1/pedidos/{id:int}/cancelar\", async (\n        app.MapPost(\"/api/v1/pedidos\", async (\n        app.MapGet(\"/api/v1/pedidos/{id:int}\", async (\n        app.MapGet(\"/api/v1/pedidos\", async ("
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:    13, Ignorado:     0, Total:    13, Duração: 800 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    cenarios:
+    - rotulo: Caminhos das fatias
+      comando: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+    - rotulo: Testes de Pedidos
+      comando: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: A ADR-0009 troca o registro manual no `Program.cs` por uma interface que cada fatia implementa, descoberta por reflection na inicialização. A ADR-0012 versiona a API com route groups, de modo que a versão pertença à API e mude numa única linha.
+  - tipo: comparativo
+    colunas:
+    - Catálogo
+    - Pedidos no commit
+    linhas:
+    - dimensao: Registro
+      valores:
+      - '`catalogo.MapProdutoEndpoints()` e afins no `Program.cs`'
+      - '`app.MapRegisteredEndpoints()`, sem citar as fatias'
+    - dimensao: Prefixo de versão
+      valores:
+      - '`v1.MapGroup("/catalogo")`, uma vez'
+      - '`/api/v1/pedidos` escrito em cada um dos cinco endpoints'
+    - dimensao: Autorização
+      valores:
+      - Por endpoint, com `RequireAuthorization` ou `AllowAnonymous`
+      - Por endpoint, com `RequireAuthorization` repetido
+    - dimensao: Opção da ADR-0012
+      valores:
+      - Opção B, route groups
+      - Opção C, prefixo em cada endpoint, descartada pela ADR
+  - tipo: conceito
+    titulo: Route group
+    texto: '`MapGroup` cria um `RouteGroupBuilder` com prefixo próprio, e tudo que se aplica ao grupo, como tags, autorização e rate limiting, vale para cada endpoint mapeado nele. O grupo também implementa `IEndpointRouteBuilder`, e por isso as fatias o recebem sem mudar de assinatura.'
+  - tipo: conceito
+    titulo: Open/Closed na prática
+    texto: Com a auto-descoberta, uma fatia nova entra sem que o ponto de entrada mude, e o código que existe continua fechado para alteração. O custo é que nada no `Program.cs` mostra a fatia, e uma política esquecida nela não aparece em nenhuma revisão do ponto de entrada.
+  - tipo: adr
+    id: ADR-0009
+    titulo: Minimal API com Auto-Discovery de Endpoints via Reflexão
+    status: accepted
+    contexto: Com Vertical Slice nos Pedidos, cada fatia define o próprio endpoint, e o `Program.cs` cresceria a cada funcionalidade.
+    decisao: Interface `IEndpoint` com `MapEndpoints(IEndpointRouteBuilder)`, registrada no DI por reflection e mapeada por `MapRegisteredEndpoints`.
+    alternativas: Registro manual no `Program.cs` e controllers MVC.
+    consequencias: Fatia nova sem mudar o ponto de entrada, ao custo de um mecanismo opaco e de falhas que podem passar sem aviso.
+  - tipo: adr
+    id: ADR-0012
+    titulo: Versionamento de API via Route Groups Manuais
+    status: accepted
+    contexto: O Catálogo precisava de versão explícita, e a versão pertence à API, e não a cada recurso.
+    decisao: '`app.MapGroup("/api/v1").MapGroup("/catalogo")`, passado como `RouteGroupBuilder` a cada conjunto de endpoints.'
+    alternativas: Biblioteca `Asp.Versioning.Http` e prefixo escrito em cada endpoint.
+    consequencias: Zero dependências e troca de versão numa linha, sem suporte a duas versões simultâneas.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `702145a`, a descoberta das fatias, uma fatia de Pedidos e o grupo do Catálogo. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Common/EndpointExtensions.cs
+    commit: 702145a
+    linhas:
+    - '    public static IServiceCollection AddEndpointsFromAssembly('
+    - '        this IServiceCollection services, Assembly assembly)'
+    - '    {'
+    - '        IEnumerable<Type> endpointTypes;'
+    - '        try'
+    - '        {'
+    - '            endpointTypes = assembly'
+    - '                .GetTypes()'
+    - '                .Where(t => t is { IsAbstract: false, IsInterface: false }'
+    - '                            && t.IsAssignableTo(typeof(IEndpoint)));'
+    - '        }'
+    - '        catch (Exception ex)'
+    - '        {'
+    - '            throw new InvalidOperationException('
+    - '                $"Failed to scan assembly ''{assembly.FullName}'' for IEndpoint implementations.", ex);'
+    - '        }'
+    - ''
+    - '        foreach (var type in endpointTypes)'
+    - '            services.AddTransient(typeof(IEndpoint), type);'
+    - ''
+    - '        return services;'
+    - '    }'
+    - ''
+    - '    public static WebApplication MapRegisteredEndpoints(this WebApplication app)'
+    - '    {'
+    - '        var endpoints = app.Services.GetServices<IEndpoint>();'
+    - '        foreach (var endpoint in endpoints)'
+    - '            endpoint.MapEndpoints(app);'
+    - ''
+    - '        return app;'
+    - '    }'
+    anotacoes:
+    - linha: 16
+      texto: Toda classe concreta que implementa `IEndpoint` no assembly da API.
+    - linha: 25
+      texto: Cada fatia vira um serviço registrado sob a mesma interface.
+    - linha: 30
+      texto: Só aceita a aplicação inteira, e não um grupo.
+    - linha: 34
+      texto: Cada fatia mapeia as próprias rotas.
+    inicio: 7
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+    - ''
+    - // Registrar slices de Pedidos via scan automático
+    - builder.Services.AddEndpointsFromAssembly(typeof(Program).Assembly);
+    - ''
+    - '// Repositórios de Pedidos (CQRS: Dapper para leitura, EF Core para escrita)'
+    - builder.Services.AddScoped<IPedidoQueryRepository, PedidoQueryRepository>();
+    - builder.Services.AddScoped<IPedidoCommandRepository, PedidoCommandRepository>();
+    - ''
+    - // Handlers dos slices de Pedidos
+    - builder.Services.AddScoped<CreatePedidoHandler>();
+    - builder.Services.AddScoped<GetPedidoHandler>();
+    - builder.Services.AddScoped<ListPedidosHandler>();
+    - builder.Services.AddScoped<AddItemHandler>();
+    - builder.Services.AddScoped<CancelPedidoHandler>();
+    anotacoes:
+    - linha: 88
+      texto: Varre o assembly da API, onde ficam as fatias de Pedidos.
+    - linha: 95
+      texto: Os handlers, ao contrário dos endpoints, são registrados um a um.
+    inicio: 85
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - var v1 = app.MapGroup("/api/v1");
+    - var catalogo = v1.MapGroup("/catalogo");
+    - catalogo.MapProdutoEndpoints();
+    - catalogo.MapCategoriaEndpoints();
+    - catalogo.MapVarianteEndpoints();
+    - catalogo.MapAtributoEndpoints();
+    - catalogo.MapMidiaEndpoints();
+    - ''
+    - // Slices de Pedidos (IEndpoint)
+    - app.MapRegisteredEndpoints();
+    - ''
+    anotacoes:
+    - linha: 256
+      texto: Grupo do Catálogo, abaixo do grupo de versão.
+    - linha: 264
+      texto: Pedidos fora do grupo `v1`.
+    inicio: 255
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/GetPedido/GetPedidoEndpoint.cs
+    commit: 702145a
+    linhas:
+    - 'public class GetPedidoEndpoint : IEndpoint'
+    - '{'
+    - '    public void MapEndpoints(IEndpointRouteBuilder app)'
+    - '    {'
+    - '        app.MapGet("/api/v1/pedidos/{id:int}", async ('
+    - '            int id,'
+    - '            GetPedidoHandler handler,'
+    - '            CancellationToken ct) =>'
+    - '        {'
+    - '            var result = await handler.HandleAsync(new GetPedidoQuery(id), ct);'
+    - '            return result.IsSuccess'
+    - '                ? Results.Ok(result.Value)'
+    - '                : Results.NotFound(new { error = result.Error });'
+    - '        })'
+    - '        .WithName("ObterPedido")'
+    - '        .WithTags("Pedidos")'
+    - '        .WithSummary("Obter pedido por ID")'
+    - '        .Produces<PedidoResponse>(StatusCodes.Status200OK)'
+    - '        .Produces(StatusCodes.Status404NotFound)'
+    - '        .RequireAuthorization();'
+    - '    }'
+    - '}'
+    anotacoes:
+    - linha: 10
+      texto: Versão e recurso escritos dentro da fatia.
+    - linha: 25
+      texto: Autorização repetida em cada fatia.
+    inicio: 6
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.API/Endpoints/Categorias/CategoriaEndpoints.cs
+    commit: 702145a
+    linhas:
+    - public static class CategoriaEndpoints
+    - '{'
+    - '    public static void MapCategoriaEndpoints(this RouteGroupBuilder catalogoGroup)'
+    - '    {'
+    - '        var group = catalogoGroup.MapGroup("/categorias")'
+    - '            .WithTags("Catálogo - Categorias");'
+    - ''
+    - '        group.MapGet("/", ListarCategorias).WithName("ListarCategorias")'
+    - '            .Produces<List<CategoriaResponse>>(StatusCodes.Status200OK)'
+    - '            .AllowAnonymous()'
+    - '            .RequireRateLimiting("leitura");'
+    anotacoes:
+    - linha: 12
+      texto: A assinatura exige um grupo, como registra a ADR-0012.
+    - linha: 14
+      texto: Subgrupo por recurso.
+    inicio: 10
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Acompanhe como uma fatia chega à tabela de rotas e classifique onde cada decisão deve ficar.
+  - tipo: fluxo
+    titulo: Da classe à rota
+    etapas:
+    - titulo: Inicialização
+      descricao: '`AddEndpointsFromAssembly` lista os tipos do assembly e registra cada `IEndpoint` como serviço transitório.'
+    - titulo: Grupo
+      descricao: Depois da refatoração, o `Program.cs` cria `v1.MapGroup("/pedidos")` com tag e `RequireAuthorization`.
+    - titulo: Mapeamento
+      descricao: '`MapRegisteredEndpoints` resolve as fatias e passa o grupo para cada `MapEndpoints`.'
+    - titulo: Rota
+      descricao: '`app.MapGet("/contagem")` dentro do grupo vira `GET /api/v1/pedidos/contagem`, com a autorização herdada.'
+    - titulo: Requisição
+      descricao: Sem token, a autenticação responde 401 antes do handler, e com token o repositório Dapper conta os pedidos.
+  - tipo: classificador
+    enunciado: Onde cada decisão deve ficar depois da refatoração?
+    categorias:
+    - id: grupo
+      rotulo: No grupo
+    - id: fatia
+      rotulo: Na fatia
+    itens:
+    - texto: Prefixo `/api/v1/pedidos`
+      categoria: grupo
+      explicacao: A versão pertence à API, e muda numa linha.
+    - texto: Exigência de token
+      categoria: grupo
+      explicacao: Toda rota de Pedidos exige JWT, e uma fatia nova herda a regra.
+    - texto: Caminho `/{id:int}/cancelar`
+      categoria: fatia
+      explicacao: É parte do caso de uso.
+    - texto: Nome `ContarPedidos` da rota
+      categoria: fatia
+      explicacao: Cada rota tem nome único.
+    - texto: Tag `Pedidos` do Swagger
+      categoria: grupo
+      explicacao: Vale para todas as fatias do contexto.
+    - texto: Tipo de resposta `ContagemPedidosResponse`
+      categoria: fatia
+      explicacao: É o contrato daquele endpoint.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do `net-minimal-api`. Os passos 1 a 5 criam a fatia nova com o teste escrito antes, e os passos 6 a 9 levam os Pedidos ao route group e conferem o resultado.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Rodar a linha de base
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests
+        - dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+      sucesso: '`Aprovado: 143` na suíte e `Aprovado: 13` na integração de Pedidos.'
+    - titulo: Escrever o teste da contagem
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/Pedidos/ContarPedidosTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Net;
+        - using System.Net.Http.Headers;
+        - using System.Net.Http.Json;
+        - using FluentAssertions;
+        - using ProdutosAPI.Pedidos.CreatePedido;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration.Pedidos;
+        - ''
+        - 'public class ContarPedidosTests : IClassFixture<ApiFactory>'
+        - '{'
+        - '    private readonly HttpClient _client;'
+        - ''
+        - '    public ContarPedidosTests(ApiFactory factory)'
+        - '    {'
+        - '        _client = factory.CreateClient();'
+        - '    }'
+        - ''
+        - '    private async Task AuthenticateAsync()'
+        - '    {'
+        - '        var token = await AuthHelper.ObterTokenAsync(_client);'
+        - '        _client.DefaultRequestHeaders.Authorization ='
+        - '            new AuthenticationHeaderValue("Bearer", token);'
+        - '    }'
+        - ''
+        - '    private record Contagem(int Total);'
+        - ''
+        - '    [Fact]'
+        - '    public async Task GET_Contagem_Autenticado_ContaOsPedidos()'
+        - '    {'
+        - '        await AuthenticateAsync();'
+        - '        await _client.PostAsJsonAsync("/api/v1/pedidos", new CreatePedidoCommand([new(1, 1)]));'
+        - ''
+        - '        var response = await _client.GetAsync("/api/v1/pedidos/contagem");'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.OK);'
+        - '        (await response.Content.ReadFromJsonAsync<Contagem>())!.Total.Should().BeGreaterThan(0);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task GET_Contagem_FiltradaPorStatus_IgnoraOsOutros()'
+        - '    {'
+        - '        await AuthenticateAsync();'
+        - ''
+        - '        var response = await _client.GetAsync("/api/v1/pedidos/contagem?status=Cancelado");'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.OK);'
+        - '        (await response.Content.ReadFromJsonAsync<Contagem>())!.Total.Should().Be(0);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task GET_Contagem_SemAutenticacao_Retorna401()'
+        - '    {'
+        - '        var response = await _client.GetAsync("/api/v1/pedidos/contagem");'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);'
+        - '    }'
+        - '}'
+      efeito: teste_contagem
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+      sucesso: '`Com falha: 3`, com `found HttpStatusCode.NotFound` nas três chamadas.'
+    - titulo: Criar a fatia
+      texto: Crie a pasta e o arquivo abaixo, no formato das outras fatias. Não altere o `Program.cs`.
+      editor:
+        rotulo: arquivo
+        caminho: src/Pedidos/ContarPedidos/ContarPedidosEndpoint.cs (novo)
+        commit: 702145a
+        linhas:
+        - using ProdutosAPI.Shared.Common;
+        - using ProdutosAPI.Pedidos.Domain;
+        - using ProdutosAPI.Pedidos.Repositories;
+        - ''
+        - namespace ProdutosAPI.Pedidos.ContarPedidos;
+        - ''
+        - 'public class ContarPedidosEndpoint : IEndpoint'
+        - '{'
+        - '    public void MapEndpoints(IEndpointRouteBuilder app)'
+        - '    {'
+        - '        app.MapGet("/api/v1/pedidos/contagem", async ('
+        - '            IPedidoQueryRepository repositorio,'
+        - '            CancellationToken ct,'
+        - '            StatusPedido? status = null) =>'
+        - '        {'
+        - '            var (_, total) = await repositorio.ListarAsync(1, 1, status, ct);'
+        - '            return Results.Ok(new ContagemPedidosResponse(total));'
+        - '        })'
+        - '        .WithName("ContarPedidos")'
+        - '        .WithTags("Pedidos")'
+        - '        .WithSummary("Contar pedidos, com filtro opcional por status")'
+        - '        .Produces<ContagemPedidosResponse>(StatusCodes.Status200OK);'
+        - '    }'
+        - '}'
+        - ''
+        - public record ContagemPedidosResponse(int Total);
+      efeito: endpoint_criado
+    - titulo: Rodar o teste
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Com falha: 1, Aprovado: 2`, com `found HttpStatusCode.OK` no teste sem token.'
+    - titulo: Tornar os caminhos relativos
+      texto: O comando tira o prefixo das seis fatias, e o `grep` confere o resultado.
+      editor:
+        rotulo: terminal
+        linhas:
+        - perl -pi -e 's#"/api/v1/pedidos#"#; s#app\.Map(Get|Post)\(""#app.Map$1("/"#' src/Pedidos/*/*Endpoint.cs
+        - grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+      efeito: caminhos_relativos
+      sucesso: Os caminhos começam em `/`, como `/{id:int}/itens` e `/contagem`.
+    - titulo: Criar o grupo dos Pedidos
+      texto: No `Program.cs`, troque a chamada solta pelo grupo, e mude a assinatura da extensão para aceitar qualquer `IEndpointRouteBuilder`.
+      editor:
+        rotulo: arquivo
+        caminho: Program.cs e src/Shared/Common/EndpointExtensions.cs (alteração)
+        commit: 702145a
+        linhas:
+        - '// Program.cs: no lugar de app.MapRegisteredEndpoints();'
+        - '// Slices de Pedidos (IEndpoint): versão, prefixo e autenticação valem para todas as fatias do grupo'
+        - v1.MapGroup("/pedidos")
+        - '    .WithTags("Pedidos")'
+        - '    .RequireAuthorization()'
+        - '    .MapRegisteredEndpoints();'
+        - ''
+        - '// src/Shared/Common/EndpointExtensions.cs: assinatura e provedor de serviços'
+        - '    public static IEndpointRouteBuilder MapRegisteredEndpoints(this IEndpointRouteBuilder app)'
+        - '        var endpoints = app.ServiceProvider.GetServices<IEndpoint>();'
+      efeito: grupo_aplicado
+    - titulo: Rodar os testes
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+        - dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+        - dotnet test tests/ProdutosAPI.Tests
+      sucesso: '`Aprovado: 3`, `Aprovado: 16` na integração de Pedidos e `Aprovado: 146` na suíte.'
+    - titulo: Conferir com a API no ar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet run --launch-profile http
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/pedidos/contagem
+        - 'curl -s -w '' %{http_code}\n'' -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos/contagem'
+        - curl -s http://localhost:5000/swagger/v1/swagger.json | python3 -c 'import json,sys; d=json.load(sys.stdin); [print(p) for p in sorted(d["paths"]) if "pedidos" in p]'
+      sucesso: '`401` sem token, `{"total":0} 200` com token e cinco caminhos de Pedidos no Swagger, entre eles `/api/v1/pedidos/contagem`.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+      condicao:
+      - teste_contagem
+      - endpoint_criado
+      - grupo_aplicado
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 851 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+      condicao:
+      - teste_contagem
+      - endpoint_criado
+      saida: "  Com falha ProdutosAPI.Tests.Integration.Pedidos.ContarPedidosTests.GET_Contagem_SemAutenticacao_Retorna401 [740 ms]\n   Expected response.StatusCode to be HttpStatusCode.Unauthorized {value: 401}, but found HttpStatusCode.OK {value: 200}.\nCom falha! – Com falha:     1, Aprovado:     2, Ignorado:     0, Total:     3, Duração: 863 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: A fatia foi descoberta sem mudar o `Program.cs`, e a rota nova ficou aberta sem token.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+      condicao: teste_contagem
+      saida: "  Com falha ProdutosAPI.Tests.Integration.Pedidos.ContarPedidosTests.GET_Contagem_SemAutenticacao_Retorna401 [717 ms]\n   Expected response.StatusCode to be HttpStatusCode.Unauthorized {value: 401}, but found HttpStatusCode.NotFound {value: 404}.\n  Com falha ProdutosAPI.Tests.Integration.Pedidos.ContarPedidosTests.GET_Contagem_FiltradaPorStatus_IgnoraOsOutros [31 ms]\n   Expected response.StatusCode to be HttpStatusCode.OK {value: 200}, but found HttpStatusCode.NotFound {value: 404}.\n  Com falha ProdutosAPI.Tests.Integration.Pedidos.ContarPedidosTests.GET_Contagem_Autenticado_ContaOsPedidos [77 ms]\n   Expected response.StatusCode to be HttpStatusCode.OK {value: 200}, but found HttpStatusCode.NotFound {value: 404}.\nCom falha! – Com falha:     3, Aprovado:     0, Ignorado:     0, Total:     3, Duração: 825 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: A rota não existe, e as três chamadas recebem 404.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+      saida: Nenhum teste corresponde ao filtro de testcase `ContarPedidosTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 2.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_contagem
+      - endpoint_criado
+      - grupo_aplicado
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   146, Ignorado:     0, Total:   146, Duração: 925 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_contagem
+      - endpoint_criado
+      saida: 'Com falha! – Com falha:     1, Aprovado:   145, Ignorado:     0, Total:   146, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_contagem
+      saida: 'Com falha! – Com falha:     3, Aprovado:   143, Ignorado:     0, Total:   146, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`, ou aplique a correção da ODA 16.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+      condicao: grupo_aplicado
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:    16, Ignorado:     0, Total:    16, Duração: 824 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Os 13 testes anteriores continuam passando, e os 3 novos se somam a eles.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:    13, Ignorado:     0, Total:    13, Duração: 800 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: perl -pi -e 's#"/api/v1/pedidos#"#; s#app\.Map(Get|Post)\(""#app.Map$1("/"#' src/Pedidos/*/*Endpoint.cs
+      saida: ''
+      origem: executado
+      efeito: caminhos_relativos
+      dica: O comando remove o prefixo `/api/v1/pedidos` dos seis endpoints, sem imprimir nada.
+    - entrada: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+      condicao:
+      - caminhos_relativos
+      - endpoint_criado
+      saida: "        app.MapPost(\"/{id:int}/itens\", async (\n        app.MapPost(\"/{id:int}/cancelar\", async (\n        app.MapGet(\"/contagem\", async (\n        app.MapPost(\"/\", async (\n        app.MapGet(\"/{id:int}\", async (\n        app.MapGet(\"/\", async ("
+      origem: executado
+    - entrada: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+      condicao: caminhos_relativos
+      saida: "        app.MapPost(\"/{id:int}/itens\", async (\n        app.MapPost(\"/{id:int}/cancelar\", async (\n        app.MapPost(\"/\", async (\n        app.MapGet(\"/{id:int}\", async (\n        app.MapGet(\"/\", async ("
+      origem: executado
+    - entrada: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+      condicao: endpoint_criado
+      saida: "        app.MapPost(\"/api/v1/pedidos/{id:int}/itens\", async (\n        app.MapPost(\"/api/v1/pedidos/{id:int}/cancelar\", async (\n        app.MapGet(\"/api/v1/pedidos/contagem\", async (\n        app.MapPost(\"/api/v1/pedidos\", async (\n        app.MapGet(\"/api/v1/pedidos/{id:int}\", async (\n        app.MapGet(\"/api/v1/pedidos\", async ("
+      origem: executado
+    - entrada: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+      saida: "        app.MapPost(\"/api/v1/pedidos/{id:int}/itens\", async (\n        app.MapPost(\"/api/v1/pedidos/{id:int}/cancelar\", async (\n        app.MapPost(\"/api/v1/pedidos\", async (\n        app.MapGet(\"/api/v1/pedidos/{id:int}\", async (\n        app.MapGet(\"/api/v1/pedidos\", async ("
+      origem: executado
+    - entrada: dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: O comando ocupa o terminal. Abra outro para as chamadas.
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/pedidos/contagem
+      condicao: grupo_aplicado
+      saida: '401'
+      origem: executado
+    - entrada: 'curl -s -w '' %{http_code}\n'' -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos/contagem'
+      condicao: grupo_aplicado
+      saida: '{"total":0} 200'
+      origem: executado
+      dica: A contagem vem zerada porque o banco local foi recriado vazio.
+    - entrada: curl -s http://localhost:5000/swagger/v1/swagger.json | python3 -c 'import json,sys; d=json.load(sys.stdin); [print(p) for p in sorted(d["paths"]) if "pedidos" in p]'
+      condicao: grupo_aplicado
+      saida: '/api/v1/pedidos
+
+        /api/v1/pedidos/contagem
+
+        /api/v1/pedidos/{id}
+
+        /api/v1/pedidos/{id}/cancelar
+
+        /api/v1/pedidos/{id}/itens'
+      origem: executado
+    cenarios:
+    - rotulo: Teste da contagem
+      comando: dotnet test tests/ProdutosAPI.Tests --filter ContarPedidosTests
+    - rotulo: Testes de Pedidos
+      comando: dotnet test tests/ProdutosAPI.Tests --filter FullyQualifiedName~Integration.Pedidos
+    - rotulo: Suíte
+      comando: dotnet test tests/ProdutosAPI.Tests
+    - rotulo: Caminhos das fatias
+      comando: grep -h 'app.Map' src/Pedidos/*/*Endpoint.cs
+    - rotulo: Contagem sem token
+      comando: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/pedidos/contagem
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os quatro incidentes partem de saídas do laboratório e de trechos do código de registro das fatias.
+  - tipo: incidente
+    titulo: Rota nova aberta sem token
+    origem: executado
+    rotulo_saida: log
+    saida: "  Com falha ProdutosAPI.Tests.Integration.Pedidos.ContarPedidosTests.GET_Contagem_SemAutenticacao_Retorna401 [740 ms]\n   Expected response.StatusCode to be HttpStatusCode.Unauthorized {value: 401}, but found HttpStatusCode.OK {value: 200}.\nCom falha! – Com falha:     1, Aprovado:     2, Ignorado:     0, Total:     3, Duração: 863 ms - ProdutosAPI.Tests.dll (net10.0)"
+    pergunta: A fatia nova foi descoberta e responde. Por que ela atende sem token, se todas as outras exigem JWT?
+    correcao: Aplicar `RequireAuthorization` no grupo dos Pedidos, como no passo 7, para que toda fatia herde a regra.
+    alternativas:
+    - texto: A auto-descoberta registra a fatia como anônima.
+      correta: false
+      explicacao: A descoberta não aplica nenhuma política.
+    - texto: A exigência de token está em cada fatia, e a nova não repetiu `.RequireAuthorization()`.
+      correta: true
+      explicacao: Depois do grupo, a mesma classe responde 401 sem token.
+    - texto: O `Program.cs` só protege as rotas que conhece.
+      correta: false
+      explicacao: O `Program.cs` não protege nenhuma rota de Pedidos no commit.
+  - tipo: incidente
+    titulo: Grupo que não compila com a extensão original
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Shared/Common/EndpointExtensions.cs:30
+
+      public static WebApplication MapRegisteredEndpoints(this WebApplication app)'
+    pergunta: Por que `v1.MapGroup("/pedidos").MapRegisteredEndpoints()` não compila sem mudar a extensão?
+    correcao: Declarar a extensão sobre `IEndpointRouteBuilder` e resolver as fatias por `app.ServiceProvider`.
+    alternativas:
+    - texto: Os grupos não aceitam endpoints descobertos por reflection.
+      correta: false
+      explicacao: O grupo aceita qualquer mapeamento.
+    - texto: O `MapGroup` exige um nome de rota.
+      correta: false
+      explicacao: O grupo só exige o prefixo.
+    - texto: A extensão é declarada para `WebApplication`, e o `RouteGroupBuilder` não é uma `WebApplication`.
+      correta: true
+      explicacao: Os dois implementam `IEndpointRouteBuilder`.
+  - tipo: incidente
+    titulo: Fatia que some sem erro
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'endpointTypes = assembly
+
+      .GetTypes()
+
+      .Where(t => t is { IsAbstract: false, IsInterface: false }
+
+      && t.IsAssignableTo(typeof(IEndpoint)));'
+    pergunta: Uma equipe cria `ContarPedidosEndpoint` dentro do projeto `Catalogo.API`. O que acontece na inicialização?
+    correcao: Manter as fatias no assembly da API ou passar os demais assemblies a `AddEndpointsFromAssembly`, e cobrir cada rota nova com um teste de integração.
+    alternativas:
+    - texto: Nada é registrado e nenhum erro aparece, porque a varredura só olha o assembly de `Program`.
+      correta: true
+      explicacao: É a falha silenciosa que a ADR-0009 registra como consequência negativa.
+    - texto: A API não inicia.
+      correta: false
+      explicacao: A varredura simplesmente não encontra o tipo.
+    - texto: A rota é registrada duas vezes.
+      correta: false
+      explicacao: A classe nem é encontrada.
+  - tipo: incidente
+    titulo: Refatoração sem rede de testes
+    origem: executado
+    rotulo_saida: log
+    saida: '# antes
+
+      Aprovado!  – Com falha:     0, Aprovado:    13, Ignorado:     0, Total:    13, Duração: 800 ms - ProdutosAPI.Tests.dll (net10.0)
+
+
+      # depois
+
+      Aprovado!  – Com falha:     0, Aprovado:    16, Ignorado:     0, Total:    16, Duração: 824 ms - ProdutosAPI.Tests.dll (net10.0)'
+    pergunta: A refatoração mudou o caminho de cinco fatias. O que garante que as rotas antigas continuam as mesmas?
+    correcao: Rodar a integração de Pedidos antes e depois, e manter os testes que chamam cada rota pelo caminho completo.
+    alternativas:
+    - texto: O Swagger, que recusa caminhos duplicados.
+      correta: false
+      explicacao: O Swagger só descreve as rotas que existem.
+    - texto: Os 13 testes de integração, que chamam `/api/v1/pedidos/...` pelo caminho completo e passaram antes e depois.
+      correta: true
+      explicacao: Os 3 testes novos somam 16.
+    - texto: O compilador, que confere os caminhos.
+      correta: false
+      explicacao: Caminhos são texto e não são conferidos na compilação.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: O que precisa mudar no `Program.cs` para uma fatia nova de Pedidos?
+      alternativas:
+      - texto: Uma chamada `MapContarPedidos()`.
+        correta: false
+        explicacao: Esse é o modelo do Catálogo.
+      - texto: Um controller.
+        correta: false
+        explicacao: O projeto não usa controllers.
+      - texto: Nada, se a fatia não exigir um handler novo registrado no DI.
+        correta: true
+        explicacao: A contagem usa o repositório já registrado.
+    - enunciado: Por que o grupo resolve a rota aberta?
+      alternativas:
+      - texto: Porque a autorização aplicada ao grupo vale para todo endpoint mapeado nele.
+        correta: true
+        explicacao: A fatia nova herdou a regra sem mudar.
+      - texto: Porque o grupo exige HTTPS.
+        correta: false
+        explicacao: O grupo não muda o protocolo.
+      - texto: Porque o grupo desliga a auto-descoberta.
+        correta: false
+        explicacao: A descoberta continua.
+    - enunciado: Por que a ADR-0012 descarta o prefixo em cada endpoint?
+      alternativas:
+      - texto: Porque o Swagger não aceita.
+        correta: false
+        explicacao: O Swagger listava as rotas normalmente.
+      - texto: Porque repete a versão e torna a mudança de versão trabalhosa.
+        correta: true
+        explicacao: Os Pedidos repetiam `/api/v1/pedidos` cinco vezes.
+      - texto: Porque é mais lento.
+        correta: false
+        explicacao: O roteamento é o mesmo.
+    - enunciado: Que consequência negativa da ADR-0009 o laboratório tornou visível?
+      alternativas:
+      - texto: A reflection deixa a API lenta em produção.
+        correta: false
+        explicacao: A varredura roda só na inicialização.
+      - texto: As fatias não podem ter testes.
+        correta: false
+        explicacao: A fatia nova tem três.
+      - texto: A fatia existe sem aparecer no ponto de entrada, e uma política esquecida nela passa sem revisão.
+        correta: true
+        explicacao: O teste sem token foi o primeiro a notar.
+    - enunciado: Quantas mudanças de código o grupo exigiu nas fatias existentes?
+      alternativas:
+      - texto: Só o caminho de cada `Map`, com a assinatura de `MapEndpoints` intacta.
+        correta: true
+        explicacao: O grupo também é um `IEndpointRouteBuilder`.
+      - texto: Uma interface nova por fatia.
+        correta: false
+        explicacao: A interface continua a mesma.
+      - texto: Nenhuma.
+        correta: false
+        explicacao: Sem tirar o prefixo, as rotas ficariam com `/api/v1/pedidos` duas vezes.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A fatia nova foi descoberta sem mudança no `Program.cs`.
+    - O teste sem token falhou antes do grupo e passou depois.
+    - Os Pedidos ficaram sob `v1.MapGroup("/pedidos")`, com autorização no grupo.
+    - Os 13 testes de integração anteriores continuaram passando.
+    - A falha silenciosa da descoberta por assembly está clara.

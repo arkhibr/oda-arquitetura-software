@@ -191,7 +191,8 @@ odas:
     minutos: 60
     pre_requisitos: ["16"]
     objetivo: "Registrar endpoints por auto-descoberta e organizá-los em route groups versionados."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-17
   - id: "18"
     titulo: "Desenho de API REST e contratos JSON"
     trilha: 6
