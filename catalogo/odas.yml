@@ -281,7 +281,8 @@ odas:
     minutos: 90
     pre_requisitos: ["17"]
     objetivo: "Configurar um cliente HTTP resiliente e uma chamada com mTLS e OAuth2 ao servidor Pix simulado."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-26
   - id: "27"
     titulo: "Testes de API com WebApplicationFactory"
     trilha: 6

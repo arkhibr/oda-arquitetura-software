@@ -1,0 +1,951 @@
+id: '26'
+titulo: Integrações externas resilientes e Pix com mTLS
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é fazer um cliente HTTP chamar uma API Pix com certificado de cliente e token OAuth2, e garantir que as novas tentativas automáticas desse cliente não dupliquem uma devolução de dinheiro. No repositório `net-minimal-api`, o `Pix.MockServer` simula a API Pix com mTLS, e o `Pix.ClientDemo` usa o `AddStandardResilienceHandler`, que repete a chamada que falha, inclusive um POST. Você vai provar o handshake mTLS com o `curl`, reproduzir uma devolução duplicada pela mesma chave de idempotência e corrigir o servidor e o cliente com o teste escrito antes.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar o que o mTLS acrescenta ao TLS comum e onde o Kestrel exige o certificado do cliente.
+    - Obter um token OAuth2 por client credentials e chamar a API com certificado e token.
+    - Descrever o pipeline do `AddStandardResilienceHandler` e por que ele também repete um POST.
+    - Tornar a criação de devolução idempotente no servidor, com o teste escrito antes.
+    - Fazer o cliente enviar `Idempotency-Key` em toda escrita que a política de resiliência pode repetir.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e do `openssl`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. O laboratório usa dois terminais na raiz do repositório, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · bater à porta do servidor Pix
+    comandos:
+    - entrada: dotnet run --project src/Pix/Pix.MockServer
+      saida: 'Now listening on: https://localhost:5099
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Production'
+      origem: executado
+      dica: 'Na primeira execução, o servidor gera os certificados em `certs/pix/`. Reinicie-o depois de cada troca de código: as cobranças e as chaves ficam na memória do processo.'
+    - entrada: openssl x509 -inform DER -in certs/pix/ca.cer -out certs/pix/ca.pem
+      saida: ''
+      origem: executado
+      dica: O `ca.cer` está em DER, e o `curl` espera a autoridade certificadora em PEM.
+    - entrada: curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
+      saida: 'curl: (56) Recv failure: Connection reset by peer'
+      origem: executado
+      dica: O texto do erro muda conforme a versão do `curl`, e também aparece `(52) Empty reply from server`. Nos dois casos, o servidor fechou a conexão porque não recebeu certificado do cliente.
+    - entrada: pix() { curl -sS --http1.1 --cacert certs/pix/ca.pem --cert certs/pix/client.pfx:pix-demo-123 --cert-type P12 "$@"; }
+      saida: ''
+      origem: executado
+      dica: A função `pix` chama o `curl` com o certificado do cliente e a senha `pix-demo-123`, e repassa os demais argumentos.
+    - entrada: 'TOKEN=$(pix -X POST -H ''Content-Type: application/json'' -d ''{"client_id":"pix-demo-client","client_secret":"pix-demo-secret","grant_type":"client_credentials"}'' https://localhost:5099/oauth/token | sed -nE ''s/.*"access_token": "([^"]+)".*/\1/p'')'
+      saida: ''
+      origem: executado
+    - entrada: 'pix -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Idempotency-Key: x'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas'
+      saida: '401'
+      origem: executado
+      dica: Com certificado e sem token, o handshake passa e a API responde 401.
+    - entrada: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+      saida: "      HTTP POST /pix/v1/cobrancas -> 201 em 59ms\n      HTTP GET /pix/v1/cobrancas/1a3a6f1ef0bc4d31a1f95942fd5dcd52 -> 200 em 3ms\n      HTTP POST /pix/v1/cobrancas/1a3a6f1ef0bc4d31a1f95942fd5dcd52/simular-liquidacao -> 200 em 1ms\n      HTTP POST /pix/v1/devolucoes -> 201 em 4ms\n      HTTP GET /pix/v1/devolucoes/62a244730c51473c96d47641ac82f71a -> 200 em 1ms\nStatus cobrança final: CONCLUIDA\nDevolução: 62a244730c51473c96d47641ac82f71a\nStatus devolução final: DEVOLVIDA"
+      origem: executado
+      dica: O cenário completo do cliente, com cobrança, liquidação e devolução.
+    cenarios:
+    - rotulo: Sem certificado
+      comando: curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
+    - rotulo: Com certificado e sem token
+      comando: 'pix -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Idempotency-Key: x'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas'
+    - rotulo: Cliente de demonstração
+      comando: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba explica as três proteções de uma chamada à API Pix e o que acontece quando o cliente repete uma chamada sozinho. No repositório, a ADR-0008 registra a escolha do servidor simulado com mTLS, e a ADR-0014 registra a escolha da biblioteca de resiliência.
+  - tipo: comparativo
+    colunas:
+    - O que garante
+    - No `Pix.MockServer`
+    linhas:
+    - dimensao: TLS do servidor
+      valores:
+      - O cliente sabe que fala com o servidor certo
+      - Certificado `server.pfx`, assinado pela autoridade de `ca.cer`
+    - dimensao: mTLS
+      valores:
+      - O servidor sabe qual sistema chama, antes de qualquer HTTP
+      - '`ClientCertificateMode.RequireCertificate` no Kestrel'
+    - dimensao: OAuth2
+      valores:
+      - A chamada tem permissão para a operação
+      - Token Bearer de `/oauth/token` por client credentials
+    - dimensao: Idempotency-Key
+      valores:
+      - Repetir a escrita não repete o efeito
+      - Só nas cobranças, no commit `702145a`
+  - tipo: conceito
+    titulo: mTLS
+    texto: No TLS comum, só o servidor apresenta certificado. No mTLS, o cliente também apresenta o seu durante o handshake, e o servidor recusa a conexão se o certificado não for assinado pela autoridade esperada, o que ocorre antes de qualquer cabeçalho HTTP chegar à aplicação.
+  - tipo: conceito
+    titulo: Pipeline padrão de resiliência
+    texto: O `AddStandardResilienceHandler` envolve cada chamada com tempo total de 30 s, tempo por tentativa de 10 s, três novas tentativas com espera exponencial a partir de 2 s e variação aleatória, e um disjuntor que abre com 10% de falhas em 30 s e no mínimo 100 chamadas. As novas tentativas valem para falha de conexão, tempo esgotado, 408, 429 e respostas 5xx, em qualquer método HTTP.
+  - tipo: conceito
+    titulo: Por que a nova tentativa exige idempotência
+    texto: Quando a resposta não chega a tempo, o cliente não sabe se o servidor executou a operação. Repetir uma leitura não muda nada, mas repetir a criação de uma devolução só é seguro se o servidor reconhecer a repetição pela chave e devolver o resultado da primeira execução.
+  - tipo: adr
+    id: ADR-0008
+    titulo: PIX Mock Server Customizado com mTLS
+    status: accepted
+    contexto: A API Pix do Banco Central exige mTLS, e o curso não tem credenciais reais para usá-la.
+    decisao: Minimal API própria com Kestrel exigindo certificado de cliente, OAuth2 simulado e idempotência por impressão digital do corpo.
+    alternativas: WireMock.Net e ferramentas externas como o Mockoon.
+    consequencias: Handshake mTLS completo para estudo, com o custo de manter um servidor e de gerar e rotacionar certificados de desenvolvimento.
+  - tipo: adr
+    id: ADR-0014
+    titulo: Resiliência de Cliente HTTP com Microsoft.Extensions.Http.Resilience
+    status: accepted
+    contexto: Sem resiliência, o cliente falha no primeiro erro transitório e reconecta sem espera, o que aumenta a carga no servidor.
+    decisao: Pipeline da `Microsoft.Extensions.Http.Resilience` com tempo por tentativa, novas tentativas com espera exponencial, disjuntor e tempo total.
+    alternativas: Novas tentativas manuais com `Thread.Sleep` e Polly usado diretamente.
+    consequencias: Respeito ao `Retry-After` e variação aleatória das esperas, com um pacote externo a mais e disjuntor separado por instância.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `702145a`, onde o servidor exige o certificado, como o cliente monta a cadeia de handlers e por que a devolução fica sem proteção contra repetição. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pix/Pix.MockServer/Program.cs
+    commit: 702145a
+    linhas:
+    - '        options.ListenLocalhost(5099, listenOptions =>'
+    - '        {'
+    - '            listenOptions.UseHttps(httpsOptions =>'
+    - '            {'
+    - '                httpsOptions.ServerCertificate = X509CertificateLoader.LoadPkcs12FromFile('
+    - '                    mtlsBundle.ServerCertificatePath,'
+    - '                    mtlsBundle.CertificatePassword,'
+    - '                    X509KeyStorageFlags.Exportable);'
+    - '                httpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;'
+    - '                httpsOptions.CheckCertificateRevocation = false;'
+    - '                httpsOptions.ClientCertificateValidation = (certificate, _, _) =>'
+    - '                    PixMtlsCertificateStore.ValidateClientCertificate('
+    - '                        certificate,'
+    - '                        mtlsBundle.CaCertificatePath,'
+    - '                        mtlsBundle.ExpectedClientSubject);'
+    anotacoes:
+    - linha: 28
+      texto: Sem certificado de cliente, o handshake não termina.
+    - linha: 30
+      texto: Aceita só certificados assinados pela autoridade de `certs/pix/ca.cer`.
+    inicio: 20
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pix/Pix.ClientDemo/Program.cs
+    commit: 702145a
+    linhas:
+    - builder.Services.AddHttpClient<PixProcessingClient>((sp, client) =>
+    - '{'
+    - '    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PixClientOptions>>().Value;'
+    - '    client.BaseAddress = new Uri(options.BaseUrl);'
+    - '    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));'
+    - '})'
+    - .ConfigurePrimaryHttpMessageHandler(MutualTlsHttpHandlerFactory.Create)
+    - .AddHttpMessageHandler<CorrelationIdHandler>()
+    - .AddHttpMessageHandler<IdempotencyKeyHandler>()
+    - .AddHttpMessageHandler<RequestLoggingHandler>()
+    - .AddStandardResilienceHandler();
+    anotacoes:
+    - linha: 40
+      texto: O handler da rede carrega o `client.pfx`.
+    - linha: 42
+      texto: Põe a chave antes da política de resiliência, e por isso cada nova tentativa reaproveita a mesma chave.
+    - linha: 44
+      texto: Registrado por último, fica mais perto da rede e repete o envio do mesmo pedido HTTP.
+    inicio: 34
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pix/Pix.ClientDemo/Client/Handlers/IdempotencyKeyHandler.cs
+    commit: 702145a
+    linhas:
+    - '        if (request.Method == HttpMethod.Post &&'
+    - '            request.RequestUri is not null &&'
+    - '            request.RequestUri.AbsolutePath.Contains("/pix/v1/cobrancas", StringComparison.OrdinalIgnoreCase) &&'
+    - '            !request.Headers.Contains("Idempotency-Key"))'
+    - '        {'
+    - '            request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));'
+    - '        }'
+    anotacoes:
+    - linha: 9
+      texto: Só os caminhos de cobrança recebem a chave.
+    inicio: 7
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pix/Pix.MockServer/Program.cs
+    commit: 702145a
+    linhas:
+    - '    var validation = PixValidation.ValidateDevolucao(request, cobranca.ValorOriginal);'
+    - '    if (validation.Count > 0)'
+    - '    {'
+    - '        return Results.ValidationProblem(validation, extensions: BuildExtensions(context, correlationId));'
+    - '    }'
+    - ''
+    - '    var devolucao = devolucaoService.Create(request, correlationId);'
+    anotacoes:
+    - linha: 224
+      texto: O endpoint de devolução não lê o `Idempotency-Key` e cria uma devolução a cada chamada.
+    inicio: 218
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, uma devolução cuja resposta demora mais que o tempo por tentativa, antes e depois da correção. Depois, classifique se cada chamada pode ser repetida pela política de resiliência.
+  - tipo: fluxo
+    titulo: Devolução com resposta atrasada
+    etapas:
+    - titulo: Envio
+      descricao: O cliente envia a devolução de 60 da cobrança, e o `IdempotencyKeyHandler` acrescenta a chave quando cobre o caminho.
+    - titulo: Execução no servidor
+      descricao: O servidor cria a devolução, mas a resposta demora mais de 10 s para chegar ao cliente.
+    - titulo: Nova tentativa
+      descricao: A política cancela a tentativa por tempo esgotado e, depois da espera, envia o mesmo POST de novo.
+    - titulo: Antes da correção
+      descricao: O servidor não lê a chave e cria a segunda devolução, e o recebedor devolve 120 em vez de 60.
+    - titulo: Depois da correção
+      descricao: O servidor encontra `devolucao:` mais a chave com a mesma impressão digital e devolve 200 com o mesmo `devolucaoId`.
+  - tipo: classificador
+    enunciado: A política de resiliência pode repetir esta chamada sem risco?
+    categorias:
+    - id: segura
+      rotulo: Pode repetir
+    - id: chave
+      rotulo: Só com Idempotency-Key
+    - id: inutil
+      rotulo: Repetir não resolve
+    itens:
+    - texto: GET da cobrança depois de tempo esgotado
+      categoria: segura
+      explicacao: Uma leitura não muda o estado do servidor.
+    - texto: POST de devolução depois de tempo esgotado
+      categoria: chave
+      explicacao: O servidor pode ter criado a devolução antes de a resposta se perder.
+    - texto: POST de cobrança depois de uma resposta 503
+      categoria: chave
+      explicacao: O servidor já exige a chave nas cobranças.
+    - texto: POST de token com conexão recusada
+      categoria: segura
+      explicacao: Um token novo não altera cobranças nem devoluções.
+    - texto: POST de devolução que recebeu 400
+      categoria: inutil
+      explicacao: O erro está no pedido, e a política padrão não repete 400.
+    - texto: Chamada sem certificado de cliente
+      categoria: inutil
+      explicacao: A política repete a falha de conexão, mas todas as tentativas falham pelo mesmo motivo.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é chamar o servidor Pix com mTLS e OAuth2 e tornar seguras as novas tentativas de uma devolução, no servidor e no cliente. Os passos 1 a 4 provam o handshake e reproduzem a devolução duplicada, os passos 5 a 10 escrevem o teste e corrigem o servidor, e os passos 11 a 13 corrigem o cliente e mostram a política de resiliência repetindo uma chamada. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/net-minimal-api`, entre na pasta criada e rode `git checkout 702145a`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Subir o servidor Pix
+      texto: No primeiro terminal, suba o servidor simulado e deixe-o rodando.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet run --project src/Pix/Pix.MockServer
+      sucesso: '`Now listening on: https://localhost:5099` e os quatro arquivos em `certs/pix/`.'
+    - titulo: Provar o mTLS
+      texto: No segundo terminal, converta a autoridade certificadora, chame sem certificado, defina a função `pix` e obtenha o token.
+      editor:
+        rotulo: terminal
+        linhas:
+        - openssl x509 -inform DER -in certs/pix/ca.cer -out certs/pix/ca.pem
+        - curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
+        - pix() { curl -sS --http1.1 --cacert certs/pix/ca.pem --cert certs/pix/client.pfx:pix-demo-123 --cert-type P12 "$@"; }
+        - 'TOKEN=$(pix -X POST -H ''Content-Type: application/json'' -d ''{"client_id":"pix-demo-client","client_secret":"pix-demo-secret","grant_type":"client_credentials"}'' https://localhost:5099/oauth/token | sed -nE ''s/.*"access_token": "([^"]+)".*/\1/p'')'
+      sucesso: Erro do `curl` na chamada sem certificado e nenhuma saída nos outros comandos.
+    - titulo: Criar o corpo da cobrança
+      editor:
+        rotulo: arquivo
+        caminho: cobranca.json (novo, na raiz do repositório)
+        commit: 702145a
+        linhas:
+        - '{'
+        - '  "calendario": { "expiracao": 3600 },'
+        - '  "devedor": {'
+        - '    "nome": "Cliente Exemplo",'
+        - '    "cpfCnpj": "12345678901",'
+        - '    "endereco": { "logradouro": "Rua A", "numero": "100", "cidade": "Sao Paulo", "uf": "SP", "cep": "01001000" }'
+        - '  },'
+        - '  "recebedor": { "nome": "Empresa", "ispb": "12345678", "agencia": "0001", "conta": "99999", "tipoConta": "CACC" },'
+        - '  "valor": { "original": 100, "abatimento": 0, "desconto": 0, "juros": 0, "multa": 0 },'
+        - '  "chavePix": "chave-pix-demo",'
+        - '  "solicitacaoPagador": "Pagamento demo",'
+        - '  "split": [],'
+        - '  "infoAdicionais": []'
+        - '}'
+    - titulo: Criar, liquidar e devolver
+      texto: Confira o 401 sem token, crie a cobrança de 100, simule o pagamento, defina a função `devolver` e peça quatro devoluções.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'pix -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Idempotency-Key: x'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas'
+        - 'TXID=$(pix -X POST -H "Authorization: Bearer $TOKEN" -H ''Idempotency-Key: cob-1'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas | sed -nE ''s/.*"txid": "([^"]+)".*/\1/p'')'
+        - 'pix -X POST -H "Authorization: Bearer $TOKEN" https://localhost:5099/pix/v1/cobrancas/$TXID/simular-liquidacao | grep ''"status"'' | head -1'
+        - 'devolver() { pix -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' ${1:+-H "Idempotency-Key: $1"} -d "{\"txid\":\"$TXID\",\"endToEndId\":\"E2E12345678901234567\",\"valor\":$2,\"natureza\":\"ORIGINAL\",\"motivo\":\"Teste\"}" https://localhost:5099/pix/v1/devolucoes | tr -d ''\r'' | grep -E ''^HTTP|"devolucaoId"|"title"''; }'
+        - devolver dev-1 60
+        - devolver dev-1 60
+        - devolver dev-1 70
+        - devolver "" 60
+      sucesso: '`401`, `"status": "CONCLUIDA"` e quatro respostas 201 com `devolucaoId` diferentes, que somam 60 + 60 + 70 + 60 = 250.'
+    - titulo: Escrever o teste de idempotência da devolução
+      editor:
+        rotulo: arquivo
+        caminho: tests/Pix.MockServer.Tests/DevolucaoIdempotenciaTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Net;
+        - using System.Net.Http.Headers;
+        - using System.Net.Http.Json;
+        - using System.Text.Json;
+        - using FluentAssertions;
+        - using Pix.MockServer.Contracts;
+        - using Xunit;
+        - ''
+        - namespace Pix.MockServer.Tests;
+        - ''
+        - 'public sealed class DevolucaoIdempotenciaTests(PixMockServerFactory factory) : IClassFixture<PixMockServerFactory>'
+        - '{'
+        - '    [Fact]'
+        - '    public async Task MesmaChaveMesmoPayload_DeveDevolverAMesmaDevolucao()'
+        - '    {'
+        - '        var (client, txid) = await PrepararCobrancaLiquidadaAsync();'
+        - '        var chave = $"dev-{Guid.NewGuid():N}";'
+        - '        var request = Devolucao(txid, 60m);'
+        - ''
+        - '        var primeira = await PostDevolucaoAsync(client, chave, request);'
+        - '        var repetida = await PostDevolucaoAsync(client, chave, request);'
+        - ''
+        - '        primeira.StatusCode.Should().Be(HttpStatusCode.Created);'
+        - '        repetida.StatusCode.Should().Be(HttpStatusCode.OK);'
+        - '        var idPrimeira = (await primeira.Content.ReadFromJsonAsync<DevolucaoResponse>())!.DevolucaoId;'
+        - '        var idRepetida = (await repetida.Content.ReadFromJsonAsync<DevolucaoResponse>())!.DevolucaoId;'
+        - '        idRepetida.Should().Be(idPrimeira);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task MesmaChavePayloadDiferente_DeveRetornar409()'
+        - '    {'
+        - '        var (client, txid) = await PrepararCobrancaLiquidadaAsync();'
+        - '        var chave = $"dev-{Guid.NewGuid():N}";'
+        - ''
+        - '        var primeira = await PostDevolucaoAsync(client, chave, Devolucao(txid, 60m));'
+        - '        var outra = await PostDevolucaoAsync(client, chave, Devolucao(txid, 70m));'
+        - ''
+        - '        primeira.StatusCode.Should().Be(HttpStatusCode.Created);'
+        - '        outra.StatusCode.Should().Be(HttpStatusCode.Conflict);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task SemChave_DeveRetornar400()'
+        - '    {'
+        - '        var (client, txid) = await PrepararCobrancaLiquidadaAsync();'
+        - ''
+        - '        var response = await PostDevolucaoAsync(client, null, Devolucao(txid, 60m));'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);'
+        - '    }'
+        - ''
+        - '    private async Task<(HttpClient Client, string Txid)> PrepararCobrancaLiquidadaAsync()'
+        - '    {'
+        - '        var client = factory.CreateClient();'
+        - '        client.DefaultRequestHeaders.Add("X-MTLS-Client-Cert", "demo-certificado-cliente");'
+        - '        var token = await client.PostAsJsonAsync("/oauth/token",'
+        - '            new OAuthTokenRequest("pix-demo-client", "pix-demo-secret", "client_credentials"));'
+        - '        var accessToken = (await token.Content.ReadFromJsonAsync<OAuthTokenResponse>())!.AccessToken;'
+        - '        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);'
+        - ''
+        - '        using var criar = new HttpRequestMessage(HttpMethod.Post, "/pix/v1/cobrancas")'
+        - '        {'
+        - '            Content = JsonContent.Create(Cobranca())'
+        - '        };'
+        - '        criar.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));'
+        - '        var cobranca = await (await client.SendAsync(criar)).Content.ReadFromJsonAsync<CobrancaResponse>();'
+        - '        await client.PostAsync($"/pix/v1/cobrancas/{cobranca!.Txid}/simular-liquidacao", null);'
+        - '        return (client, cobranca.Txid);'
+        - '    }'
+        - ''
+        - '    private static Task<HttpResponseMessage> PostDevolucaoAsync(HttpClient client, string? chave, CriarDevolucaoRequest request)'
+        - '    {'
+        - '        var message = new HttpRequestMessage(HttpMethod.Post, "/pix/v1/devolucoes")'
+        - '        {'
+        - '            Content = JsonContent.Create(request)'
+        - '        };'
+        - '        if (chave is not null)'
+        - '        {'
+        - '            message.Headers.Add("Idempotency-Key", chave);'
+        - '        }'
+        - ''
+        - '        return client.SendAsync(message);'
+        - '    }'
+        - ''
+        - '    private static CriarDevolucaoRequest Devolucao(string txid, decimal valor)'
+        - '        => new(txid, "E2E12345678901234567", valor, "ORIGINAL", "Teste", new Dictionary<string, JsonElement>());'
+        - ''
+        - '    private static CriarCobrancaRequest Cobranca()'
+        - '        => new('
+        - '            new CalendarioRequest(3600),'
+        - '            new DevedorRequest("Cliente Exemplo", "12345678901",'
+        - '                new EnderecoRequest("Rua A", "100", "Sao Paulo", "SP", "01001000")),'
+        - '            new RecebedorRequest("Empresa", "12345678", "0001", "99999", "CACC"),'
+        - '            new ValorRequest(100m, 0m, 0m, 0m, 0m),'
+        - '            "chave-pix-demo",'
+        - '            "Pagamento demo",'
+        - '            [],'
+        - '            [],'
+        - '            new Dictionary<string, JsonElement>());'
+        - '}'
+      efeito: teste_devolucao
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/Pix.MockServer.Tests --filter DevolucaoIdempotenciaTests
+      sucesso: '`Com falha: 3`, todas com `but found HttpStatusCode.Created`.'
+    - titulo: Trocar o serviço de devolução
+      texto: Substitua o arquivo pela versão abaixo. Ela guarda a chave com o prefixo `devolucao:` e a impressão digital do corpo, e serializa as criações com uma trava.
+      editor:
+        rotulo: arquivo
+        caminho: src/Pix/Pix.MockServer/Application/DevolucaoService.cs (substituição)
+        commit: 702145a
+        linhas:
+        - using System.Security.Cryptography;
+        - using System.Text;
+        - using System.Text.Json;
+        - using Pix.MockServer.Contracts;
+        - using Pix.MockServer.Domain;
+        - ''
+        - namespace Pix.MockServer.Application;
+        - ''
+        - public interface IDevolucaoService
+        - '{'
+        - '    DevolucaoCreateOutcome? Create(CriarDevolucaoRequest request, string idempotencyKey, string correlationId);'
+        - '    DevolucaoResponse? Get(string devolucaoId);'
+        - '}'
+        - ''
+        - public sealed record DevolucaoCreateOutcome(DevolucaoResponse? Response, bool IsIdempotentReplay, bool IsConflict);
+        - ''
+        - public sealed class DevolucaoService(
+        - '    ICobrancaRepository cobrancaRepository,'
+        - '    IDevolucaoRepository devolucaoRepository,'
+        - '    IIdempotencyRepository idempotencyRepository,'
+        - '    TimeProvider timeProvider) : IDevolucaoService'
+        - '{'
+        - '    private readonly Lock _trava = new();'
+        - ''
+        - '    public DevolucaoCreateOutcome? Create(CriarDevolucaoRequest request, string idempotencyKey, string correlationId)'
+        - '    {'
+        - '        // O prefixo separa as chaves de devolução das chaves de cobrança no mesmo repositório.'
+        - '        var chave = $"devolucao:{idempotencyKey}";'
+        - '        var fingerprint = BuildFingerprint(request);'
+        - ''
+        - '        lock (_trava)'
+        - '        {'
+        - '            if (idempotencyRepository.TryGet(chave, out var existente) && existente is not null)'
+        - '            {'
+        - '                return existente.Fingerprint == fingerprint'
+        - '                    ? new DevolucaoCreateOutcome(Get(existente.ResourceId), true, false)'
+        - '                    : new DevolucaoCreateOutcome(null, false, true);'
+        - '            }'
+        - ''
+        - '            var response = CreateNova(request, correlationId);'
+        - '            if (response is not null)'
+        - '            {'
+        - '                idempotencyRepository.Upsert(new IdempotencyEntry(chave, fingerprint, response.DevolucaoId, timeProvider.GetUtcNow()));'
+        - '            }'
+        - ''
+        - '            return response is null ? null : new DevolucaoCreateOutcome(response, false, false);'
+        - '        }'
+        - '    }'
+        - ''
+        - '    private DevolucaoResponse? CreateNova(CriarDevolucaoRequest request, string correlationId)'
+        - '    {'
+        - '        if (!cobrancaRepository.TryGet(request.Txid, out var cobranca) || cobranca is null)'
+        - '        {'
+        - '            return null;'
+        - '        }'
+        - ''
+        - '        if (cobranca.Status != CobrancaStatus.Concluida)'
+        - '        {'
+        - '            return null;'
+        - '        }'
+        - ''
+        - '        var now = timeProvider.GetUtcNow();'
+        - '        var devolucaoId = Guid.NewGuid().ToString("N");'
+        - '        var entity = new DevolucaoEntity'
+        - '        {'
+        - '            DevolucaoId = devolucaoId,'
+        - '            Request = request,'
+        - '            SolicitadaEm = now,'
+        - '            Status = DevolucaoStatus.EmProcessamento,'
+        - '            LiquidadaEm = null,'
+        - '            CorrelationId = correlationId,'
+        - '            OrigemAtualizacao = "MOCK_SERVER"'
+        - '        };'
+        - ''
+        - '        entity.Status = DevolucaoStatus.Devolvida;'
+        - '        entity.LiquidadaEm = now.AddSeconds(2);'
+        - '        entity.OrigemAtualizacao = "SIMULADOR";'
+        - ''
+        - '        devolucaoRepository.Upsert(entity);'
+        - '        return ToResponse(entity);'
+        - '    }'
+        - ''
+        - '    public DevolucaoResponse? Get(string devolucaoId)'
+        - '    {'
+        - '        if (!devolucaoRepository.TryGet(devolucaoId, out var entity) || entity is null)'
+        - '        {'
+        - '            return null;'
+        - '        }'
+        - ''
+        - '        return ToResponse(entity);'
+        - '    }'
+        - ''
+        - '    private static string BuildFingerprint(CriarDevolucaoRequest request)'
+        - '    {'
+        - '        var json = JsonSerializer.Serialize(request, JsonContext.Default.CriarDevolucaoRequest);'
+        - '        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));'
+        - '    }'
+        - ''
+        - '    private static DevolucaoResponse ToResponse(DevolucaoEntity entity)'
+        - '        => new('
+        - '            entity.DevolucaoId,'
+        - '            entity.Status,'
+        - '            entity.SolicitadaEm,'
+        - '            entity.LiquidadaEm,'
+        - '            entity.Request.Motivo,'
+        - '            new RastreabilidadeResponse('
+        - '                entity.Request.Txid,'
+        - '                entity.Request.EndToEndId,'
+        - '                entity.LiquidadaEm ?? entity.SolicitadaEm,'
+        - '                entity.OrigemAtualizacao),'
+        - '            entity.CorrelationId);'
+        - '}'
+    - titulo: Exigir a chave no endpoint
+      texto: Registre o tipo no contexto de JSON e troque o trecho do endpoint de devolução.
+      editor:
+        rotulo: arquivo
+        caminho: JsonContext.cs e Program.cs do Pix.MockServer (alteração)
+        commit: 702145a
+        linhas:
+        - '// src/Pix/Pix.MockServer/Application/JsonContext.cs: abaixo do atributo de CriarCobrancaRequest'
+        - '[JsonSerializable(typeof(CriarDevolucaoRequest))]'
+        - ''
+        - '// src/Pix/Pix.MockServer/Program.cs: no MapPost("/devolucoes"), logo depois da validação de segurança'
+        - '    if (!context.Request.Headers.TryGetValue("Idempotency-Key", out var idempotencyKey) || string.IsNullOrWhiteSpace(idempotencyKey))'
+        - '    {'
+        - '        return Results.ValidationProblem(new Dictionary<string, string[]>'
+        - '        {'
+        - '            ["Idempotency-Key"] = ["Header Idempotency-Key é obrigatório."]'
+        - '        }, extensions: BuildExtensions(context, correlationId));'
+        - '    }'
+        - ''
+        - '// no mesmo endpoint, no lugar de: var devolucao = devolucaoService.Create(request, correlationId);'
+        - '    var outcome = devolucaoService.Create(request, idempotencyKey.ToString(), correlationId);'
+        - '    if (outcome is { IsConflict: true })'
+        - '    {'
+        - '        return Results.Conflict(new'
+        - '        {'
+        - '            title = "Conflito de idempotência",'
+        - '            detail = "A mesma chave de idempotência foi usada com payload diferente.",'
+        - '            traceId = context.TraceIdentifier,'
+        - '            correlationId'
+        - '        });'
+        - '    }'
+        - ''
+        - '    if (outcome is { IsIdempotentReplay: true })'
+        - '    {'
+        - '        return Results.Ok(outcome.Response);'
+        - '    }'
+        - ''
+        - '    var devolucao = outcome?.Response;'
+      efeito: servidor_corrigido
+    - titulo: Ver o teste passar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/Pix.MockServer.Tests --filter DevolucaoIdempotenciaTests
+        - dotnet test tests/Pix.MockServer.Tests
+      sucesso: '`Aprovado: 3` e a suíte com `Aprovado: 10`.'
+    - titulo: Repetir as devoluções
+      texto: Reinicie o servidor, obtenha o token, crie e liquide outra cobrança e repita as quatro devoluções.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'TOKEN=$(pix -X POST -H ''Content-Type: application/json'' -d ''{"client_id":"pix-demo-client","client_secret":"pix-demo-secret","grant_type":"client_credentials"}'' https://localhost:5099/oauth/token | sed -nE ''s/.*"access_token": "([^"]+)".*/\1/p'')'
+        - 'TXID=$(pix -X POST -H "Authorization: Bearer $TOKEN" -H ''Idempotency-Key: cob-1'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas | sed -nE ''s/.*"txid": "([^"]+)".*/\1/p'')'
+        - 'pix -X POST -H "Authorization: Bearer $TOKEN" https://localhost:5099/pix/v1/cobrancas/$TXID/simular-liquidacao | grep ''"status"'' | head -1'
+        - devolver dev-1 60
+        - devolver dev-1 60
+        - devolver dev-1 70
+        - devolver "" 60
+      sucesso: 201 e depois 200 com o mesmo `devolucaoId`, 409 no outro valor e 400 sem a chave.
+    - titulo: Rodar o cliente de demonstração
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+      sucesso: '`POST /pix/v1/devolucoes -> 400` e `Unhandled exception`: o cliente não envia a chave na devolução.'
+    - titulo: Pôr a chave na devolução
+      texto: Troque a condição do handler do cliente e rode o cliente de novo.
+      editor:
+        rotulo: arquivo
+        caminho: src/Pix/Pix.ClientDemo/Client/Handlers/IdempotencyKeyHandler.cs (alteração)
+        commit: 702145a
+        linhas:
+        - '// src/Pix/Pix.ClientDemo/Client/Handlers/IdempotencyKeyHandler.cs: no lugar da linha com Contains("/pix/v1/cobrancas", ...)'
+        - '            (request.RequestUri.AbsolutePath.StartsWith("/pix/v1/cobrancas", StringComparison.OrdinalIgnoreCase) ||'
+        - '             request.RequestUri.AbsolutePath.StartsWith("/pix/v1/devolucoes", StringComparison.OrdinalIgnoreCase)) &&'
+        - ''
+        - '// no terminal:'
+        - dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+      efeito: cliente_corrigido
+      sucesso: '`POST /pix/v1/devolucoes -> 201` e `Status devolução final: DEVOLVIDA`.'
+    - titulo: Ver a política repetir a chamada
+      texto: Pare o servidor com Ctrl+C no primeiro terminal e rode o cliente.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -oE "Attempt: ''[0-9]''|Unhandled.*"'
+      sucesso: '`Attempt: ''0''` a `Attempt: ''3''` e `Connection refused`: o POST do token foi enviado quatro vezes.'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: dotnet run --project src/Pix/Pix.MockServer
+      saida: 'Now listening on: https://localhost:5099
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Production'
+      origem: executado
+      dica: 'Na primeira execução, o servidor gera os certificados em `certs/pix/`. Reinicie-o depois de cada troca de código: as cobranças e as chaves ficam na memória do processo.'
+    - entrada: openssl x509 -inform DER -in certs/pix/ca.cer -out certs/pix/ca.pem
+      saida: ''
+      origem: executado
+      dica: O `ca.cer` está em DER, e o `curl` espera a autoridade certificadora em PEM.
+    - entrada: curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
+      saida: 'curl: (56) Recv failure: Connection reset by peer'
+      origem: executado
+      dica: O texto do erro muda conforme a versão do `curl`, e também aparece `(52) Empty reply from server`. Nos dois casos, o servidor fechou a conexão porque não recebeu certificado do cliente.
+    - entrada: pix() { curl -sS --http1.1 --cacert certs/pix/ca.pem --cert certs/pix/client.pfx:pix-demo-123 --cert-type P12 "$@"; }
+      saida: ''
+      origem: executado
+      dica: A função `pix` chama o `curl` com o certificado do cliente e a senha `pix-demo-123`, e repassa os demais argumentos.
+    - entrada: 'TOKEN=$(pix -X POST -H ''Content-Type: application/json'' -d ''{"client_id":"pix-demo-client","client_secret":"pix-demo-secret","grant_type":"client_credentials"}'' https://localhost:5099/oauth/token | sed -nE ''s/.*"access_token": "([^"]+)".*/\1/p'')'
+      saida: ''
+      origem: executado
+    - entrada: 'pix -o /dev/null -w ''%{http_code}\n'' -X POST -H ''Idempotency-Key: x'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas'
+      saida: '401'
+      origem: executado
+      dica: Com certificado e sem token, o handshake passa e a API responde 401.
+    - entrada: 'TXID=$(pix -X POST -H "Authorization: Bearer $TOKEN" -H ''Idempotency-Key: cob-1'' -H ''Content-Type: application/json'' -d @cobranca.json https://localhost:5099/pix/v1/cobrancas | sed -nE ''s/.*"txid": "([^"]+)".*/\1/p'')'
+      saida: ''
+      origem: executado
+      dica: Crie antes o `cobranca.json` do passo 3 na raiz do repositório.
+    - entrada: 'pix -X POST -H "Authorization: Bearer $TOKEN" https://localhost:5099/pix/v1/cobrancas/$TXID/simular-liquidacao | grep ''"status"'' | head -1'
+      saida: '  "status": "CONCLUIDA",'
+      origem: executado
+    - entrada: 'devolver() { pix -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' ${1:+-H "Idempotency-Key: $1"} -d "{\"txid\":\"$TXID\",\"endToEndId\":\"E2E12345678901234567\",\"valor\":$2,\"natureza\":\"ORIGINAL\",\"motivo\":\"Teste\"}" https://localhost:5099/pix/v1/devolucoes | tr -d ''\r'' | grep -E ''^HTTP|"devolucaoId"|"title"''; }'
+      saida: ''
+      origem: executado
+      dica: A função `devolver` recebe a chave e o valor. Com a chave vazia, a chamada vai sem o cabeçalho `Idempotency-Key`.
+    - entrada: devolver dev-1 60
+      condicao:
+      - servidor_corrigido
+      - '!dev_corrigida_feita'
+      saida: "HTTP/1.1 201 Created\n  \"devolucaoId\": \"e5678129797e4a8ca12d67f880f3c87d\","
+      origem: executado
+      efeito: dev_corrigida_feita
+    - entrada: devolver dev-1 60
+      condicao: servidor_corrigido
+      saida: "HTTP/1.1 200 OK\n  \"devolucaoId\": \"e5678129797e4a8ca12d67f880f3c87d\","
+      origem: executado
+      dica: A repetição devolve a mesma devolução, com 200.
+    - entrada: devolver dev-1 60
+      condicao: '!dev_feita'
+      saida: "HTTP/1.1 201 Created\n  \"devolucaoId\": \"50454c6d7172408e9778c499e237821c\","
+      origem: executado
+      efeito: dev_feita
+    - entrada: devolver dev-1 60
+      saida: "HTTP/1.1 201 Created\n  \"devolucaoId\": \"fd60f2c53e6143c3b6149452d47375b3\","
+      origem: executado
+      dica: Mesma chave e mesmo corpo, e o servidor criou outra devolução, com outro `devolucaoId`.
+    - entrada: devolver dev-1 70
+      condicao: servidor_corrigido
+      saida: "HTTP/1.1 409 Conflict\n  \"title\": \"Conflito de idempotência\","
+      origem: executado
+    - entrada: devolver dev-1 70
+      saida: "HTTP/1.1 201 Created\n  \"devolucaoId\": \"e1533ed1d9384aac9301a0a047726d76\","
+      origem: executado
+      dica: A mesma chave com outro valor também criou uma devolução.
+    - entrada: devolver "" 60
+      condicao: servidor_corrigido
+      saida: "HTTP/1.1 400 Bad Request\n  \"title\": \"One or more validation errors occurred.\","
+      origem: executado
+    - entrada: devolver "" 60
+      saida: "HTTP/1.1 201 Created\n  \"devolucaoId\": \"d7a9a44f3604434a80c57338400c71bc\","
+      origem: executado
+      dica: Sem a chave, o servidor aceitou a quarta devolução. A cobrança de 100 já soma 60 + 60 + 70 + 60 = 250 em devoluções.
+    - entrada: dotnet test tests/Pix.MockServer.Tests --filter DevolucaoIdempotenciaTests
+      condicao:
+      - teste_devolucao
+      - servidor_corrigido
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 148 ms - Pix.MockServer.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/Pix.MockServer.Tests --filter DevolucaoIdempotenciaTests
+      condicao: teste_devolucao
+      saida: "  Com falha Pix.MockServer.Tests.DevolucaoIdempotenciaTests.MesmaChavePayloadDiferente_DeveRetornar409 [140 ms]\n   Expected outra.StatusCode to be HttpStatusCode.Conflict {value: 409}, but found HttpStatusCode.Created {value: 201}.\n  Com falha Pix.MockServer.Tests.DevolucaoIdempotenciaTests.SemChave_DeveRetornar400 [2 ms]\n   Expected response.StatusCode to be HttpStatusCode.BadRequest {value: 400}, but found HttpStatusCode.Created {value: 201}.\n  Com falha Pix.MockServer.Tests.DevolucaoIdempotenciaTests.MesmaChaveMesmoPayload_DeveDevolverAMesmaDevolucao [2 ms]\n   Expected repetida.StatusCode to be HttpStatusCode.OK {value: 200}, but found HttpStatusCode.Created {value: 201}.\nCom falha! – Com falha:     3, Aprovado:     0, Ignorado:     0, Total:     3, Duração: 150 ms - Pix.MockServer.Tests.dll (net10.0)"
+      origem: executado
+      dica: As três falhas reproduzem o que as chamadas do passo 4 mostraram.
+    - entrada: dotnet test tests/Pix.MockServer.Tests --filter DevolucaoIdempotenciaTests
+      saida: Nenhum teste corresponde ao filtro de testcase `DevolucaoIdempotenciaTests` determinado no ./tests/Pix.MockServer.Tests/bin/Debug/net10.0/Pix.MockServer.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
+    - entrada: dotnet test tests/Pix.MockServer.Tests
+      condicao:
+      - teste_devolucao
+      - servidor_corrigido
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:    10, Ignorado:     0, Total:    10, Duração: 163 ms - Pix.MockServer.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/Pix.MockServer.Tests
+      condicao: teste_devolucao
+      saida: "  Com falha Pix.MockServer.Tests.DevolucaoIdempotenciaTests.MesmaChavePayloadDiferente_DeveRetornar409 [149 ms]\n   Expected outra.StatusCode to be HttpStatusCode.Conflict {value: 409}, but found HttpStatusCode.Created {value: 201}.\n  Com falha Pix.MockServer.Tests.DevolucaoIdempotenciaTests.SemChave_DeveRetornar400 [1 ms]\n   Expected response.StatusCode to be HttpStatusCode.BadRequest {value: 400}, but found HttpStatusCode.Created {value: 201}.\n  Com falha Pix.MockServer.Tests.DevolucaoIdempotenciaTests.MesmaChaveMesmoPayload_DeveDevolverAMesmaDevolucao [1 ms]\n   Expected repetida.StatusCode to be HttpStatusCode.OK {value: 200}, but found HttpStatusCode.Created {value: 201}.\nCom falha! – Com falha:     3, Aprovado:     7, Ignorado:     0, Total:    10, Duração: 164 ms - Pix.MockServer.Tests.dll (net10.0)"
+      origem: executado
+    - entrada: dotnet test tests/Pix.MockServer.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     7, Ignorado:     0, Total:     7, Duração: 158 ms - Pix.MockServer.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+      condicao:
+      - servidor_corrigido
+      - cliente_corrigido
+      saida: "      HTTP POST /pix/v1/cobrancas -> 201 em 40ms\n      HTTP GET /pix/v1/cobrancas/726b2df3034243ec9b34af42451f5477 -> 200 em 1ms\n      HTTP POST /pix/v1/cobrancas/726b2df3034243ec9b34af42451f5477/simular-liquidacao -> 200 em 0ms\n      HTTP POST /pix/v1/devolucoes -> 201 em 1ms\n      HTTP GET /pix/v1/devolucoes/89bcc375619442a88a2a9afe2f8782fa -> 200 em 0ms\nStatus cobrança final: CONCLUIDA\nDevolução: 89bcc375619442a88a2a9afe2f8782fa\nStatus devolução final: DEVOLVIDA"
+      origem: executado
+    - entrada: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+      condicao: servidor_corrigido
+      saida: "      HTTP POST /pix/v1/cobrancas -> 201 em 35ms\n      HTTP GET /pix/v1/cobrancas/96d6c1e3bddb44d6aaccbb4d08188fbe -> 200 em 1ms\n      HTTP POST /pix/v1/cobrancas/96d6c1e3bddb44d6aaccbb4d08188fbe/simular-liquidacao -> 200 em 0ms\n      HTTP POST /pix/v1/devolucoes -> 400 em 1ms\nUnhandled exception. System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request)."
+      origem: executado
+      dica: O servidor passou a exigir a chave, e o cliente só a envia para cobranças.
+    - entrada: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+      saida: "      HTTP POST /pix/v1/cobrancas -> 201 em 59ms\n      HTTP GET /pix/v1/cobrancas/1a3a6f1ef0bc4d31a1f95942fd5dcd52 -> 200 em 3ms\n      HTTP POST /pix/v1/cobrancas/1a3a6f1ef0bc4d31a1f95942fd5dcd52/simular-liquidacao -> 200 em 1ms\n      HTTP POST /pix/v1/devolucoes -> 201 em 4ms\n      HTTP GET /pix/v1/devolucoes/62a244730c51473c96d47641ac82f71a -> 200 em 1ms\nStatus cobrança final: CONCLUIDA\nDevolução: 62a244730c51473c96d47641ac82f71a\nStatus devolução final: DEVOLVIDA"
+      origem: executado
+      dica: O cenário completo do cliente, com cobrança, liquidação e devolução.
+    - entrada: 'dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -oE "Attempt: ''[0-9]''|Unhandled.*"'
+      saida: 'Attempt: ''0''
+
+        Attempt: ''1''
+
+        Attempt: ''2''
+
+        Attempt: ''3''
+
+        Unhandled exception. System.Net.Http.HttpRequestException: Connection refused (localhost:5099)'
+      origem: executado
+      dica: 'Com o servidor parado. A falha aparece depois de cerca de 11 segundos: a tentativa 0 e mais três, com espera crescente entre elas.'
+    cenarios:
+    - rotulo: Sem certificado
+      comando: curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
+    - rotulo: Devolução dev-1
+      comando: devolver dev-1 60
+    - rotulo: Outro valor
+      comando: devolver dev-1 70
+    - rotulo: Teste
+      comando: dotnet test tests/Pix.MockServer.Tests --filter DevolucaoIdempotenciaTests
+    - rotulo: Cliente
+      comando: dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'
+    - rotulo: Servidor parado
+      comando: 'dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -oE "Attempt: ''[0-9]''|Unhandled.*"'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta cinco situações que um time encontraria ao integrar com a API Pix, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Conexão recusada sem resposta HTTP
+    origem: executado
+    rotulo_saida: log
+    saida: '$ curl -sS --http1.1 --cacert certs/pix/ca.pem -X POST https://localhost:5099/oauth/token
+
+      curl: (56) Recv failure: Connection reset by peer'
+    pergunta: Um sistema novo chama o servidor Pix e recebe só esse erro, sem status HTTP. O que aconteceu?
+    correcao: Configurar o cliente com o certificado emitido pela autoridade aceita, como faz o `MutualTlsHttpHandlerFactory` com o `client.pfx`.
+    alternativas:
+    - texto: Faltou o token OAuth2.
+      correta: false
+      explicacao: Sem token, a resposta é 401.
+    - texto: O Kestrel exige certificado de cliente e encerrou a conexão no handshake, antes de a aplicação ver a requisição.
+      correta: true
+      explicacao: Com o mesmo comando e `--cert`, o servidor responde em JSON.
+    - texto: O servidor está fora do ar.
+      correta: false
+      explicacao: Fora do ar, o erro seria `Connection refused`.
+  - tipo: incidente
+    titulo: Duas devoluções de um pedido
+    origem: executado
+    rotulo_saida: log
+    saida: "$ devolver dev-1 60\nHTTP/1.1 201 Created\n  \"devolucaoId\": \"50454c6d7172408e9778c499e237821c\",\n\n$ devolver dev-1 60\nHTTP/1.1 201 Created\n  \"devolucaoId\": \"fd60f2c53e6143c3b6149452d47375b3\","
+    pergunta: O cliente repetiu a devolução com a mesma chave depois de um tempo esgotado, e o recebedor devolveu duas vezes. Por quê?
+    correcao: Ler o `Idempotency-Key` no endpoint de devolução e guardar a chave com a impressão digital do corpo, como no passo 7.
+    alternativas:
+    - texto: O cliente mandou chaves diferentes.
+      correta: false
+      explicacao: As duas chamadas usaram `dev-1`.
+    - texto: A segunda chamada foi para outra cobrança.
+      correta: false
+      explicacao: A função `devolver` usa o mesmo `$TXID`.
+    - texto: O endpoint de devolução ignora a chave e cria uma devolução a cada chamada.
+      correta: true
+      explicacao: Os dois `devolucaoId` são diferentes, e as cobranças já tinham esse controle.
+  - tipo: incidente
+    titulo: Cliente que parou depois da correção do servidor
+    origem: executado
+    rotulo_saida: log
+    saida: "$ dotnet run --project src/Pix/Pix.ClientDemo 2>&1 | grep -E 'HTTP (GET|POST)|Unhandled|final|Devolução:'\n      HTTP POST /pix/v1/cobrancas -> 201 em 35ms\n      HTTP GET /pix/v1/cobrancas/96d6c1e3bddb44d6aaccbb4d08188fbe -> 200 em 1ms\n      HTTP POST /pix/v1/cobrancas/96d6c1e3bddb44d6aaccbb4d08188fbe/simular-liquidacao -> 200 em 0ms\n      HTTP POST /pix/v1/devolucoes -> 400 em 1ms\nUnhandled exception. System.Net.Http.HttpRequestException: Response status code does not indicate success: 400 (Bad Request)."
+    pergunta: O servidor passou a exigir a chave na devolução, e o cliente de demonstração parou. Qual é a causa?
+    correcao: Incluir `/pix/v1/devolucoes` na condição do `IdempotencyKeyHandler`, como no passo 12.
+    alternativas:
+    - texto: O handler do cliente só acrescenta a chave nos caminhos de cobrança.
+      correta: true
+      explicacao: A cobrança e a liquidação passaram, e só a devolução recebeu 400.
+    - texto: A política de resiliência esgotou as tentativas.
+      correta: false
+      explicacao: A política padrão não repete 400.
+    - texto: O certificado do cliente venceu.
+      correta: false
+      explicacao: As chamadas anteriores passaram pelo mesmo handshake.
+  - tipo: incidente
+    titulo: Devoluções acima do valor pago
+    origem: executado
+    rotulo_saida: log
+    saida: '$ quatro devoluções da cobrança de 100
+
+      HTTP/1.1 201 Created
+
+      HTTP/1.1 201 Created
+
+      HTTP/1.1 201 Created
+
+      HTTP/1.1 201 Created
+
+
+      soma: 60 + 60 + 70 + 60 = 250'
+    pergunta: Com chaves diferentes, a correção de idempotência continua aceitando devoluções que somam mais que a cobrança. Qual regra falta?
+    correcao: Somar as devoluções já feitas para o `txid` e recusar a nova quando o total passar do valor original da cobrança.
+    alternativas:
+    - texto: O servidor arredonda os valores.
+      correta: false
+      explicacao: Os valores são inteiros e chegam como `decimal`.
+    - texto: A validação compara cada devolução com o valor da cobrança, sem somar as anteriores.
+      correta: true
+      explicacao: O `PixValidation.ValidateDevolucao` recebe só o valor máximo e o valor pedido.
+    - texto: A idempotência deveria impedir chaves diferentes.
+      correta: false
+      explicacao: Chaves diferentes são operações diferentes por definição.
+  - tipo: incidente
+    titulo: Pipeline diferente da decisão registrada
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Pix/Pix.ClientDemo/Program.cs:44
+
+      .AddStandardResilienceHandler();'
+    pergunta: A ADR-0014 descreve 5 s por tentativa e um disjuntor que abre com 50% de falhas em no mínimo 5 chamadas e fica aberto 15 s. O que o cliente usa?
+    correcao: Configurar as opções no `AddStandardResilienceHandler(options => ...)` com os valores da ADR, ou atualizar a ADR para os valores padrão.
+    alternativas:
+    - texto: Os valores da ADR, lidos do `appsettings.json`.
+      correta: false
+      explicacao: O `appsettings.json` do cliente não tem seção de resiliência.
+    - texto: Nenhuma política, porque falta o pacote.
+      correta: false
+      explicacao: O passo 13 mostra as quatro tentativas.
+    - texto: 'Os valores padrão da biblioteca: 10 s por tentativa e disjuntor com 10% de falhas, 100 chamadas e 5 s aberto.'
+      correta: true
+      explicacao: A chamada não recebe opções, e os valores foram lidos de `HttpStandardResilienceOptions` na versão 10.0.0.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: O que o mTLS acrescenta ao TLS comum?
+      alternativas:
+      - texto: O cliente também apresenta certificado, e o servidor identifica quem chama antes de qualquer HTTP.
+        correta: true
+        explicacao: Sem o certificado, o `curl` não recebeu resposta HTTP.
+      - texto: A troca do token OAuth2 por certificado.
+        correta: false
+        explicacao: O servidor exige os dois.
+      - texto: Criptografia mais forte no corpo.
+        correta: false
+        explicacao: A cifra é a mesma do TLS.
+    - enunciado: Por que a política padrão de resiliência exige cuidado com POST?
+      alternativas:
+      - texto: Porque POST não tem tempo limite.
+        correta: false
+        explicacao: O tempo por tentativa vale para todos os métodos.
+      - texto: Porque ela repete falhas de conexão e tempo esgotado em qualquer método, e o servidor pode já ter executado a operação.
+        correta: true
+        explicacao: O passo 13 mostrou quatro envios do mesmo POST.
+      - texto: Porque ela nunca repete POST.
+        correta: false
+        explicacao: O token foi pedido quatro vezes.
+    - enunciado: Por que o `IdempotencyKeyHandler` precisa ficar antes do handler de resiliência?
+      alternativas:
+      - texto: Para cifrar a chave.
+        correta: false
+        explicacao: A chave vai em texto no cabeçalho, dentro do TLS.
+      - texto: Para o servidor gerar a chave.
+        correta: false
+        explicacao: Quem gera a chave é o cliente.
+      - texto: Para que todas as tentativas levem a mesma chave e o servidor as reconheça como uma operação.
+        correta: true
+        explicacao: Se a chave fosse gerada a cada tentativa, cada uma seria uma operação nova.
+    - enunciado: Para que serve o prefixo `devolucao:` na chave guardada?
+      alternativas:
+      - texto: Para separar as chaves de devolução das de cobrança no mesmo repositório.
+        correta: true
+        explicacao: O teste original usa a mesma chave na cobrança e na devolução.
+      - texto: Para o cliente saber o tipo da operação.
+        correta: false
+        explicacao: O prefixo fica só no servidor.
+      - texto: Para a chave expirar mais cedo.
+        correta: false
+        explicacao: O repositório em memória não expira chaves.
+    - enunciado: Que regra continua faltando depois do laboratório?
+      alternativas:
+      - texto: A chave na devolução.
+        correta: false
+        explicacao: O servidor passou a exigi-la.
+      - texto: O limite da soma das devoluções ao valor da cobrança.
+        correta: true
+        explicacao: No commit, quatro devoluções somaram 60 + 60 + 70 + 60 = 250.
+      - texto: A exigência de token na devolução.
+        correta: false
+        explicacao: O `MockSecurityValidator` já exige o token.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A chamada sem certificado falhou no handshake, e a chamada com certificado recebeu resposta da API.
+    - A devolução duplicada pela mesma chave foi reproduzida antes da correção.
+    - O teste falhou antes da correção do servidor e passou depois.
+    - O cliente de demonstração passou a enviar a chave na devolução.
+    - As quatro tentativas da política de resiliência foram vistas com o servidor parado.

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-23', 'oda-24', 'oda-25', 'oda-30'];
+const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-23', 'oda-24', 'oda-25', 'oda-26', 'oda-30'];
 const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
@@ -444,6 +444,25 @@ test('oda-25: a mesma chave com outro corpo passa de 201 a 409 depois da troca d
   await expect(tela).toContainText('201 Created');
   await painel.getByLabel('Passo 6 concluído').check();
   await rodar(outro);
+  await expect(tela).toContainText('409 Conflict');
+});
+
+test('oda-26: a devolução repetida com a mesma chave passa de nova devolução a 200 depois da correção do servidor', async ({ page }) => {
+  await page.goto('/oda-26/#laboratorio');
+  const painel = page.locator('#painel-laboratorio');
+  const campo = painel.getByLabel('Digite um comando');
+  const tela = painel.locator('.terminal__tela');
+  const rodar = async (comando) => { await painel.getByRole('button', { name: 'Limpar' }).click(); await campo.fill(comando); await campo.press('Enter'); };
+  await rodar('devolver dev-1 60');
+  await expect(tela).toContainText('201 Created');
+  await rodar('devolver dev-1 70');
+  await expect(tela).toContainText('201 Created');
+  await painel.getByLabel('Passo 8 concluído').check();
+  await rodar('devolver dev-1 60');
+  await expect(tela).toContainText('201 Created');
+  await rodar('devolver dev-1 60');
+  await expect(tela).toContainText('200 OK');
+  await rodar('devolver dev-1 70');
   await expect(tela).toContainText('409 Conflict');
 });
 
