@@ -1,0 +1,751 @@
+id: '16'
+titulo: Ambiente .NET 10 e os três bounded contexts
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O `net-minimal-api` reúne três bounded contexts numa única API .NET 10, cada um com um padrão arquitetural diferente. Esta ODA prepara o ambiente, corrige as duas falhas que impedem o `setup.sh` de terminar no commit de referência, sobe a API e liga cada contexto ao padrão que a estrutura de pastas revela.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Preparar o .NET 10 e executar o `setup.sh` e a suíte de testes.
+    - Ler um erro de compilação de solução e chegar ao projeto que o causa.
+    - Reconhecer quando uma suíte parece verde com um projeto de testes fora da execução.
+    - Subir a API e exercitar o Catálogo, os Pedidos com JWT e o Swagger.
+    - Identificar Clean Architecture híbrida, Vertical Slice e servidor simulado nas pastas de `src/`.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: O .NET SDK 10, o Git e o `curl`, com o Python 3 para listar os caminhos do Swagger. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem ser executados no Git Bash ou no WSL. No macOS, a porta 5000 também é usada pelo Receptor AirPlay, como mostra o Diagnóstico.
+  - tipo: terminal
+    titulo: terminal · net-minimal-api no commit de referência
+    comandos:
+    - entrada: bash setup.sh
+      saida: '    2 Erro(s)
+
+        ✓ .NET SDK 10.0.401 encontrado
+
+        ✓ Dependências restauradas
+
+        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(1,19): error CS0234: O nome de tipo ou namespace "Produtos" não existe no namespace "ProdutosAPI" (você está sem uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(47,12): error CS0246: O nome do tipo ou do namespace "Produto" não pode ser encontrado (está faltando uma diretiva using ou uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        FALHA da compilação.'
+      origem: executado
+    - entrada: dotnet test
+      saida: './tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(1,19): error CS0234: O nome de tipo ou namespace "Produtos" não existe no namespace "ProdutosAPI" (você está sem uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(47,12): error CS0246: O nome do tipo ou do namespace "Produto" não pode ser encontrado (está faltando uma diretiva using ou uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        Aprovado!  – Com falha:     0, Aprovado:     7, Ignorado:     0, Total:     7, Duração: 233 ms - Pix.MockServer.Tests.dll (net10.0)
+
+        Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    cenarios:
+    - rotulo: Setup
+      comando: bash setup.sh
+    - rotulo: Testes
+      comando: dotnet test
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: O repositório resolve o mesmo problema, uma API REST com persistência, validação e testes, com graus diferentes de estrutura. O `docs/00-VISAO-GERAL.md` descreve os três contextos e os caminhos de estudo.
+  - tipo: comparativo
+    colunas:
+    - Catálogo
+    - Pedidos
+    - Pix
+    linhas:
+    - dimensao: Padrão
+      valores:
+      - Clean Architecture híbrida
+      - Vertical Slice com domínio rico
+      - Servidor simulado e cliente HTTP resiliente
+    - dimensao: Organização
+      valores:
+      - Subprojetos Domain, Application, Infrastructure e API
+      - Uma pasta por caso de uso
+      - 'Dois projetos: `Pix.MockServer` e `Pix.ClientDemo`'
+    - dimensao: Rotas
+      valores:
+      - '`/api/v1/catalogo/*`, sem token na leitura'
+      - '`/api/v1/pedidos/*`, com JWT'
+      - Processo separado, sem rota na API
+    - dimensao: Registro
+      valores:
+      - Métodos `Map...Endpoints` chamados no `Program.cs`
+      - '`IEndpoint` descoberto por reflection'
+      - Próprio `Program.cs`
+  - tipo: conceito
+    titulo: Bounded context
+    texto: Um bounded context é a fronteira dentro da qual um modelo e o seu vocabulário valem sem ambiguidade. No repositório, cada contexto tem pasta, rotas e testes próprios, e o `Produto` do Catálogo é uma entidade diferente do item de um pedido.
+  - tipo: conceito
+    titulo: Solução e projetos
+    texto: O `ProdutosAPI.slnx` lista onze projetos, e o `dotnet build` e o `dotnet test` sem argumento percorrem todos. A API é o `ProdutosAPI.csproj` da raiz, que compila `src/Pedidos` e `src/Shared` e referencia os subprojetos do Catálogo.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `702145a`, a montagem da API, o contrato de auto-registro dos Pedidos e as duas fontes das falhas de build. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - ''
+    - var v1 = app.MapGroup("/api/v1");
+    - var catalogo = v1.MapGroup("/catalogo");
+    - catalogo.MapProdutoEndpoints();
+    - catalogo.MapCategoriaEndpoints();
+    - catalogo.MapVarianteEndpoints();
+    - catalogo.MapAtributoEndpoints();
+    - catalogo.MapMidiaEndpoints();
+    - ''
+    - // Slices de Pedidos (IEndpoint)
+    - app.MapRegisteredEndpoints();
+    - ''
+    - // Health check simples
+    - app.MapGet("/health", () => Results.Ok(new { status = "healthy" }))
+    - '    .WithName("Health")'
+    - '    .AllowAnonymous();'
+    - ''
+    anotacoes:
+    - linha: 255
+      texto: Grupo de rotas versionado, base do Catálogo.
+    - linha: 257
+      texto: 'Catálogo: cada recurso registra as rotas por um método de extensão.'
+    - linha: 264
+      texto: 'Pedidos: registra todas as classes que implementam `IEndpoint`.'
+    inicio: 254
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Common/IEndpoint.cs
+    commit: 702145a
+    linhas:
+    - namespace ProdutosAPI.Shared.Common;
+    - ''
+    - public interface IEndpoint
+    - '{'
+    - '    void MapEndpoints(IEndpointRouteBuilder app);'
+    - '}'
+    anotacoes:
+    - linha: 5
+      texto: Cada fatia de Pedidos declara as próprias rotas.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: tests/Pedidos.Tests/Pedidos.Tests.csproj
+    commit: 702145a
+    linhas:
+    - '  <ItemGroup>'
+    - '    <ProjectReference Include="../../ProdutosAPI.csproj" />'
+    - '    <ProjectReference Include="../../src/Produtos/Produtos.Domain/Produtos.Domain.csproj" />'
+    - '  </ItemGroup>'
+    anotacoes:
+    - linha: 31
+      texto: Projeto removido no refactor `d378512`.
+    inicio: 29
+  - tipo: editor
+    rotulo: arquivo
+    caminho: ProdutosAPI.csproj
+    commit: 702145a
+    linhas:
+    - <Project Sdk="Microsoft.NET.Sdk.Web">
+    - ''
+    - '  <PropertyGroup>'
+    - '    <TargetFramework>net10.0</TargetFramework>'
+    - '    <Nullable>enable</Nullable>'
+    - '    <ImplicitUsings>enable</ImplicitUsings>'
+    - '    <RootNamespace>ProdutosAPI</RootNamespace>'
+    - '    <AssemblyName>ProdutosAPI</AssemblyName>'
+    - '    <Version>2.0.0</Version>'
+    - '    <Description>API REST de Produtos com Minimal API e .NET 10</Description>'
+    - '  </PropertyGroup>'
+    - ''
+    - '  <ItemGroup>'
+    - '    <!-- Exclude test projects from main build -->'
+    - '    <Compile Remove="tests/ProdutosAPI.Tests/**" />'
+    - '    <Compile Remove="tests/Pedidos.Tests/**" />'
+    - '    <Compile Remove="tests/Pix.MockServer.Tests/**" />'
+    - '    <!-- Exclude new sub-projects (compiled separately, referenced via ProjectReference) -->'
+    - '    <Compile Remove="src/Produtos/**" />'
+    - '    <Compile Remove="src/Catalogo/Catalogo.Domain/**" />'
+    - '    <Compile Remove="src/Catalogo/Catalogo.Application/**" />'
+    - '    <Compile Remove="src/Catalogo/Catalogo.Infrastructure/**" />'
+    - '    <Compile Remove="src/Catalogo/Catalogo.API/**" />'
+    - '    <Compile Remove="src/Catalogo/Catalogo.ClientDemo/**" />'
+    - '    <Compile Remove="src/Pix/**" />'
+    - '  </ItemGroup>'
+    anotacoes:
+    - linha: 1
+      texto: O SDK Web inclui como conteúdo os `*.json` de todas as subpastas.
+    - linha: 15
+      texto: Remove os testes da compilação, mas não do conteúdo.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: setup.sh
+    commit: 702145a
+    linhas:
+    - echo ""
+    - echo -e "${GREEN}=========================================="
+    - 'echo "Próximo passo: dotnet run"'
+    - echo "===========================================${NC}"
+    - echo ""
+    - echo "Após inicializar, acesse:"
+    - 'echo "  📡 API:     http://localhost:5000/api/v1/produtos"'
+    - 'echo "  📚 Swagger: http://localhost:5000"'
+    - echo ""
+    anotacoes:
+    - linha: 50
+      texto: Rota anterior à migração para `/api/v1/catalogo`.
+    inicio: 44
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Envie à API as requisições abaixo, capturadas com a API no ar, e classifique cada pasta de `src/` pelo padrão que ela segue.
+  - tipo: console-api
+    cenarios:
+    - rotulo: Saúde
+      requisicao:
+        metodo: GET
+        url: http://localhost:5000/health
+      resposta:
+        status: 200
+        corpo:
+          status: healthy
+      origem: executado
+    - rotulo: Catálogo sem token
+      requisicao:
+        metodo: GET
+        url: http://localhost:5000/api/v1/catalogo/produtos?pageSize=2
+      resposta:
+        status: 200
+        corpo: '{"data":[{"id":5,"nome":"Design Patterns","descricao":"Padrões de design reutilizáveis para desenvolvimento de software. Referência obrigatória","preco":75.0,"categoria":"Livros","estoque":20,"ativo":true,"contatoEmail":"vendas@books.com","dataCriacao":"2026-11-01T23:59:04.665135","dataAtualizacao":"2026-11-01T23:59:04.665135"},{"id":6,"nome":"Camiseta técnica Azul","descricao":"Camiseta de poliés…'
+      origem: executado
+      nota: Corpo truncado. A resposta traz `data` e `pagination`.
+    - rotulo: Pedidos sem token
+      requisicao:
+        metodo: GET
+        url: http://localhost:5000/api/v1/pedidos
+      resposta:
+        status: 401
+      origem: executado
+    - rotulo: Login
+      requisicao:
+        metodo: POST
+        url: http://localhost:5000/api/v1/auth/login
+        corpo:
+          email: admin@example.com
+          senha: senha123
+      resposta:
+        status: 200
+        corpo:
+          token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…
+          refreshToken: ''
+          expiresIn: 7200
+          tokenType: Bearer
+      origem: executado
+      nota: Credenciais de `appsettings.json`. O token, truncado aqui, expira em duas horas, e o `refreshToken` vem vazio.
+    - rotulo: Pedidos com token
+      requisicao:
+        metodo: GET
+        url: http://localhost:5000/api/v1/pedidos
+        cabecalhos:
+          Authorization: Bearer <token>
+      resposta:
+        status: 200
+        corpo:
+          data: []
+          total: 0
+          page: 1
+          pageSize: 20
+      origem: executado
+    - rotulo: Rota do setup.sh
+      requisicao:
+        metodo: GET
+        url: http://localhost:5000/api/v1/produtos
+      resposta:
+        status: 404
+      origem: executado
+  - tipo: classificador
+    enunciado: Qual padrão cada pasta segue?
+    categorias:
+    - id: ca
+      rotulo: Clean Architecture híbrida
+    - id: vsa
+      rotulo: Vertical Slice
+    - id: pix
+      rotulo: Integração externa simulada
+    itens:
+    - texto: '`src/Catalogo/Catalogo.Domain`'
+      categoria: ca
+      explicacao: Camada de domínio num subprojeto próprio.
+    - texto: '`src/Pedidos/CreatePedido`'
+      categoria: vsa
+      explicacao: Uma pasta com endpoint, handler e validação de um caso de uso.
+    - texto: '`src/Pix/Pix.MockServer`'
+      categoria: pix
+      explicacao: Simula a API Pix do BCB em processo separado.
+    - texto: '`src/Catalogo/Catalogo.Infrastructure`'
+      categoria: ca
+      explicacao: Repositórios EF Core atrás de interfaces da Application.
+    - texto: '`src/Pedidos/CancelPedido`'
+      categoria: vsa
+      explicacao: Outra fatia, sem dependência das demais.
+    - texto: '`src/Pix/Pix.ClientDemo`'
+      categoria: pix
+      explicacao: Console com HttpClient tipado e resiliência.
+    - texto: '`src/Catalogo/Catalogo.API/Endpoints/Produtos`'
+      categoria: ca
+      explicacao: Na API, o Catálogo organiza por recurso, a parte híbrida do padrão.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Clone o repositório e execute os passos na raiz dele. Os passos 1 a 7 levam o `setup.sh` e a suíte ao verde, e os passos 8 a 10 sobem a API e percorrem os três contextos.
+  - tipo: passos
+    itens:
+    - titulo: Conferir o SDK e clonar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet --version
+        - git clone https://github.com/arkhibr/net-minimal-api
+        - cd net-minimal-api
+        - git checkout 702145a
+      sucesso: '`10.0.401` ou outra versão 10.0, e `HEAD is now at 702145a`.'
+    - titulo: Rodar o setup
+      editor:
+        rotulo: terminal
+        linhas:
+        - bash setup.sh
+      sucesso: '`FALHA da compilação.`, com `error CS0234` em `ProdutoTestBuilder.cs`.'
+    - titulo: Encontrar a referência quebrada
+      editor:
+        rotulo: terminal
+        linhas:
+        - grep -n 'Produtos.Domain' tests/Pedidos.Tests/Pedidos.Tests.csproj; ls src/Produtos
+        - git log --oneline -1 -- src/Produtos
+      sucesso: A referência a `src/Produtos/Produtos.Domain` na linha 31, a pasta inexistente e o commit `d378512`.
+    - titulo: Apontar os testes para o Catálogo
+      texto: Troque a referência do projeto e o `using` do builder. O `Produto` do Catálogo tem o mesmo `Criar` que o builder usa.
+      editor:
+        rotulo: arquivo
+        caminho: tests/Pedidos.Tests (alteração)
+        commit: 702145a
+        linhas:
+        - <!-- tests/Pedidos.Tests/Pedidos.Tests.csproj -->
+        - '    <ProjectReference Include="../../src/Catalogo/Catalogo.Domain/Catalogo.Domain.csproj" />'
+        - ''
+        - // tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs, linha 1
+        - using ProdutosAPI.Catalogo.Domain;
+      efeito: ref_corrigida
+    - titulo: Rodar o setup e os testes
+      editor:
+        rotulo: terminal
+        linhas:
+        - bash setup.sh
+        - dotnet test
+      sucesso: Três linhas `Aprovado!`, com 7, 47 e 143 testes. O `setup.sh` pode terminar com `MSB3030` em parte das execuções.
+    - titulo: Contar o conteúdo copiado
+      texto: Rode o `setup.sh` duas ou três vezes seguidas e conte os `.json` de outros projetos dentro da saída da API.
+      editor:
+        rotulo: terminal
+        linhas:
+        - find bin/Release/net10.0 -path '*/tests/*' -name '*.json' | wc -l; find bin/Release/net10.0 -path '*/src/*' -name '*.json' | wc -l
+      sucesso: Centenas de arquivos de `tests/` e de `src/` copiados para `bin/Release/net10.0`.
+    - titulo: Excluir os bin e obj dos outros projetos
+      texto: Acrescente a propriedade abaixo, apague as pastas `bin/` e `obj/` e rode o `setup.sh` algumas vezes.
+      editor:
+        rotulo: arquivo
+        caminho: ProdutosAPI.csproj (alteração)
+        commit: 702145a
+        linhas:
+        - '<!-- ProdutosAPI.csproj: dentro do primeiro PropertyGroup -->'
+        - '    <!-- O SDK Web inclui todo *.json abaixo da raiz como conteúdo; os bin/obj dos outros projetos não são da API. -->'
+        - '    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;src/*/*/bin/**;src/*/*/obj/**</DefaultItemExcludes>'
+      efeito: conteudo_excluido
+      sucesso: '`Compilação com êxito.` em todas as execuções e `0` arquivos de `tests/` na saída.'
+    - titulo: Subir a API
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet run --launch-profile http
+      sucesso: '`Now listening on: http://localhost:5000` e `Hosting environment: Development`.'
+    - titulo: Percorrer os contextos
+      texto: Noutro terminal, chame a saúde, o Catálogo, os Pedidos sem e com token, o Swagger e a rota do `setup.sh`.
+      editor:
+        rotulo: terminal
+        linhas:
+        - curl -s -w ' %{http_code}\n' http://localhost:5000/health
+        - curl -s 'http://localhost:5000/api/v1/catalogo/produtos?pageSize=2' | head -c 700; echo
+        - curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/pedidos
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -w '' %{http_code}\n'' -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos'
+        - curl -s http://localhost:5000/swagger/v1/swagger.json | python3 -c 'import json,sys; d=json.load(sys.stdin); ps=sorted(d["paths"]); print(len(ps), "caminhos"); [print(p) for p in ps]'
+        - curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/produtos
+      sucesso: '`200` na saúde e no Catálogo, `401` nos Pedidos sem token, `200` com token, `18 caminhos` no Swagger e `404` na rota do `setup.sh`.'
+    - titulo: Ler a estrutura
+      editor:
+        rotulo: terminal
+        linhas:
+        - ls src/Catalogo src/Pedidos src/Pix
+      sucesso: Subprojetos por camada no Catálogo, pastas por caso de uso nos Pedidos e dois projetos no Pix.
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: dotnet --version
+      saida: 10.0.401
+      origem: executado
+      dica: Qualquer SDK 10.0 serve. O link do `setup.sh` ainda aponta para o .NET 9.
+    - entrada: git clone https://github.com/arkhibr/net-minimal-api
+      saida: Cloning into 'net-minimal-api'...
+      origem: exemplo
+    - entrada: cd net-minimal-api
+      saida: ''
+      origem: exemplo
+    - entrada: git checkout 702145a
+      saida: HEAD is now at 702145a
+      origem: exemplo
+    - entrada: grep -n 'Produtos.Domain' tests/Pedidos.Tests/Pedidos.Tests.csproj; ls src/Produtos
+      saida: '31:    <ProjectReference Include="../../src/Produtos/Produtos.Domain/Produtos.Domain.csproj" />
+
+        ls: src/Produtos: No such file or directory'
+      origem: executado
+    - entrada: git log --oneline -1 -- src/Produtos
+      saida: 'd378512 refactor: migrar Produtos para Catalogo com versionamento /api/v1/catalogo/*'
+      origem: executado
+      dica: O refactor que migrou Produtos para Catálogo não atualizou o projeto de testes de Pedidos.
+    - entrada: dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: O comando ocupa o terminal. Abra outro para as chamadas.
+    - entrada: curl -s -w ' %{http_code}\n' http://localhost:5000/health
+      saida: '{"status":"healthy"} 200'
+      origem: executado
+    - entrada: curl -s 'http://localhost:5000/api/v1/catalogo/produtos?pageSize=2' | head -c 700; echo
+      saida: '{"data":[{"id":5,"nome":"Design Patterns","descricao":"Padrões de design reutilizáveis para desenvolvimento de software. Referência obrigatória","preco":75.0,"categoria":"Livros","estoque":20,"ativo":true,"contatoEmail":"vendas@books.com","dataCriacao":"2026-11-01T23:59:04.665135","dataAtualizacao":"2026-11-01T23:59:04.665135"},{"id":6,"nome":"Camiseta técnica Azul","descricao":"Camiseta de poliéster com tecnologia anti-transpiração, disponível em vários tamanhos","preco":79.9,"categoria":"Roupas","estoque":50,"ativo":true,"contatoEmail":"vendas@clothing.com.br","dataCriacao":"2026-11-01T23:59:04.665135","dataAtualizacao":"2026-11-01T23:59:04.665135"}],"pagination":{"page":1,"pageS'
+      origem: executado
+      dica: O Catálogo responde sem token.
+    - entrada: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/pedidos
+      saida: '401'
+      origem: executado
+      dica: Pedidos exige JWT.
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+      dica: O comando guarda o token na variável `TOKEN`, sem imprimir nada.
+    - entrada: 'curl -s -w '' %{http_code}\n'' -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos'
+      saida: '{"data":[],"total":0,"page":1,"pageSize":20} 200'
+      origem: executado
+    - entrada: curl -s http://localhost:5000/swagger/v1/swagger.json | python3 -c 'import json,sys; d=json.load(sys.stdin); ps=sorted(d["paths"]); print(len(ps), "caminhos"); [print(p) for p in ps]'
+      saida: '18 caminhos
+
+        /api/v1/auth/login
+
+        /api/v1/catalogo/atributos
+
+        /api/v1/catalogo/atributos/{id}
+
+        /api/v1/catalogo/categorias
+
+        /api/v1/catalogo/categorias/{id}
+
+        /api/v1/catalogo/midias
+
+        /api/v1/catalogo/midias/{id}
+
+        /api/v1/catalogo/midias/{id}/ordem
+
+        /api/v1/catalogo/produtos
+
+        /api/v1/catalogo/produtos/{id}
+
+        /api/v1/catalogo/variantes
+
+        /api/v1/catalogo/variantes/{id}
+
+        /api/v1/catalogo/variantes/{id}/estoque
+
+        /api/v1/pedidos
+
+        /api/v1/pedidos/{id}
+
+        /api/v1/pedidos/{id}/cancelar
+
+        /api/v1/pedidos/{id}/itens
+
+        /health'
+      origem: executado
+    - entrada: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/produtos
+      saida: '404'
+      origem: executado
+      dica: É a URL que o `setup.sh` imprime no fim, de antes da migração para `/api/v1/catalogo`.
+    - entrada: ls src/Catalogo src/Pedidos src/Pix
+      saida: 'src/Catalogo:
+
+        Catalogo.API
+
+        Catalogo.Application
+
+        Catalogo.ClientDemo
+
+        Catalogo.Domain
+
+        Catalogo.Infrastructure
+
+
+        src/Pedidos:
+
+        AddItemPedido
+
+        CancelPedido
+
+        Common
+
+        CreatePedido
+
+        Domain
+
+        GetPedido
+
+        Infrastructure
+
+        ListPedidos
+
+        Repositories
+
+
+        src/Pix:
+
+        Pix.ClientDemo
+
+        Pix.MockServer'
+      origem: executado
+    - entrada: bash setup.sh
+      condicao:
+      - ref_corrigida
+      - conteudo_excluido
+      saida: "✓ .NET SDK 10.0.401 encontrado\n✓ Dependências restauradas\nCompilação com êxito.\n    0 Erro(s)\n✓ Projeto compilado\nPróximo passo: dotnet run\n  \U0001F4E1 API:     http://localhost:5000/api/v1/produtos\n  \U0001F4DA Swagger: http://localhost:5000"
+      origem: executado
+    - entrada: bash setup.sh
+      condicao: ref_corrigida
+      saida: "  Catalogo.Domain -> ./src/Catalogo/Catalogo.Domain/bin/Release/net10.0/Catalogo.Domain.dll\n  Catalogo.ClientDemo -> ./src/Catalogo/Catalogo.ClientDemo/bin/Release/net10.0/Catalogo.ClientDemo.dll\n  Pix.ClientDemo -> ./src/Pix/Pix.ClientDemo/bin/Release/net10.0/Pix.ClientDemo.dll\n  Catalogo.Application -> ./src/Catalogo/Catalogo.Application/bin/Release/net10.0/Catalogo.Application.dll\n  Catalogo.Infrastructure -> ./src/Catalogo/Catalogo.Infrastructure/bin/Release/net10.0/Catalogo.Infrastructure.dll\n  Pix.MockServer -> ./src/Pix/Pix.MockServer/bin/Release/net10.0/Pix.MockServer.dll\n  Catalogo.API -> ./src/Catalogo/Catalogo.API/bin/Release/net10.0/Catalogo.API.dll\n  Pix.MockServer.Tests -> ./tests/Pix.MockServer.Tests/bin/Release/net10.0/Pix.MockServer.Tests.dll\n  ProdutosAPI -> ./bin/Release/net10.0/ProdutosAPI.dll\n/Users/marcomendes/.dotnet/sdk/10.0.401/Microsoft.Common.CurrentVersion.targets(5455,5): error MSB3030: não foi possível copiar o arquivo \"./tests/ProdutosAPI.Tests/bin/Release/net10.0/MvcTestingAppManifest.json\" porque ele não foi encontrado. [./tests/ProdutosAPI.Tests/ProdutosAPI.Tests.csproj]\n  Pedidos.Tests -> ./tests/Pedidos.Tests/bin/Release/net10.0/Pedidos.Tests.dll\nFALHA da compilação.\n/Users/marcomendes/.dotnet/sdk/10.0.401/Microsoft.Common.CurrentVersion.targets(5455,5): error MSB3030: não foi possível copiar o arquivo \"./tests/ProdutosAPI.Tests/bin/Release/net10.0/MvcTestingAppManifest.json\" porque ele não foi encontrado. [./tests/ProdutosAPI.Tests/ProdutosAPI.Tests.csproj]\n    17 Aviso(s)\n    1 Erro(s)\nTempo Decorrido 00:00:04.15"
+      origem: executado
+      dica: Esta falha aparece em parte dos builds incrementais e some num build do zero. O passo 6 investiga a causa.
+    - entrada: bash setup.sh
+      saida: '    2 Erro(s)
+
+        ✓ .NET SDK 10.0.401 encontrado
+
+        ✓ Dependências restauradas
+
+        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(1,19): error CS0234: O nome de tipo ou namespace "Produtos" não existe no namespace "ProdutosAPI" (você está sem uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(47,12): error CS0246: O nome do tipo ou do namespace "Produto" não pode ser encontrado (está faltando uma diretiva using ou uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        FALHA da compilação.'
+      origem: executado
+      dica: O build da solução para no projeto `tests/Pedidos.Tests`. O passo 3 investiga a causa.
+    - entrada: dotnet test
+      condicao: ref_corrigida
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     7, Ignorado:     0, Total:     7, Duração: 320 ms - Pix.MockServer.Tests.dll (net10.0)
+
+        Aprovado!  – Com falha:     0, Aprovado:    47, Ignorado:     0, Total:    47, Duração: 23 ms - Pedidos.Tests.dll (net10.0)
+
+        Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 919 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test
+      saida: './tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(1,19): error CS0234: O nome de tipo ou namespace "Produtos" não existe no namespace "ProdutosAPI" (você está sem uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(47,12): error CS0246: O nome do tipo ou do namespace "Produto" não pode ser encontrado (está faltando uma diretiva using ou uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+        Aprovado!  – Com falha:     0, Aprovado:     7, Ignorado:     0, Total:     7, Duração: 233 ms - Pix.MockServer.Tests.dll (net10.0)
+
+        Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: 'Só duas linhas de resumo: o projeto de Pedidos não compilou e não rodou.'
+    - entrada: find bin/Release/net10.0 -path '*/tests/*' -name '*.json' | wc -l; find bin/Release/net10.0 -path '*/src/*' -name '*.json' | wc -l
+      condicao: conteudo_excluido
+      saida: "       0\n       1"
+      origem: executado
+      dica: Resta um arquivo de configuração de um subprojeto, que não causa a falha.
+    - entrada: find bin/Release/net10.0 -path '*/tests/*' -name '*.json' | wc -l; find bin/Release/net10.0 -path '*/src/*' -name '*.json' | wc -l
+      condicao: ref_corrigida
+      saida: "     313\n     154"
+      origem: executado
+      dica: Arquivos `.json` dos `bin/` e `obj/` de outros projetos, copiados para a saída da API.
+    cenarios:
+    - rotulo: Setup
+      comando: bash setup.sh
+    - rotulo: Testes
+      comando: dotnet test
+    - rotulo: Conteúdo copiado
+      comando: find bin/Release/net10.0 -path '*/tests/*' -name '*.json' | wc -l; find bin/Release/net10.0 -path '*/src/*' -name '*.json' | wc -l
+    - rotulo: Pedidos sem token
+      comando: curl -s -o /dev/null -w '%{http_code}\n' http://localhost:5000/api/v1/pedidos
+    - rotulo: Caminhos do Swagger
+      comando: curl -s http://localhost:5000/swagger/v1/swagger.json | python3 -c 'import json,sys; d=json.load(sys.stdin); ps=sorted(d["paths"]); print(len(ps), "caminhos"); [print(p) for p in ps]'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os quatro incidentes partem de saídas do laboratório e de uma chamada feita com a API parada.
+  - tipo: incidente
+    titulo: Suíte verde com 47 testes a menos
+    origem: executado
+    rotulo_saida: log
+    saida: '$ dotnet test
+
+      ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(1,19): error CS0234: O nome de tipo ou namespace "Produtos" não existe no namespace "ProdutosAPI" (você está sem uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+      ./tests/Pedidos.Tests/Builders/ProdutoTestBuilder.cs(47,12): error CS0246: O nome do tipo ou do namespace "Produto" não pode ser encontrado (está faltando uma diretiva using ou uma referência de assembly?) [./tests/Pedidos.Tests/Pedidos.Tests.csproj]
+
+      Aprovado!  – Com falha:     0, Aprovado:     7, Ignorado:     0, Total:     7, Duração: 233 ms - Pix.MockServer.Tests.dll (net10.0)
+
+      Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+    pergunta: As duas linhas de resumo dizem `Aprovado!`. A suíte está verde?
+    correcao: Conferir que cada projeto de teste da solução tem uma linha de resumo e tratar `error CS` como falha da suíte, como a esteira faz pelo código de saída.
+    alternativas:
+    - texto: Sim, porque os erros são só avisos de compilação.
+      correta: false
+      explicacao: '`CS0234` e `CS0246` são erros, e o projeto não gera a DLL.'
+    - texto: Não. O projeto `Pedidos.Tests` não compilou, e os 47 testes dele não rodaram, embora os outros dois projetos tenham passado.
+      correta: true
+      explicacao: Depois da correção, a terceira linha aparece com 47 aprovados.
+    - texto: Sim, porque nenhum teste falhou.
+      correta: false
+      explicacao: Teste que não roda não falha, e o comando termina com erro.
+  - tipo: incidente
+    titulo: Build que falha uma vez sim, outra não
+    origem: executado
+    rotulo_saida: log
+    saida: "~/.dotnet/sdk/10.0.401/Microsoft.Common.CurrentVersion.targets(5455,5): error MSB3030: não foi possível copiar o arquivo \"./tests/ProdutosAPI.Tests/bin/Release/net10.0/MvcTestingAppManifest.json\" porque ele não foi encontrado. [./tests/ProdutosAPI.Tests/ProdutosAPI.Tests.csproj]\n\n$ find bin/Release/net10.0 -path '*/tests/*' -name '*.json' | wc -l; find bin/Release/net10.0 -path '*/src/*' -name '*.json' | wc -l\n     313\n     154"
+    pergunta: Sem mudança no código, o `setup.sh` alterna entre êxito e `MSB3030`. Qual é a causa?
+    correcao: Excluir `tests/**` e os `bin/` e `obj/` dos subprojetos dos itens padrão do `ProdutosAPI.csproj`, como no passo 7.
+    alternativas:
+    - texto: O disco está cheio.
+      correta: false
+      explicacao: O build do zero passa nas três tentativas.
+    - texto: O NuGet baixa pacotes diferentes a cada execução.
+      correta: false
+      explicacao: O erro é de cópia de arquivo, depois da restauração.
+    - texto: O SDK Web inclui como conteúdo os `.json` de todas as subpastas, e a API copia para a própria saída os arquivos gerados pelos outros projetos, que mudam durante o build.
+      correta: true
+      explicacao: Os caminhos do erro repetem `bin/Release/net10.0/tests/...` várias vezes.
+  - tipo: incidente
+    titulo: 403 do AirTunes na porta da API
+    origem: executado
+    rotulo_saida: log
+    saida: '$ curl -s -i http://localhost:5000/health
+
+      HTTP/1.1 403 Forbidden
+
+      Content-Length: 0
+
+      Server: AirTunes/980.77.5'
+    pergunta: Com a API parada, o `curl` recebe 403, e não conexão recusada. Quem respondeu?
+    correcao: Desligar o Receptor AirPlay nos Ajustes do macOS ou usar outra porta, com `dotnet run --urls http://localhost:5080`.
+    alternativas:
+    - texto: O Receptor AirPlay do macOS, que escuta na porta 5000 de todas as interfaces.
+      correta: true
+      explicacao: Com a API no ar, o Kestrel atende `localhost` e responde no lugar dele.
+    - texto: A API, recusando o acesso sem token.
+      correta: false
+      explicacao: A API não estava no ar, e `/health` não exige token.
+    - texto: O Swagger.
+      correta: false
+      explicacao: O cabeçalho `Server` identifica o AirTunes.
+  - tipo: incidente
+    titulo: URL do setup.sh que devolve 404
+    origem: executado
+    rotulo_saida: log
+    saida: "$ bash setup.sh\nPróximo passo: dotnet run\n  \U0001F4E1 API:     http://localhost:5000/api/v1/produtos\n  \U0001F4DA Swagger: http://localhost:5000\n\n$ curl -s -o /dev/null -w '%{http_code}\\n' http://localhost:5000/api/v1/produtos\n404"
+    pergunta: Por que a URL que o próprio `setup.sh` sugere devolve 404?
+    correcao: Atualizar o `setup.sh` para `/api/v1/catalogo/produtos`, e o link de instalação para o .NET 10.
+    alternativas:
+    - texto: O banco está vazio.
+      correta: false
+      explicacao: A lista vazia viria com 200.
+    - texto: O refactor `d378512` moveu as rotas de produtos para `/api/v1/catalogo`, e o `setup.sh` não foi atualizado.
+      correta: true
+      explicacao: O Swagger lista `/api/v1/catalogo/produtos` e nenhuma rota `/api/v1/produtos`.
+    - texto: A rota exige token.
+      correta: false
+      explicacao: Rota protegida devolveria 401.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Qual contexto usa Vertical Slice?
+      alternativas:
+      - texto: Catálogo.
+        correta: false
+        explicacao: O Catálogo separa camadas em subprojetos.
+      - texto: Pix.
+        correta: false
+        explicacao: O Pix tem um servidor simulado e um cliente.
+      - texto: Pedidos, com uma pasta por caso de uso.
+        correta: true
+        explicacao: '`CreatePedido`, `GetPedido`, `ListPedidos`, `AddItemPedido` e `CancelPedido`.'
+    - enunciado: Como os endpoints de Pedidos chegam à API?
+      alternativas:
+      - texto: Pelo `MapRegisteredEndpoints`, que registra as classes que implementam `IEndpoint`.
+        correta: true
+        explicacao: A descoberta é por reflection no assembly da API.
+      - texto: Por um método `Map...Endpoints` por recurso.
+        correta: false
+        explicacao: Esse é o caminho do Catálogo.
+      - texto: Pelo Swagger.
+        correta: false
+        explicacao: O Swagger só documenta.
+    - enunciado: Por que `dotnet test` mostrou só duas linhas de resumo no commit de referência?
+      alternativas:
+      - texto: Porque os testes de Pedidos exigem a API no ar.
+        correta: false
+        explicacao: Eles rodam em memória.
+      - texto: Porque o terceiro projeto de testes não compilou.
+        correta: true
+        explicacao: A referência a `Produtos.Domain` aponta para uma pasta removida.
+      - texto: Porque o projeto de Pedidos não tem testes.
+        correta: false
+        explicacao: Depois da correção, ele roda 47.
+    - enunciado: O que a propriedade `DefaultItemExcludes` resolve?
+      alternativas:
+      - texto: Exclui os testes da solução.
+        correta: false
+        explicacao: Os três projetos continuam a rodar.
+      - texto: Acelera o restore do NuGet.
+        correta: false
+        explicacao: Afeta itens do projeto, e não pacotes.
+      - texto: Impede que a API trate como conteúdo os arquivos de `tests/` e dos `bin/` e `obj/` dos subprojetos.
+        correta: true
+        explicacao: A contagem caiu de 313 para 0 nos testes.
+    - enunciado: Que rota do Catálogo responde sem token?
+      alternativas:
+      - texto: '`GET /api/v1/catalogo/produtos`.'
+        correta: true
+        explicacao: A leitura do Catálogo é pública.
+      - texto: '`GET /api/v1/pedidos`.'
+        correta: false
+        explicacao: Pedidos devolve 401 sem token.
+      - texto: '`GET /api/v1/produtos`.'
+        correta: false
+        explicacao: Essa rota não existe mais.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - O `setup.sh` terminou com `Compilação com êxito.` em execuções seguidas.
+    - Os três projetos de teste rodaram, com 7, 47 e 143 aprovados.
+    - A API respondeu na porta 5000, com Pedidos protegidos por JWT.
+    - Cada pasta de `src/` está ligada ao padrão que segue.
+    - As duas falhas de build do commit de referência foram explicadas.

@@ -181,7 +181,8 @@ odas:
     minutos: 45
     pre_requisitos: []
     objetivo: "Executar a API localmente e identificar o padrão arquitetural de cada bounded context."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-16
   - id: "17"
     titulo: "Minimal API: endpoints, auto-descoberta e versionamento"
     trilha: 6
