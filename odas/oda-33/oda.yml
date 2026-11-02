@@ -1,0 +1,493 @@
+id: '33'
+titulo: Pipelines com vários serviços
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é seguir uma mensagem por um pipeline com vários serviços e localizar em que ponto ela parou, usando testes que conferem cada salto. No repositório `aspire-aws`, o cenário 12 liga um bucket S3 a uma fila SQS, a fila a uma Lambda e a Lambda ao DynamoDB, e o cenário 13 faz o mesmo partindo do SNS. Você vai provar que um arquivo copiado para o bucket não entra no pipeline, localizar o salto que falhou e corrigir a configuração.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Desenhar os saltos de uma mensagem nos pipelines 12 e 13.
+    - Escrever um teste que confere o primeiro e o último salto.
+    - Localizar o salto que falhou eliminando os que funcionaram.
+    - Explicar os tipos de evento de criação de objeto do S3.
+    - Explicar a permissão que a fila precisa dar ao S3.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10.0.103 ou superior, do Git e de um Docker em execução que exponha `/var/run/docker.sock`. O repositório é o `arkhibr/aspire-aws` no commit `50a5344`, e a faixa do Laboratório mostra como obtê-lo. Os testes com Lambda são ignorados no macOS com Apple Silicon, e o laboratório os roda num contêiner Linux, caminho verificado com o Colima. No Linux ou no WSL, rode os comandos `dotnet test` direto, sem `sincronizar` e sem `docker exec`.
+  - tipo: terminal
+    titulo: terminal · os dois pipelines
+    comandos:
+    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
+      saida: sha256:a0faca54756a…
+      origem: executado
+      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
+    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+      saida: c010420897a4…
+      origem: executado
+      dica: O identificador do contêiner muda a cada execução.
+    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      saida: ''
+      origem: executado
+      dica: A função copia os arquivos do repositório para `/repo` no contêiner.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 m 2 s - 12-Pipeline.S3.SQS.Lambda.DynamoDB.dll (net10.0)'
+      origem: executado
+      dica: Um arquivo enviado com `PutObject` atravessa o S3, o SQS e a Lambda até o DynamoDB.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/13-Pipeline.SNS.SQS.Lambda.S3 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 s - 13-Pipeline.SNS.SQS.Lambda.S3.dll (net10.0)'
+      origem: executado
+      dica: O pipeline 13 publica no SNS, que entrega a uma fila lida por uma Lambda que grava no S3.
+    cenarios:
+    - rotulo: Pipeline 12
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+    - rotulo: Pipeline 13
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/13-Pipeline.SNS.SQS.Lambda.S3 2>&1 | grep -E 'Passed!|Failed!'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba descreve os saltos dos dois pipelines e o que cada ligação exige para a mensagem passar. Num pipeline assíncrono, nenhum serviço avisa quem enviou que a mensagem parou no caminho.
+  - tipo: comparativo
+    colunas:
+    - Pipeline 12
+    - Pipeline 13
+    linhas:
+    - dimensao: Entrada
+      valores:
+      - Objeto criado no bucket `pipeline-uploads`
+      - Mensagem publicada num tópico SNS
+    - dimensao: Ligação até a fila
+      valores:
+      - Notificação do bucket, filtrada por tipo de evento
+      - Assinatura do tópico pela fila
+    - dimensao: Permissão na fila
+      valores:
+      - Política que permite ao S3 o `sqs:SendMessage`
+      - Política que permite ao SNS o `sqs:SendMessage`
+    - dimensao: Saída
+      valores:
+      - Item no DynamoDB com o corpo da mensagem
+      - Objeto em `results/` no S3
+  - tipo: conceito
+    titulo: Localizar pelo salto
+    texto: Um teste de pipeline que só olha a saída diz que algo falhou, mas não onde. Conferir o primeiro salto e o último divide o caminho, e cada conferência intermediária elimina um trecho até sobrar uma ligação.
+  - tipo: conceito
+    titulo: Eventos de criação do S3
+    texto: O S3 distingue a criação por `Put`, `Post`, `Copy` e `CompleteMultipartUpload`. Uma notificação filtrada por `s3:ObjectCreated:Put` ignora arquivos copiados de outro bucket e arquivos grandes enviados em partes, e `s3:ObjectCreated:*` inclui todos.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `50a5344`, as ligações do pipeline 12 e a função do pipeline 13. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '        await S3.PutBucketNotificationAsync(new PutBucketNotificationRequest'
+    - '        {'
+    - '            BucketName = BucketName,'
+    - '            QueueConfigurations ='
+    - '            ['
+    - '                new QueueConfiguration'
+    - '                {'
+    - '                    Id = "pipeline-trigger",'
+    - '                    Queue = queueArn,'
+    - '                    Events = [EventType.ObjectCreatedPut]'
+    - '                }'
+    - '            ]'
+    - '        });'
+    - ''
+    - '        var mapping = await lambda.CreateEventSourceMappingAsync(new CreateEventSourceMappingRequest'
+    - '        {'
+    - '            FunctionName = FunctionName,'
+    - '            EventSourceArn = queueArn,'
+    - '            BatchSize = 1,'
+    - '            Enabled = true'
+    anotacoes:
+    - linha: 85
+      texto: Liga o bucket à fila.
+    - linha: 94
+      texto: Só a criação por `PutObject` gera mensagem.
+    - linha: 99
+      texto: Liga a fila à Lambda `sqs_consumer`.
+    inicio: 85
+  - tipo: editor
+    rotulo: arquivo
+    caminho: scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/Fixture.cs
+    commit: 50a5344
+    linhas:
+    - '                  "Statement": ['
+    - '                    {'
+    - '                      "Sid": "AllowS3ToQueue",'
+    - '                      "Effect": "Allow",'
+    - '                      "Principal": { "Service": "s3.amazonaws.com" },'
+    - '                      "Action": "sqs:SendMessage",'
+    - '                      "Resource": "{{queueArn}}",'
+    - '                      "Condition": {'
+    - '                        "ArnLike": { "aws:SourceArn": "arn:aws:s3:::{{BucketName}}" }'
+    - '                      }'
+    - '                    }'
+    anotacoes:
+    - linha: 70
+      texto: Na AWS, sem esta permissão, o S3 não consegue enviar para a fila.
+    inicio: 66
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/lambdas/fanout_processor/handler.py
+    commit: 50a5344
+    linhas:
+    - '    for record in event.get("Records", []):'
+    - '        outer = json.loads(record["body"])'
+    - '        message = outer.get("Message", record["body"])'
+    - '        key = f"results/{record[''messageId'']}.json"'
+    - '        s3.put_object(Bucket=bucket, Key=key, Body=message)'
+    anotacoes:
+    - linha: 14
+      texto: A mensagem do SNS chega embrulhada num envelope JSON, e a função desembrulha.
+    - linha: 15
+      texto: Cada mensagem vira um objeto com o `messageId` no nome.
+    inicio: 12
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, a busca pelo ponto em que um arquivo copiado parou no pipeline 12. Depois, classifique o que cada observação elimina.
+  - tipo: fluxo
+    titulo: Onde parou o `invoice-002.pdf`
+    etapas:
+    - titulo: Saída vazia
+      descricao: Nenhum item com `invoice-002.pdf` aparece no DynamoDB depois de 60 s.
+    - titulo: Primeiro salto
+      descricao: 'O `GetObjectMetadata` encontra o objeto no bucket: a cópia funcionou.'
+    - titulo: Comparação
+      descricao: O arquivo enviado com `PutObject` atravessou o pipeline, e por isso a fila, a Lambda e a tabela funcionam.
+    - titulo: Ligação suspeita
+      descricao: Sobra a notificação do bucket, a única etapa que trata a cópia de modo diferente do envio.
+    - titulo: Causa
+      descricao: O filtro `ObjectCreatedPut` não inclui o evento `s3:ObjectCreated:Copy`.
+  - tipo: classificador
+    enunciado: O que esta observação permite concluir?
+    categorias:
+    - id: antes
+      rotulo: A falha está antes deste ponto
+    - id: depois
+      rotulo: A falha está depois deste ponto
+    itens:
+    - texto: O objeto copiado está no bucket
+      categoria: depois
+      explicacao: A cópia e o armazenamento funcionaram.
+    - texto: Nenhum objeto apareceu no bucket
+      categoria: antes
+      explicacao: A cópia em si falhou.
+    - texto: Um arquivo enviado com `PutObject` chega ao DynamoDB
+      categoria: antes
+      explicacao: Fila, Lambda e tabela funcionam, e a diferença está na entrada.
+    - texto: A Lambda foi invocada com o evento da cópia
+      categoria: depois
+      explicacao: A notificação e a fila funcionaram.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é fazer um arquivo copiado de outro bucket atravessar o pipeline 12, com um teste que confere o primeiro e o último salto. Os passos 1 e 2 preparam o contêiner Linux e rodam o pipeline, o passo 3 escreve o teste e localiza a falha, e o passo 4 corrige a notificação do bucket. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/aspire-aws`, entre na pasta criada e rode `git checkout 50a5344`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `50a5344` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` continuam no lugar, porque o Git as ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Preparar o contêiner Linux
+      texto: Se você usa Linux ou WSL, pule este passo. Crie o arquivo abaixo na raiz do repositório, construa a imagem, suba o contêiner e defina a função `sincronizar`.
+      editor:
+        rotulo: arquivo
+        caminho: Dockerfile.linux (novo, na raiz do repositório)
+        commit: 50a5344
+        linhas:
+        - FROM mcr.microsoft.com/dotnet/sdk:10.0
+        - RUN apt-get update && apt-get install -y --no-install-recommends docker.io && rm -rf /var/lib/apt/lists/*
+        - WORKDIR /repo
+        - ''
+        - '# no terminal:'
+        - docker build -q -t aspire-aws-linux - < Dockerfile.linux
+        - docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+        - sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      sucesso: Um identificador `sha256:` da imagem e o identificador do contêiner.
+    - titulo: Rodar o pipeline 12
+      editor:
+        rotulo: terminal
+        linhas:
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      sucesso: '`Passed: 1`.'
+    - titulo: Escrever o teste do arquivo copiado
+      texto: O teste grava o arquivo num bucket de recepção, copia para o bucket do pipeline, confere o objeto e espera o item no DynamoDB.
+      editor:
+        rotulo: arquivo
+        caminho: scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/ArquivoCopiadoTests.cs (novo)
+        commit: 50a5344
+        linhas:
+        - using Amazon.DynamoDBv2.Model;
+        - using Amazon.S3.Model;
+        - using Shared;
+        - ''
+        - namespace Scenarios.Pipeline.S3SqsLambdaDynamoDb;
+        - ''
+        - 'public class ArquivoCopiadoTests(Fixture fixture) : IClassFixture<Fixture>'
+        - '{'
+        - '    [SkipOnMacOsArm64LocalStackLambdaFact]'
+        - '    public async Task ArquivoCopiadoParaOBucket_TambemPassaPeloPipeline()'
+        - '    {'
+        - '        await fixture.S3.PutBucketAsync("recepcao");'
+        - '        await fixture.S3.PutObjectAsync(new PutObjectRequest'
+        - '        {'
+        - '            BucketName = "recepcao",'
+        - '            Key = "invoice-002.pdf",'
+        - '            ContentBody = "invoice data"'
+        - '        });'
+        - ''
+        - '        await fixture.S3.CopyObjectAsync("recepcao", "invoice-002.pdf", Fixture.BucketName, "invoice-002.pdf");'
+        - ''
+        - '        // Primeiro salto: o objeto chegou ao bucket do pipeline'
+        - '        var objeto = await fixture.S3.GetObjectMetadataAsync(Fixture.BucketName, "invoice-002.pdf");'
+        - '        Assert.Equal(12, objeto.ContentLength);'
+        - ''
+        - '        // Último salto: o item chegou ao DynamoDB'
+        - '        await PollingHelper.WaitUntilAsync(async () =>'
+        - '        {'
+        - '            var scan = await fixture.DynamoDB.ScanAsync(new ScanRequest { TableName = Fixture.TableName });'
+        - '            return scan.Items.Any(item => item["body"].S.Contains("invoice-002.pdf", StringComparison.Ordinal));'
+        - '        }, timeout: TimeSpan.FromSeconds(60),'
+        - '        failureMessage: "O objeto está no bucket do pipeline, mas nenhum item chegou ao DynamoDB em 60 s.");'
+        - '    }'
+        - '}'
+        - ''
+        - '// no terminal:'
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      efeito: teste_copia
+      sucesso: '`Failed: 1` com `O objeto está no bucket do pipeline, mas nenhum item chegou ao DynamoDB em 60 s.`'
+    - titulo: Ampliar os eventos da notificação
+      texto: No `Fixture.cs` do cenário 12, troque `Events = [EventType.ObjectCreatedPut]` por `Events = [EventType.ObjectCreatedAll]` e rode de novo.
+      editor:
+        rotulo: terminal
+        linhas:
+        - sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      efeito: eventos_amplos
+      sucesso: '`Passed: 2`.'
+  - tipo: terminal
+    titulo: terminal · aspire-aws
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: docker build -q -t aspire-aws-linux - < Dockerfile.linux
+      saida: sha256:a0faca54756a…
+      origem: executado
+      dica: A imagem tem o .NET SDK 10 e o cliente do Docker. O identificador muda a cada construção.
+    - entrada: docker run -d --name aspire-linux --network host -v /var/run/docker.sock:/var/run/docker.sock aspire-aws-linux sleep infinity
+      saida: c010420897a4…
+      origem: executado
+      dica: O identificador do contêiner muda a cada execução.
+    - entrada: sincronizar() { git ls-files -co --exclude-standard | COPYFILE_DISABLE=1 tar -cf - -T - | docker exec -i aspire-linux tar -x -C /repo 2>/dev/null; }
+      saida: ''
+      origem: executado
+      dica: A função copia os arquivos do repositório para `/repo` no contêiner.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      condicao:
+      - teste_copia
+      - eventos_amplos
+      saida: 'Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 47 s - 12-Pipeline.S3.SQS.Lambda.DynamoDB.dll (net10.0)'
+      origem: executado
+      dica: O arquivo copiado também atravessou o pipeline.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      condicao: teste_copia
+      saida: "  Failed Scenarios.Pipeline.S3SqsLambdaDynamoDb.ArquivoCopiadoTests.ArquivoCopiadoParaOBucket_TambemPassaPeloPipeline\n   System.TimeoutException : O objeto está no bucket do pipeline, mas nenhum item chegou ao DynamoDB em 60 s.\nFailed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 1 m 57 s - 12-Pipeline.S3.SQS.Lambda.DynamoDB.dll (net10.0)"
+      origem: executado
+      dica: O objeto copiado chegou ao bucket, o primeiro salto, e o item não chegou ao DynamoDB, o último. A falha está em algum ponto entre os dois.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 m 2 s - 12-Pipeline.S3.SQS.Lambda.DynamoDB.dll (net10.0)'
+      origem: executado
+      dica: Um arquivo enviado com `PutObject` atravessa o S3, o SQS e a Lambda até o DynamoDB.
+    - entrada: sincronizar && docker exec aspire-linux dotnet test scenarios/13-Pipeline.SNS.SQS.Lambda.S3 2>&1 | grep -E 'Passed!|Failed!'
+      saida: 'Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1, Duration: 1 s - 13-Pipeline.SNS.SQS.Lambda.S3.dll (net10.0)'
+      origem: executado
+      dica: O pipeline 13 publica no SNS, que entrega a uma fila lida por uma Lambda que grava no S3.
+    cenarios:
+    - rotulo: Pipeline 12
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \[[0-9 ms.]+\]//'
+    - rotulo: Pipeline 13
+      comando: sincronizar && docker exec aspire-linux dotnet test scenarios/13-Pipeline.SNS.SQS.Lambda.S3 2>&1 | grep -E 'Passed!|Failed!'
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que um time encontraria nesses pipelines, cada uma com a saída ou o trecho que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Arquivos de um parceiro que nunca são processados
+    origem: executado
+    rotulo_saida: log
+    saida: "$ sincronizar && docker exec aspire-linux dotnet test scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB 2>&1 | grep -E '^  Failed |nenhum item chegou|Passed!|Failed!' | sed -E 's/ \\[[0-9 ms.]+\\]//'\n  Failed Scenarios.Pipeline.S3SqsLambdaDynamoDb.ArquivoCopiadoTests.ArquivoCopiadoParaOBucket_TambemPassaPeloPipeline\n   System.TimeoutException : O objeto está no bucket do pipeline, mas nenhum item chegou ao DynamoDB em 60 s.\nFailed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 1 m 57 s - 12-Pipeline.S3.SQS.Lambda.DynamoDB.dll (net10.0)"
+    pergunta: Os arquivos enviados pelo sistema web são processados, e os que um parceiro copia de outro bucket não são. Por quê?
+    correcao: Trocar o filtro da notificação por `EventType.ObjectCreatedAll`, como no passo 4.
+    alternativas:
+    - texto: O DynamoDB demora mais para arquivos copiados.
+      correta: false
+      explicacao: Depois da correção, o mesmo teste passou no mesmo tempo limite.
+    - texto: A cópia gera o evento `s3:ObjectCreated:Copy`, e a notificação só envia `s3:ObjectCreated:Put` para a fila.
+      correta: true
+      explicacao: O objeto chegou ao bucket, e nada foi enviado à fila.
+    - texto: A Lambda recusa arquivos copiados.
+      correta: false
+      explicacao: A função nem foi invocada para esse arquivo.
+  - tipo: incidente
+    titulo: Arquivo grande que não entra no pipeline
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/Fixture.cs:94
+
+      Events = [EventType.ObjectCreatedPut]'
+    pergunta: O SDK envia arquivos acima de um tamanho em partes, com upload multiparte. O que acontece com eles nesse pipeline?
+    correcao: Usar `EventType.ObjectCreatedAll`, que inclui `s3:ObjectCreated:CompleteMultipartUpload`.
+    alternativas:
+    - texto: Entram uma vez por parte.
+      correta: false
+      explicacao: O S3 gera um evento só, ao completar o envio.
+    - texto: Entram normalmente.
+      correta: false
+      explicacao: O tipo de evento é diferente de `Put`.
+    - texto: Não entram, porque o evento é `CompleteMultipartUpload`, fora do filtro `Put`.
+      correta: true
+      explicacao: É a mesma causa do arquivo copiado.
+  - tipo: incidente
+    titulo: Pipeline que funciona no LocalStack e falha na AWS
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'scenarios/12-Pipeline.S3.SQS.Lambda.DynamoDB/Fixture.cs:66-76
+
+      "Statement": [
+
+      {
+
+      "Sid": "AllowS3ToQueue",
+
+      "Effect": "Allow",
+
+      "Principal": { "Service": "s3.amazonaws.com" },
+
+      "Action": "sqs:SendMessage",
+
+      "Resource": "{{queueArn}}",
+
+      "Condition": {
+
+      "ArnLike": { "aws:SourceArn": "arn:aws:s3:::{{BucketName}}" }
+
+      }
+
+      }'
+    pergunta: Um colega apagou a política da fila porque o teste passava sem ela no LocalStack. O que acontece na AWS?
+    correcao: Manter a política que permite ao `s3.amazonaws.com` o `sqs:SendMessage`, restrita ao ARN do bucket.
+    alternativas:
+    - texto: A configuração da notificação é recusada ou o S3 não consegue enviar à fila, porque a AWS exige a permissão.
+      correta: true
+      explicacao: O LocalStack Community não aplica políticas de acesso, e o teste não percebe a falta.
+    - texto: Funciona igual, porque o bucket e a fila são da mesma conta.
+      correta: false
+      explicacao: Serviços diferentes precisam de permissão explícita.
+    - texto: A Lambda passa a ler o bucket direto.
+      correta: false
+      explicacao: A ligação continua sendo pela fila.
+  - tipo: incidente
+    titulo: Objeto com o envelope do SNS
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/lambdas/fanout_processor/handler.py:13-14
+
+      outer = json.loads(record["body"])
+
+      message = outer.get("Message", record["body"])'
+    pergunta: No pipeline 13, por que a função lê `outer.get("Message", ...)` em vez de gravar o corpo direto?
+    correcao: 'Nenhuma correção: a função já trata os dois formatos. Outra opção é ligar a entrega bruta na assinatura do SNS.'
+    alternativas:
+    - texto: A Lambda recebe a mensagem cifrada.
+      correta: false
+      explicacao: O envelope é JSON comum.
+    - texto: O SNS entrega à fila um envelope JSON com a mensagem no campo `Message`, a menos que a entrega bruta esteja ligada.
+      correta: true
+      explicacao: O `get` com valor padrão aceita os dois formatos.
+    - texto: O SQS acrescenta o campo `Message`.
+      correta: false
+      explicacao: Quem acrescenta o envelope é o SNS.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que conferir o primeiro salto no teste do pipeline?
+      alternativas:
+      - texto: Para o teste ficar mais rápido.
+        correta: false
+        explicacao: A conferência acrescenta uma chamada.
+      - texto: Porque o S3 é lento.
+        correta: false
+        explicacao: O motivo é localizar a falha.
+      - texto: Para que a falha diga em que trecho a mensagem parou.
+        correta: true
+        explicacao: Com o objeto no bucket, a busca fica entre o bucket e a tabela.
+    - enunciado: Que evento o `CopyObject` gera no bucket de destino?
+      alternativas:
+      - texto: '`s3:ObjectCreated:Copy`.'
+        correta: true
+        explicacao: Fora do filtro `Put`.
+      - texto: '`s3:ObjectCreated:Put`.'
+        correta: false
+        explicacao: O tipo é específico da cópia.
+      - texto: Nenhum.
+        correta: false
+        explicacao: Com o filtro amplo, a cópia acionou o pipeline.
+    - enunciado: O que o arquivo enviado com `PutObject` atravessando o pipeline prova?
+      alternativas:
+      - texto: Que a notificação aceita qualquer evento.
+        correta: false
+        explicacao: Ela só aceitava `Put`.
+      - texto: Que a fila, a Lambda e a tabela funcionam, e a diferença está na entrada.
+        correta: true
+        explicacao: A comparação elimina os saltos comuns.
+      - texto: Que o pipeline não tem defeito.
+        correta: false
+        explicacao: O arquivo copiado não atravessou.
+    - enunciado: Por que a fila precisa de uma política para o S3?
+      alternativas:
+      - texto: Porque o LocalStack exige.
+        correta: false
+        explicacao: O LocalStack Community não aplica a política.
+      - texto: Para cifrar as mensagens.
+        correta: false
+        explicacao: Cifra é configurada à parte.
+      - texto: Porque o S3 é outro serviço e só envia à fila com permissão explícita.
+        correta: true
+        explicacao: A condição limita a permissão ao bucket do pipeline.
+    - enunciado: O que muda com a entrega bruta numa assinatura SNS para SQS?
+      alternativas:
+      - texto: A fila recebe a mensagem original, sem o envelope JSON do SNS.
+        correta: true
+        explicacao: Sem ela, a mensagem fica no campo `Message`.
+      - texto: A mensagem chega mais rápido.
+        correta: false
+        explicacao: Muda o formato, não a velocidade.
+      - texto: A fila deixa de precisar de política.
+        correta: false
+        explicacao: A permissão continua necessária.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - Os pipelines 12 e 13 rodaram no contêiner Linux.
+    - O arquivo copiado parou entre o bucket e a tabela.
+    - A notificação foi identificada como o salto que falhou.
+    - Com `ObjectCreatedAll`, o arquivo copiado atravessou o pipeline.
+    - A diferença entre o LocalStack e a AWS nas políticas de acesso está clara.

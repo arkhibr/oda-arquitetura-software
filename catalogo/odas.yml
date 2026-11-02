@@ -351,7 +351,8 @@ odas:
     minutos: 75
     pre_requisitos: ["32"]
     objetivo: "Rastrear uma mensagem por um pipeline com vários serviços e localizar o ponto de falha."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-33
   - id: "34"
     titulo: "Orquestração com Step Functions e tarefas em ECS"
     trilha: 7
