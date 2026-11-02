@@ -70,7 +70,7 @@ abas:
   - tipo: comparativo
     colunas:
     - Garantia esperada
-    - No commit `702145a`
+    - No commit 702145a
     linhas:
     - dimensao: Mesma chave, mesmo corpo
       valores:

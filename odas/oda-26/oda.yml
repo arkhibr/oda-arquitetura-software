@@ -67,7 +67,7 @@ abas:
   - tipo: comparativo
     colunas:
     - O que garante
-    - No `Pix.MockServer`
+    - No Pix.MockServer
     linhas:
     - dimensao: TLS do servidor
       valores:

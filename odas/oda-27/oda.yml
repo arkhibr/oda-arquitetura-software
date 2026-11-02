@@ -60,8 +60,8 @@ abas:
     texto: O `ConfigureTestServices` roda depois dos registros do `Program.cs` e permite remover e substituir serviços só nos testes. É o ponto para trocar o banco, um relógio ou um cliente HTTP externo sem condicionais de ambiente no código da API.
   - tipo: comparativo
     colunas:
-    - '`EnsureCreated`'
-    - '`Migrate`'
+    - EnsureCreated
+    - Migrate
     linhas:
     - dimensao: De onde vem o esquema
       valores:
@@ -75,7 +75,7 @@ abas:
       valores:
       - Não existe
       - '`__EFMigrationsHistory` com cada migration aplicada'
-    - dimensao: Usado no commit `702145a`
+    - dimensao: Usado no commit 702145a
       valores:
       - Na `ApiFactory` dos testes
       - No `Program.cs`, fora do ambiente Testing
