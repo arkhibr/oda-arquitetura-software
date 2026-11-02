@@ -1,0 +1,727 @@
+id: '23'
+titulo: CQRS com EF Core e Dapper, migrations e soft delete
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O objetivo desta ODA é praticar a separação entre escrita e leitura de dados e a evolução do esquema do banco com migrations, sem quebrar a exclusão lógica. Na API `net-minimal-api`, qualquer criação de variante de produto recebe 500, e depois de corrigida, o SKU de uma variante excluída não pode ser reaproveitado. Você vai corrigir a consulta de escrita, mudar um índice do banco e gerar a migration, com o teste escrito antes.
+  - tipo: checklist
+    titulo: Ao concluir, você poderá
+    itens:
+    - Explicar por que a API usa EF Core para escrever e Dapper para ler, e o custo de manter os dois.
+    - Reconhecer uma consulta LINQ que o EF Core não consegue traduzir para SQL.
+    - Explicar a exclusão lógica e as consultas que precisam respeitá-la.
+    - Gerar e aplicar uma migration com o `dotnet-ef`.
+    - Distinguir o banco criado pelos testes do banco que a API cria com as migrations.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Antes de começar
+    texto: Você vai precisar do .NET SDK 10, do Git, do `curl` e, para conferir o índice, do `sqlite3`. O repositório é o `arkhibr/net-minimal-api` no commit `702145a`, e a faixa do Laboratório mostra como obtê-lo. Os comandos usam a sintaxe do bash ou do zsh, e no Windows devem rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · criar uma variante
+    comandos:
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+      saida: '{"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/variantes","errors":{}} 500'
+      origem: executado
+      dica: 'Qualquer criação de variante recebe 500. Veja o log da API: `The LINQ expression ... could not be translated`.'
+    cenarios:
+    - rotulo: Subir a API
+      comando: rm -f produtos-api.db && dotnet run --launch-profile http
+    - rotulo: Criar variante
+      comando: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: Esta aba explica como a API divide o acesso a dados, como a exclusão lógica funciona e de onde vem o esquema do banco. No repositório, a ADR-0002 registra a divisão entre EF Core e Dapper, e a ADR-0005 registra a exclusão lógica pela coluna `Ativo`.
+  - tipo: comparativo
+    colunas:
+    - Escrita (comandos)
+    - Leitura (consultas)
+    linhas:
+    - dimensao: Ferramenta
+      valores:
+      - EF Core, com rastreamento de mudanças
+      - Dapper, com SQL escrito à mão
+    - dimensao: Interface
+      valores:
+      - '`IVarianteCommandRepository`'
+      - '`IVarianteQueryRepository`'
+    - dimensao: Risco típico
+      valores:
+      - LINQ que não traduz para SQL e só falha em execução
+      - Filtro esquecido, como `Ativa = 1`
+    - dimensao: Acompanha o esquema
+      valores:
+      - Pelas migrations geradas do modelo
+      - Pelo SQL, revisado à mão a cada mudança
+  - tipo: conceito
+    titulo: Exclusão lógica
+    texto: Excluir um produto ou uma variante muda a coluna `Ativo` ou `Ativa` para falso, e o registro continua no banco para auditoria e para os pedidos antigos. Toda consulta e toda regra de unicidade precisa decidir se considera ou não os registros inativos.
+  - tipo: conceito
+    titulo: Migrations e EnsureCreated
+    texto: A API cria e atualiza o banco com `Database.Migrate()`, que aplica as migrations em ordem. Os testes de integração usam `EnsureCreated`, que monta o banco direto do modelo atual e ignora as migrations, e por isso um teste verde não garante que exista migration para a mudança.
+  - tipo: adr
+    id: ADR-0002
+    titulo: 'CQRS: EF Core para Escrita e Dapper para Leitura'
+    status: accepted
+    contexto: Escritas se beneficiam de ORM e rastreamento, e leituras com filtros e paginação pedem controle do SQL.
+    decisao: EF Core nos repositórios de comando e Dapper nos repositórios de consulta.
+    alternativas: EF Core para tudo e Dapper para tudo.
+    consequencias: Leituras explícitas e escritas concisas, com dois mecanismos de acesso para manter.
+  - tipo: adr
+    id: ADR-0005
+    titulo: Soft Delete para Deleção Lógica de Produtos
+    status: accepted
+    contexto: Produtos excluídos precisam continuar no banco para auditoria e para os pedidos que os referenciam.
+    decisao: Coluna `Ativo`, com todas as consultas filtrando `Ativo = 1`.
+    alternativas: Remoção física, tabela de histórico e tabelas temporais.
+    consequencias: Registros preservados, e cada consulta que esquece o filtro expõe dados inativos.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Esta aba mostra, no commit `702145a`, a consulta de escrita que falha, o mapeamento do SKU como value object e o índice único do banco, que juntos explicam as duas falhas do laboratório. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.Infrastructure/Repositories/EfVarianteCommandRepository.cs
+    commit: 702145a
+    linhas:
+    - 'public class EfVarianteCommandRepository(ICatalogoContext context) : IVarianteCommandRepository'
+    - '{'
+    - '    public Task<Variante?> ObterPorIdAsync(int id) =>'
+    - '        context.Variantes.FirstOrDefaultAsync(v => v.Id == id && v.Ativa);'
+    - ''
+    - '    public async Task<Variante> AdicionarAsync(Variante variante)'
+    - '    {'
+    - '        context.AddVariante(variante);'
+    - '        await context.SaveChangesAsync();'
+    - '        return variante;'
+    - '    }'
+    - ''
+    - '    public async Task SaveChangesAsync() => await context.SaveChangesAsync();'
+    - ''
+    - '    public async Task<bool> SkuExisteParaProdutoAsync(int produtoId, string sku) =>'
+    - '        await context.Variantes.AnyAsync(v => v.ProdutoId == produtoId && v.Sku.Valor == sku && v.Ativa);'
+    - '}'
+    anotacoes:
+    - linha: 11
+      texto: Leitura feita pelo lado de escrita, já com o filtro de ativas.
+    - linha: 23
+      texto: '`v.Sku.Valor` não existe como coluna, e o EF Core não traduz o acesso.'
+    inicio: 8
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Data/AppDbContext.cs
+    commit: 702145a
+    linhas:
+    - '            entity.Property(v => v.Sku)'
+    - '                .IsRequired()'
+    - '                .HasMaxLength(20)'
+    - '                .HasConversion(sku => sku.Valor, valor => SKU.Reconstituir(valor))'
+    - '                .UsePropertyAccessMode(PropertyAccessMode.Property);'
+    - ''
+    - '            entity.HasIndex(v => new { v.ProdutoId, v.Sku })'
+    - '                .IsUnique()'
+    - '                .HasDatabaseName("idx_variante_produto_sku");'
+    anotacoes:
+    - linha: 152
+      texto: O SKU é gravado como texto e reconstruído na leitura.
+    - linha: 156
+      texto: Unicidade de produto e SKU, para todas as linhas.
+    inicio: 149
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.Infrastructure/Queries/DapperVarianteQueryRepository.cs
+    commit: 702145a
+    linhas:
+    - '        {'
+    - '            const string sql = @"'
+    - SELECT Id, ProdutoId, Sku, Descricao, PrecoAdicional, Estoque, Ativa, DataCriacao, DataAtualizacao
+    - FROM Variantes WHERE ProdutoId = @ProdutoId AND Ativa = 1 ORDER BY Sku;";
+    - '            var rows = await connection.QueryAsync<VarianteRow>(sql, new { ProdutoId = produtoId });'
+    anotacoes:
+    - linha: 26
+      texto: A leitura filtra as variantes ativas, sem olhar se o produto está ativo.
+    inicio: 23
+  - tipo: editor
+    rotulo: arquivo
+    caminho: Program.cs
+    commit: 702145a
+    linhas:
+    - if (!app.Environment.IsEnvironment("Testing"))
+    - '{'
+    - '    using var scope = app.Services.CreateScope();'
+    - '    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();'
+    - '    dbContext.Database.Migrate();'
+    - '    ProdutosAPI.Catalogo.Infrastructure.Data.DbSeeder.Seed(dbContext);'
+    - '}'
+    anotacoes:
+    - linha: 217
+      texto: A API aplica as migrations ao iniciar.
+    inicio: 213
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Esta aba simula, sem executar nada, o caminho de um SKU desativado e recriado em cada estado do laboratório, para separar o que a aplicação confere do que o banco confere. Depois, classifique cada consulta pelo modo como trata os registros excluídos.
+  - tipo: fluxo
+    titulo: Reaproveitar o SKU MOUSE-ROSA
+    etapas:
+    - titulo: Criação
+      descricao: '`VarianteService` pergunta a `SkuExisteParaProdutoAsync` se o SKU já existe. No commit, a pergunta falha com `could not be translated`, e a resposta é 500.'
+    - titulo: Consulta corrigida
+      descricao: Comparando o value object inteiro, o EF Core gera `WHERE ProdutoId = 2 AND Sku = 'MOUSE-ROSA' AND Ativa = 1`, e a criação responde 201.
+    - titulo: Desativação
+      descricao: '`DELETE /api/v1/catalogo/variantes/1` muda `Ativa` para 0, e a linha continua na tabela.'
+    - titulo: Recriação
+      descricao: A aplicação não encontra SKU ativo e grava, e o índice único, que vale para todas as linhas, recusa a inserção.
+    - titulo: Índice filtrado
+      descricao: Com `WHERE Ativa = 1` no índice, gravado pela migration, a linha desativada não disputa o SKU, e a recriação responde 201.
+  - tipo: classificador
+    enunciado: Como cada operação trata os registros excluídos no commit de referência?
+    categorias:
+    - id: respeita
+      rotulo: Respeita a exclusão
+    - id: ignora
+      rotulo: Ignora a exclusão
+    itens:
+    - texto: '`GET /api/v1/catalogo/produtos/1` depois do `DELETE`'
+      categoria: respeita
+      explicacao: Responde 404, com `Ativo = 1` no SQL.
+    - texto: '`GET /api/v1/catalogo/atributos?produtoId=1` depois do `DELETE` do produto'
+      categoria: ignora
+      explicacao: Os atributos do produto excluído continuam listados.
+    - texto: '`POST /api/v1/catalogo/atributos` para o produto excluído'
+      categoria: ignora
+      explicacao: Responde 201 e grava o atributo.
+    - texto: Listagem de variantes ativas de um produto
+      categoria: respeita
+      explicacao: '`Ativa = 1` no SQL do Dapper.'
+    - texto: Índice único de produto e SKU
+      categoria: ignora
+      explicacao: Conta também as variantes desativadas.
+    - texto: Verificação de SKU no serviço
+      categoria: respeita
+      explicacao: Filtra `v.Ativa` na consulta.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: O objetivo do laboratório é fazer a criação de variantes funcionar e permitir que o SKU de uma variante excluída seja reaproveitado, mudando a consulta de escrita, o modelo e o esquema do banco. Os passos 1 e 2 reproduzem a falha pela API, os passos 3 a 7 escrevem o teste e mudam consulta e modelo, e os passos 8 a 10 geram a migration e conferem o banco. O terminal simulado responde aos mesmos comandos com as saídas obtidas no commit de referência.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Se você ainda não tem o repositório, rode `git clone https://github.com/arkhibr/net-minimal-api`, entre na pasta criada e rode `git checkout 702145a`. Se já tem o repositório de outra ODA, entre na pasta dele. Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Subir a API com o banco do seed
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db && dotnet run --launch-profile http
+      sucesso: '`Now listening on: http://localhost:5000`.'
+    - titulo: Criar uma variante
+      texto: Noutro terminal, obtenha o token e crie uma variante para o produto 2. Depois, procure a mensagem de erro no log da API.
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+      sucesso: '500, e no log `System.InvalidOperationException: The LINQ expression ''DbSet<Variante>()`.'
+    - titulo: Escrever o teste do SKU
+      texto: 'Crie o arquivo abaixo, com três casos: SKU novo, SKU repetido e SKU de uma variante desativada.'
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/Catalogo/VarianteSkuTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Net;
+        - using System.Net.Http.Headers;
+        - using System.Net.Http.Json;
+        - using FluentAssertions;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration.Catalogo;
+        - ''
+        - 'public class VarianteSkuTests : IClassFixture<ApiFactory>'
+        - '{'
+        - '    private readonly ApiFactory _factory;'
+        - ''
+        - '    public VarianteSkuTests(ApiFactory factory) => _factory = factory;'
+        - ''
+        - '    private async Task<HttpClient> ClienteAutenticadoAsync()'
+        - '    {'
+        - '        var client = _factory.CreateClient();'
+        - '        var token = await AuthHelper.ObterTokenAsync(client);'
+        - '        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);'
+        - '        return client;'
+        - '    }'
+        - ''
+        - '    private static object Variante(string sku) =>'
+        - '        new { produtoId = 2, sku, descricao = "Cor grafite", precoAdicional = 10m, estoque = 3 };'
+        - ''
+        - '    private record Criada(int Id);'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Variante_SkuNovo_Retorna201()'
+        - '    {'
+        - '        var client = await ClienteAutenticadoAsync();'
+        - ''
+        - '        var response = await client.PostAsJsonAsync("/api/v1/catalogo/variantes", Variante("MOUSE-GRAFITE"));'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.Created);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Variante_SkuRepetido_Retorna422()'
+        - '    {'
+        - '        var client = await ClienteAutenticadoAsync();'
+        - '        await client.PostAsJsonAsync("/api/v1/catalogo/variantes", Variante("MOUSE-AZUL"));'
+        - ''
+        - '        var response = await client.PostAsJsonAsync("/api/v1/catalogo/variantes", Variante("MOUSE-AZUL"));'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task POST_Variante_SkuDeVarianteDesativada_PodeSerReusado()'
+        - '    {'
+        - '        var client = await ClienteAutenticadoAsync();'
+        - '        var primeira = await client.PostAsJsonAsync("/api/v1/catalogo/variantes", Variante("MOUSE-ROSA"));'
+        - '        var criada = await primeira.Content.ReadFromJsonAsync<Criada>();'
+        - '        await client.DeleteAsync($"/api/v1/catalogo/variantes/{criada!.Id}");'
+        - ''
+        - '        var response = await client.PostAsJsonAsync("/api/v1/catalogo/variantes", Variante("MOUSE-ROSA"));'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.Created);'
+        - '    }'
+        - '}'
+      efeito: teste_sku
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+      sucesso: '`Com falha: 3`, todas com `found HttpStatusCode.InternalServerError`.'
+    - titulo: Corrigir a consulta de escrita
+      editor:
+        rotulo: arquivo
+        caminho: src/Catalogo/Catalogo.Infrastructure/Repositories/EfVarianteCommandRepository.cs (alteração)
+        commit: 702145a
+        linhas:
+        - // src/Catalogo/Catalogo.Infrastructure/Repositories/EfVarianteCommandRepository.cs
+        - '// acrescente using ProdutosAPI.Catalogo.Domain.ValueObjects; e troque SkuExisteParaProdutoAsync por:'
+        - '    public async Task<bool> SkuExisteParaProdutoAsync(int produtoId, string sku)'
+        - '    {'
+        - '        // O EF Core traduz a comparação do value object inteiro pela conversão, mas não o acesso a sku.Valor.'
+        - '        var alvo = SKU.Reconstituir(sku);'
+        - '        return await context.Variantes.AnyAsync(v => v.ProdutoId == produtoId && v.Sku == alvo && v.Ativa);'
+        - '    }'
+      efeito: consulta_corrigida
+    - titulo: Rodar o teste
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+      sucesso: '`Com falha: 1, Aprovado: 2`: o reuso do SKU ainda recebe 500.'
+    - titulo: Filtrar o índice pelas variantes ativas
+      editor:
+        rotulo: arquivo
+        caminho: src/Shared/Data/AppDbContext.cs (alteração)
+        commit: 702145a
+        linhas:
+        - '// src/Shared/Data/AppDbContext.cs: no mapeamento de Variante'
+        - '            // Só variantes ativas disputam o SKU: uma variante desativada libera o código para reuso.'
+        - '            entity.HasIndex(v => new { v.ProdutoId, v.Sku })'
+        - '                .IsUnique()'
+        - '                .HasFilter("Ativa = 1")'
+        - '                .HasDatabaseName("idx_variante_produto_sku");'
+      efeito: indice_filtrado
+      sucesso: 'Rode o teste e a suíte: `Aprovado: 3` e `Aprovado: 146`.'
+    - titulo: Subir a API de novo
+      texto: Encerre a API com Ctrl+C e suba de novo. Ela não inicia, e esse é o comportamento esperado neste ponto.
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db && dotnet run --launch-profile http
+      sucesso: '`PendingModelChangesWarning`: o modelo tem mudanças sem migration.'
+    - titulo: Gerar a migration
+      texto: Instale o `dotnet-ef` como ferramenta local do repositório e gere a migration na pasta e no namespace das existentes.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet tool install dotnet-ef --version 10.0.0
+        - dotnet ef migrations add VarianteSkuSoAtivas --project ProdutosAPI.csproj --output-dir src/Shared/Data/Migrations --namespace ProdutosAPI.Shared.Data.Migrations
+      efeito: migration_criada
+      sucesso: '`Done. To undo this action, use ''ef migrations remove''`, com dois arquivos novos em `src/Shared/Data/Migrations`, um deles com o código abaixo.'
+    - titulo: Conferir pela API e no banco
+      texto: Suba a API, crie a variante, desative-a e crie de novo com o mesmo SKU. Depois, leia o índice no SQLite.
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db && dotnet run --launch-profile http
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+        - 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+        - 'curl -s -o /dev/null -w ''%{http_code}\n'' -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/catalogo/variantes/1'
+        - 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+        - sqlite3 produtos-api.db "SELECT sql FROM sqlite_master WHERE name = 'idx_variante_produto_sku';"
+      sucesso: 201, 204 e 201 com `"id":2`, e `CREATE UNIQUE INDEX "idx_variante_produto_sku" ON "Variantes" ("ProdutoId", "Sku") WHERE Ativa = 1`.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Shared/Data/Migrations/<data>_VarianteSkuSoAtivas.cs (gerado)
+    commit: 702145a
+    linhas:
+    - using Microsoft.EntityFrameworkCore.Migrations;
+    - ''
+    - '#nullable disable'
+    - ''
+    - namespace ProdutosAPI.Shared.Data.Migrations
+    - '{'
+    - '    /// <inheritdoc />'
+    - '    public partial class VarianteSkuSoAtivas : Migration'
+    - '    {'
+    - '        /// <inheritdoc />'
+    - '        protected override void Up(MigrationBuilder migrationBuilder)'
+    - '        {'
+    - '            migrationBuilder.DropIndex('
+    - '                name: "idx_variante_produto_sku",'
+    - '                table: "Variantes");'
+    - ''
+    - '            migrationBuilder.CreateIndex('
+    - '                name: "idx_variante_produto_sku",'
+    - '                table: "Variantes",'
+    - '                columns: new[] { "ProdutoId", "Sku" },'
+    - '                unique: true,'
+    - '                filter: "Ativa = 1");'
+    - '        }'
+    - ''
+    - '        /// <inheritdoc />'
+    - '        protected override void Down(MigrationBuilder migrationBuilder)'
+    - '        {'
+    - '            migrationBuilder.DropIndex('
+    - '                name: "idx_variante_produto_sku",'
+    - '                table: "Variantes");'
+    - ''
+    - '            migrationBuilder.CreateIndex('
+    - '                name: "idx_variante_produto_sku",'
+    - '                table: "Variantes",'
+    - '                columns: new[] { "ProdutoId", "Sku" },'
+    - '                unique: true);'
+    - '        }'
+    - '    }'
+    - '}'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      condicao:
+      - indice_filtrado
+      - migration_criada
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      condicao: indice_filtrado
+      saida: 'Unhandled exception. System.InvalidOperationException: An error was generated for warning ''Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning'': The model for context ''AppDbContext'' has pending changes. Add a new migration before updating the d'
+      origem: executado
+      dica: 'Os testes passaram, e a API não sobe: o modelo mudou e nenhuma migration descreve a mudança.'
+    - entrada: rm -f produtos-api.db && dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+      condicao:
+      - indice_filtrado
+      - migration_criada
+      saida: '{"id":1,"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3,"ativa":true,"dataCriacao":"2026-11-02T00:53:37.12122Z","dataAtualizacao":"2026-11-02T00:53:37.12122Z"} 201'
+      origem: executado
+      dica: 'Repita depois de desativar a variante 1: o mesmo SKU volta com 201 e id 2.'
+    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+      saida: '{"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/variantes","errors":{}} 500'
+      origem: executado
+      dica: 'Qualquer criação de variante recebe 500. Veja o log da API: `The LINQ expression ... could not be translated`.'
+    - entrada: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/catalogo/variantes/1'
+      condicao:
+      - indice_filtrado
+      - migration_criada
+      saida: '204'
+      origem: executado
+    - entrada: sqlite3 produtos-api.db "SELECT sql FROM sqlite_master WHERE name = 'idx_variante_produto_sku';"
+      condicao:
+      - indice_filtrado
+      - migration_criada
+      saida: CREATE UNIQUE INDEX "idx_variante_produto_sku" ON "Variantes" ("ProdutoId", "Sku") WHERE Ativa = 1
+      origem: executado
+      dica: Precisa do `sqlite3` instalado. O índice só vale para as linhas com `Ativa = 1`.
+    - entrada: dotnet tool install dotnet-ef --version 10.0.0
+      saida: 'Ignorando a verificação de assinatura do pacote NuGet.
+
+        Você pode invocar a ferramenta deste diretório usando os comandos a seguir: ''dotnet tool run dotnet-ef'' ou ''dotnet dotnet-ef''.
+
+        A ferramenta ''dotnet-ef'' (versão ''10.0.0'') foi instalada com êxito. A entrada foi adicionada ao arquivo de manifesto ./dotnet-tools.json.
+
+        código 0'
+      origem: executado
+      dica: O comando registra a ferramenta no `dotnet-tools.json` do repositório.
+    - entrada: dotnet ef migrations add VarianteSkuSoAtivas --project ProdutosAPI.csproj --output-dir src/Shared/Data/Migrations --namespace ProdutosAPI.Shared.Data.Migrations
+      condicao: indice_filtrado
+      saida: 'Build started...
+
+        Build succeeded.
+
+        Done. To undo this action, use ''ef migrations remove'''
+      origem: executado
+      efeito: migration_criada
+      dica: 'A migration troca o índice: `DropIndex` e `CreateIndex` com `filter: "Ativa = 1"`.'
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+      condicao:
+      - teste_sku
+      - consulta_corrigida
+      - indice_filtrado
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 712 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+      condicao:
+      - teste_sku
+      - consulta_corrigida
+      saida: "  Com falha ProdutosAPI.Tests.Integration.Catalogo.VarianteSkuTests.POST_Variante_SkuDeVarianteDesativada_PodeSerReusado [46 ms]\n   Expected response.StatusCode to be HttpStatusCode.Created {value: 201}, but found HttpStatusCode.InternalServerError {value: 500}.\nCom falha! – Com falha:     1, Aprovado:     2, Ignorado:     0, Total:     3, Duração: 749 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: A criação voltou a funcionar, e o reuso do SKU esbarra no índice único do banco.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+      condicao: teste_sku
+      saida: "  Com falha ProdutosAPI.Tests.Integration.Catalogo.VarianteSkuTests.POST_Variante_SkuRepetido_Retorna422 [1 s]\n   Expected response.StatusCode to be HttpStatusCode.UnprocessableEntity {value: 422}, but found HttpStatusCode.InternalServerError {value: 500}.\n  Com falha ProdutosAPI.Tests.Integration.Catalogo.VarianteSkuTests.POST_Variante_SkuDeVarianteDesativada_PodeSerReusado [24 ms]\n   Expected response.StatusCode to be HttpStatusCode.Created {value: 201}, but found HttpStatusCode.InternalServerError {value: 500}.\n  Com falha ProdutosAPI.Tests.Integration.Catalogo.VarianteSkuTests.POST_Variante_SkuNovo_Retorna201 [1 ms]\n   Expected response.StatusCode to be HttpStatusCode.Created {value: 201}, but found HttpStatusCode.InternalServerError {value: 500}.\nCom falha! – Com falha:     3, Aprovado:     0, Ignorado:     0, Total:     3, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: As três falhas são 500, inclusive a do SKU novo.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+      saida: Nenhum teste corresponde ao filtro de testcase `VarianteSkuTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 3.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_sku
+      - consulta_corrigida
+      - indice_filtrado
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   146, Ignorado:     0, Total:   146, Duração: 865 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_sku
+      - consulta_corrigida
+      saida: 'Com falha! – Com falha:     1, Aprovado:   145, Ignorado:     0, Total:   146, Duração: 890 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao: teste_sku
+      saida: 'Com falha! – Com falha:     3, Aprovado:   143, Ignorado:     0, Total:   146, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 822 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`.
+    cenarios:
+    - rotulo: Subir a API
+      comando: rm -f produtos-api.db && dotnet run --launch-profile http
+    - rotulo: Criar variante
+      comando: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"produtoId":2,"sku":"MOUSE-ROSA","descricao":"Cor rosa","precoAdicional":10,"estoque":3}'' http://localhost:5000/api/v1/catalogo/variantes'
+    - rotulo: Teste do SKU
+      comando: dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+    - rotulo: Gerar a migration
+      comando: dotnet ef migrations add VarianteSkuSoAtivas --project ProdutosAPI.csproj --output-dir src/Shared/Data/Migrations --namespace ProdutosAPI.Shared.Data.Migrations
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: 'Esta aba apresenta quatro situações que aparecem ao manter escrita, leitura e esquema nesse projeto, cada uma com a saída que a evidencia. Para cada uma, escolha a causa entre as alternativas: a explicação e a correção aparecem depois da escolha.'
+  - tipo: incidente
+    titulo: Nenhuma variante pode ser criada
+    origem: executado
+    rotulo_saida: log
+    saida: '$ POST /api/v1/catalogo/variantes
+
+      {"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/variantes","errors":{}} 500
+
+
+      # log da API
+
+      System.InvalidOperationException: The LINQ expression ''DbSet<Variante>()'
+    pergunta: Por que toda criação de variante falha, se o código compila e o teste de unidade do domínio passa?
+    correcao: Comparar o value object inteiro, `v.Sku == alvo`, que o EF Core traduz pela conversão, como no passo 5.
+    alternativas:
+    - texto: O produto 2 não existe.
+      correta: false
+      explicacao: O produto 2 vem do seed.
+    - texto: A consulta acessa `v.Sku.Valor`, que não é coluna, e o EF Core só descobre que não consegue traduzir quando executa a consulta.
+      correta: true
+      explicacao: O compilador vê LINQ válido, e a tradução para SQL acontece em execução.
+    - texto: O SKU `MOUSE-ROSA` tem formato inválido.
+      correta: false
+      explicacao: Um SKU inválido daria 422 pela validação do domínio.
+  - tipo: incidente
+    titulo: Testes verdes e API que não sobe
+    origem: executado
+    rotulo_saida: log
+    saida: '$ dotnet test tests/ProdutosAPI.Tests --filter VarianteSkuTests
+
+      Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 712 ms - ProdutosAPI.Tests.dll (net10.0)
+
+
+      $ dotnet run --launch-profile http
+
+      Unhandled exception. System.InvalidOperationException: An error was generated for warning ''Microsoft.EntityFrameworkCore.Migrations.PendingModelChangesWarning'': The model for context ''AppDbContext'' has pending changes. Add a new migration before updating the d'
+    pergunta: Depois do passo 7, os testes passam e a API não inicia. O que separa os dois?
+    correcao: Gerar a migration a cada mudança de modelo, como no passo 9, e rodar `dotnet ef migrations has-pending-model-changes` na esteira.
+    alternativas:
+    - texto: Os testes usam outro banco de dados.
+      correta: false
+      explicacao: Os dois usam SQLite.
+    - texto: A API precisa de outra versão do EF Core.
+      correta: false
+      explicacao: A versão é a mesma nos dois.
+    - texto: Os testes criam o banco com `EnsureCreated`, a partir do modelo, e a API aplica migrations com `Migrate()`, que recusa um modelo sem migration.
+      correta: true
+      explicacao: O `ApiFactory` chama `db.Database.EnsureCreated()`.
+  - tipo: incidente
+    titulo: Atributos de um produto excluído
+    origem: executado
+    rotulo_saida: log
+    saida: '$ excluir produto
+
+      204
+
+      $ obter produto
+
+      404
+
+      $ atributos do produto
+
+      [{"id":1,"produtoId":1,"chave":"cor","valor":"prata","dataCriacao":"2026-11-02T00:48:01.186504"}] 200
+
+      $ novo atributo no produto excluído
+
+      {"id":2,"produtoId":1,"chave":"garantia","valor":"2 anos","dataCriacao":"2026-11-02T00:48:01.324264Z"} 201
+
+      $ registro no banco
+
+      1|Notebook Dell XPS 13|0'
+    pergunta: O produto 1 responde 404, e os atributos dele continuam aparecendo e aceitando novos registros. Por quê?
+    correcao: Conferir o produto ativo nas operações de atributo e de mídia, ou filtrar pelo produto na consulta, porque a exclusão lógica não se propaga sozinha.
+    alternativas:
+    - texto: Os repositórios de atributo filtram só por `ProdutoId`, e a exclusão lógica muda apenas a linha do produto.
+      correta: true
+      explicacao: O produto continua no banco com `Ativo = 0`, e os atributos não sabem disso.
+    - texto: O `DELETE` falhou.
+      correta: false
+      explicacao: O `DELETE` respondeu 204, e o banco mostra `Ativo = 0`.
+    - texto: Os atributos ficam em cache.
+      correta: false
+      explicacao: O atributo novo foi gravado depois do `DELETE`.
+  - tipo: incidente
+    titulo: Unicidade que ignora a exclusão
+    origem: executado
+    rotulo_saida: log
+    saida: "  Com falha ProdutosAPI.Tests.Integration.Catalogo.VarianteSkuTests.POST_Variante_SkuDeVarianteDesativada_PodeSerReusado [46 ms]\n   Expected response.StatusCode to be HttpStatusCode.Created {value: 201}, but found HttpStatusCode.InternalServerError {value: 500}.\nCom falha! – Com falha:     1, Aprovado:     2, Ignorado:     0, Total:     3, Duração: 749 ms - ProdutosAPI.Tests.dll (net10.0)"
+    pergunta: Com a consulta corrigida, por que recriar o SKU de uma variante desativada ainda recebe 500?
+    correcao: Filtrar o índice único por `Ativa = 1` e gerar a migration, como nos passos 7 e 9.
+    alternativas:
+    - texto: O SKU precisa mudar de caixa.
+      correta: false
+      explicacao: O SKU é normalizado em maiúsculas pelo value object.
+    - texto: A aplicação ignora as variantes inativas, e o índice único do banco as conta, e por isso recusa a inserção.
+      correta: true
+      explicacao: O índice filtrado alinha as duas regras.
+    - texto: A desativação apaga a variante.
+      correta: false
+      explicacao: A linha continua com `Ativa = 0`.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Por que a API usa Dapper na leitura?
+      alternativas:
+      - texto: Porque o EF Core não lê dados.
+        correta: false
+        explicacao: O lado de escrita também lê pelo EF Core.
+      - texto: Porque o Dapper cria as migrations.
+        correta: false
+        explicacao: As migrations são do EF Core.
+      - texto: Para escrever e revisar o SQL das consultas de listagem.
+        correta: true
+        explicacao: A escrita fica com o EF Core e o rastreamento de mudanças.
+    - enunciado: Quando o EF Core descobre que não consegue traduzir uma consulta?
+      alternativas:
+      - texto: Na execução da consulta.
+        correta: true
+        explicacao: Por isso o erro aparece como 500 numa requisição.
+      - texto: Na compilação.
+        correta: false
+        explicacao: O compilador só vê uma expressão LINQ.
+      - texto: Na migration.
+        correta: false
+        explicacao: A migration não executa consultas da aplicação.
+    - enunciado: O que o filtro `WHERE Ativa = 1` no índice faz?
+      alternativas:
+      - texto: Acelera a exclusão.
+        correta: false
+        explicacao: O efeito é sobre a unicidade.
+      - texto: Aplica a unicidade só às variantes ativas.
+        correta: true
+        explicacao: A variante desativada libera o SKU.
+      - texto: Apaga as variantes inativas.
+        correta: false
+        explicacao: As linhas continuam na tabela.
+    - enunciado: Por que um teste de integração verde não garante a migration?
+      alternativas:
+      - texto: Porque os testes não usam banco.
+        correta: false
+        explicacao: Eles usam SQLite.
+      - texto: Porque migrations só valem em produção.
+        correta: false
+        explicacao: A API aplica as migrations em todo ambiente.
+      - texto: Porque o banco dos testes vem de `EnsureCreated`, do modelo atual.
+        correta: true
+        explicacao: A API usa `Migrate()`.
+    - enunciado: Qual custo da exclusão lógica o laboratório tornou visível?
+      alternativas:
+      - texto: Cada consulta e cada regra de unicidade precisa decidir o que fazer com os registros inativos.
+        correta: true
+        explicacao: O índice e os atributos não tinham decidido.
+      - texto: O banco fica mais lento.
+        correta: false
+        explicacao: O laboratório não mediu desempenho.
+      - texto: Os pedidos antigos quebram.
+        correta: false
+        explicacao: A exclusão lógica existe justamente para preservá-los.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A divisão entre escrita com EF Core e leitura com Dapper está clara.
+    - A consulta de SKU passou a ser traduzida, e a criação de variante respondeu 201.
+    - O índice único passou a considerar só as variantes ativas.
+    - A migration foi gerada, e a API voltou a iniciar.
+    - As operações que ignoram a exclusão lógica foram identificadas.

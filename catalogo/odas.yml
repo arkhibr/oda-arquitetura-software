@@ -251,7 +251,8 @@ odas:
     minutos: 75
     pre_requisitos: ["19"]
     objetivo: "Separar escrita e leitura com repositórios distintos e evoluir o esquema com migrations."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-23
   - id: "24"
     titulo: "Segurança da API com JWT e rate limiting"
     trilha: 6
