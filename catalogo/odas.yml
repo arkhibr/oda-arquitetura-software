@@ -201,7 +201,8 @@ odas:
     minutos: 60
     pre_requisitos: ["17"]
     objetivo: "Avaliar recursos, códigos de status e payloads de uma API segundo as boas práticas do repositório."
-    situacao: planejada
+    situacao: disponivel
+    app: oda-18
   - id: "19"
     titulo: "Clean Architecture híbrida no Catálogo"
     trilha: 6

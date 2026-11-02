@@ -1,0 +1,707 @@
+id: '18'
+titulo: Desenho de API REST e contratos JSON
+abas:
+- id: missao
+  titulo: Missão
+  blocos:
+  - tipo: legenda
+    texto: O repositório traz dois guias de boas práticas de API, e esta ODA confronta a API real com eles. A sondagem percorre criação, validação, paginação, exclusão e cancelamento nos dois contextos, registra onde a API segue ou diverge dos guias e corrige uma das divergências com o teste escrito antes.
+  - tipo: checklist
+    titulo: Objetivos desta ODA
+    itens:
+    - Avaliar recursos, verbos e códigos de status contra a tabela do `MELHORES-PRATICAS-API.md`.
+    - Comparar os envelopes de paginação e de erro do Catálogo e dos Pedidos.
+    - Separar divergência da API, divergência do guia e comportamento silencioso.
+    - Fazer o filtro de status de Pedidos recusar valores inexistentes, com o teste escrito antes.
+    - Montar um quadro de avaliação com evidência de cada item.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💡 Pré-requisitos
+    texto: A ODA 17. O laboratório usa dois terminais na raiz do `net-minimal-api`, um para a API e outro para as chamadas, com a sintaxe do bash ou do zsh, e no Windows deve rodar no Git Bash ou no WSL.
+  - tipo: terminal
+    titulo: terminal · duas validações, dois contratos
+    comandos:
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
+      saida: '{"type":"https://api.example.com/errors/validation","title":"Validação falhou","status":422,"detail":"Nome é obrigatório; Nome deve ter no mínimo 3 caracteres; Descrição deve ter no mínimo 10 caracteres; Preço deve ser maior que zero; Categoria é obrigatória; Categoria inválida; Estoque não pode ser negativo; Email inválido","instance":"","errors":{}}
+
+        422'
+      origem: executado
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[]}'' http://localhost:5000/api/v1/pedidos'
+      saida: '{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Itens":["Pedido deve conter ao menos um item."]}}
+
+        400'
+      origem: executado
+    cenarios:
+    - rotulo: Produto inválido
+      comando: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
+    - rotulo: Pedido sem itens
+      comando: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[]}'' http://localhost:5000/api/v1/pedidos'
+- id: conceito
+  titulo: Conceito
+  blocos:
+  - tipo: legenda
+    texto: O `MELHORES-PRATICAS-API.md` fixa substantivos no plural, o verbo no protocolo, paginação obrigatória e uma tabela de status por situação. O `JSON-COMPLEXO-E-BOAS-PRATICAS.md` acrescenta erros em `application/problem+json`, com mensagens por campo.
+  - tipo: comparativo
+    colunas:
+    - Catálogo
+    - Pedidos
+    linhas:
+    - dimensao: Validação de entrada
+      valores:
+      - 422 com todas as mensagens num `detail` e `errors` vazio
+      - 400 `ValidationProblem`, com mensagens por campo
+    - dimensao: Envelope de lista
+      valores:
+      - '`data` e `pagination` com `page`, `pageSize`, `totalItems` e `totalPages`'
+      - '`data`, `total`, `page` e `pageSize` no mesmo nível'
+    - dimensao: Recurso inexistente
+      valores:
+      - 404 com `ErrorResponse`
+      - 404 com `{ error }`
+    - dimensao: Limite de página
+      valores:
+      - '`pageSize` acima de 100 vira 20'
+      - '`pageSize` limitado entre 1 e 100'
+  - tipo: conceito
+    titulo: 400 ou 422
+    texto: O guia reserva o 400 para a requisição que não pode ser lida e o 422 para a requisição bem formada que viola uma regra. Os Pedidos usam o `ValidationProblem` padrão do ASP.NET, que responde 400 também para a regra violada, e o contrato do mesmo erro muda conforme o contexto.
+  - tipo: conceito
+    titulo: Comportamento silencioso
+    texto: Um parâmetro que a API corrige ou ignora sem avisar faz o cliente acreditar que recebeu o que pediu. Um `pageSize=1000` que volta como 20, ou um `status` desconhecido que devolve a lista inteira, só aparece para quem lê os metadados da resposta.
+- id: codigo
+  titulo: No código
+  blocos:
+  - tipo: legenda
+    texto: Os trechos abaixo mostram, no commit `702145a`, os retornos de criação e validação nos dois contextos, o tratamento do filtro e o exemplo do guia. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Catalogo/Catalogo.API/Endpoints/Produtos/ProdutoEndpoints.cs
+    commit: 702145a
+    linhas:
+    - '        CriarProdutoRequest request, IProdutoService service,'
+    - '        IValidator<CriarProdutoRequest> validator)'
+    - '    {'
+    - '        var validation = await validator.ValidateAsync(request);'
+    - '        if (!validation.IsValid)'
+    - '            return Results.UnprocessableEntity(new ErrorResponse'
+    - '            {'
+    - '                Status = 422, Title = "Validação falhou",'
+    - '                Detail = string.Join("; ", validation.Errors.Select(e => e.ErrorMessage)),'
+    - '                Type = "https://api.example.com/errors/validation"'
+    - '            });'
+    - '        var produto = await service.CriarProdutoAsync(request);'
+    - '        return Results.Created($"/api/v1/catalogo/produtos/{produto.Id}", produto);'
+    anotacoes:
+    - linha: 85
+      texto: 422 com o `ErrorResponse` próprio do Catálogo.
+    - linha: 92
+      texto: O `Location` aponta para a rota atual.
+    inicio: 80
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/CreatePedido/CreatePedidoEndpoint.cs
+    commit: 702145a
+    linhas:
+    - '            CancellationToken ct) =>'
+    - '        {'
+    - '            var validation = await validator.ValidateAsync(cmd, ct);'
+    - '            if (!validation.IsValid)'
+    - '                return Results.ValidationProblem(validation.ToDictionary());'
+    - ''
+    - '            var result = await handler.HandleAsync(cmd, ct);'
+    - '            return result.IsSuccess'
+    - '                ? Results.Created($"/api/v1/pedidos/{result.Value!.Id}", result.Value)'
+    - '                : Results.BadRequest(new { error = result.Error });'
+    anotacoes:
+    - linha: 19
+      texto: 400 com as mensagens por campo.
+    - linha: 24
+      texto: Erro de domínio com um objeto anônimo, sem `problem+json`.
+    inicio: 15
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/ListPedidos/ListPedidosQuery.cs
+    commit: 702145a
+    linhas:
+    - '    public async Task<Result<ListPedidosResponse>> HandleAsync('
+    - '        ListPedidosQuery query, CancellationToken ct = default)'
+    - '    {'
+    - '        var pageSize = Math.Clamp(query.PageSize, 1, 100);'
+    - '        var page = Math.Max(query.Page, 1);'
+    - ''
+    - '        StatusPedido? statusEnum = null;'
+    - '        if (!string.IsNullOrWhiteSpace(query.Status)'
+    - '            && Enum.TryParse<StatusPedido>(query.Status, true, out var parsed))'
+    - '        {'
+    - '            statusEnum = parsed;'
+    - '        }'
+    - ''
+    - '        var (data, total) = await repository.ListarAsync(page, pageSize, statusEnum, ct);'
+    - ''
+    - '        return Result<ListPedidosResponse>.Ok('
+    - '            new ListPedidosResponse(data.ToList(), total, page, pageSize));'
+    - '    }'
+    anotacoes:
+    - linha: 17
+      texto: Limite de página aplicado sem aviso.
+    - linha: 22
+      texto: Status que não converte é descartado, e a consulta segue sem filtro.
+    inicio: 14
+  - tipo: editor
+    rotulo: arquivo
+    caminho: src/Pedidos/ListPedidos/ListPedidosEndpoint.cs
+    commit: 702145a
+    linhas:
+    - '            var result = await handler.HandleAsync('
+    - '                new ListPedidosQuery(page, pageSize, status), ct);'
+    - '            return result.IsSuccess'
+    - '                ? Results.Ok(result.Value)'
+    - '                : Results.Problem("Erro ao listar pedidos.");'
+    anotacoes:
+    - linha: 20
+      texto: Uma falha do handler viraria 500.
+    inicio: 16
+  - tipo: editor
+    rotulo: arquivo
+    caminho: docs/guias/MELHORES-PRATICAS-API.md
+    commit: 702145a
+    linhas:
+    - '```csharp'
+    - // 201 Created — POST de produto bem-sucedido
+    - return Results.Created($"/api/v1/produtos/{produto.Id}", produto);
+    - ''
+    - // 204 No Content — DELETE bem-sucedido
+    anotacoes:
+    - linha: 335
+      texto: Exemplo com a rota anterior à migração para `/api/v1/catalogo`.
+    inicio: 333
+- id: simulacao
+  titulo: Simulação
+  blocos:
+  - tipo: legenda
+    texto: Envie as requisições da sondagem, com respostas capturadas na API do commit de referência, e classifique cada resultado em relação aos guias.
+  - tipo: console-api
+    cenarios:
+    - rotulo: Criar produto
+      requisicao:
+        metodo: POST
+        url: http://localhost:5000/api/v1/catalogo/produtos
+        cabecalhos:
+          Authorization: Bearer <token>
+        corpo:
+          nome: Teclado Mecânico
+          descricao: Teclado com switches azuis para uso diário
+          preco: 350.0
+          categoria: Eletrônicos
+          estoque: 10
+          contatoEmail: vendas@exemplo.com
+      resposta:
+        status: 201
+        corpo: 'Location: /api/v1/catalogo/produtos/9'
+      origem: executado
+    - rotulo: Produto inválido
+      requisicao:
+        metodo: POST
+        url: http://localhost:5000/api/v1/catalogo/produtos
+        cabecalhos:
+          Authorization: Bearer <token>
+        corpo:
+          nome: ''
+          preco: -1
+      resposta:
+        status: 422
+        corpo: '{"type":"https://api.example.com/errors/validation","title":"Validação falhou","status":422,"detail":"Nome é obrigatório; Nome deve ter no mínimo 3 caracteres; Descrição deve ter no mínimo 10 caracteres; Preço deve ser maior que zero; Categoria é obrigatória; Categoria inválida; Estoque não pode ser negativo; Email inválido","instance":"","errors":{}}'
+      origem: executado
+      nota: Corpo enviado resumido. As oito mensagens ficam no `detail`, e `errors` vem vazio.
+    - rotulo: JSON ilegível
+      requisicao:
+        metodo: POST
+        url: http://localhost:5000/api/v1/catalogo/produtos
+        corpo: '{"nome":'
+      resposta:
+        status: 500
+        corpo: '{"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/produtos","errors":{}}'
+      origem: executado
+    - rotulo: Pedido sem itens
+      requisicao:
+        metodo: POST
+        url: http://localhost:5000/api/v1/pedidos
+        cabecalhos:
+          Authorization: Bearer <token>
+        corpo:
+          itens: []
+      resposta:
+        status: 400
+        corpo: '{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Itens":["Pedido deve conter ao menos um item."]}}'
+      origem: executado
+    - rotulo: Status inexistente
+      requisicao:
+        metodo: GET
+        url: http://localhost:5000/api/v1/pedidos?status=Qualquer
+        cabecalhos:
+          Authorization: Bearer <token>
+      resposta:
+        status: 200
+        corpo: ',"status":"Rascunho","total":4500.0,"criadoEm":"2026-11-02T00:19:12.118438","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":1,"subtotal":4500.0}]}],"total":1,"page":1,"pageSize":20}'
+      origem: executado
+      nota: 'Saída final do corpo: a lista inteira, sem filtro.'
+    - rotulo: Cancelar sem corpo
+      requisicao:
+        metodo: POST
+        url: http://localhost:5000/api/v1/pedidos/1/cancelar
+        cabecalhos:
+          Authorization: Bearer <token>
+      resposta:
+        status: 500
+      origem: executado
+  - tipo: classificador
+    enunciado: Como cada resultado se compara aos guias?
+    categorias:
+    - id: segue
+      rotulo: Segue o guia
+    - id: diverge
+      rotulo: A API diverge
+    - id: guia
+      rotulo: O guia está desatualizado
+    - id: silencio
+      rotulo: Comportamento silencioso
+    itens:
+    - texto: '`201` com `Location: /api/v1/catalogo/produtos/9`'
+      categoria: segue
+      explicacao: Criação com o endereço do recurso novo.
+    - texto: Exemplo do guia com `Results.Created($"/api/v1/produtos/...")`
+      categoria: guia
+      explicacao: O código usa `/api/v1/catalogo/produtos`.
+    - texto: '`500` para JSON ilegível'
+      categoria: diverge
+      explicacao: A tabela do guia diz 400.
+    - texto: '`pageSize=1000` que volta como 20'
+      categoria: silencio
+      explicacao: Só os metadados mostram a troca.
+    - texto: '`204` e depois `404` ao excluir o mesmo produto'
+      categoria: segue
+      explicacao: DELETE bem-sucedido sem corpo, e recurso inativo como inexistente.
+    - texto: 422 do Catálogo com `errors` vazio
+      categoria: diverge
+      explicacao: O guia de JSON pede mensagens por campo.
+    - texto: '`status=Qualquer` que devolve a lista inteira'
+      categoria: silencio
+      explicacao: O filtro desconhecido é descartado sem aviso.
+    - texto: '`setup.sh` que sugere `/api/v1/produtos`'
+      categoria: guia
+      explicacao: Mesma rota antiga, vista na ODA 16.
+- id: laboratorio
+  titulo: Laboratório
+  blocos:
+  - tipo: legenda
+    texto: Execute os passos na raiz do `net-minimal-api`. Os passos 1 a 4 fazem a sondagem e montam o quadro de avaliação, e os passos 5 a 8 corrigem o filtro de status com o teste escrito antes.
+  - tipo: faixa
+    estilo: dica
+    titulo: Antes de começar
+    texto: 'Os laboratórios partem do commit `702145a` sem as alterações das ODAs anteriores, e as contagens de testes dependem disso. Na raiz do repositório, rode `git stash push -u -m "trabalho das ODAs anteriores"`, que guarda as alterações sem apagá-las: `git stash list` mostra o que foi guardado, e `git stash pop` traz de volta. As pastas `bin/` e `obj/` e o banco `produtos-api.db` continuam no lugar, porque o Git os ignora.'
+  - tipo: passos
+    itens:
+    - titulo: Subir a API e obter um token
+      editor:
+        rotulo: terminal
+        linhas:
+        - rm -f produtos-api.db
+        - dotnet run --launch-profile http
+        - 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      sucesso: '`Now listening on: http://localhost:5000` e a variável `TOKEN` preenchida.'
+    - titulo: Sondar o Catálogo
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"Teclado Mecânico","descricao":"Teclado com switches azuis para uso diário","preco":350.0,"categoria":"Eletrônicos","estoque":10,"contatoEmail":"vendas@exemplo.com"}'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^location'''
+        - 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
+        - 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos'
+        - curl -s 'http://localhost:5000/api/v1/catalogo/produtos?pageSize=1000' | grep -o '"pagination":{[^}]*}'
+        - 'curl -s -o /dev/null -w ''%{http_code}\n'' -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/catalogo/produtos/2'
+      sucesso: '`201`, `422`, `500`, `"pageSize":20` e `204`.'
+    - titulo: Sondar os Pedidos
+      editor:
+        rotulo: terminal
+        linhas:
+        - 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":1,"quantidade":1}]}'' http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -i -E ''^HTTP|^location|^\{'''
+        - 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[]}'' http://localhost:5000/api/v1/pedidos'
+        - 'curl -s -w ''\n%{http_code}\n'' -H "Authorization: Bearer $TOKEN" ''http://localhost:5000/api/v1/pedidos?pageSize=0'''
+        - 'curl -s -w ''\n%{http_code}\n'' -H "Authorization: Bearer $TOKEN" ''http://localhost:5000/api/v1/pedidos?status=Qualquer'''
+        - 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos/1/cancelar'
+      sucesso: '`201` com `Location`, `400` com `errors.Itens`, `"pageSize":1`, `200` com a lista inteira e `500` no cancelamento.'
+    - titulo: Montar o quadro de avaliação
+      texto: Para cada chamada, anote o status recebido, o que o guia prevê e a classificação da Simulação. Guarde a saída do terminal como evidência de cada linha.
+    - titulo: Escrever o teste do filtro
+      editor:
+        rotulo: arquivo
+        caminho: tests/ProdutosAPI.Tests/Integration/Pedidos/FiltroStatusTests.cs (novo)
+        commit: 702145a
+        linhas:
+        - using System.Net;
+        - using System.Net.Http.Headers;
+        - using System.Net.Http.Json;
+        - using FluentAssertions;
+        - using Microsoft.AspNetCore.Mvc;
+        - using ProdutosAPI.Pedidos.CreatePedido;
+        - using ProdutosAPI.Pedidos.ListPedidos;
+        - using Xunit;
+        - ''
+        - namespace ProdutosAPI.Tests.Integration.Pedidos;
+        - ''
+        - 'public class FiltroStatusTests : IClassFixture<ApiFactory>'
+        - '{'
+        - '    private readonly HttpClient _client;'
+        - ''
+        - '    public FiltroStatusTests(ApiFactory factory)'
+        - '    {'
+        - '        _client = factory.CreateClient();'
+        - '    }'
+        - ''
+        - '    private async Task AuthenticateAsync()'
+        - '    {'
+        - '        var token = await AuthHelper.ObterTokenAsync(_client);'
+        - '        _client.DefaultRequestHeaders.Authorization ='
+        - '            new AuthenticationHeaderValue("Bearer", token);'
+        - '    }'
+        - ''
+        - '    [Theory]'
+        - '    [InlineData("Qualquer")]'
+        - '    [InlineData("7")]'
+        - '    public async Task GET_Pedidos_StatusInexistente_Retorna400(string status)'
+        - '    {'
+        - '        await AuthenticateAsync();'
+        - ''
+        - '        var response = await _client.GetAsync($"/api/v1/pedidos?status={status}");'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);'
+        - '        var problema = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>();'
+        - '        problema!.Errors.Should().ContainKey("status");'
+        - '    }'
+        - ''
+        - '    [Fact]'
+        - '    public async Task GET_Pedidos_StatusValido_FiltraSemDiferenciarMaiusculas()'
+        - '    {'
+        - '        await AuthenticateAsync();'
+        - '        await _client.PostAsJsonAsync("/api/v1/pedidos", new CreatePedidoCommand([new(1, 1)]));'
+        - ''
+        - '        var response = await _client.GetAsync("/api/v1/pedidos?status=rascunho");'
+        - ''
+        - '        response.StatusCode.Should().Be(HttpStatusCode.OK);'
+        - '        var lista = await response.Content.ReadFromJsonAsync<ListPedidosResponse>();'
+        - '        lista!.Data.Should().OnlyContain(p => p.Status == "Rascunho");'
+        - '    }'
+        - '}'
+      efeito: teste_filtro
+    - titulo: Ver o teste falhar
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter FiltroStatusTests
+      sucesso: '`Com falha: 2, Aprovado: 1`, com `found HttpStatusCode.OK` para `Qualquer` e para `7`.'
+    - titulo: Validar o status
+      texto: Faça o handler recusar o valor inexistente e o endpoint responder com `ValidationProblem`, o mesmo contrato da criação de pedidos.
+      editor:
+        rotulo: arquivo
+        caminho: src/Pedidos/ListPedidos (alteração)
+        commit: 702145a
+        linhas:
+        - '// src/Pedidos/ListPedidos/ListPedidosQuery.cs: no lugar do if que lê o status'
+        - '        if (!string.IsNullOrWhiteSpace(query.Status))'
+        - '        {'
+        - '            // TryParse aceita qualquer número; IsDefined recusa os que não são um status.'
+        - '            if (!Enum.TryParse<StatusPedido>(query.Status, true, out var parsed) || !Enum.IsDefined(parsed))'
+        - '                return Result<ListPedidosResponse>.Fail('
+        - '                    $"Status ''{query.Status}'' inválido. Use {string.Join(", ", Enum.GetNames<StatusPedido>())}.");'
+        - '            statusEnum = parsed;'
+        - '        }'
+        - ''
+        - '// src/Pedidos/ListPedidos/ListPedidosEndpoint.cs: no ramo de falha'
+        - '                : Results.ValidationProblem(new Dictionary<string, string[]> { ["status"] = [result.Error!] });'
+      efeito: filtro_validado
+    - titulo: Ver o teste passar e conferir com a API
+      texto: Reinicie a API e repita a chamada com o status inexistente.
+      editor:
+        rotulo: terminal
+        linhas:
+        - dotnet test tests/ProdutosAPI.Tests --filter FiltroStatusTests
+        - dotnet test tests/ProdutosAPI.Tests
+        - 'curl -s -w ''\n%{http_code}\n'' -H "Authorization: Bearer $TOKEN" ''http://localhost:5000/api/v1/pedidos?status=Qualquer'''
+      sucesso: '`Aprovado: 3`, a suíte com `Aprovado: 146` e `400` com a mensagem `Status ''Qualquer'' inválido. Use Rascunho, Confirmado, Cancelado.`'
+  - tipo: terminal
+    titulo: terminal · net-minimal-api
+    comandos:
+    - entrada: git stash push -u -m "trabalho das ODAs anteriores"
+      saida: 'Saved working directory and index state On (no branch): trabalho das ODAs anteriores'
+      origem: executado
+      dica: Sem alterações a guardar, a saída é `No local changes to save`.
+    - entrada: dotnet run --launch-profile http
+      saida: 'Now listening on: http://localhost:5000
+
+        Application started. Press Ctrl+C to shut down.
+
+        Hosting environment: Development'
+      origem: executado
+      dica: Apague `produtos-api.db` antes, para partir do banco recriado pelo seed.
+    - entrada: 'TOKEN=$(curl -s -X POST -H ''Content-Type: application/json'' -d ''{"email":"admin@example.com","senha":"senha123"}'' http://localhost:5000/api/v1/auth/login | sed -E ''s/.*"token":"([^"]+)".*/\1/'')'
+      saida: ''
+      origem: executado
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"Teclado Mecânico","descricao":"Teclado com switches azuis para uso diário","preco":350.0,"categoria":"Eletrônicos","estoque":10,"contatoEmail":"vendas@exemplo.com"}'' http://localhost:5000/api/v1/catalogo/produtos | tr -d ''\r'' | grep -i -E ''^HTTP|^location'''
+      saida: 'HTTP/1.1 201 Created
+
+        Location: /api/v1/catalogo/produtos/9'
+      origem: executado
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
+      saida: '{"type":"https://api.example.com/errors/validation","title":"Validação falhou","status":422,"detail":"Nome é obrigatório; Nome deve ter no mínimo 3 caracteres; Descrição deve ter no mínimo 10 caracteres; Preço deve ser maior que zero; Categoria é obrigatória; Categoria inválida; Estoque não pode ser negativo; Email inválido","instance":"","errors":{}}
+
+        422'
+      origem: executado
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos'
+      saida: '{"type":"https://example.com/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/catalogo/produtos","errors":{}}
+
+        500'
+      origem: executado
+      dica: O guia promete 400 para payload ilegível. A ODA 22 trata do middleware que transforma a falha de leitura em 500.
+    - entrada: curl -s 'http://localhost:5000/api/v1/catalogo/produtos?pageSize=1000' | grep -o '"pagination":{[^}]*}'
+      saida: '"pagination":{"page":1,"pageSize":20,"totalItems":9,"totalPages":1}'
+      origem: executado
+      dica: O serviço troca em silêncio um `pageSize` acima de 100 por 20.
+    - entrada: 'curl -s -i -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[{"produtoId":1,"quantidade":1}]}'' http://localhost:5000/api/v1/pedidos | tr -d ''\r'' | grep -i -E ''^HTTP|^location|^\{'''
+      saida: 'HTTP/1.1 201 Created
+
+        Location: /api/v1/pedidos/1
+
+        {"id":1,"status":"Rascunho","total":4500.0,"criadoEm":"2026-11-02T00:19:12.118438Z","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":1,"subtotal":4500.0}]}'
+      origem: executado
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"itens":[]}'' http://localhost:5000/api/v1/pedidos'
+      saida: '{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Itens":["Pedido deve conter ao menos um item."]}}
+
+        400'
+      origem: executado
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -H "Authorization: Bearer $TOKEN" ''http://localhost:5000/api/v1/pedidos?pageSize=0'''
+      saida: '{"data":[{"id":1,"status":"Rascunho","total":4500.0,"criadoEm":"2026-11-02T00:19:12.118438","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":1,"subtotal":4500.0}]}],"total":1,"page":1,"pageSize":1}
+
+        200'
+      origem: executado
+    - entrada: 'curl -s -w '' %{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/pedidos/1/cancelar'
+      saida: om/errors/internal-server-error","title":"Internal Server Error","status":500,"detail":"Um erro interno ocorreu ao processar sua requisição","instance":"/api/v1/pedidos/1/cancelar","errors":{}} 500
+      origem: executado
+      dica: O cancelamento exige um corpo com `motivo`. Sem ele, a leitura do corpo falha e vira 500, pelo mesmo caminho do JSON ilegível.
+    - entrada: 'curl -s -o /dev/null -w ''%{http_code}\n'' -X DELETE -H "Authorization: Bearer $TOKEN" http://localhost:5000/api/v1/catalogo/produtos/2'
+      saida: '204
+
+        404'
+      origem: executado
+      dica: A segunda chamada recebe 404, porque o produto foi desativado pela primeira.
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -H "Authorization: Bearer $TOKEN" ''http://localhost:5000/api/v1/pedidos?status=Qualquer'''
+      condicao: filtro_validado
+      saida: '{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"status":["Status ''Qualquer'' inválido. Use Rascunho, Confirmado, Cancelado."]}}
+
+        400'
+      origem: executado
+      dica: Reinicie a API para que ela leia o código novo.
+    - entrada: 'curl -s -w ''\n%{http_code}\n'' -H "Authorization: Bearer $TOKEN" ''http://localhost:5000/api/v1/pedidos?status=Qualquer'''
+      saida: ',"status":"Rascunho","total":4500.0,"criadoEm":"2026-11-02T00:19:12.118438","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":1,"subtotal":4500.0}]}],"total":1,"page":1,"pageSize":20}
+
+        200'
+      origem: executado
+      dica: O filtro desconhecido é ignorado, e a resposta traz todos os pedidos. O passo 6 corrige isso.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter FiltroStatusTests
+      condicao:
+      - teste_filtro
+      - filtro_validado
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:     3, Ignorado:     0, Total:     3, Duração: 837 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter FiltroStatusTests
+      condicao: teste_filtro
+      saida: "  Com falha ProdutosAPI.Tests.Integration.Pedidos.FiltroStatusTests.GET_Pedidos_StatusInexistente_Retorna400(status: \"Qualquer\") [652 ms]\n   Expected response.StatusCode to be HttpStatusCode.BadRequest {value: 400}, but found HttpStatusCode.OK {value: 200}.\n  Com falha ProdutosAPI.Tests.Integration.Pedidos.FiltroStatusTests.GET_Pedidos_StatusInexistente_Retorna400(status: \"7\") [28 ms]\n   Expected response.StatusCode to be HttpStatusCode.BadRequest {value: 400}, but found HttpStatusCode.OK {value: 200}.\nCom falha! – Com falha:     2, Aprovado:     1, Ignorado:     0, Total:     3, Duração: 748 ms - ProdutosAPI.Tests.dll (net10.0)"
+      origem: executado
+      dica: O teste com maiúsculas e minúsculas misturadas já passa, e os dois de status inexistente recebem 200.
+    - entrada: dotnet test tests/ProdutosAPI.Tests --filter FiltroStatusTests
+      saida: Nenhum teste corresponde ao filtro de testcase `FiltroStatusTests` determinado no ./tests/ProdutosAPI.Tests/bin/Debug/net10.0/ProdutosAPI.Tests.dll
+      origem: executado
+      dica: O arquivo de teste ainda não existe. Crie-o no passo 5.
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      condicao:
+      - teste_filtro
+      - filtro_validado
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   146, Ignorado:     0, Total:   146, Duração: 860 ms - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+    - entrada: dotnet test tests/ProdutosAPI.Tests
+      saida: 'Aprovado!  – Com falha:     0, Aprovado:   143, Ignorado:     0, Total:   143, Duração: 1 s - ProdutosAPI.Tests.dll (net10.0)'
+      origem: executado
+      dica: Se o build parar com `MSB3030`, apague `bin/`, `obj/` e as pastas de mesmo nome em `tests/ProdutosAPI.Tests`, ou aplique a correção da ODA 16.
+    cenarios:
+    - rotulo: Produto inválido
+      comando: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":"","descricao":"x","preco":-1,"categoria":"","estoque":-5,"contatoEmail":"nao-e-email"}'' http://localhost:5000/api/v1/catalogo/produtos'
+    - rotulo: JSON ilegível
+      comando: 'curl -s -w ''\n%{http_code}\n'' -X POST -H "Authorization: Bearer $TOKEN" -H ''Content-Type: application/json'' -d ''{"nome":'' http://localhost:5000/api/v1/catalogo/produtos'
+    - rotulo: Status inexistente
+      comando: 'curl -s -w ''\n%{http_code}\n'' -H "Authorization: Bearer $TOKEN" ''http://localhost:5000/api/v1/pedidos?status=Qualquer'''
+    - rotulo: Teste do filtro
+      comando: dotnet test tests/ProdutosAPI.Tests --filter FiltroStatusTests
+- id: diagnostico
+  titulo: Diagnóstico
+  blocos:
+  - tipo: legenda
+    texto: Os quatro incidentes partem da sondagem e de uma chamada feita depois da correção.
+  - tipo: incidente
+    titulo: Cliente que trata dois formatos de erro
+    origem: executado
+    rotulo_saida: log
+    saida: '$ produto inválido
+
+      {"type":"https://api.example.com/errors/validation","title":"Validação falhou","status":422,"detail":"Nome é obrigatório; Nome deve ter no mínimo 3 caracteres; Descrição deve ter no mínimo 10 caracteres; Preço deve ser maior que zero; Categoria é obrigatória; Categoria inválida; Estoque não pode ser negativo; Email inválido","instance":"","errors":{}}
+
+      422
+
+
+      $ pedido sem itens
+
+      {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Itens":["Pedido deve conter ao menos um item."]}}
+
+      400'
+    pergunta: Um aplicativo móvel usa as duas partes da API. Que problema ele enfrenta ao mostrar erros de validação?
+    correcao: Escolher um contrato de validação para a API inteira, com o status e o formato de `errors` por campo, e registrar a escolha numa ADR.
+    alternativas:
+    - texto: Os Pedidos não devolvem mensagem.
+      correta: false
+      explicacao: A mensagem está em `errors.Itens`.
+    - texto: O Catálogo responde 422 com as mensagens num texto único, e os Pedidos respondem 400 com mensagens por campo, e o cliente precisa de dois tratamentos.
+      correta: true
+      explicacao: O guia de JSON pede mensagens por campo no `ValidationProblem`.
+    - texto: Nenhum, porque os dois usam `problem+json`.
+      correta: false
+      explicacao: Os campos `status` e `errors` mudam de significado.
+  - tipo: incidente
+    titulo: Relatório com pedidos de todos os status
+    origem: executado
+    rotulo_saida: log
+    saida: '$ GET /api/v1/pedidos?status=Qualquer
+
+      ,"status":"Rascunho","total":4500.0,"criadoEm":"2026-11-02T00:19:12.118438","confirmadoEm":null,"canceladoEm":null,"motivoCancelamento":null,"itens":[{"produtoId":1,"nomeProduto":"Notebook Dell XPS 13","precoUnitario":4500.0,"quantidade":1,"subtotal":4500.0}]}],"total":1,"page":1,"pageSize":20}
+
+      200'
+    pergunta: Um relatório pede `status=Cancelados` e mostra pedidos em rascunho. O que aconteceu?
+    correcao: Recusar o status inexistente com 400, como no passo 7.
+    alternativas:
+    - texto: O banco ignora o filtro de status.
+      correta: false
+      explicacao: Com `status=Cancelado`, a consulta filtra.
+    - texto: O cache devolveu a lista anterior.
+      correta: false
+      explicacao: A listagem não usa cache.
+    - texto: O nome no plural não converte para o enum, e o handler descarta o filtro sem avisar.
+      correta: true
+      explicacao: Depois da correção, a mesma chamada recebe 400 com os valores aceitos.
+  - tipo: incidente
+    titulo: Status numérico aceito
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'src/Pedidos/ListPedidos/ListPedidosQuery.cs:21-22
+
+      if (!string.IsNullOrWhiteSpace(query.Status)
+
+      && Enum.TryParse<StatusPedido>(query.Status, true, out var parsed))'
+    pergunta: Por que o teste com `status=7` falhava mesmo que o código já usasse `TryParse`?
+    correcao: Conferir o valor com `Enum.IsDefined` depois do `TryParse`.
+    alternativas:
+    - texto: O `Enum.TryParse` aceita qualquer número inteiro e devolve um valor fora dos membros do enum.
+      correta: true
+      explicacao: A consulta procurava o status `7` e voltava vazia, ou a lista inteira com o descarte do filtro.
+    - texto: O `7` é convertido em `Cancelado`.
+      correta: false
+      explicacao: O enum tem só os valores 0, 1 e 2.
+    - texto: O `TryParse` ignora maiúsculas.
+      correta: false
+      explicacao: Isso explica `rascunho`, e não o número.
+  - tipo: incidente
+    titulo: Exemplo do guia que gera 404
+    origem: codigo
+    rotulo_saida: arquivo
+    saida: 'docs/guias/MELHORES-PRATICAS-API.md:335
+
+      return Results.Created($"/api/v1/produtos/{produto.Id}", produto);'
+    pergunta: Uma equipe copia o exemplo do guia para um recurso novo do Catálogo. O que o cliente recebe ao seguir o `Location`?
+    correcao: Atualizar o exemplo do guia para `/api/v1/catalogo/produtos/{id}`, como o código já faz.
+    alternativas:
+    - texto: 401, porque a rota exige token.
+      correta: false
+      explicacao: A rota não existe.
+    - texto: 404, porque `/api/v1/produtos` deixou de existir na migração para o Catálogo.
+      correta: true
+      explicacao: A ODA 16 recebeu 404 na mesma rota.
+    - texto: O produto, porque a API redireciona.
+      correta: false
+      explicacao: Não há redirecionamento configurado.
+- id: verificacao
+  titulo: Verificação
+  blocos:
+  - tipo: quiz
+    perguntas:
+    - enunciado: Pela tabela do guia, que status cabe a um JSON que não pode ser lido?
+      alternativas:
+      - texto: '422.'
+        correta: false
+        explicacao: O 422 é para requisição bem formada que viola regra.
+      - texto: '500.'
+        correta: false
+        explicacao: O erro é do cliente.
+      - texto: '400.'
+        correta: true
+        explicacao: A API responde 500, uma divergência.
+    - enunciado: Que métrica mostra que o `pageSize=1000` foi trocado?
+      alternativas:
+      - texto: O `pagination.pageSize` da resposta, que volta 20.
+        correta: true
+        explicacao: Nenhum cabeçalho ou aviso informa a troca.
+      - texto: O status 206.
+        correta: false
+        explicacao: A resposta é 200.
+      - texto: Um erro 400.
+        correta: false
+        explicacao: A API não recusa o valor.
+    - enunciado: Por que a correção usa `ValidationProblem`?
+      alternativas:
+      - texto: Porque o `Results.Problem` não compila.
+        correta: false
+        explicacao: Compila, e responderia 500.
+      - texto: Para seguir o contrato de validação que os Pedidos já usam na criação, com a mensagem em `errors.status`.
+        correta: true
+        explicacao: O cliente trata o filtro como trata a criação.
+      - texto: Porque o guia exige 400 para filtros.
+        correta: false
+        explicacao: O guia não trata filtros.
+    - enunciado: O que separa uma divergência do guia de um guia desatualizado?
+      alternativas:
+      - texto: A data do commit.
+        correta: false
+        explicacao: A classificação depende do conteúdo.
+      - texto: O status da resposta.
+        correta: false
+        explicacao: Os dois casos podem ter qualquer status.
+      - texto: Na divergência, o código contraria a regra, e no guia desatualizado é o exemplo que contraria o código atual.
+        correta: true
+        explicacao: O `Location` do código está certo, e o do guia, não.
+    - enunciado: O que o cancelamento sem corpo revelou?
+      alternativas:
+      - texto: Que a falha de leitura do corpo vira 500, como no JSON ilegível.
+        correta: true
+        explicacao: A ODA 22 trata do middleware.
+      - texto: Que o pedido já estava cancelado.
+        correta: false
+        explicacao: As duas chamadas falharam antes do handler.
+      - texto: Que o cancelamento exige outro token.
+        correta: false
+        explicacao: O token era o mesmo das outras chamadas.
+  - tipo: resumo
+  - tipo: checklist
+    titulo: Checklist final
+    itens:
+    - A sondagem cobriu criação, validação, paginação, exclusão e cancelamento nos dois contextos.
+    - Cada resultado foi classificado com a saída como evidência.
+    - O teste do filtro falhou antes da validação e passou depois.
+    - O status inexistente passou a receber 400 com os valores aceitos.
+    - As divergências restantes ficaram registradas no quadro.
