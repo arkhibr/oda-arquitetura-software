@@ -6,7 +6,7 @@ O portal tem duas partes que compartilham o mesmo repositório e a mesma publica
 
 ## Aprenda a criar uma ODA
 
-A <a href="../../oda-criar/">ODA Como criar uma ODA</a> apresenta o fluxo de autoria e exemplos interativos de todos os componentes disponíveis, acompanhados de suas configurações YAML.
+A <a href="../oda-criar/">ODA Como criar uma ODA</a> apresenta o fluxo de autoria e exemplos interativos de todos os componentes disponíveis, acompanhados de suas configurações YAML.
 
 ## Mapa da seção
 

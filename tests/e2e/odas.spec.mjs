@@ -700,6 +700,12 @@ test('o aluno não vê etiquetas internas de origem, só a marca de saída ilust
 
 test('guia de autoria: acesso pela seção Sobre e componentes renderizados', async ({ page }) => {
   const erros = vigiarErros(page);
+  // O GitHub Pages publica o site em um subcaminho; na raiz, um "../" excedente passaria despercebido.
+  for (const [pagina, esperado] of [['sobre/', '/base/oda-criar/'], ['sobre/estender/', '/base/oda-criar/']]) {
+    await page.goto('/' + pagina);
+    const href = await page.getByRole('link', { name: 'ODA Como criar uma ODA' }).getAttribute('href');
+    expect(new URL(href, 'https://exemplo.test/base/' + pagina).pathname).toBe(esperado);
+  }
   await page.goto('/sobre/');
   await page.getByRole('link', { name: 'ODA Como criar uma ODA' }).click();
   await expect(page).toHaveURL(/\/oda-criar\//);
