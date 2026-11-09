@@ -1,8 +1,8 @@
 id: '19'
 titulo: Clean Architecture híbrida no Catálogo
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é explicar a responsabilidade de cada subprojeto do Catálogo e garantir com testes que as dependências entre eles apontem para o domínio, porque uma referência na direção errada acopla camadas que a Clean Architecture deveria manter independentes. No `net-minimal-api`, a camada de API do Catálogo referencia a Infrastructure só para registrar repositórios na injeção de dependência, e essa é a única seta que aponta para fora. Você vai ler o grafo de referências, transformar a regra de dependência em testes de arquitetura e mover esse registro para a raiz de composição.
@@ -154,7 +154,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica a regra de dependência da Clean Architecture, o estilo em camadas em que o código de dentro, o domínio e a aplicação, não conhece o de fora, a infraestrutura e a API. No `net-minimal-api`, o Catálogo segue esse estilo em quatro subprojetos, e os Pedidos seguem outro, o Vertical Slice, organizado por caso de uso. Os blocos abaixo explicam primeiro cada conceito, e as ADRs que registram essas escolhas aparecem no fim como apoio.
@@ -217,18 +217,17 @@ abas:
     decisao: Domain, Application e Infrastructure em Clean Architecture, e um arquivo por grupo de endpoints na API.
     alternativas: Clean Architecture pura e Vertical Slice pura.
     consequencias: Domínio reutilizado por todos os endpoints, com risco de misturar responsabilidades se a disciplina de camadas não for mantida.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra, no commit `702145a`, as referências do projeto de API, o registro no contêiner de injeção de dependência, a interface de dados da Application e o contexto do EF Core no projeto principal. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra, no commit `702145a`, as referências do projeto de API, o registro no contêiner de injeção de dependência, a interface de dados da Application e o contexto do EF Core no projeto principal. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: Nos trechos abaixo, `ProjectReference` é a linha do `.csproj` que faz um projeto depender de outro, e um método de extensão como `AddCatalogo` é um método estático que acrescenta registros à coleção de serviços da injeção de dependência, o mecanismo que entrega a cada classe os objetos de que ela precisa. O Dapper é a biblioteca de leitura com SQL escrito à mão, o EF Core é a biblioteca de acesso a banco da Microsoft, e o `DbContext` é a classe do EF Core que representa a sessão com o banco. `IQueryable` é a interface do .NET para consultas que o provedor, aqui o EF Core, traduz para SQL só quando o resultado é pedido, LINQ é a sintaxe de consulta do C# usada para escrevê-las, e `Produto.Criar` é um método de fábrica, que cria a entidade e devolve um `Result` com sucesso ou falha.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

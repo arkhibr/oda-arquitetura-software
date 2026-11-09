@@ -1,8 +1,8 @@
 id: '34'
 titulo: Orquestração com Step Functions e tarefas em ECS
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é comparar uma máquina de estados do AWS Step Functions com uma tarefa em contêiner no Amazon ECS (Elastic Container Service) e fazer um pedido repetido terminar como resposta de negócio, porque sem tratamento ele encerra a execução em falha e exige investigação. No repositório `aspire-aws`, o cenário 15 tem uma máquina de estados que chama uma Lambda e por isso fica com os testes ignorados no macOS ARM64, e o cenário 18 roda um worker em contêiner que consome uma fila. Você vai criar uma máquina de estados sem Lambda que registra pedidos no DynamoDB, testá-la no LocalStack e fazê-la reconhecer o pedido repetido com um `Catch`.
@@ -174,7 +174,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba compara duas formas de executar um processo na AWS, a máquina de estados do AWS Step Functions, fluxo de etapas guardado pelo serviço, e a tarefa em contêiner do Amazon ECS, programa que roda enquanto o contêiner estiver no ar. Os blocos de conceito explicam cada peça e os elementos da Amazon States Language, a linguagem JSON das máquinas de estados, antes da tabela comparativa.
@@ -221,18 +221,17 @@ abas:
       valores:
       - Cenário 15
       - Cenário 18, com o worker de `src/tasks/pedido_processor`
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os arquivos das duas formas de executar um processo comparadas nesta ODA: a fixture do cenário 15, classe que define a máquina de estados antes dos testes, e, do cenário 18, a fixture que sobe o worker em contêiner e o programa Python desse worker, que consome uma fila. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam como cada forma executa o passo e trata o erro.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os arquivos das duas formas de executar um processo comparadas nesta ODA: a fixture do cenário 15, classe que define a máquina de estados antes dos testes, e, do cenário 18, a fixture que sobe o worker em contêiner e o programa Python desse worker, que consome uma fila. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam como cada forma executa o passo e trata o erro.'
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 15 implanta uma função do AWS Lambda e registra a máquina de estados, cujo estado `Task` chama essa função e cujo estado `Choice` decide o próximo passo pelo resultado. A fixture do cenário 18 constrói a imagem Docker do worker, programa que lê pedidos de uma fila em laço, e o inicia como contêiner, que alcança o LocalStack e o PostgreSQL pelo nome `host.docker.internal`, o endereço da máquina hospedeira visto de dentro do contêiner. O `try` do Python envolve o código cujos erros o programa trata.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344

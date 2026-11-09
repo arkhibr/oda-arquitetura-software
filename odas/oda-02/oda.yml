@@ -1,8 +1,8 @@
 id: '02'
 titulo: Feature-Sliced Design e fronteiras impostas pelo ESLint
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é aplicar as regras de dependência entre as camadas do Feature-Sliced Design (FSD) no shell do `frontend-react` e entender as violações que o ESLint aponta, porque uma importação na direção proibida faz a infraestrutura comum depender de uma funcionalidade e se repete pelo código sem que a revisão manual a detecte. O shell organiza o código em camadas que só podem importar camadas abaixo delas, e o plugin `eslint-plugin-boundaries` recusa as importações que quebram essa regra. Você vai introduzir uma violação, ler o erro do lint, corrigi-la e descobrir que uma pasta fora dos elementos declarados fica sem verificação.
@@ -157,7 +157,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: O Feature-Sliced Design, metodologia que organiza o front-end em camadas, divide o shell em pastas com responsabilidade definida e dependência em uma só direção, e o ESLint, ferramenta que analisa o código sem executá-lo, confere essa regra. Os conceitos abaixo explicam as camadas e a verificação, e as árvores reproduzem as pastas de `src/` no commit `2179313` do repositório `frontend-react`. Clique numa pasta para ver o papel da camada correspondente.
@@ -192,7 +192,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: As pastas e os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -285,14 +285,13 @@ abas:
     decisao: Adotar o Feature-Sliced Design com imposição via ESLint, para obter coesão por domínio e dependências unidirecionais verificadas automaticamente.
     alternativas: A organização por tipo técnico, adequada só a projetos pequenos, e a ausência de estrutura imposta.
     consequencias: O onboarding passa a ser guiado pela estrutura de pastas, e cada funcionalidade nova exige decidir a camada a que pertence.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra onde as camadas do Feature-Sliced Design viram regra verificável: a configuração do ESLint que declara as camadas e as importações permitidas entre elas, duas importações reais do shell e o alias `@/` do TypeScript, que o plugin precisa resolver. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra onde as camadas do Feature-Sliced Design viram regra verificável: a configuração do ESLint que declara as camadas e as importações permitidas entre elas, duas importações reais do shell e o alias `@/` do TypeScript, que o plugin precisa resolver. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
-    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    titulo: 📘 Conceitos usados no código
+    texto: Os termos técnicos desta parte da aba, inclusive os da faixa acima, estão explicados abaixo, na ordem em que aparecem.
     itens:
     - termo: Camadas do shell
       definicao: Pastas de `src/` declaradas como camadas na configuração do ESLint, de cima para baixo `app`, `pages`, `widgets`, `features`, `entities` e `shared`, mais a exceção `mocks`. As pastas `widgets` e `entities` estão declaradas e não existem no commit de referência.
@@ -321,15 +320,10 @@ abas:
       referencia:
         rotulo: TypeScript · Documentação
         url: https://www.typescriptlang.org/docs/
-    - termo: MSW (Mock Service Worker)
-      definicao: Biblioteca que intercepta, dentro do navegador, as requisições HTTP feitas pela aplicação e responde com dados simulados. Em `npm run dev`, o shell ativa os handlers de `src/mocks/`, e por isso o login funciona sem nenhum back-end no ar.
-      referencia:
-        rotulo: Mock Service Worker · Introdução
-        url: https://mswjs.io/docs/
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -443,7 +437,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

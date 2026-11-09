@@ -1,8 +1,8 @@
 id: '15'
 titulo: Conteinerização e esteira de entrega
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é fazer a esteira de entrega barrar de fato o que promete barrar e produzir uma imagem do shell que o orquestrador reconheça como saudável, executando na sua máquina o Quality Gate e o build da imagem. No `frontend-react`, a esteira roda cinco verificações e depois gera uma imagem Nginx com os arquivos estáticos, e no commit de referência duas etapas falham, uma não confere nenhum arquivo e o healthcheck marca como doente um contêiner que funciona. Você vai rodar cada etapa, corrigir as falhas e terminar com a imagem saudável servindo a Content Security Policy (CSP) com nonce por requisição.
@@ -144,7 +144,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica como uma mudança no `frontend-react` passa pela esteira de entrega até virar uma imagem de contêiner que serve o shell, a aplicação React que hospeda o portal. Os blocos abaixo ensinam esteira e Quality Gate, imagem e contêiner Docker, build em dois estágios, Nginx e `envsubst`, `npm ci` e o lock e healthcheck, e depois o comparativo separa as variáveis fixadas no build das resolvidas quando o contêiner inicia. A ADR do fim registra a tática de conteinerização que o repositório adotou.
@@ -192,15 +192,14 @@ abas:
     decisao: Docker com Nginx, em build de dois estágios, com `try_files` para as rotas da SPA.
     alternativas: Docker com Node servindo os arquivos, com custo de execução e pouco controle de cabeçalhos, e não conteinerizar.
     consequencias: Imagem pequena e auditável, com variáveis do front-end fixadas no build e parâmetros de CSP resolvidos no boot.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os quatro arquivos que decidem se uma mudança passa pela esteira de entrega, a sequência automática de verificações do GitHub Actions, e como o shell vira uma imagem de contêiner: o `ci.yml` com o Quality Gate, o `tsconfig.json` da raiz usado na etapa de tipos, o `Dockerfile` que constrói a imagem e o `nginx.conf.template` do servidor web Nginx. Nesses arquivos estão as falhas que o laboratório encontra, e cada editor traz acima dele o papel do arquivo, com os marcadores numerados ao lado das linhas explicando os trechos que importam.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os quatro arquivos que decidem se uma mudança passa pela esteira de entrega, a sequência automática de verificações do GitHub Actions, e como o shell vira uma imagem de contêiner: o `ci.yml` com o Quality Gate, o `tsconfig.json` da raiz usado na etapa de tipos, o `Dockerfile` que constrói a imagem e o `nginx.conf.template` do servidor web Nginx. Nesses arquivos estão as falhas que o laboratório encontra, e cada editor traz acima dele o papel do arquivo, com os marcadores numerados ao lado das linhas explicando os trechos que importam.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

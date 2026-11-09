@@ -1,8 +1,8 @@
 id: '03'
 titulo: Estado global e estado de servidor
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é distinguir o estado que pertence ao navegador do estado que é cópia de dados do servidor e estender uma fatia do Redux com o teste escrito antes, porque misturar os dois tipos leva a cache invalidado à mão e a reducers com efeitos fora da função, como os que o shell já tem. O shell do `frontend-react` usa o Redux Toolkit para o primeiro tipo e o React Query para o segundo. Você vai acrescentar um campo de preferência à fatia de interface e escrever testes que protegem a configuração de cache do React Query, cujo `staleTime` evita chamadas repetidas à API.
@@ -282,7 +282,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica a diferença entre o estado do cliente, dado que nasce e termina no navegador, e o estado do servidor, cópia local de dados que pertencem à API e podem mudar sem aviso, o que exige cache e nova busca. Os conceitos abaixo mostram como o shell guarda cada tipo, com o Redux Toolkit para o primeiro e o React Query para o segundo, separação registrada na ADR-003 do repositório.
@@ -366,17 +366,14 @@ abas:
     decisao: Redux Toolkit para o estado do cliente, nas fatias `auth`, `ui` e `session`, e React Query para o estado do servidor.
     alternativas: Redux Toolkit com RTK Query, descartado por ser menos ergonômico em requisições complexas, Zustand com React Query, descartado pela ausência do Redux DevTools nativo, e apenas `useState` e `useEffect`, descartado porque não escala.
     consequencias: A equipe precisa respeitar a fronteira entre as duas ferramentas, novas fatias devem ser registradas em `src/shared/lib/store/index.ts`, e o `staleTime` e o `retry` do `QueryClient` devem ser revistos quando os contratos da API mudarem.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra onde o shell guarda cada tipo de estado: o store do Redux Toolkit com as fatias `ui` e `auth`, o cliente do React Query e os providers que os ligam à aplicação, além do hook com que o microfrontend de empréstimo busca dados sem o React Query. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra onde o shell guarda cada tipo de estado: o store do Redux Toolkit com as fatias `ui` e `auth`, o cliente do React Query e os providers que os ligam à aplicação, além do hook com que o microfrontend de empréstimo busca dados sem o React Query. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
-    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    titulo: 📘 Conceitos usados no código
+    texto: Os termos técnicos desta parte da aba, inclusive os da faixa acima, estão explicados abaixo, na ordem em que aparecem.
     itens:
-    - termo: Shell
-      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
     - termo: Store
       definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
       referencia:
@@ -404,8 +401,6 @@ abas:
       referencia:
         rotulo: martinfowler.com · Micro Frontends
         url: https://martinfowler.com/articles/micro-frontends.html
-    - termo: Redux DevTools
-      definicao: Extensão de navegador que mostra cada ação despachada e o estado do store antes e depois dela. O `configureStore` habilita essa integração por padrão.
     - termo: Reducer e ação
       definicao: A ação é um objeto que descreve o que aconteceu, com um `type` e um `payload`, e o reducer é a função que recebe o estado atual e a ação e devolve o estado novo. O guia de estilo do Redux exige que o reducer não tenha efeitos fora da função.
       referencia:
@@ -438,11 +433,6 @@ abas:
       referencia:
         rotulo: React · createRoot
         url: https://react.dev/reference/react-dom/client/createRoot
-    - termo: Hooks do React (`useState`, `useEffect`)
-      definicao: Funções que dão a um componente React estado próprio, com `useState`, ou efeitos que rodam depois da renderização, com `useEffect`. Os microfrontends buscam dados com esses dois hooks.
-      referencia:
-        rotulo: React · Início rápido
-        url: https://react.dev/learn
     - termo: '`config.json`'
       definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
     - termo: Manifesto de microfrontends
@@ -460,7 +450,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -816,7 +806,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

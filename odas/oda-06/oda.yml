@@ -1,8 +1,8 @@
 id: '06'
 titulo: Manifesto e resolução de dependências
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é registrar um microfrontend no manifesto do portal e prever em que ordem o shell vai carregá-lo, porque um erro no manifesto, como um ciclo de dependências ou uma origem não permitida, impede o portal inteiro de iniciar. O shell do `frontend-react` lê `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências, valida o arquivo no boot e ordena as entradas pelo algoritmo de Kahn. Você vai registrar um microfrontend em manutenção com o teste escrito antes e provocar no navegador as falhas de boot de um ciclo e de uma origem não permitida.
@@ -200,7 +200,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: 'Esta aba explica as duas fontes que o shell lê no boot, a inicialização feita quando a página abre: o manifesto, catálogo dos microfrontends que muda quando um deles entra ou sai, e o `config.json`, configuração do ambiente que muda a cada deploy. Os conceitos abaixo explicam por que os dois ficam em arquivos separados, como o shell valida o manifesto e como ordena os microfrontends pelas dependências declaradas.'
@@ -280,35 +280,20 @@ abas:
     decisao: Manifesto dedicado em `mfe-manifest.json`, validado no boot e ordenado topologicamente pelo algoritmo de Kahn, com detecção de ciclo.
     alternativas: Embutir a lista no `config.json`, descartado por misturar configuração de ambiente com catálogo de módulos, e manter a lista no código do shell, descartado porque cada mudança recompilaria o shell.
     consequencias: Acrescentar ou desativar um microfrontend não toca o código do shell, e erros de configuração aparecem no boot com mensagem clara, ao custo de mais um artefato para versionar e revisar.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba segue o manifesto de microfrontends pelo shell: o próprio `public/mfe-manifest.json`, a validação em `manifest.ts`, a ordenação por dependências em `dependencyResolver.ts` e o uso da ordem no boot, no menu e no componente que hospeda cada microfrontend. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba segue o manifesto de microfrontends pelo shell: o próprio `public/mfe-manifest.json`, a validação em `manifest.ts`, a ordenação por dependências em `dependencyResolver.ts` e o uso da ordem no boot, no menu e no componente que hospeda cada microfrontend. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
-    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    titulo: 📘 Conceitos usados no código
+    texto: Os termos técnicos desta parte da aba, inclusive os da faixa acima, estão explicados abaixo, na ordem em que aparecem.
     itens:
     - termo: Manifesto de microfrontends
       definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
-    - termo: Microfrontend
-      definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
-      referencia:
-        rotulo: martinfowler.com · Micro Frontends
-        url: https://martinfowler.com/articles/micro-frontends.html
-    - termo: Shell
-      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
     - termo: Boot do shell
       definicao: Inicialização do shell quando a página abre, em `src/main.tsx`, que carrega a configuração, valida o manifesto, ordena os microfrontends e cria o roteador. Um erro nessa fase mostra `Falha ao iniciar o portal`.
-    - termo: Deploy
-      definicao: Publicação de uma versão compilada num ambiente em que ela pode ser usada. No repositório, `npm run deploy` compila cada microfrontend, envia o bundle ao bucket no LocalStack e atualiza o hash no manifesto.
     - termo: Carregador de microfrontends (`loadMfeModule`)
       definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
-    - termo: SHA-256 e campo `integrity`
-      definicao: SHA-256 é uma função de hash que gera uma impressão de 256 bits de um conteúdo, e qualquer byte alterado muda o resultado. O campo `integrity` do manifesto guarda esse hash no formato `sha256-<Base64>`, o mesmo da Subresource Integrity dos navegadores, e o shell recusa o bundle cujo hash não confere.
-      referencia:
-        rotulo: MDN · Subresource Integrity
-        url: https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity
     - termo: Base64
       definicao: Codificação que representa bytes com 64 caracteres de texto, usada para escrever hashes e tokens em formato legível. O hash do campo `integrity` tem 43 caracteres em Base64 seguidos de `=`.
       referencia:
@@ -319,12 +304,8 @@ abas:
       referencia:
         rotulo: MDN · Origem
         url: https://developer.mozilla.org/pt-BR/docs/Glossary/Origin
-    - termo: Bundle
-      definicao: Arquivo JavaScript gerado pelo build que reúne o código de um módulo e as dependências dele num arquivo pronto para o navegador. Cada microfrontend gera um bundle, como `endereco.js`, que fica publicado no bucket.
     - termo: '`config.json`'
       definicao: Arquivo de configuração de ambiente que o shell baixa no boot, com dados como a URL da API e a lista `mfeAllowedOrigins`. Ele muda a cada ambiente de deploy, e o manifesto muda quando um microfrontend entra ou sai.
-    - termo: Ciclo de dependências
-      definicao: Situação em que uma cadeia de dependências volta ao ponto de partida, como A depender de B e B depender de A. Nenhum item do ciclo chega a grau de entrada zero, e o shell interrompe o boot.
     - termo: Roteador
       definicao: Parte do shell que associa cada caminho da URL a uma tela e é criada no boot a partir da lista ordenada de microfrontends, com o React Router.
     - termo: Estados de um microfrontend (`active`, `maintenance`, `disabled`)
@@ -334,12 +315,10 @@ abas:
       referencia:
         rotulo: adr.github.io · Architectural Decision Records
         url: https://adr.github.io/
-    - termo: '`dependsOn`'
-      definicao: Lista, em cada entrada do manifesto, dos `id` de microfrontends de que aquela entrada depende. O shell usa essa lista para ordenar as entradas e recusa dependências inexistentes e ciclos.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

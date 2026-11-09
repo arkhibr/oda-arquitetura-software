@@ -1,8 +1,8 @@
 id: '23'
 titulo: CQRS com EF Core e Dapper, migrations e soft delete
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: 'O objetivo desta ODA é corrigir dois defeitos de acesso a dados que impedem o cadastro de variantes de produto na API `net-minimal-api`: toda criação de variante recebe 500, porque o EF Core não consegue traduzir uma consulta LINQ para SQL, e o SKU (Stock Keeping Unit, o código de estoque) de uma variante excluída não pode ser reaproveitado, porque o índice único do banco também conta as linhas desativadas pela exclusão lógica. Os dois defeitos mostram que a escrita com EF Core, a leitura com Dapper, a exclusão lógica e as migrations precisam seguir as mesmas regras. Você vai corrigir a consulta de escrita, filtrar o índice pelas variantes ativas e gerar a migration que leva a mudança ao banco, com o teste escrito antes.'
@@ -152,7 +152,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica como a API `net-minimal-api` separa a escrita e a leitura de dados, como a exclusão lógica funciona e de onde vem o esquema do banco. Os blocos abaixo definem cada conceito antes do comparativo entre os dois lados, e as duas ADRs (registros de decisão de arquitetura) do fim mostram o que o repositório decidiu sobre a divisão entre EF Core e Dapper e sobre a exclusão lógica.
@@ -211,13 +211,12 @@ abas:
     decisao: Coluna `Ativo`, com todas as consultas filtrando `Ativo = 1`.
     alternativas: Remoção física, tabela de histórico e tabelas temporais.
     consequencias: Registros preservados, e cada consulta que esquece o filtro expõe dados inativos.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra, no commit `702145a`, a consulta de escrita que falha, o mapeamento do SKU como value object e o índice único do banco, que juntos explicam as duas falhas do laboratório. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra, no commit `702145a`, a consulta de escrita que falha, o mapeamento do SKU como value object e o índice único do banco, que juntos explicam as duas falhas do laboratório. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     itens:
     - termo: SKU (Stock Keeping Unit)
       definicao: Código que identifica de forma única um item de estoque. Na API, cada variante de produto, como uma cor ou um tamanho, tem um SKU próprio, como `MOUSE-ROSA`.
@@ -268,7 +267,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

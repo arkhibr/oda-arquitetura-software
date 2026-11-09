@@ -1,8 +1,8 @@
 id: '30'
 titulo: Mensageria com SQS e SNS
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é diferenciar fila e tópico e garantir que um consumidor novo de um fan-out receba as mensagens, porque uma fila do Amazon SQS (Simple Queue Service) sem assinatura no tópico do Amazon SNS (Simple Notification Service) fica sem nenhuma cópia e sem nenhum erro. No repositório `aspire-aws`, o cenário 09 publica uma mensagem e confere que duas filas recebem uma cópia cada, com os serviços emulados pelo LocalStack. Você vai acrescentar uma terceira fila assinante, estender o teste para conferir cada fila e retirar a assinatura de propósito para ver a falta virar uma falha de teste.
@@ -179,7 +179,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica a diferença entre fila e tópico, as duas formas da AWS de trocar mensagens entre programas, e o fan-out, a distribuição de uma publicação para várias filas, que combina as duas. Os blocos de conceito vêm primeiro, e as árvores depois reproduzem as pastas do repositório `aspire-aws` no commit `50a5344` que tratam de mensageria, à esquerda os cenários, projetos de teste de cada integração, e à direita a infraestrutura de teste comum a eles. Clique numa pasta ou num arquivo para ver o papel dele.
@@ -230,7 +230,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: As pastas e os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344
@@ -284,18 +284,17 @@ abas:
     decisao: Porta fixa 4566 com execução sequencial, combinando `MaxCpuCount=1` no `test.runsettings` com um bloqueio de arquivo na `LocalStackFixture`.
     alternativas: Porta aleatória por cenário, rede Docker isolada por cenário e a ausência de mecanismo.
     consequencias: O comportamento fica determinístico, ao custo de uma suíte completa sequencial de cerca de três minutos.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra os três arquivos que montam e conferem o fan-out do cenário 09, a distribuição de uma mensagem publicada num tópico para várias filas. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam os trechos que você vai alterar ao acrescentar a terceira fila.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra os três arquivos que montam e conferem o fan-out do cenário 09, a distribuição de uma mensagem publicada num tópico para várias filas. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam os trechos que você vai alterar ao acrescentar a terceira fila.
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes para preparar recursos, e a do cenário 09 cria o tópico `fanout-topic` e as filas. O ARN é o identificador único de um recurso da AWS, usado pela política de acesso, documento JSON gravado na fila que autoriza o SNS a enviar mensagens a ela, e pela assinatura, que registra a fila como destino do tópico. O AppHost é o projeto do .NET Aspire que declara o contêiner do LocalStack, o emulador dos serviços da AWS, e a montagem do arquivo `/var/run/docker.sock`, canal pelo qual o LocalStack cria contêineres no Docker da máquina.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344
@@ -506,7 +505,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit, e cada caminho parte da raiz desse repositório no commit `50a5344`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344

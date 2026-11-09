@@ -1,8 +1,8 @@
 id: '31'
 titulo: 'Dados gerenciados: DynamoDB e RDS'
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é impedir que reservas simultâneas vendam mais estoque do que existe, defeito de perda de atualização que testes sequenciais não revelam, comparando como o Amazon DynamoDB e um banco relacional garantem essa regra. No repositório `aspire-aws`, o cenário 03 usa o DynamoDB do LocalStack, e o cenário 17 usa um PostgreSQL no papel do Amazon RDS (Relational Database Service), porque a API de controle do RDS não existe no LocalStack Community. Você vai provar com dez reservas em paralelo que ler o estoque e depois gravar aprova dez vendas para cinco unidades e corrigir a reserva com uma escrita condicional em cada banco.
@@ -173,7 +173,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba compara o Amazon DynamoDB, banco NoSQL da AWS que localiza itens pela chave, com um banco relacional, consultado em SQL, e explica por que ler um valor e depois gravá-lo falha quando várias requisições chegam ao mesmo tempo. Os blocos de conceito explicam cada termo antes da tabela que compara os dois bancos.
@@ -220,18 +220,17 @@ abas:
       valores:
       - Emulado
       - API de controle indisponível, banco real no contêiner do AppHost
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os arquivos que preparam os dois bancos comparados nesta ODA: a fixture do cenário 03, classe que cria a tabela do DynamoDB antes dos testes, um teste desse cenário e a fixture do cenário 17, que prepara o PostgreSQL usado no lugar do Amazon RDS, o serviço de bancos relacionais da AWS. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam o que cada cenário prepara e o que os testes existentes deixam sem cobertura.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os arquivos que preparam os dois bancos comparados nesta ODA: a fixture do cenário 03, classe que cria a tabela do DynamoDB antes dos testes, um teste desse cenário e a fixture do cenário 17, que prepara o PostgreSQL usado no lugar do Amazon RDS, o serviço de bancos relacionais da AWS. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam o que cada cenário prepara e o que os testes existentes deixam sem cobertura.'
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes para preparar recursos. A tabela do cenário 03 declara só a chave de partição `id`, o atributo que identifica cada item, usa cobrança por requisição, sem capacidade reservada, e só aceita operações quando chega ao estado `ACTIVE`. O `Scan` percorre a tabela inteira, e a API de controle do RDS é o conjunto de chamadas que cria instâncias de banco, ausente no LocalStack Community, a edição gratuita do emulador da AWS.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344

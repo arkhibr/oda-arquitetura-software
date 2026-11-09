@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 
 from hooks.catalogo import carregar_catalogo, oda_por_id  # noqa: E402
 
-ABAS = ("missao", "conceito", "codigo", "simulacao", "laboratorio", "diagnostico", "verificacao")
+ABAS = ("objetivos", "conceito", "simulacao", "laboratorio", "diagnostico", "verificacao")
 OBRIGATORIOS = {
     "legenda": ("texto",), "faixa": ("estilo",), "checklist": ("titulo", "itens"), "editor": ("rotulo", "linhas"),
     "passos": ("itens",), "conceito": ("titulo", "texto"),
@@ -232,18 +232,18 @@ def validar_oda(dados: dict, catalogo: dict) -> list[str]:
         if not aba.get("titulo"):
             erros.append(f"{aba.get('id')}: aba sem titulo.")
         titulos = {b.get("titulo") for b in aba.get("blocos", []) if isinstance(b, dict)}
-        if aba.get("id") == "missao" and COMO_OBTER not in titulos:
-            erros.append(f"missao: falta a faixa {COMO_OBTER}.")
+        if aba.get("id") == "objetivos" and COMO_OBTER not in titulos:
+            erros.append(f"objetivos: falta a faixa {COMO_OBTER}.")
         if aba.get("id") == "laboratorio":
             estilos = [b.get("estilo") if b.get("tipo") == "faixa" else b.get("tipo") for b in aba.get("blocos", []) if isinstance(b, dict) and b.get("tipo") != "glossario" and b.get("titulo") != "📘 Conceitos usados nesta aba"]
             esperado = 1 if estilos[:1] == ["legenda"] else 0
             if estilos[esperado:esperado + 1] != ["objetivo"]:
                 erros.append("laboratorio: a faixa de objetivo deve vir logo depois da legenda e dos conceitos da aba.")
-        if aba.get("id") == "missao":
+        if aba.get("id") == "objetivos":
             tipos = [b.get("tipo") for b in aba.get("blocos", []) if isinstance(b, dict)]
             esperado = 1 if tipos[:1] == ["legenda"] else 0
             if tipos[esperado:esperado + 1] != ["glossario"]:
-                erros.append("missao: o glossário deve vir logo depois da legenda, antes de qualquer outro bloco.")
+                erros.append("objetivos: o glossário deve vir logo depois da legenda, antes de qualquer outro bloco.")
         if aba.get("id") != "laboratorio" and _mostra_codigo(aba) and ONDE not in titulos:
             erros.append(f"{aba.get('id')}: aba mostra código e não tem a faixa {ONDE}.")
         for i, bloco in enumerate(aba.get("blocos", [])):

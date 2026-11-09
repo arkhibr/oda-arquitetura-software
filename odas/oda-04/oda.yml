@@ -1,8 +1,8 @@
 id: '04'
 titulo: Autenticação JWT de ponta a ponta
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é acompanhar o JWT (JSON Web Token) do login até a resposta 401 e corrigir o encerramento de sessão que o shell deveria fazer e não faz, porque sem ele uma pessoa com o token expirado continua no painel até que uma chamada de microfrontend receba 401. No `frontend-react`, o shell guarda o token no `sessionStorage`, os guards de rota leem o estado do Redux, e só o Gateway valida a assinatura. Você vai mostrar com testes que o monitor de sessão nunca é iniciado e corrigir o shell com o teste escrito antes.
@@ -287,7 +287,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: 'Esta aba explica as duas decisões de uma autenticação por token no navegador: onde guardar o JWT, token assinado que identifica o usuário, e como perceber que a sessão terminou. Os conceitos abaixo mostram por que o `sessionStorage`, área de armazenamento do navegador isolada por aba, guarda o token sem servir de controle de autorização, que fica com o Gateway de API, e como o monitor de sessão do shell encerra a sessão.'
@@ -403,22 +403,19 @@ abas:
     decisao: '`sessionStorage`, isolado por aba, com o `sessionMonitor` verificando a expiração a cada 60 segundos e reagindo ao evento DOM `auth:unauthorized`.'
     alternativas: '`localStorage`, descartado por persistir além da sessão e ampliar a exposição a XSS, cookie `httpOnly`, descartado por exigir mudanças no back-end nesta fase, e token só em memória, descartado por perder a sessão a cada recarga.'
     consequencias: O usuário autentica de novo ao reabrir a aba, e o relógio do navegador pode divergir do servidor. A Atualização 1.1 registra que a autorização depende do Gateway, que valida o token antes de encaminhar a requisição aos BFFs.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba segue o token JWT pelos arquivos do shell, do microfrontend de endereço e do Gateway: onde ele é guardado, como o payload é lido, como a sessão volta depois de uma recarga, como o fim da sessão é detectado e onde a assinatura é verificada. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba segue o token JWT pelos arquivos do shell, do microfrontend de endereço e do Gateway: onde ele é guardado, como o payload é lido, como a sessão volta depois de uma recarga, como o fim da sessão é detectado e onde a assinatura é verificada. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
-    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    titulo: 📘 Conceitos usados no código
+    texto: Os termos técnicos desta parte da aba, inclusive os da faixa acima, estão explicados abaixo, na ordem em que aparecem.
     itens:
     - termo: JWT (JSON Web Token)
       definicao: Token assinado com três partes em Base64, cabeçalho, conteúdo e assinatura, que carrega dados do usuário como o identificador e a data de expiração. O portal envia o JWT no cabeçalho `Authorization`, e o Gateway confere a assinatura antes de aceitar a chamada.
       referencia:
         rotulo: jwt.io · Introdução ao JSON Web Token
         url: https://jwt.io/introduction
-    - termo: Shell
-      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
     - termo: Microfrontend
       definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
       referencia:
@@ -451,11 +448,6 @@ abas:
       referencia:
         rotulo: jwt.io · Introdução ao JSON Web Token
         url: https://jwt.io/introduction
-    - termo: Store
-      definicao: Objeto do Redux que guarda o estado global, recebe as ações por `dispatch` e avisa os componentes que leem o estado. O shell cria um único store com `configureStore`.
-      referencia:
-        rotulo: Redux · Store
-        url: https://redux.js.org/tutorials/fundamentals/part-4-store
     - termo: HTTP 401 (Unauthorized)
       definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
       referencia:
@@ -470,21 +462,6 @@ abas:
       definicao: Função do shell em `src/app/mfe/loadMfeModule.ts` que baixa o bundle, confere o hash, importa o módulo e recusa o que não exporta `mount` e `unmount`.
     - termo: Callback `onUnauthorized`
       definicao: Função que o shell entrega ao microfrontend no contexto de montagem e que o microfrontend chama quando a API responde 401. O shell a implementa com o `dispatch(logout())`.
-    - termo: 'Cabeçalho `Authorization: Bearer`'
-      definicao: Cabeçalho HTTP que leva a credencial da requisição, e o esquema `Bearer` indica que a credencial é um token, enviado como `Bearer <token>`. O Gateway lê o JWT desse cabeçalho e o remove antes de chamar o BFF.
-      referencia:
-        rotulo: MDN · Cabeçalho Authorization
-        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Headers/Authorization
-    - termo: Evento DOM e `CustomEvent`
-      definicao: Um evento DOM é um aviso emitido num objeto da página e recebido pelos ouvintes registrados com `addEventListener`, e o `CustomEvent` cria um evento com nome próprio. O `httpClient` do shell emite `auth:unauthorized` na `window` ao receber 401.
-      referencia:
-        rotulo: MDN · CustomEvent
-        url: https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
-    - termo: DOM (Document Object Model)
-      definicao: Representação da página como uma árvore de objetos que o JavaScript lê e altera, por meio de funções como `createElement` e `addEventListener`.
-      referencia:
-        rotulo: MDN · DOM
-        url: https://developer.mozilla.org/pt-BR/docs/Glossary/DOM
     - termo: Monitor de sessão (`sessionMonitor`)
       definicao: Módulo do shell em `src/shared/auth/sessionMonitor.ts` que encerra a sessão quando o token expira, conferindo a cada 60 segundos, ou quando recebe o evento `auth:unauthorized`. Ele só age depois de `sessionMonitor.start()`.
     - termo: HS256, RS256 e JWKS
@@ -492,21 +469,6 @@ abas:
       referencia:
         rotulo: IETF · RFC 7518, JSON Web Algorithms
         url: https://datatracker.ietf.org/doc/html/rfc7518
-    - termo: Emissor e audiência de um JWT (`iss` e `aud`)
-      definicao: Campos do token que dizem quem o emitiu e para qual serviço ele foi emitido. O Gateway só aceita tokens com o emissor e a audiência configurados nele.
-      referencia:
-        rotulo: jwt.io · Introdução ao JSON Web Token
-        url: https://jwt.io/introduction
-    - termo: Fatia (slice)
-      definicao: Parte do estado do Redux com o próprio estado inicial, reducers e ações, criada com `createSlice`. O store do shell tem três fatias, `auth`, `ui` e `session`.
-      referencia:
-        rotulo: Redux Toolkit · createSlice
-        url: https://redux-toolkit.js.org/api/createSlice
-    - termo: ADR (Architecture Decision Record)
-      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
-      referencia:
-        rotulo: adr.github.io · Architectural Decision Records
-        url: https://adr.github.io/
     - termo: Provider
       definicao: Componente React que disponibiliza um recurso, como o store do Redux ou o cliente do React Query, para todos os componentes abaixo dele na árvore. O shell reúne os providers em `src/app/providers/index.tsx`.
     - termo: Vitest
@@ -532,7 +494,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

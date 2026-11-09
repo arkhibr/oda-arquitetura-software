@@ -1,8 +1,8 @@
 id: '12'
 titulo: Contrato de tipos via Hono RPC
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é impedir que uma quebra de contrato entre um BFF (Backend for Frontend) e o microfrontend que o consome chegue ao portal sem aviso, fazendo o compilador detectá-la. No `frontend-react`, o microfrontend de endereço declara à mão o formato da resposta do BFF, e uma renomeação no BFF passa por todos os testes e pelo compilador TypeScript (`tsc`) dos dois lados, de modo que o erro só apareceria com o portal em uso. Você vai aplicar a proposta de tipos compartilhados pelo Hono RPC (Remote Procedure Call) até que a mesma renomeação pare o build do microfrontend, sem levar código do BFF ao bundle.
@@ -137,7 +137,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica por que uma mudança de formato num BFF pode chegar ao portal sem nenhum aviso e como o compilador TypeScript pode passar a detectá-la. Os blocos abaixo ensinam contrato e quebra de contrato, BFF e microfrontend, o compilador `tsc`, o Hono RPC e o tipo que carrega as rotas, o `import type` e o alias de caminho, e depois o comparativo põe lado a lado a cópia manual do tipo e o tipo derivado do BFF. A ADR do fim registra a proposta do repositório, que publica o tipo das rotas no BFF sem levar código dele ao bundle do microfrontend.
@@ -185,15 +185,14 @@ abas:
     decisao: Cada BFF exporta o tipo das rotas num `contract.ts`, consumido pelo microfrontend com `import type` e alias de caminho, sem pacote publicado.
     alternativas: tRPC, com duas dependências novas e chamadas agrupadas que quebrariam a auditoria por rota do Gateway, e manter os tipos duplicados.
     consequencias: Erro de compilação quando o BFF muda um campo, ao custo de encadear as rotas dos BFFs e de instalar as dependências do BFF na esteira do microfrontend.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os dois lados do contrato de endereço, o formato de resposta combinado entre o serviço e a tela: no BFF, serviço de back-end dedicado ao microfrontend, em `bffs/endereco/src/`, o tipo da resposta e as rotas do Hono, framework web do BFF, e no microfrontend, em `mfes/endereco/src/`, os tipos copiados à mão e a chamada que os usa. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam por que hoje nenhuma mudança no BFF chega ao compilador do microfrontend.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os dois lados do contrato de endereço, o formato de resposta combinado entre o serviço e a tela: no BFF, serviço de back-end dedicado ao microfrontend, em `bffs/endereco/src/`, o tipo da resposta e as rotas do Hono, framework web do BFF, e no microfrontend, em `mfes/endereco/src/`, os tipos copiados à mão e a chamada que os usa. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam por que hoje nenhuma mudança no BFF chega ao compilador do microfrontend.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

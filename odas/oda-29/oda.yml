@@ -1,8 +1,8 @@
 id: '29'
 titulo: 'Armazenamento e configuração: S3, SSM e Secrets Manager'
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é escrever um carregador de configuração que leia todos os parâmetros de um prefixo do Parameter Store do AWS Systems Manager (SSM), inclusive os cifrados, e descobrir com o teste os dois detalhes da API que fazem um carregador simples perder dados sem erro. A configuração vem dos serviços da Amazon Web Services (AWS) feitos para isso, o Parameter Store e o Secrets Manager, lidos pelo SDK (kit de desenvolvimento) da AWS para .NET contra o LocalStack, emulador local desses serviços, e um carregador que lê só a primeira página ou não decifra os `SecureString` sobe a aplicação com valores faltando ou errados. Você vai rodar o cenário 05 do repositório `aspire-aws`, escrever o teste e o carregador simples e acrescentar a paginação e a decifragem até o teste passar.
@@ -133,7 +133,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica o que cada um dos três serviços de armazenamento da AWS (Amazon Web Services) guarda e os detalhes de API que importam ao ler configuração. Os blocos abaixo definem cada serviço e cada detalhe antes do comparativo, e os três respondem no LocalStack, o emulador local da AWS, pela mesma porta 4566, com os clientes criados pelo `AwsClientFactory` do repositório.
@@ -169,13 +169,12 @@ abas:
       valores:
       - Senhas e chaves, com versões
       - '`AWSCURRENT` e `AWSPREVIOUS`, rotação e exclusão com período de recuperação'
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os arquivos que definem como os testes falam com o Parameter Store e o Secrets Manager: a fábrica de clientes do SDK em `src/Shared`, que aponta todos os clientes para o LocalStack, e os testes dos cenários 05 e 06, que gravam e leem parâmetros e segredos. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para o carregador de configuração desta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os arquivos que definem como os testes falam com o Parameter Store e o Secrets Manager: a fábrica de clientes do SDK em `src/Shared`, que aponta todos os clientes para o LocalStack, e os testes dos cenários 05 e 06, que gravam e leem parâmetros e segredos. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para o carregador de configuração desta ODA.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     itens:
     - termo: SDK da AWS para .NET
       definicao: Conjunto de bibliotecas que o código .NET usa para chamar os serviços da AWS, com um cliente por serviço, como o `AmazonSimpleSystemsManagementClient`. No repositório, o `AwsClientFactory` cria esses clientes apontados para o LocalStack.
@@ -217,7 +216,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344

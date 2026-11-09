@@ -1,8 +1,8 @@
 id: '27'
 titulo: Testes de API com WebApplicationFactory
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: 'O objetivo desta ODA é corrigir dois defeitos da suíte de testes de integração do `net-minimal-api`, que sobe a API real em memória: a `ApiFactory` deixa um arquivo SQLite no diretório temporário a cada classe de teste e nunca o apaga, e monta o esquema com `EnsureCreated`, que ignora as migrations e aprova uma mudança de modelo que derruba a API no deploy. Esses defeitos enchem o disco das máquinas que rodam a suíte e fazem os testes aprovarem um código que a produção recusa. Você vai medir os dois efeitos, escrever os testes que os denunciam e trocar a factory por uma que usa SQLite em memória e `Migrate`.'
@@ -124,7 +124,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica o que um teste de integração com `WebApplicationFactory` executa de verdade e as duas decisões que definem o banco desses testes, onde ele fica e quem cria o esquema. Os blocos abaixo definem cada conceito antes do comparativo entre `EnsureCreated` e `Migrate`, e o repositório descreve a estratégia de testes no arquivo `docs/05-TESTES.md`.
@@ -164,13 +164,12 @@ abas:
       valores:
       - Na `ApiFactory` dos testes
       - No `Program.cs`, fora do ambiente Testing
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra, no commit `702145a`, como o `Program.cs` escolhe o banco no ambiente Testing e como a `ApiFactory` prepara esse banco. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra, no commit `702145a`, como o `Program.cs` escolhe o banco no ambiente Testing e como a `ApiFactory` prepara esse banco. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     itens:
     - termo: Ambiente de execução (Testing)
       definicao: Nome do ambiente em que a aplicação ASP.NET Core roda, como `Development`, `Production` ou `Testing`, que o código consulta para escolher configurações. No repositório, o ambiente `Testing` faz a API usar um banco próprio e não aplicar as migrations.
@@ -209,7 +208,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

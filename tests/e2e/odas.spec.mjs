@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const ODAS = ['oda-00', 'oda-01', 'oda-02', 'oda-03', 'oda-04', 'oda-05', 'oda-06', 'oda-07', 'oda-08', 'oda-09', 'oda-10', 'oda-11', 'oda-12', 'oda-13', 'oda-14', 'oda-15', 'oda-16', 'oda-17', 'oda-18', 'oda-19', 'oda-20', 'oda-21', 'oda-22', 'oda-23', 'oda-24', 'oda-25', 'oda-26', 'oda-27', 'oda-28', 'oda-29', 'oda-30', 'oda-31', 'oda-32', 'oda-33', 'oda-34', 'oda-35'];
-const ABAS = ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
+const ABAS = ['objetivos', 'conceito', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao'];
 
 function vigiarErros(page) {
   const erros = [];
@@ -11,12 +11,12 @@ function vigiarErros(page) {
 }
 
 for (const oda of ODAS) {
-  test(`${oda}: sete abas, sem bloco com erro e com pelo menos 60 interações`, async ({ page }) => {
+  test(`${oda}: seis abas, sem bloco com erro e com pelo menos 60 interações`, async ({ page }) => {
     const erros = vigiarErros(page);
     await page.goto(`/${oda}/`);
     const abas = page.getByRole('tab');
-    await expect(abas).toHaveCount(7);
-    for (let i = 0; i < 7; i += 1) await abas.nth(i).click();
+    await expect(abas).toHaveCount(6);
+    for (let i = 0; i < 6; i += 1) await abas.nth(i).click();
     await expect(page.locator('.bloco-erro')).toHaveCount(0);
     expect(await page.locator('#app').locator('button, input, select, summary').count()).toBeGreaterThanOrEqual(60);
     expect(erros).toEqual([]);
@@ -26,7 +26,7 @@ for (const oda of ODAS) {
     await page.setViewportSize({ width: 360, height: 800 });
     for (const aba of ABAS) {
       await page.goto(`/${oda}/#${aba}`);
-      await expect(page.getByRole('tab')).toHaveCount(7);
+      await expect(page.getByRole('tab')).toHaveCount(6);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     }
   });
@@ -677,17 +677,17 @@ test('página mestre leva a cada ODA disponível e cada ODA volta ao catálogo',
   for (const oda of ODAS) {
     await page.goto('/');
     await page.locator(`a[href="${oda}/"]`).click();
-    await expect(page.getByRole('tab')).toHaveCount(7);
+    await expect(page.getByRole('tab')).toHaveCount(6);
     await page.getByRole('link', { name: 'Catálogo' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Catálogo de ODAs' })).toBeVisible();
   }
 });
 
 test('o aluno não vê etiquetas internas de origem, só a marca de saída ilustrativa', async ({ page }) => {
-  await page.goto('/oda-00/#missao');
-  const missao = page.locator('#painel-missao');
-  await missao.locator('.terminal__cenarios button').first().click();
-  await expect(missao.locator('.terminal__tela')).toContainText('saída ilustrativa');
+  await page.goto('/oda-00/#objetivos');
+  const objetivos = page.locator('#painel-objetivos');
+  await objetivos.locator('.terminal__cenarios button').first().click();
+  await expect(objetivos.locator('.terminal__tela')).toContainText('saída ilustrativa');
   for (const oda of ODAS) {
     for (const aba of ABAS) {
       await page.goto(`/${oda}/#${aba}`);
@@ -709,9 +709,9 @@ test('guia de autoria: acesso pela seção Sobre e componentes renderizados', as
   await page.goto('/sobre/');
   await page.getByRole('link', { name: 'ODA Como criar uma ODA' }).click();
   await expect(page).toHaveURL(/\/oda-criar\//);
-  await expect(page.getByRole('tab')).toHaveCount(7);
+  await expect(page.getByRole('tab')).toHaveCount(6);
   for (const aba of ABAS) {
-    await page.getByRole('tab', { name: new RegExp(aba === 'missao' ? 'Missão' : aba === 'conceito' ? 'Estrutura' : aba === 'codigo' ? 'Código' : aba === 'simulacao' ? 'Simulações' : aba === 'laboratorio' ? 'Crie sua ODA' : aba === 'diagnostico' ? 'Diagnóstico' : 'Verificação') }).click();
+    await page.getByRole('tab', { name: new RegExp(aba === 'objetivos' ? 'Objetivos' : aba === 'conceito' ? 'Conceito e código' : aba === 'simulacao' ? 'Simulações' : aba === 'laboratorio' ? 'Crie sua ODA' : aba === 'diagnostico' ? 'Diagnóstico' : 'Verificação') }).click();
     await expect(page.locator('.bloco-erro')).toHaveCount(0);
   }
   expect(erros).toEqual([]);
@@ -719,7 +719,7 @@ test('guia de autoria: acesso pela seção Sobre e componentes renderizados', as
 
 test('editor: anotação flutuante abre e fecha pelo marcador', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
-  await page.goto('/oda-20/#codigo');
+  await page.goto('/oda-20/#conceito');
   const editor = page.locator('.editor').filter({ has: page.locator('.editor__marcador') }).first();
   const marcador = editor.locator('.editor__marcador').first();
   const antes = await editor.boundingBox();

@@ -5,16 +5,16 @@ test.beforeEach(async ({ page }, info) => {
   page.on('pageerror', (e) => info.erros.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') info.erros.push(m.text()); });
   await page.goto('/oda-20/');
-  await expect(page.getByRole('tab')).toHaveCount(7);
+  await expect(page.getByRole('tab')).toHaveCount(6);
 });
 
 test.afterEach(async ({}, info) => {
   expect(info.erros).toEqual([]);
 });
 
-test('percorre as sete abas sem bloco com erro', async ({ page }) => {
+test('percorre as seis abas sem bloco com erro', async ({ page }) => {
   const abas = page.getByRole('tab');
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < 6; i += 1) {
     await abas.nth(i).click();
     await expect(abas.nth(i)).toHaveAttribute('aria-selected', 'true');
   }
@@ -47,7 +47,7 @@ test('console de API mostra 404 para pedido inexistente', async ({ page }) => {
 
 test('sem rolagem horizontal em 360 px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
-  for (const aba of ['missao', 'conceito', 'codigo', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao']) {
+  for (const aba of ['objetivos', 'conceito', 'simulacao', 'laboratorio', 'diagnostico', 'verificacao']) {
     await page.goto(`/oda-20/#${aba}`);
     const largura = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(largura).toBeLessThanOrEqual(360);
@@ -79,9 +79,9 @@ test('resultados da busca ficam dentro da tela em 360 px', async ({ page }) => {
 });
 
 test('aba Verificação mostra o resumo do progresso por etapa', async ({ page }) => {
-  await page.locator('#painel-missao .concluir').click();
+  await page.locator('#painel-objetivos .concluir').click();
   await page.locator('#aba-verificacao').click();
   const resumo = page.locator('#painel-verificacao ul.resumo');
-  await expect(resumo.locator('li', { hasText: 'Missão' })).toContainText('concluída');
+  await expect(resumo.locator('li', { hasText: 'Objetivos' })).toContainText('concluída');
   await expect(resumo.locator('li', { hasText: 'Conceito' })).toContainText('pendente');
 });

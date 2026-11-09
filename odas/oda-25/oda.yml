@@ -1,8 +1,8 @@
 id: '25'
 titulo: Idempotência por middleware
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é impedir que a repetição de uma requisição de escrita repita o efeito no servidor, defeito que hoje cria pedidos duplicados na API `net-minimal-api`. Um aplicativo que reenvia a criação de um pedido depois de um tempo esgotado (timeout) manda o cabeçalho `Idempotency-Key`, e mesmo assim cinco reenvios simultâneos criam cinco pedidos, a repetição chega sem o cabeçalho `Location` e uma chave reaproveitada com outro corpo devolve o pedido antigo como se fosse sucesso. Você vai reproduzir essas três falhas do middleware de idempotência e corrigi-las com o teste escrito antes.
@@ -126,7 +126,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica o que torna uma operação idempotente, isto é, segura para repetir sem repetir o efeito, e o que um mecanismo de chave de idempotência precisa garantir. Os blocos abaixo definem cada conceito antes do comparativo entre a garantia esperada e o comportamento do commit, e a ADR (registro de decisão de arquitetura) do fim mostra que o repositório decidiu tratar a idempotência num middleware, com as respostas guardadas por 24 horas.
@@ -171,13 +171,12 @@ abas:
     decisao: Middleware que guarda as respostas 2xx por 24 horas, indexadas pelo cabeçalho `Idempotency-Key`.
     alternativas: Idempotência em cada handler, deduplicação no gateway e nenhuma proteção.
     consequencias: Proteção uniforme para as escritas, com cache volátil, perdido em reinícios e separado por instância.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra, no commit `702145a`, os três pontos do middleware que explicam as falhas: a chave do cache, a repetição da resposta e a gravação depois da execução. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra, no commit `702145a`, os três pontos do middleware que explicam as falhas: a chave do cache, a repetição da resposta e a gravação depois da execução. Clique nos marcadores para ler a explicação de cada linha.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     itens:
     - termo: Cabeçalho Idempotency-Key
       definicao: Cabeçalho HTTP em que o cliente envia uma chave única por operação, que ele repete em cada reenvio. O servidor usa a chave para reconhecer a repetição e devolver a resposta da primeira execução, e a IETF descreve esse contrato num rascunho de norma.
@@ -206,7 +205,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

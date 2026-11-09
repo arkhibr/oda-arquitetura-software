@@ -1,8 +1,8 @@
 id: 09
 titulo: CSS e contrato visual entre microfrontends
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é tornar a aparência de cada microfrontend independente do build do shell, aplicando tokens de design e CSS (Cascading Style Sheets) com escopo, para que o estilo de um não dependa do shell nem vaze para outro. No `frontend-react`, o microfrontend de endereço usa classes do Tailwind que só existem no CSS gerado pelo build do shell, e qualquer mudança nesse build pode deixar a tela dele sem estilo. Você vai demonstrar essa dependência e corrigi-la com um tema próprio baseado nos tokens do shell, com o teste escrito antes.
@@ -121,7 +121,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica quem cuida da aparência num portal formado por um shell, a aplicação React que hospeda a navegação, e por microfrontends, partes da interface com build e deploy próprios carregadas em tempo de execução. Os blocos abaixo ensinam CSS com escopo, tokens de design, o token com fallback, o ciclo de vida `mount` e `unmount` e as classes utilitárias do Tailwind, e depois o comparativo mostra o que cabe ao shell e o que cabe a cada microfrontend. A ADR do fim registra a decisão do repositório, que combina tokens publicados pelo shell com CSS local de cada microfrontend.
@@ -169,15 +169,14 @@ abas:
     decisao: Contrato visual por tokens globais do shell, design system compartilhável e CSS local de cada microfrontend, escopado ao seu domínio.
     alternativas: Todo o CSS no shell, descartado pelo acoplamento ao HTML dos microfrontends, e todo o CSS em cada microfrontend, descartado pela fragmentação visual.
     consequencias: Os microfrontends mantêm autonomia de implantação e o portal mantém consistência, ao custo de disciplina de versionamento visual e de alguma duplicação de CSS nos bundles.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os cinco arquivos que formam o contrato visual entre o shell, a aplicação que hospeda o portal, e os microfrontends, as partes da interface carregadas por ele: os tokens CSS do shell, variáveis de cor e de fonte que os microfrontends leem pelo nome, e o carregamento de configuração que os altera, o tema do microfrontend de empréstimo, que segue o contrato, e o formulário do microfrontend de endereço, que não segue. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam como o CSS chega a cada microfrontend.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os cinco arquivos que formam o contrato visual entre o shell, a aplicação que hospeda o portal, e os microfrontends, as partes da interface carregadas por ele: os tokens CSS do shell, variáveis de cor e de fonte que os microfrontends leem pelo nome, e o carregamento de configuração que os altera, o tema do microfrontend de empréstimo, que segue o contrato, e o formulário do microfrontend de endereço, que não segue. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam como o CSS chega a cada microfrontend.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

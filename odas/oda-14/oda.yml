@@ -1,8 +1,8 @@
 id: '14'
 titulo: Estratégia de testes e medição de desempenho
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é escolher o nível de teste que responde a cada pergunta sobre o portal e usar dois deles para encontrar defeitos que a suíte atual não mostra, um teste com rede simulada e um benchmark. O `frontend-react` combina Vitest, Playwright e MSW (Mock Service Worker), e nenhum teste existente cobre o `config.json` ausente atrás do Nginx, que derruba o boot do portal, nem o custo da ordenação dos microfrontends, que cresce mais rápido que o manifesto. Você vai escrever o teste com MSW que revela e corrige a falha do boot e o benchmark que justifica e mede a correção da ordenação.
@@ -141,7 +141,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica o que cada ferramenta de teste do `frontend-react` mede e como escolher o nível de teste que responde a cada pergunta sobre o portal. Os blocos abaixo ensinam os níveis de teste, o Vitest, o Playwright, o MSW e a rede simulada, os handlers e o `server.use`, o benchmark e a escala dele e o `config.json` com o fallback do Nginx, e depois o comparativo associa perguntas a níveis e ferramentas. A ADR do fim registra a tática de testes que o repositório adotou.
@@ -189,15 +189,14 @@ abas:
     decisao: Vitest para unidade e integração, Playwright para ponta a ponta, MSW para a rede e `vitest bench` para micro-benchmarks.
     alternativas: Jest com Cypress e MSW, que exige transpilação extra e é mais lento em CI, e não testar.
     consequencias: Três ferramentas para aprender, com o mesmo código de produção exercitado sob respostas controladas.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os arquivos do shell, a aplicação que hospeda o portal, que o laboratório testa e mede: a preparação dos testes com o MSW, biblioteca que simula a rede nos testes, em `src/test-setup.ts`, o carregamento do `config.json`, configuração do ambiente lida no boot, o fallback do Nginx, servidor web de produção, que interfere nele, a ordenação dos microfrontends, as partes da interface carregadas pelo shell, e um benchmark existente, medição repetida do tempo de uma função, que serve de modelo. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os comportamentos que os testes e os benchmarks precisam capturar.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os arquivos do shell, a aplicação que hospeda o portal, que o laboratório testa e mede: a preparação dos testes com o MSW, biblioteca que simula a rede nos testes, em `src/test-setup.ts`, o carregamento do `config.json`, configuração do ambiente lida no boot, o fallback do Nginx, servidor web de produção, que interfere nele, a ordenação dos microfrontends, as partes da interface carregadas pelo shell, e um benchmark existente, medição repetida do tempo de uma função, que serve de modelo. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os comportamentos que os testes e os benchmarks precisam capturar.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

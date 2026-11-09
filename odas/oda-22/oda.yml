@@ -1,8 +1,8 @@
 id: '22'
 titulo: 'Erros e validação: Result, FluentValidation e exceções'
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é separar três tipos de erro numa API, a requisição que o servidor não consegue ler, a regra de negócio violada e a falha inesperada, e dar a cada um um status e um formato de resposta próprios, porque um erro do cliente reportado como falha do servidor confunde o cliente e o monitoramento. Na API `net-minimal-api`, um JSON ilegível recebe 500 em `Development` e 400 sem corpo em `Production`, e o mesmo erro aparece com duas respostas conforme o ambiente. Você vai fazer os dois ambientes responderem 400 em `application/problem+json`, com o teste escrito antes.
@@ -150,7 +150,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba define os três tipos de erro de uma API, a requisição que o servidor não consegue ler, a regra de negócio violada e a falha inesperada, e o ponto da API que deve tratar cada um. No `net-minimal-api`, os erros de domínio voltam como `Result`, um tipo de retorno que informa sucesso ou falha sem exceção, e a entrada é validada com o FluentValidation, uma biblioteca de regras de validação. Os blocos abaixo explicam primeiro cada conceito, e o quadro seguinte mostra quem detecta e como responde cada tipo de erro.
@@ -197,18 +197,17 @@ abas:
     decisao: '`Result<T>` como retorno explícito, com `IsSuccess`, `Value` e `Error`.'
     alternativas: Exceções de domínio e `null` para ausência.
     consequencias: O chamador é obrigado a tratar a falha, e o uso diferente entre Catálogo e Pedidos aumenta a carga cognitiva.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os dois pontos que decidem a resposta de um erro, no commit `702145a`: o endpoint que traduz um `Result` com falha e o middleware que trata as exceções. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os dois pontos que decidem a resposta de um erro, no commit `702145a`: o endpoint que traduz um `Result` com falha e o middleware que trata as exceções. Clique nos marcadores para ler a explicação de cada linha.'
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: Nos trechos abaixo, o FluentValidation é a biblioteca que valida os campos do comando, `ValidationProblem` é a resposta padrão de validação do ASP.NET Core, com status 400 e mensagens por campo, e o `Result` é o retorno do handler que informa sucesso ou falha da regra de negócio. O middleware de exceções envolve num `try` o restante do pipeline, a sequência de componentes por onde cada requisição passa, e escolhe o status pelo tipo de exceção, e `WriteAsJsonAsync` é o método que grava o corpo da resposta em JSON.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

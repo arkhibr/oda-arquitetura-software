@@ -39,7 +39,7 @@ button { cursor: pointer; }
 .cabecalho__acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .cabecalho__meta { margin: 6px 0 8px; color: var(--texto-suave); font-size: .9rem; }
 .etiqueta { border: 1px solid var(--borda); border-radius: 999px; padding: 1px 10px; font-family: var(--mono); font-size: .85em; }
-.progresso { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; list-style: none; margin: 0; padding: 0; }
+.progresso { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; list-style: none; margin: 0; padding: 0; }
 .progresso li { height: 6px; border-radius: 3px; background: var(--borda); }
 .progresso li.feita { background: var(--sucesso); }
 .abas { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--borda); }

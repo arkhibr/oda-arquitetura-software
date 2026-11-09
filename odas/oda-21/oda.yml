@@ -1,8 +1,8 @@
 id: '21'
 titulo: 'DDD tático: domínio rico seletivo, value objects e agregado'
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é decidir onde vale a pena modelar regras no próprio domínio e garantir que um agregado proteja essas regras em qualquer sequência de operações, porque uma invariante conferida só na parcela nova deixa o sistema vender mais do que tem em estoque. O caso de estudo é o pedido da API `net-minimal-api`, que aceita oito unidades de um produto com estoque cinco quando elas chegam em duas chamadas de quatro. Você vai reproduzir a falha pela API e corrigi-la dentro do agregado, com um teste de unidade escrito antes.
@@ -148,7 +148,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba apresenta os três blocos do DDD tático (Domain-Driven Design, a abordagem que organiza o código em torno do modelo do negócio) usados no código, value object, entidade e agregado, e o critério para decidir quando cada um compensa. No `net-minimal-api`, os value objects seguem o formato `sealed record` com construtor privado, e só Produto, Categoria e Variante têm domínio rico, com Atributo e Mídia tratados como CRUD. Os blocos abaixo explicam cada conceito, e as ADRs que registram essas escolhas aparecem no fim como apoio.
@@ -212,18 +212,17 @@ abas:
     decisao: Produto, Categoria e Variante com domínio rico, e Atributo e Mídia como CRUD.
     alternativas: DDD completo para todos e CRUD puro para todos.
     consequencias: Invariantes críticas protegidas no domínio, e regras que dependem do banco, como a hierarquia de categorias, ficam no serviço.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra onde cada regra está escrita, para que você localize a brecha antes do laboratório: um value object, a consulta de estoque do produto e o método `AdicionarItem` do agregado `Pedido`, no commit `702145a`. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra onde cada regra está escrita, para que você localize a brecha antes do laboratório: um value object, a consulta de estoque do produto e o método `AdicionarItem` do agregado `Pedido`, no commit `702145a`. Clique nos marcadores para ler a explicação de cada linha.'
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: Nos trechos abaixo, um construtor privado impede a criação do objeto fora da própria classe, `Criar` é o método de fábrica para dados novos, que devolve um `Result` com sucesso ou falha, e `Reconstituir` é a reidratação, a recriação do objeto a partir dos dados já gravados no banco. A raiz do agregado é o `Pedido`, único objeto do grupo que o código de fora chama, e a exceção é o mecanismo do .NET que interrompe a execução com um erro, usado pelo `PedidoItem` para proteger o limite de 999 unidades.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

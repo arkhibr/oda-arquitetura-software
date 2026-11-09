@@ -1,8 +1,8 @@
 id: '00'
 titulo: Ambiente e mapa do repositório
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é colocar o portal `frontend-react` para rodar na sua máquina e localizar cada parte dele no repositório, porque sem o ambiente no ar e sem esse mapa nenhuma decisão de arquitetura do portal pode ser conferida no código. Você vai clonar o repositório, publicar os microfrontends num Amazon S3 (Simple Storage Service) local emulado pelo LocalStack, subir o shell e abrir a rota `/endereco`, que carrega um microfrontend publicado. No caminho, cada pasta do repositório fica associada à responsabilidade que ela tem no portal, e as falhas de ambiente mais comuns passam a ser reconhecidas pela mensagem do console do navegador.
@@ -226,7 +226,7 @@ abas:
     - rotulo: Verificar o Docker Compose
       comando: docker compose version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: 'Esta aba apresenta as peças do portal `frontend-react`: o shell, aplicação React que hospeda a navegação, dois microfrontends, telas publicadas à parte e carregadas pelo shell quando a página roda, um Gateway de API, ponto único de entrada que autentica as chamadas, e dois BFFs, serviços que adaptam o back-end a cada tela. Os conceitos abaixo explicam cada peça e o caminho de publicação, e as duas árvores reproduzem as pastas do repositório no commit `2179313`, a da esquerda a partir da raiz e a da direita dentro do shell, em `src/`. Clique numa pasta para ver a responsabilidade dela.'
@@ -302,7 +302,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: As pastas e os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -389,17 +389,14 @@ abas:
     decisao: Build em Vite lib mode e hospedagem num bucket S3 por microfrontend, com LocalStack em desenvolvimento, num repositório único com uma pasta por microfrontend para fins didáticos.
     alternativas: Servir os bundles pelo próprio shell, descartado porque reacopla o deploy do microfrontend ao do shell, e um repositório isolado por microfrontend, recomendado pela ADR para produção.
     consequencias: Cada microfrontend compila e publica sozinho, e o bucket por microfrontend permite política de acesso por módulo. Em troca, cada bucket exige configuração própria de policy e CORS, e o repositório único não demonstra o isolamento de repositório. A Atualização 1.1 acrescenta o cálculo do SHA-256 no deploy da raiz, que grava o campo `integrity` do manifesto.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os quatro arquivos que definem como o portal sobe na sua máquina: o `package.json` da raiz, com os scripts npm, o `docker-compose.yml` do LocalStack, o script de deploy dos microfrontends e o manifesto que o shell lê para encontrar cada microfrontend. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os quatro arquivos que definem como o portal sobe na sua máquina: o `package.json` da raiz, com os scripts npm, o `docker-compose.yml` do LocalStack, o script de deploy dos microfrontends e o manifesto que o shell lê para encontrar cada microfrontend. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
-    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    titulo: 📘 Conceitos usados no código
+    texto: Os termos técnicos desta parte da aba, inclusive os da faixa acima, estão explicados abaixo, na ordem em que aparecem.
     itens:
-    - termo: npm
-      definicao: Gerenciador de pacotes do Node.js, que instala as dependências listadas no `package.json` e executa os scripts declarados nele, como `npm run dev` e `npm run deploy`.
     - termo: Docker e Docker Compose
       definicao: O Docker executa aplicações em contêineres, que são ambientes isolados criados a partir de imagens. O Docker Compose sobe vários contêineres descritos num arquivo YAML, e o repositório usa `infra/docker-compose.yml` para o LocalStack, o Gateway e os BFFs.
       referencia:
@@ -450,7 +447,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -636,7 +633,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

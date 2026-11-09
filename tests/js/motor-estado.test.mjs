@@ -10,12 +10,12 @@ function memoria() {
 test('estado começa vazio e persiste abas, marcas e flags', () => {
   const s = memoria();
   const e = criarEstado(criarArmazenamento(() => s), 'oda:20');
-  assert.equal(e.abaConcluida('missao'), false);
-  e.concluirAba('missao');
+  assert.equal(e.abaConcluida('objetivos'), false);
+  e.concluirAba('objetivos');
   e.definirMarca('laboratorio-3:6', true);
   e.definirFlag('handler_registrado', true);
   const outro = criarEstado(criarArmazenamento(() => s), 'oda:20');
-  assert.equal(outro.abaConcluida('missao'), true);
+  assert.equal(outro.abaConcluida('objetivos'), true);
   assert.equal(outro.marca('laboratorio-3:6'), true);
   assert.equal(outro.flag('handler_registrado'), true);
 });
@@ -24,7 +24,7 @@ test('estado gravado malformado é ignorado', () => {
   const s = memoria();
   s.setItem('oda:20', '"texto solto"');
   const e = criarEstado(criarArmazenamento(() => s), 'oda:20');
-  assert.equal(e.abaConcluida('missao'), false);
+  assert.equal(e.abaConcluida('objetivos'), false);
   s.setItem('oda:20', '{"abas": 3, "flags": null}');
   const f = criarEstado(criarArmazenamento(() => s), 'oda:20');
   f.definirFlag('x', true);
@@ -33,8 +33,8 @@ test('estado gravado malformado é ignorado', () => {
 
 test('storage que lança exceção não interrompe o estado', () => {
   const e = criarEstado(criarArmazenamento(() => { throw new Error('SecurityError'); }), 'oda:20');
-  e.concluirAba('missao');
-  assert.equal(e.abaConcluida('missao'), true);
+  e.concluirAba('objetivos');
+  assert.equal(e.abaConcluida('objetivos'), true);
 });
 
 test('assinantes são avisados e podem cancelar', () => {
@@ -49,7 +49,7 @@ test('assinantes são avisados e podem cancelar', () => {
 
 test('reiniciar limpa tudo', () => {
   const e = criarEstado(criarArmazenamento(memoria), 'oda:20');
-  e.concluirAba('missao');
+  e.concluirAba('objetivos');
   e.reiniciar();
-  assert.equal(e.abaConcluida('missao'), false);
+  assert.equal(e.abaConcluida('objetivos'), false);
 });

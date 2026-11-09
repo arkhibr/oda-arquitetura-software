@@ -4,7 +4,7 @@
 
 A arquitetura de referência da Faciltech está distribuída em três repositórios: `arkhibr/frontend-react`, `arkhibr/net-minimal-api` e `arkhibr/aspire-aws`. Entender essa arquitetura exige ler código real, e a leitura isolada não ensina por que as fronteiras existem nem como elas falham. O portal oferece Objetos Digitais de Aprendizagem (ODAs) que conduzem essa leitura com exercícios, simulações e diagnóstico de falhas (`README.md` e [página mestre](../index.md)).
 
-Cada ODA ocupa de 45 a 90 minutos, faixa imposta pela validação do catálogo (`hooks/catalogo.py:45`), e percorre sete etapas fixas: missão, conceito, leitura do código real, simulação, laboratório guiado, diagnóstico de incidentes e verificação (`scripts/gerar_odas.py:21`).
+Cada ODA ocupa de 45 a 90 minutos, faixa imposta pela validação do catálogo (`hooks/catalogo.py:45`), e percorre seis etapas fixas: objetivos, conceito e leitura do código real, simulação, laboratório guiado, diagnóstico de incidentes e verificação (`scripts/gerar_odas.py:21`).
 
 ## Princípios observáveis no código
 
@@ -20,7 +20,7 @@ Cada ODA ocupa de 45 a 90 minutos, faixa imposta pela validação do catálogo (
 
 ## Resultado de aprendizagem esperado
 
-Cada ODA declara seus objetivos numa lista de verificação na aba Missão. A aba Verificação encerra com um quiz e um resumo do progresso por etapa. O estudante marca as etapas como concluídas, e o portal registra essa marca apenas no navegador dele.
+Cada ODA declara seus objetivos numa lista de verificação na aba Objetivos. A aba Verificação encerra com um quiz e um resumo do progresso por etapa. O estudante marca as etapas como concluídas, e o portal registra essa marca apenas no navegador dele.
 
 ## Escopo e estado de construção
 

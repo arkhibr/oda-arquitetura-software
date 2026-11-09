@@ -1,8 +1,8 @@
 id: '18'
 titulo: Desenho de API REST e contratos JSON
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é avaliar os recursos, os códigos de status e os payloads de uma API REST (Representational State Transfer) contra os dois guias de API do próprio repositório, porque contratos que mudam de um contexto para outro ou que ignoram parâmetros sem aviso levam o cliente a tratar erros e resultados de forma errada. No `net-minimal-api`, você vai sondar criação, validação, paginação, exclusão e cancelamento no Catálogo e nos Pedidos, e encontrar, entre outros casos, um filtro de status inexistente que devolve todos os pedidos. No fim, você terá um quadro de onde a API segue ou diverge dos guias, com evidência de cada item, e a divergência do filtro corrigida com o teste escrito antes.
@@ -155,7 +155,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba resume as regras dos dois guias de API do repositório `net-minimal-api`, que servem de referência para a sondagem desta ODA. O `MELHORES-PRATICAS-API.md` fixa substantivos no plural, o método HTTP como verbo, paginação obrigatória e uma tabela de status por situação, e o `JSON-COMPLEXO-E-BOAS-PRATICAS.md` pede erros em `application/problem+json`, um formato padronizado de resposta de erro, com mensagens por campo. Os blocos abaixo explicam primeiro esses conceitos, e o quadro seguinte compara o Catálogo e os Pedidos.
@@ -198,18 +198,17 @@ abas:
       valores:
       - '`pageSize` acima de 100 vira 20'
       - '`pageSize` limitado entre 1 e 100'
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra, no commit `702145a`, os retornos de criação e validação nos dois contextos, o tratamento do filtro de status e o exemplo do guia, que são a base da sondagem. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra, no commit `702145a`, os retornos de criação e validação nos dois contextos, o tratamento do filtro de status e o exemplo do guia, que são a base da sondagem. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: Nos trechos abaixo, o `ErrorResponse` é a classe de erro do Catálogo, o cabeçalho `Location` traz o endereço do recurso criado numa resposta 201, e `application/problem+json` é o tipo de conteúdo do formato padronizado de erro da RFC 9457. O handler é a classe que executa a consulta de listagem, `StatusPedido` é o enum, tipo C# com valores fixos, que lista os status de um pedido, e `Results.Problem` produz uma resposta de erro nesse formato, aqui com status 500.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

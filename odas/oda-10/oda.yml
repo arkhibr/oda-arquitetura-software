@@ -1,8 +1,8 @@
 id: '10'
 titulo: Gateway de API
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é entender a cadeia de middlewares do Gateway de API e corrigir dois defeitos dela, um que transforma em erro as respostas de sucesso e outro que deixa o envio de propostas de empréstimo sem limite próprio. No `frontend-react`, o Gateway é a porta única entre os microfrontends e os BFFs (Backends for Frontends), e o proxy dele devolve 500 para respostas que o BFF atendeu com sucesso, embora os 19 testes passem, porque os testes não usam o servidor HTTP do Node. Você vai reproduzir a falha num teste com o servidor real, corrigir o proxy e criar um limite por usuário para o envio de propostas, com os testes escritos antes.
@@ -136,7 +136,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica como uma requisição do portal atravessa o Gateway de API até chegar ao BFF que a atende, e o que cada um desses serviços faz. Os blocos abaixo ensinam Gateway e BFF, middleware e a ida e a volta pelo `next()`, autenticação por JWT, identificador de correlação, auditoria e CORS, proxy e limite de requisições em janela fixa, e depois o diagrama e o comparativo mostram a cadeia de `gateway/src/app.ts`. As duas ADRs do fim registram por que o repositório escolheu esse desenho e o framework Hono.
@@ -201,15 +201,14 @@ abas:
     decisao: Hono sobre `@hono/node-server`, com limitador em memória próprio e proxy por `fetch()` nativo.
     alternativas: Fastify com plugins oficiais de proxy e de limite, e manter o Express.
     consequencias: Menos dependências e Web Standards nativos, e o proxy e o limitador passam a ser código próprio, coberto apenas pelos testes da equipe.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os cinco arquivos da pasta `gateway/src/` que definem o caminho de uma requisição pelo Gateway de API, a porta única entre o portal e os BFFs, serviços que adaptam o back-end a cada microfrontend: a montagem da cadeia de middlewares, funções que tratam a requisição em sequência, em `app.ts`, o identificador de correlação, valor que liga os registros de uma mesma chamada, a autenticação, o limite de requisições e o proxy, que reenvia a chamada ao BFF e devolve a resposta. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam a ordem dos middlewares e os pontos em que o Gateway responde sem chamar o BFF.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os cinco arquivos da pasta `gateway/src/` que definem o caminho de uma requisição pelo Gateway de API, a porta única entre o portal e os BFFs, serviços que adaptam o back-end a cada microfrontend: a montagem da cadeia de middlewares, funções que tratam a requisição em sequência, em `app.ts`, o identificador de correlação, valor que liga os registros de uma mesma chamada, a autenticação, o limite de requisições e o proxy, que reenvia a chamada ao BFF e devolve a resposta. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam a ordem dos middlewares e os pontos em que o Gateway responde sem chamar o BFF.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

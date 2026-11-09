@@ -1,8 +1,8 @@
 id: '20'
 titulo: Vertical Slice e comparativo com Clean Architecture
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é comparar a organização por camada técnica com a organização por caso de uso e implementar um caso de uso novo como fatia vertical, porque é ao acrescentar uma funcionalidade que o custo de cada padrão aparece. No `net-minimal-api`, o agregado `Pedido` já tem o método `Confirmar()`, com três regras de negócio, mas a API não expõe essa operação, e o cliente não tem como confirmar um pedido. Você vai comparar Pedidos com Catálogo e criar a confirmação de pedido como uma fatia com comando, handler, endpoint e teste de integração.
@@ -165,7 +165,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: 'Esta aba compara as duas organizações presentes no repositório `net-minimal-api`: o Catálogo, em `src/Catalogo/`, agrupa o código por camada técnica, e os Pedidos, em `src/Pedidos/`, agrupam por caso de uso, com tudo de uma operação na mesma pasta. As duas árvores abaixo reproduzem essas pastas no commit `702145a`, e os itens marcados como novos são os arquivos que o laboratório cria. Clique numa pasta ou num arquivo para ver a responsabilidade dele.'
@@ -191,7 +191,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: As pastas e os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste, e cada caminho parte da raiz desse repositório no commit `702145a`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: As pastas e os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste, e cada caminho parte da raiz desse repositório no commit `702145a`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a
@@ -282,18 +282,17 @@ abas:
     decisao: Domain, Application e Infrastructure em Clean Architecture, com a camada de API no estilo Vertical Slice, descrita na ADR como um arquivo por endpoint. No código do commit de referência, cada arquivo de `Endpoints/` reúne os endpoints de um recurso.
     alternativas: Clean Architecture pura, com alto custo para endpoints simples, e Vertical Slice pura, com duplicação de domínio.
     consequencias: Domínio e aplicação são reutilizados por todos os endpoints, ao custo de mais arquivos e do risco de mistura de responsabilidades.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra, no commit `702145a`, a fatia de cancelamento dos Pedidos, que serve de modelo para a fatia nova, e o mecanismo que registra os endpoints e os handlers. Clique nos marcadores numerados para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra, no commit `702145a`, a fatia de cancelamento dos Pedidos, que serve de modelo para a fatia nova, e o mecanismo que registra os endpoints e os handlers. Clique nos marcadores numerados para ler a explicação de cada linha.
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: Nos trechos abaixo, o handler é a classe da fatia que carrega o agregado `Pedido` pelo repositório de escrita, implementado com o EF Core, a biblioteca de acesso a banco da Microsoft, e o `Result` é o retorno que informa sucesso ou falha da regra sem exceção. O contêiner de injeção de dependência é o mecanismo do ASP.NET Core que entrega o handler ao endpoint, desde que ele esteja registrado com `AddScoped` no `Program.cs`, e a reflection é a leitura dos tipos do programa em tempo de execução, usada para descobrir as classes que implementam `IEndpoint`. `RequireAuthorization` exige um JWT (JSON Web Token) válido para a rota responder.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a
@@ -451,7 +450,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste, e cada caminho parte da raiz desse repositório no commit `702145a`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste, e cada caminho parte da raiz desse repositório no commit `702145a`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

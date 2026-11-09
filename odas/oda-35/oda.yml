@@ -1,8 +1,8 @@
 id: '35'
 titulo: 'Caso integrador: agendamento e roteamento de ofertas de crédito'
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é acabar com o descarte silencioso de ofertas no pipeline de crédito do cenário 16, em que uma oferta de segmento sem regra some sem erro e sem registro, e entender quando uma mudança de roteamento vai para a tabela de regras e quando vai para o código. No repositório `aspire-aws`, o cenário 16 gera ofertas de crédito a cada 20 s, e uma função do AWS Lambda as encaminha para a fila do segmento segundo regras guardadas no Amazon DynamoDB. Você vai escrever antes um teste de ponta a ponta e mudar o roteador para que a oferta sem regra vá para uma fila de revisão.
@@ -149,7 +149,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: 'Esta aba percorre as peças do pipeline de ofertas, a sequência de serviços que leva cada oferta de crédito do agendador à fila do segmento, e explica as duas formas de mudar o roteamento, a escolha do destino de cada oferta: pela tabela de regras ou pelo código do roteador. Os blocos de conceito vêm antes do fluxo e da comparação, e o `README.md` do cenário 16 descreve o caso de negócio.'
@@ -195,18 +195,17 @@ abas:
       valores:
       - A área de negócio, por uma tela ou script
       - O time de desenvolvimento, com teste
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os arquivos do cenário 16 que decidem para onde vai cada oferta de crédito: a função roteadora, que consulta as regras numa tabela do DynamoDB, e dois trechos da fixture, a classe que monta o pipeline antes dos testes, um com o agendador que gera as ofertas e outro com a função de eco ligada à fila de consignado. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam o caminho de uma oferta e o ponto em que a regra desta ODA muda.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os arquivos do cenário 16 que decidem para onde vai cada oferta de crédito: a função roteadora, que consulta as regras numa tabela do DynamoDB, e dois trechos da fixture, a classe que monta o pipeline antes dos testes, um com o agendador que gera as ofertas e outro com a função de eco ligada à fila de consignado. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam o caminho de uma oferta e o ponto em que a regra desta ODA muda.'
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: A função roteadora é escrita em Python e roda no AWS Lambda, e o log é o registro de texto que a função escreve a cada invocação. A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 16 cria o agendamento do EventBridge Scheduler e os mapeamentos de origem de eventos, recursos do Lambda que leem uma fila e invocam a função com as mensagens. O mapeamento apaga a mensagem da fila quando a invocação termina sem erro.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344

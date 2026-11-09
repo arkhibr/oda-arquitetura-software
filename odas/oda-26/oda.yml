@@ -1,8 +1,8 @@
 id: '26'
 titulo: Integrações externas resilientes e Pix com mTLS
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é impedir que as novas tentativas automáticas de um cliente HTTP dupliquem uma devolução de dinheiro numa integração com a API Pix, protegida por certificado de cliente e token OAuth2. No repositório `net-minimal-api`, o `Pix.MockServer` simula a API Pix com mTLS (TLS mútuo, em que cliente e servidor apresentam certificados) e cria uma devolução nova a cada chamada, e o `Pix.ClientDemo` usa o `AddStandardResilienceHandler`, que repete chamadas que falham, inclusive um POST, sem enviar chave de idempotência nas devoluções. Você vai provar o handshake mTLS com o `curl`, reproduzir a devolução duplicada e corrigir o servidor e o cliente com o teste escrito antes.
@@ -138,7 +138,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica as três proteções de uma chamada à API Pix, o meio de pagamento instantâneo do Banco Central, e o que acontece quando o cliente HTTP repete uma chamada sozinho. Os blocos abaixo definem cada conceito antes do comparativo entre as proteções, e as duas ADRs (registros de decisão de arquitetura) do fim mostram que o repositório decidiu simular a API Pix num servidor próprio com mTLS e usar a biblioteca Microsoft.Extensions.Http.Resilience no cliente.
@@ -197,13 +197,12 @@ abas:
     decisao: Pipeline da biblioteca Microsoft.Extensions.Http.Resilience com tempo por tentativa, novas tentativas com espera exponencial, disjuntor e tempo total.
     alternativas: Novas tentativas manuais com `Thread.Sleep` e Polly usado diretamente.
     consequencias: Respeito ao `Retry-After` e variação aleatória das esperas, com um pacote externo a mais e disjuntor separado por instância.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra, no commit `702145a`, onde o servidor exige o certificado, como o cliente monta a cadeia de handlers e por que a devolução fica sem proteção contra repetição. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra, no commit `702145a`, onde o servidor exige o certificado, como o cliente monta a cadeia de handlers e por que a devolução fica sem proteção contra repetição. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     itens:
     - termo: Kestrel
       definicao: Servidor web embutido nas aplicações ASP.NET Core, que recebe as conexões HTTP e HTTPS. No `Pix.MockServer`, é a configuração do Kestrel que exige o certificado do cliente.
@@ -249,7 +248,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

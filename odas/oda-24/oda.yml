@@ -1,8 +1,8 @@
 id: '24'
 titulo: Segurança da API com JWT e rate limiting
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: 'O objetivo desta ODA é fechar duas brechas de proteção da API `net-minimal-api`: o login aceita trinta senhas erradas seguidas, o que deixa a API exposta a ataques de força bruta, e as rotas de pedidos não têm limite, o que permite a um único cliente criar pedidos sem teto. A proteção combina a autenticação por token JWT (JSON Web Token), que diz quem pode chamar cada rota, e o rate limiting, que limita quantas vezes cada cliente pode chamá-la por minuto. Você vai criar uma política de login particionada por IP, aplicar a política de escrita aos pedidos e medir a tolerância de relógio na expiração do token, com o teste escrito antes.'
@@ -132,7 +132,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica as duas proteções da API `net-minimal-api`, a autenticação por token JWT (JSON Web Token) e a limitação de requisições, chamada de rate limiting, e como escolher o algoritmo de limite para cada rota. Os blocos abaixo definem cada conceito antes do comparativo entre os algoritmos, e a ADR (registro de decisão de arquitetura) do fim mostra as três políticas de limite que o repositório decidiu criar no Catálogo.
@@ -180,13 +180,12 @@ abas:
     decisao: 'Três políticas nativas do ASP.NET: `leitura`, `escrita` e `criacao-produto`.'
     alternativas: Uma política global e uma biblioteca externa com limites por IP e por usuário.
     consequencias: Sem dependências externas, com contadores por processo, que não se somam entre instâncias.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: Esta aba mostra, no commit `702145a`, a validação do token, as políticas de limite e duas rotas que não usam nenhuma delas. Clique nos marcadores para ler a explicação de cada linha.
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: Esta parte da aba mostra, no commit `702145a`, a validação do token, as políticas de limite e duas rotas que não usam nenhuma delas. Clique nos marcadores para ler a explicação de cada linha.
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     itens:
     - termo: JWT (JSON Web Token)
       definicao: Token em formato JSON, assinado por quem o emite, que carrega informações como o usuário, o emissor, a audiência e a data de expiração. A API emite o token no login e confere a assinatura e esses campos a cada chamada protegida.
@@ -225,7 +224,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `net-minimal-api`, que contém a API de catálogo e pedidos em ASP.NET Core Minimal APIs, o simulador de Pix e os projetos de teste. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `702145a`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: net-minimal-api no GitHub, commit 702145a
       url: https://github.com/arkhibr/net-minimal-api/tree/702145a

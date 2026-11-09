@@ -1,8 +1,8 @@
 id: '01'
 titulo: Ler a arquitetura com C4 e ADRs
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é ler a documentação de arquitetura do `frontend-react`, com os diagramas do modelo C4 e as 17 ADRs (Architecture Decision Records), e conferir no código e no terminal se ela descreve o sistema real, porque uma documentação que diverge do código leva a decisões tomadas sobre um sistema que não existe. Você vai localizar no diagrama de containers o caminho de uma requisição, encontrar a ADR que responde a cada pergunta de projeto e chamar o Gateway de API e o BFF (Backend for Frontend) para ver esse caminho funcionando. Ao final, você vai reconhecer duas divergências reais entre a documentação e o código, a posição do manifesto no diagrama e a contagem de ADRs no README da raiz.
@@ -242,7 +242,7 @@ abas:
     - rotulo: Verificar o curl
       comando: curl --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: 'Esta aba explica os dois artefatos que a documentação do repositório usa: o modelo C4, forma de desenhar a arquitetura em quatro níveis de detalhe, do contexto até o código, e as ADRs, documentos curtos que registram cada decisão de arquitetura com o contexto, as opções e as consequências. Os conceitos abaixo explicam como ler cada um, e o diagrama de containers mostra as peças que o laboratório chama pelo terminal.'
@@ -329,14 +329,13 @@ abas:
     decisao: Adotar React 19, TypeScript e Vite como plataforma principal.
     alternativas: Vue 3 com TypeScript e Vite, descartado pela falta de experiência da equipe, e não adotar plataforma alguma.
     consequencias: Estrutura, estado e roteamento exigem decisões adicionais, registradas nas ADR-002 e ADR-003, e o Vite determina as ferramentas de teste.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra, no código, o caminho de uma requisição entre os containers que os diagramas C4 descrevem: o `app.ts` e o `proxy.ts` do Gateway, a autenticação interna do BFF de endereço e a função do shell que carrega o manifesto de microfrontends. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que ligam o diagrama ao código.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra, no código, o caminho de uma requisição entre os containers que os diagramas C4 descrevem: o `app.ts` e o `proxy.ts` do Gateway, a autenticação interna do BFF de endereço e a função do shell que carrega o manifesto de microfrontends. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que ligam o diagrama ao código.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
-    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    titulo: 📘 Conceitos usados no código
+    texto: Os termos técnicos desta parte da aba, inclusive os da faixa acima, estão explicados abaixo, na ordem em que aparecem.
     itens:
     - termo: Container (no modelo C4)
       definicao: Aplicação ou armazenamento de dados que roda separadamente e se comunica pela rede, como o shell, o Gateway, cada BFF e o S3. O termo do C4 não se refere a contêineres Docker, embora um container possa rodar dentro de um.
@@ -360,8 +359,6 @@ abas:
       referencia:
         rotulo: Microsoft Learn · Padrão Backends for Frontends
         url: https://learn.microsoft.com/pt-br/azure/architecture/patterns/backends-for-frontends
-    - termo: Shell
-      definicao: Aplicação React hospedeira do portal, em `src/`, que cuida do login, do layout e do roteamento e carrega os microfrontends nas rotas deles. Em desenvolvimento, ela responde na porta 5173.
     - termo: Manifesto de microfrontends
       definicao: Arquivo `public/mfe-manifest.json`, que declara para cada microfrontend a URL do bundle, o hash, a rota, o estado e as dependências. O shell lê esse arquivo ao iniciar para saber o que pode carregar e em que rota.
     - termo: Microfrontend
@@ -376,11 +373,6 @@ abas:
       referencia:
         rotulo: jwt.io · Introdução ao JSON Web Token
         url: https://jwt.io/introduction
-    - termo: HTTP 401 (Unauthorized)
-      definicao: Código de resposta HTTP que indica que a requisição não trouxe credencial válida. No portal, o Gateway responde 401 sem token válido, e o BFF responde 401 quando a chamada não veio do Gateway.
-      referencia:
-        rotulo: MDN · 401 Unauthorized
-        url: https://developer.mozilla.org/pt-BR/docs/Web/HTTP/Reference/Status/401
     - termo: Chave interna do Gateway (`X-Internal-Gateway-Key`)
       definicao: Segredo compartilhado entre o Gateway e os BFFs, enviado num cabeçalho, que prova ao BFF que a chamada passou pelo Gateway. Junto com ele, o Gateway envia o `X-Authenticated-Subject`, com o identificador do usuário tirado do JWT.
     - termo: Origem (origin)
@@ -391,7 +383,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -583,7 +575,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

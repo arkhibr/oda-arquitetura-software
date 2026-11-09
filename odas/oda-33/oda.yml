@@ -1,8 +1,8 @@
 id: '33'
 titulo: Pipelines com vários serviços
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é localizar o ponto em que uma mensagem parou num pipeline com vários serviços, porque nenhum deles avisa quem enviou, e corrigir o defeito do cenário 12, em que arquivos copiados para o bucket nunca são processados. No repositório `aspire-aws`, o cenário 12 liga um bucket do Amazon S3 (Simple Storage Service) a uma fila do Amazon SQS (Simple Queue Service), a fila a uma função do AWS Lambda e a função ao Amazon DynamoDB, e o cenário 13 faz o mesmo partindo do Amazon SNS (Simple Notification Service). Você vai escrever um teste que confere o primeiro e o último salto, eliminar os saltos que funcionam e corrigir o filtro da notificação do bucket.
@@ -165,7 +165,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba descreve os saltos, as passagens da mensagem de um serviço para o seguinte, dos dois pipelines do repositório e o que cada ligação exige para a mensagem passar. Num pipeline assíncrono, em que cada serviço entrega e segue sem esperar o próximo, nenhum serviço avisa quem enviou que a mensagem parou no caminho, e os blocos de conceito abaixo explicam as peças antes da comparação.
@@ -205,18 +205,17 @@ abas:
       valores:
       - Item no DynamoDB com o corpo da mensagem
       - Objeto em `results/` no S3
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra onde ficam as ligações entre os serviços dos dois pipelines: a fixture do cenário 12, classe que liga o bucket à fila e a fila à função antes dos testes, e a função Python do cenário 13, que recebe as mensagens vindas de um tópico. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam qual evento entra no pipeline e como cada salto passa a mensagem adiante.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra onde ficam as ligações entre os serviços dos dois pipelines: a fixture do cenário 12, classe que liga o bucket à fila e a fila à função antes dos testes, e a função Python do cenário 13, que recebe as mensagens vindas de um tópico. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam qual evento entra no pipeline e como cada salto passa a mensagem adiante.'
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 12 configura a notificação de evento do bucket, que avisa a fila quando um objeto é criado, filtrada pelo tipo `ObjectCreatedPut`, o da criação por `PutObject`. O mapeamento de origem de eventos é o recurso do Lambda que lê a fila e invoca a função, e a política de acesso da fila autoriza o S3 a enviar mensagens a ela, limitada ao ARN, identificador único, do bucket. Quando o SNS entrega a uma fila, a mensagem original chega dentro de um envelope JSON, no campo `Message`.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344

@@ -1,8 +1,8 @@
 id: '05'
 titulo: Microfrontends dinâmicos e o contrato mount/unmount
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é escrever um microfrontend mínimo que o shell do `frontend-react` aceite carregar, cumprindo o contrato `mount` e `unmount`, porque o carregador recusa o bundle cujo hash SHA-256 não confere com o manifesto, antes de executá-lo, e o módulo que não exporta as duas funções, antes de montá-lo. No portal, cada microfrontend é um bundle ESM (ECMAScript Modules) autônomo, carregado em tempo de execução, e essas conferências impedem o shell de montar código alterado depois da publicação ou incapaz de se desmontar. Você vai criar um microfrontend de um arquivo, sem React, com o teste escrito antes, e provocar as duas falhas que o carregador detecta.
@@ -256,7 +256,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica a escolha entre integrar microfrontends na compilação do shell ou em tempo de execução, quando o shell baixa o código de cada microfrontend ao abrir a rota, e o contrato que torna a segunda forma possível. Esse contrato é um módulo ESM, formato padrão de módulos do JavaScript, que exporta as funções `mount` e `unmount` e leva o próprio React embutido.
@@ -341,17 +341,14 @@ abas:
     decisao: Contrato `mount`/`unmount` com bundles ESM gerados pelo Vite em lib mode, com o React embutido em cada bundle.
     alternativas: Module Federation, descartado porque compartilhar dependências contraria a autonomia e acopla versões de React, e Web Components com Shadow DOM, descartado pelo atrito com estilos globais e com a passagem de funções.
     consequencias: Cada microfrontend embute o próprio React, o que aumenta o tamanho dos bundles, e o contrato precisa ser mantido estável e versionado.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os dois lados do contrato `mount`/`unmount`: no microfrontend de endereço, o tipo que define o contrato e o ponto de entrada que o implementa, e no shell, o carregador que baixa e confere o bundle e o componente que chama o `mount`. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os dois lados do contrato `mount`/`unmount`: no microfrontend de endereço, o tipo que define o contrato e o ponto de entrada que o implementa, e no shell, o carregador que baixa e confere o bundle e o componente que chama o `mount`. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para esta ODA.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
-    texto: Os termos técnicos desta aba, inclusive os da legenda acima, estão explicados abaixo, na ordem em que aparecem.
+    titulo: 📘 Conceitos usados no código
+    texto: Os termos técnicos desta parte da aba, inclusive os da faixa acima, estão explicados abaixo, na ordem em que aparecem.
     itens:
-    - termo: Contrato `mount`/`unmount`
-      definicao: 'Interface que todo microfrontend do portal cumpre: `mount(el, ctx)` renderiza a tela dentro do elemento entregue pelo shell, com o contexto recebido, e `unmount(el)` desmonta essa tela e libera o elemento. A ADR-009 define esse contrato.'
     - termo: Microfrontend
       definicao: Parte de uma interface web construída, compilada e publicada de forma independente, que uma aplicação hospedeira carrega em tempo de execução. No `frontend-react`, os microfrontends ficam em `mfes/` e são os módulos de alteração de endereço e de simulação de empréstimo.
       referencia:
@@ -373,11 +370,6 @@ abas:
       referencia:
         rotulo: React · createRoot
         url: https://react.dev/reference/react-dom/client/createRoot
-    - termo: React
-      definicao: Biblioteca JavaScript para construir interfaces a partir de componentes, que são funções que descrevem um trecho da tela a partir de dados. O shell e os microfrontends do repositório usam o React 19.
-      referencia:
-        rotulo: React · Início rápido
-        url: https://react.dev/learn
     - termo: Árvore React
       definicao: Conjunto de componentes que uma raiz React renderiza, em que cada componente é filho de outro. Erros de renderização sobem por essa árvore até o error boundary mais próximo.
       referencia:
@@ -395,11 +387,6 @@ abas:
       referencia:
         rotulo: MDN · Blob
         url: https://developer.mozilla.org/pt-BR/docs/Web/API/Blob
-    - termo: ADR (Architecture Decision Record)
-      definicao: Documento curto que registra uma decisão de arquitetura, com o contexto, as alternativas avaliadas, a decisão e as consequências. As ADRs do repositório ficam em `docs/architecture/adrs/`, numeradas de ADR-001 a ADR-017.
-      referencia:
-        rotulo: adr.github.io · Architectural Decision Records
-        url: https://adr.github.io/
     - termo: '`import()` dinâmico'
       definicao: Forma de carregar um módulo ESM durante a execução, a partir de uma URL calculada pelo programa. Com `import(url)`, o navegador baixa e executa o módulo na mesma operação, sem oportunidade de conferir os bytes antes.
       referencia:
@@ -408,7 +395,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -638,7 +625,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

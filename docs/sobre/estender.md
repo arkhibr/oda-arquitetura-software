@@ -21,7 +21,7 @@ Esta é a extensão mais frequente, e não exige alterar código. Para praticar 
 
     Regras aplicadas pela validação: todos os campos obrigatórios presentes, `minutos` entre 45 e 90, `trilha` e `repositorio` existentes, pré-requisitos com identificador menor que o da ODA, e `app` obrigatório se (e somente se) a situação for `disponivel`. O valor de `app` é `oda-<id>`, convenção conferida por `tests/test_catalogo.py`.
 
-2. **Crie `odas/oda-10/oda.yml`** com `id` entre aspas simples, `titulo` idêntico ao do catálogo e as sete abas, nesta ordem: `missao`, `conceito`, `codigo`, `simulacao`, `laboratorio`, `diagnostico`, `verificacao`. Cada aba tem `id`, `titulo` e `blocos`. A ODA 02 serve de modelo.
+2. **Crie `odas/oda-10/oda.yml`** com `id` entre aspas simples, `titulo` idêntico ao do catálogo e as seis abas, nesta ordem: `objetivos`, `conceito`, `simulacao`, `laboratorio`, `diagnostico`, `verificacao`. Cada aba tem `id`, `titulo` e `blocos`. A ODA 02 serve de modelo.
 3. **Use um commit fixo.** Todo bloco `editor` com `rotulo: arquivo` e toda etapa de `fluxo` com `codigo` precisam citar o commit do repositório registrado no catálogo.
 4. **Gere e valide.**
 

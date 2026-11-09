@@ -1,8 +1,8 @@
 id: '32'
 titulo: Funções orientadas a eventos com Lambda
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é impedir que uma mensagem que a função não consegue processar volte à fila e acione a função sem fim, defeito da fila do cenário 08, e testar com segurança efeitos que chegam depois da chamada. No repositório `aspire-aws`, os cenários 07, 08, 11 e 14 ligam funções do AWS Lambda a eventos do Amazon S3 (Simple Storage Service), do Amazon SQS (Simple Queue Service), do Amazon DynamoDB e do Amazon EventBridge no LocalStack e esperam o resultado com um laço de consulta. Você vai rodar os cenários num contêiner Linux, provar com um teste que a mensagem inválida não sai da fila e configurar uma fila de mensagens mortas.
@@ -195,7 +195,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica como cada gatilho, a ligação que faz uma função do AWS Lambda rodar a cada evento, entrega o evento à função e como o teste confirma um efeito que só aparece depois da chamada. Os blocos de conceito vêm antes da tabela que compara os gatilhos, e a decisão do repositório sobre asserções assíncronas, a de consultar o efeito a cada intervalo até um tempo limite, aparece no fim como apoio.
@@ -246,18 +246,17 @@ abas:
     decisao: '`PollingHelper` com `WaitUntilAsync`, que consulta uma condição a cada intervalo até um tempo limite, e `AssertNeverAsync`.'
     alternativas: Espera fixa com `Task.Delay`, novas tentativas com Polly e assinatura de eventos do LocalStack.
     consequencias: Testes que esperam só o necessário, com tempo limite que precisa ser ajustado por cenário.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os três arquivos que explicam o consumidor de fila do cenário 08: a função Python que lê a fila e grava no DynamoDB, a fixture, classe que cria a fila e a liga à função antes dos testes, e a regra que ignora os testes com Lambda no macOS com Apple Silicon. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam por que uma mensagem inválida volta à fila sem limite.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os três arquivos que explicam o consumidor de fila do cenário 08: a função Python que lê a fila e grava no DynamoDB, a fixture, classe que cria a fila e a liga à função antes dos testes, e a regra que ignora os testes com Lambda no macOS com Apple Silicon. O bloco Termos usados nesta aba explica as palavras técnicas dos arquivos, e cada editor traz acima dele o papel do arquivo. Os marcadores numerados ao lado das linhas explicam por que uma mensagem inválida volta à fila sem limite.'
   - tipo: conceito
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     texto: O handler é a função de entrada que o Lambda chama a cada invocação, e o `messageId` é o identificador que o SQS dá a cada mensagem. A fixture é a classe que o xUnit, framework de testes do .NET, cria antes dos testes, e a do cenário 08 cria a fila sem `RedrivePolicy`, o atributo que levaria as mensagens com falha a uma fila de mensagens mortas, e a liga à função por um mapeamento de origem de eventos, recurso do Lambda que lê a fila e invoca a função. A regra de `EnvironmentLimitations.cs` identifica o macOS com processador ARM64, a arquitetura dos Macs com Apple Silicon.
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344

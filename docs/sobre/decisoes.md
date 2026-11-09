@@ -4,7 +4,7 @@ Cada decisão abaixo segue o formato de um registro de decisão: contexto, decis
 
 ## D1. ODA como aplicação de página única, gerada de dados
 
-- **Contexto.** Cada ODA reúne texto, trechos de código, terminais simulados, quizzes e diagramas, em sete etapas iguais.
+- **Contexto.** Cada ODA reúne texto, trechos de código, terminais simulados, quizzes e diagramas, em seis etapas iguais.
 - **Decisão.** O conteúdo reside em `odas/<oda>/oda.yml`, e o gerador produz um `index.html` por ODA que embute os dados em JSON e carrega o motor.
 - **Alternativas.** Escrever cada ODA como página Markdown do MkDocs, ou como HTML manual.
 - **Consequências.** O formato de uma ODA é verificado por código antes da publicação (`scripts/gerar_odas.py`). Em contrapartida, o autor de conteúdo precisa conhecer o esquema de blocos, e a interface não herda o tema do MkDocs, o que justifica a folha `motor/oda.css` separada.

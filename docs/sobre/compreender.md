@@ -19,7 +19,7 @@ Em seguida, a página mestre abre em `http://127.0.0.1:8000/` e cada ODA em `htt
 | `node --test "tests/js/*.test.mjs"` | Funções puras do motor e dos componentes da página mestre, e as regras de segurança do motor | `tests/js/*.test.mjs` |
 | `.venv/bin/mkdocs build --strict` | Validação do catálogo pelo hook e links quebrados nas páginas do MkDocs | `mkdocs.yml`, `docs/` |
 | `.venv/bin/python scripts/gerar_odas.py --destino site` | Validação de cada `oda.yml` e geração das ODAs | `scripts/gerar_odas.py` |
-| `npx playwright test` | Abre cada ODA no Chromium: sete abas, nenhum bloco com erro, ao menos 60 elementos interativos e ausência de rolagem horizontal em 360 px | `tests/e2e/` |
+| `npx playwright test` | Abre cada ODA no Chromium: seis abas, nenhum bloco com erro, ao menos 60 elementos interativos e ausência de rolagem horizontal em 360 px | `tests/e2e/` |
 
 O servidor usado pelo Playwright é iniciado pela própria configuração (`playwright.config.mjs`) na porta 8799, sobre o diretório `site/`. O teste de navegador exige que `mkdocs build` e `gerar_odas.py` tenham sido executados antes.
 
@@ -28,7 +28,7 @@ O servidor usado pelo Playwright é iniciado pela própria configuração (`play
 A ordem abaixo segue o caminho do dado, do arquivo de conteúdo até a tela.
 
 1. **`catalogo/odas.yml`** define o que existe. Leia os três repositórios com seus commits, as sete trilhas e duas ODAs completas.
-2. **`odas/oda-02/oda.yml`** mostra um conteúdo completo. Percorra as sete abas e observe quais tipos de bloco aparecem em cada uma.
+2. **`odas/oda-02/oda.yml`** mostra um conteúdo completo. Percorra as seis abas e observe quais tipos de bloco aparecem em cada uma.
 3. **`scripts/gerar_odas.py`**: leia primeiro `ABAS` e `OBRIGATORIOS`, depois `_bloco` (as regras de validação por tipo), `preparar` e `html_da_oda`.
 4. **`motor/app.mjs`**: a função `iniciar` mostra a montagem da página inteira. Os blocos são produzidos por `ctx.renderizarBloco`.
 5. **`motor/nucleo.mjs`** reúne as três peças que todos os módulos usam: `registrarBloco`, `h` e `textoRico`.

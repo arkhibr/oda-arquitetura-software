@@ -5,7 +5,7 @@
 | Caminho | Responsabilidade |
 | --- | --- |
 | `catalogo/odas.yml` | Fonte única do catálogo: repositórios com commit fixo, trilhas e as 36 ODAs com tempo, pré-requisitos, objetivo e situação |
-| `odas/<oda>/oda.yml` | Conteúdo de uma ODA, organizado em sete abas de blocos |
+| `odas/<oda>/oda.yml` | Conteúdo de uma ODA, organizado em seis abas de blocos |
 | `hooks/catalogo.py` | Hook do MkDocs: valida o catálogo e substitui o marcador da página mestre pela tabela de ODAs |
 | `scripts/gerar_odas.py` | Valida cada `oda.yml` e produz `site/<oda>/index.html`, além de copiar `motor/` para `site/motor/` |
 | `motor/` | Motor das ODAs, em módulos ES, e a folha de estilo `oda.css` |
@@ -43,7 +43,7 @@ A construção acontece em duas etapas sequenciais sobre o mesmo diretório `sit
 
 ### Gerador de ODAs (`scripts/gerar_odas.py`)
 
-- `validar_oda` exige as sete abas, na ordem `missao`, `conceito`, `codigo`, `simulacao`, `laboratorio`, `diagnostico`, `verificacao`, e título igual ao do catálogo.
+- `validar_oda` exige as seis abas, na ordem `objetivos`, `conceito`, `simulacao`, `laboratorio`, `diagnostico`, `verificacao`, e título igual ao do catálogo.
 - `_bloco` valida cada bloco conforme a tabela `OBRIGATORIOS` (propriedades exigidas por tipo) e aplica regras específicas: legenda com no máximo três frases, anotações de editor dentro do trecho exibido, exatamente uma alternativa correta por pergunta, atores existentes na linha do tempo, comandos de cenário declarados no terminal, entre outras.
 - `preparar` atribui a cada bloco o identificador `<aba>-<posição>`, usado por busca e ancoragem, e renomeia o `id` dos blocos `adr` e `diagrama` para `id_adr` e `id_diagrama`, que são identificadores de conteúdo.
 - `html_da_oda` serializa a ODA como JSON dentro de `<script type="application/json">`, escapando `</` para impedir o fechamento antecipado da tag, e inclui o módulo `../motor/app.mjs`.

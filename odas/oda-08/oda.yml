@@ -1,8 +1,8 @@
 id: 08
 titulo: Build independente e deploy em S3
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é garantir que uma versão nova de microfrontend chegue ao portal sem derrubar a funcionalidade, publicando o bundle no Amazon S3 (Simple Storage Service), emulado na sua máquina pelo LocalStack, junto com o manifesto que o shell usa para conferi-lo. No `frontend-react`, o shell recusa o bundle cujo hash não confere com o manifesto, e o deploy próprio de cada microfrontend publica só o bundle, o que deixa o módulo indisponível para todos os usuários depois de uma promoção parcial. Você vai publicar só o bundle de uma versão nova, ver o portal recusá-lo e corrigir a promoção publicando bundle e manifesto juntos.
@@ -127,7 +127,7 @@ abas:
     - rotulo: Verificar o Git
       comando: git --version
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica como cada microfrontend do `frontend-react` é construído, onde ele fica hospedado e por que a publicação do arquivo precisa andar junto com o manifesto que o shell usa para conferi-lo. Os blocos abaixo ensinam microfrontend e shell, bundle e manifesto, build e deploy, o armazenamento no S3 emulado pelo LocalStack, o hash de integridade e a promoção conjunta, e depois o diagrama e o comparativo mostram os dois caminhos de deploy do repositório. A ADR do fim registra por que o repositório escolheu esse desenho.
@@ -188,15 +188,14 @@ abas:
     decisao: Build em Vite lib mode e um bucket S3 por microfrontend, com LocalStack em desenvolvimento e publicação pelo AWS SDK v3, num repositório único com uma pasta por microfrontend para fins didáticos.
     alternativas: Servir os bundles pelo próprio shell, descartado por reacoplar os deploys, e um repositório isolado por microfrontend, recomendado pela própria ADR-011 para produção.
     consequencias: Cada microfrontend compila e publica sozinho, ao custo de configurar policy e CORS por bucket. A Atualização 1.1 acrescenta a atualização do `integrity` no deploy da raiz e a exigência de promover bundle e manifesto juntos.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra os três arquivos que levam um microfrontend, parte da interface com build e deploy próprios, do código-fonte ao S3 local, o armazenamento da AWS emulado pelo LocalStack: o `vite.config.ts` do microfrontend de endereço, que gera o bundle, arquivo JavaScript publicado, o `deploy.ts` próprio dele, que publica o bundle no bucket, e o `scripts/deploy.ts` da raiz, que publica todos os microfrontends e atualiza o manifesto, a lista que o shell lê para encontrar e conferir cada bundle. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para o build e o deploy independentes.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra os três arquivos que levam um microfrontend, parte da interface com build e deploy próprios, do código-fonte ao S3 local, o armazenamento da AWS emulado pelo LocalStack: o `vite.config.ts` do microfrontend de endereço, que gera o bundle, arquivo JavaScript publicado, o `deploy.ts` próprio dele, que publica o bundle no bucket, e o `scripts/deploy.ts` da raiz, que publica todos os microfrontends e atualiza o manifesto, a lista que o shell lê para encontrar e conferir cada bundle. Cada editor traz acima dele o papel do arquivo, e os marcadores numerados ao lado das linhas explicam os trechos que importam para o build e o deploy independentes.'
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `2179313`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313
@@ -340,7 +339,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os trechos de código das etapas abaixo pertencem ao repositório `frontend-react`, que contém o portal web em React, com o shell, os microfrontends, o Gateway de API e os BFFs, e cada caminho parte da raiz desse repositório no commit `2179313`. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: frontend-react no GitHub, commit 2179313
       url: https://github.com/arkhibr/frontend-react/tree/2179313

@@ -1,8 +1,8 @@
 id: '28'
 titulo: Aspire, LocalStack e testes de integração com nuvem emulada
 abas:
-- id: missao
-  titulo: Missão
+- id: objetivos
+  titulo: Objetivos
   blocos:
   - tipo: legenda
     texto: O objetivo desta ODA é reduzir o tempo dos testes de integração do repositório `aspire-aws` sem deixar um teste interferir no outro, escolhendo o escopo da fixture que sobe a nuvem emulada. Cada cenário é um projeto de testes cuja `Fixture` usa o .NET Aspire para subir o LocalStack, que emula serviços da AWS (Amazon Web Services), e cada classe de teste com `IClassFixture` sobe uma cópia nova desse ambiente, o que no cenário 01 acrescenta cerca de 20 s por classe. Você vai medir o custo de uma classe a mais, compartilhar a fixture entre as classes com `ICollectionFixture` e corrigir o teste que passa a interferir no vizinho.
@@ -135,7 +135,7 @@ abas:
     - rotulo: Verificar o Docker
       comando: docker info --format '{{.ServerVersion}}'
 - id: conceito
-  titulo: Conceito
+  titulo: Conceito e código
   blocos:
   - tipo: legenda
     texto: Esta aba explica as peças que ligam um teste a um serviço da AWS (Amazon Web Services) emulado na sua máquina e o que define quantas vezes esse ambiente sobe durante a suíte. Os blocos abaixo definem cada conceito antes do comparativo entre os dois escopos de fixture, e a ADR (registro de decisão de arquitetura) do fim mostra por que o repositório decidiu executar um cenário de teste por vez, com a porta 4566 fixa.
@@ -176,13 +176,12 @@ abas:
     decisao: 'Porta fixa com execução sequencial: `MaxCpuCount=1` no `test.runsettings` e um lock de arquivo na `LocalStackFixture`.'
     alternativas: Porta aleatória por cenário, rede Docker por cenário e nenhuma proteção.
     consequencias: Comportamento previsível e simples, com a suíte inteira rodando em sequência e sem usar vários núcleos.
-- id: codigo
-  titulo: No código
-  blocos:
-  - tipo: legenda
-    texto: 'Esta aba mostra, no commit `50a5344`, os três arquivos que definem o custo e o isolamento dos testes: o AppHost, que declara os contêineres, a `LocalStackFixture`, que sobe esses contêineres antes do primeiro teste de cada classe, e um teste do cenário 01 que depende de o bucket ser exclusivo da classe. Clique nos marcadores para ler a explicação de cada linha.'
+  - tipo: faixa
+    estilo: dica
+    titulo: 💻 No código
+    texto: 'Esta parte da aba mostra, no commit `50a5344`, os três arquivos que definem o custo e o isolamento dos testes: o AppHost, que declara os contêineres, a `LocalStackFixture`, que sobe esses contêineres antes do primeiro teste de cada classe, e um teste do cenário 01 que depende de o bucket ser exclusivo da classe. Clique nos marcadores para ler a explicação de cada linha.'
   - tipo: glossario
-    titulo: 📘 Conceitos usados nesta aba
+    titulo: 📘 Conceitos usados no código
     itens:
     - termo: .NET Aspire e AppHost
       definicao: O .NET Aspire é um conjunto de ferramentas da Microsoft para declarar e subir os serviços e contêineres de que uma aplicação distribuída depende. O AppHost é o projeto do Aspire em que essa declaração fica, no repositório em `src/AppHost/Program.cs`.
@@ -233,7 +232,7 @@ abas:
   - tipo: faixa
     estilo: dica
     titulo: 📂 Onde está o código
-    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Missão, e abra o arquivo pelo caminho indicado.
+    texto: Os arquivos desta aba pertencem ao repositório `aspire-aws`, que contém um catálogo de cenários de integração com serviços da AWS, emulados pelo LocalStack e orquestrados pelo .NET Aspire, cada um com testes xUnit. A barra de cada editor mostra o caminho do arquivo a partir da raiz do repositório e o commit `50a5344`, e os números à esquerda são as linhas do arquivo nesse commit. O botão Ver no GitHub de cada editor abre o mesmo trecho no navegador. Para ver os arquivos completos, abra o repositório pelo link abaixo ou siga o bloco Como ter o código na sua máquina, na aba Objetivos, e abra o arquivo pelo caminho indicado.
     links:
     - rotulo: aspire-aws no GitHub, commit 50a5344
       url: https://github.com/arkhibr/aspire-aws/tree/50a5344
